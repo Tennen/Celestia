@@ -5,9 +5,9 @@ Celestia is a monorepo for a process-isolated home gateway written in Go with a 
 ## Included Phases
 
 - Phase 0: core runtime, plugin manager, registry, state store, event bus, audit/policy, HTTP gateway, gRPC plugin protocol
-- Phase 1: Xiaomi plugin scaffold with multi-account, multi-region, light/switch/sensor/climate mapping, aquarium control, speaker voice push, and command/state/event flow
-- Phase 2: Petkit plugin scaffold with feeder/litter/fountain capability coverage
-- Phase 3: Haier washer plugin scaffold with model capability matrix behavior
+- Phase 1: Xiaomi MIoT cloud integration with multi-account, multi-region, aquarium control, and speaker text push
+- Phase 2: Petkit cloud integration with feeder/litter/fountain support
+- Phase 3: Haier hOn washer integration with model capability matrices
 
 ## Local Commands
 
@@ -19,6 +19,16 @@ CELESTIA_ADDR=127.0.0.1:8080 ./bin/gateway
 ```
 
 The gateway serves the admin build from `web/admin/dist` and persists runtime data to SQLite.
+
+## Real Plugin Config
+
+Each vendor plugin now expects real cloud credentials. The admin UI ships JSON templates for:
+
+- Xiaomi: `region` plus `access_token` / `refresh_token` or `auth_code`
+- Petkit: `username`, `password`, `region`, `timezone`
+- Haier: `email`, `password` or `refresh_token`, plus optional `mobile_id` and `timezone`
+
+If credentials are missing or invalid, plugin enablement fails explicitly instead of falling back to demo devices.
 
 ## Docker
 

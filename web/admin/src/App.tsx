@@ -36,16 +36,52 @@ const DEFAULT_INSTALL_CONFIGS: Record<string, string> = {
   xiaomi: JSON.stringify(
     {
       accounts: [
-        { name: 'demo-cn', region: 'cn' },
-        { name: 'demo-us', region: 'us' },
+        {
+          name: 'primary',
+          region: 'cn',
+          access_token: '<xiaomi-access-token>',
+          refresh_token: '<xiaomi-refresh-token>',
+          expires_at: '<RFC3339-expiry-optional>',
+          home_ids: ['<optional-home-id>'],
+        },
+      ],
+      poll_interval_seconds: 30,
+    },
+    null,
+    2,
+  ),
+  petkit: JSON.stringify(
+    {
+      accounts: [
+        {
+          name: 'primary',
+          username: '<petkit-username>',
+          password: '<petkit-password>',
+          region: 'US',
+          timezone: 'Asia/Shanghai',
+        },
+      ],
+      poll_interval_seconds: 30,
+    },
+    null,
+    2,
+  ),
+  haier: JSON.stringify(
+    {
+      accounts: [
+        {
+          name: 'primary',
+          email: '<hon-email>',
+          password: '<hon-password>',
+          mobile_id: 'celestia-primary',
+          timezone: 'Asia/Shanghai',
+        },
       ],
       poll_interval_seconds: 20,
     },
     null,
     2,
   ),
-  petkit: JSON.stringify({ accounts: [{ name: 'pet-parent' }] }, null, 2),
-  haier: JSON.stringify({ accounts: [{ name: 'hon-home' }] }, null, 2),
 };
 
 const POLL_MS = 10000;

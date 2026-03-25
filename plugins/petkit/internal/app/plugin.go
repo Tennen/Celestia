@@ -3,103 +3,146 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
-	"github.com/chentianyu/celestia/internal/pluginutil"
-	"github.com/chentianyu/celestia/plugins/petkit/internal/mock"
 	"github.com/google/uuid"
 )
 
+type AccountConfig struct {
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Region   string `json:"region"`
+	Timezone string `json:"timezone,omitempty"`
+}
+
 type Config struct {
-	Accounts []mock.Account `json:"accounts"`
+	Accounts            []AccountConfig `json:"accounts"`
+	PollIntervalSeconds int             `json:"poll_interval_seconds"`
+}
+
+type deviceSnapshot struct {
+	AccountName string
+	Client      *Client
+	Info        petkitDeviceInfo
+	Device      models.Device
+	State       models.DeviceStateSnapshot
+	Detail      map[string]any
+}
+
+type accountRuntime struct {
+	cfg      AccountConfig
+	client   *Client
+	devices  map[string]deviceSnapshot
+	lastErr  error
+	lastSync time.Time
 }
 
 type Plugin struct {
-	mu      sync.RWMutex
-	config  Config
-	devices map[string]models.Device
-	states  map[string]models.DeviceStateSnapshot
-	events  chan models.Event
-	cancel  context.CancelFunc
-	started bool
+	mu       sync.RWMutex
+	config   Config
+	runtimes map[string]*accountRuntime
+	devices  map[string]models.Device
+	states   map[string]models.DeviceStateSnapshot
+	events   chan models.Event
+	cancel   context.CancelFunc
+	started  bool
 }
 
 func New() *Plugin {
 	return &Plugin{
-		devices: map[string]models.Device{},
-		states:  map[string]models.DeviceStateSnapshot{},
-		events:  make(chan models.Event, 128),
+		runtimes: map[string]*accountRuntime{},
+		devices:  map[string]models.Device{},
+		states:   map[string]models.DeviceStateSnapshot{},
+		events:   make(chan models.Event, 128),
 	}
 }
 
 func (p *Plugin) Manifest() models.PluginManifest {
 	return models.PluginManifest{
-		ID:           "petkit",
-		Name:         "Petkit Plugin",
-		Version:      "0.1.0",
-		Vendor:       "petkit",
-		Capabilities: []string{"discover", "state", "command", "events", "relay", "media_reserved"},
-		DeviceKinds:  []models.DeviceKind{models.DeviceKindPetFeeder, models.DeviceKindPetLitterBox, models.DeviceKindPetFountain},
+		ID:      "petkit",
+		Name:    "Petkit Plugin",
+		Version: "1.0.0",
+		Vendor:  "petkit",
+		Capabilities: []string{
+			"discover",
+			"state",
+			"command",
+			"events",
+			"cloud_login",
+			"cloud_session",
+			"feeder_control",
+			"litter_control",
+			"fountain_ble_relay",
+		},
+		ConfigSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"poll_interval_seconds": map[string]any{
+					"type":    "number",
+					"default": 30,
+				},
+				"accounts": map[string]any{
+					"type":        "array",
+					"description": "Petkit cloud accounts with username, password, region and timezone.",
+				},
+			},
+		},
+		DeviceKinds: []models.DeviceKind{
+			models.DeviceKindPetFeeder,
+			models.DeviceKindPetLitterBox,
+			models.DeviceKindPetFountain,
+		},
 	}
 }
 
-func (p *Plugin) ValidateConfig(_ context.Context, _ map[string]any) error {
-	return nil
+func (p *Plugin) ValidateConfig(_ context.Context, cfg map[string]any) error {
+	_, err := parseConfig(cfg)
+	return err
 }
 
 func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
-	config := Config{}
-	if rawAccounts, ok := cfg["accounts"].([]any); ok && len(rawAccounts) > 0 {
-		config.Accounts = make([]mock.Account, 0, len(rawAccounts))
-		for _, item := range rawAccounts {
-			entry, _ := item.(map[string]any)
-			config.Accounts = append(config.Accounts, mock.Account{Name: pluginutil.String(entry["name"], "pet-parent")})
+	config, err := parseConfig(cfg)
+	if err != nil {
+		return err
+	}
+	runtimes := make(map[string]*accountRuntime, len(config.Accounts))
+	for _, account := range config.Accounts {
+		runtimes[accountKey(account)] = &accountRuntime{
+			cfg:     account,
+			client:  NewClient(account),
+			devices: map[string]deviceSnapshot{},
 		}
 	}
-	if len(config.Accounts) == 0 {
-		config.Accounts = mock.DefaultAccounts()
-	}
-	devices, states := mock.SeedDevices(config.Accounts)
+
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.config = config
+	p.runtimes = runtimes
 	p.devices = map[string]models.Device{}
 	p.states = map[string]models.DeviceStateSnapshot{}
-	for _, device := range devices {
-		p.devices[device.ID] = device
-	}
-	for id, state := range states {
-		p.states[id] = state
-	}
+	p.mu.Unlock()
 	return nil
 }
 
-func (p *Plugin) Start(_ context.Context) error {
+func (p *Plugin) Start(ctx context.Context) error {
 	p.mu.Lock()
 	if p.started {
 		p.mu.Unlock()
 		return nil
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	runCtx, cancel := context.WithCancel(ctx)
+	interval := time.Duration(max(p.config.PollIntervalSeconds, 30)) * time.Second
 	p.cancel = cancel
 	p.started = true
 	p.mu.Unlock()
 
-	ticker := time.NewTicker(18 * time.Second)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				p.advance()
-			}
-		}
-	}()
+	go p.pollLoop(runCtx, interval)
 	return nil
 }
 
@@ -117,23 +160,37 @@ func (p *Plugin) HealthCheck(_ context.Context) models.PluginHealth {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	status := models.HealthStateHealthy
-	message := "relay and cloud transports active"
+	message := "petkit cloud polling active"
 	if !p.started {
 		status = models.HealthStateStopped
 		message = "plugin idle"
+		return pluginruntime.NewHealth("petkit", "1.0.0", status, message)
 	}
-	return pluginruntime.NewHealth("petkit", "0.1.0", status, message)
+	var failed int
+	var total int
+	for _, runtime := range p.runtimes {
+		total++
+		if runtime.lastErr != nil {
+			failed++
+		}
+	}
+	if total > 0 && failed == total {
+		status = models.HealthStateUnhealthy
+		message = "all Petkit accounts are failing to sync"
+	} else if failed > 0 {
+		status = models.HealthStateDegraded
+		message = "some Petkit accounts are failing to sync"
+	}
+	return pluginruntime.NewHealth("petkit", "1.0.0", status, message)
 }
 
-func (p *Plugin) DiscoverDevices(_ context.Context) ([]models.Device, []models.DeviceStateSnapshot, error) {
+func (p *Plugin) DiscoverDevices(ctx context.Context) ([]models.Device, []models.DeviceStateSnapshot, error) {
+	if err := p.refreshAll(ctx); err != nil {
+		return nil, nil, err
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	devices := make([]models.Device, 0, len(p.devices))
-	states := make([]models.DeviceStateSnapshot, 0, len(p.states))
-	for _, device := range p.devices {
-		devices = append(devices, device)
-		states = append(states, p.states[device.ID])
-	}
+	devices, states := cloneDeviceViews(p.devices, p.states)
 	return devices, states, nil
 }
 
@@ -142,7 +199,17 @@ func (p *Plugin) ListDevices(ctx context.Context) ([]models.Device, error) {
 	return devices, err
 }
 
-func (p *Plugin) GetDeviceState(_ context.Context, deviceID string) (models.DeviceStateSnapshot, error) {
+func (p *Plugin) GetDeviceState(ctx context.Context, deviceID string) (models.DeviceStateSnapshot, error) {
+	if err := p.refreshDeviceIfNeeded(ctx, deviceID); err != nil {
+		// Fall through to cached state if available, but keep the error if not.
+		p.mu.RLock()
+		state, ok := p.states[deviceID]
+		p.mu.RUnlock()
+		if ok {
+			return state, nil
+		}
+		return models.DeviceStateSnapshot{}, err
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	state, ok := p.states[deviceID]
@@ -152,111 +219,219 @@ func (p *Plugin) GetDeviceState(_ context.Context, deviceID string) (models.Devi
 	return state, nil
 }
 
-func (p *Plugin) ExecuteCommand(_ context.Context, req models.CommandRequest) (models.CommandResponse, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	device, ok := p.devices[req.DeviceID]
+func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) (models.CommandResponse, error) {
+	snapshot, ok := p.snapshotForDevice(req.DeviceID)
 	if !ok {
 		return models.CommandResponse{}, errors.New("device not found")
 	}
-	snapshot := p.states[req.DeviceID]
-	switch req.Action {
-	case "feed_once":
-		if device.Kind != models.DeviceKindPetFeeder {
-			return models.CommandResponse{Accepted: false, Message: "feed_once only supported on feeder"}, nil
-		}
-		portions := pluginutil.Int(req.Params["portions"], 1)
-		snapshot.State["food_level"] = pluginutil.Max(0, pluginutil.Int(snapshot.State["food_level"], 80)-portions)
-		snapshot.State["last_feed_portions"] = portions
-		p.emitLocked(models.Event{
-			ID:       uuid.NewString(),
-			Type:     models.EventDeviceOccurred,
-			PluginID: "petkit",
-			DeviceID: req.DeviceID,
-			TS:       time.Now().UTC(),
-			Payload: map[string]any{
-				"event":    "feed_once",
-				"portions": portions,
-			},
-		})
-	case "clean_now":
-		if device.Kind != models.DeviceKindPetLitterBox {
-			return models.CommandResponse{Accepted: false, Message: "clean_now only supported on litter box"}, nil
-		}
-		snapshot.State["status"] = "cleaning"
-	case "pause":
-		if device.Kind != models.DeviceKindPetLitterBox {
-			return models.CommandResponse{Accepted: false, Message: "pause only supported on litter box"}, nil
-		}
-		snapshot.State["status"] = "paused"
-	case "resume":
-		if device.Kind != models.DeviceKindPetLitterBox {
-			return models.CommandResponse{Accepted: false, Message: "resume only supported on litter box"}, nil
-		}
-		snapshot.State["status"] = "idle"
-	default:
-		return models.CommandResponse{Accepted: false, Message: "capability not supported for this model"}, nil
+	if err := snapshot.Client.ExecuteCommand(ctx, snapshot, req); err != nil {
+		return models.CommandResponse{}, err
 	}
-	snapshot.TS = time.Now().UTC()
-	p.states[req.DeviceID] = snapshot
+
+	if refreshed, err := snapshot.Client.RefreshDevice(ctx, snapshot); err == nil {
+		p.applySnapshot(snapshot.AccountName, refreshed)
+	} else {
+		p.setRuntimeError(snapshot.AccountName, err)
+	}
+
+	response := models.CommandResponse{
+		Accepted: true,
+		JobID:    uuid.NewString(),
+		Message:  "command accepted",
+	}
 	p.emitLocked(models.Event{
 		ID:       uuid.NewString(),
-		Type:     models.EventDeviceStateChanged,
+		Type:     models.EventDeviceCommandAccept,
 		PluginID: "petkit",
 		DeviceID: req.DeviceID,
-		TS:       snapshot.TS,
+		TS:       time.Now().UTC(),
 		Payload: map[string]any{
-			"state": snapshot.State,
+			"action": req.Action,
 		},
 	})
-	return models.CommandResponse{Accepted: true, JobID: uuid.NewString(), Message: "command accepted"}, nil
+	return response, nil
 }
 
 func (p *Plugin) Events() <-chan models.Event {
 	return p.events
 }
 
-func (p *Plugin) advance() {
+func (p *Plugin) pollLoop(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		if err := p.refreshAll(ctx); err != nil {
+			p.setLastGlobalError(err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func (p *Plugin) refreshAll(ctx context.Context) error {
+	p.mu.RLock()
+	runtimes := make([]*accountRuntime, 0, len(p.runtimes))
+	for _, runtime := range p.runtimes {
+		runtimes = append(runtimes, runtime)
+	}
+	p.mu.RUnlock()
+
+	var firstErr error
+	updatedAny := false
+	for _, runtime := range runtimes {
+		snapshots, err := runtime.client.Sync(ctx)
+		if err != nil {
+			runtime.lastErr = err
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		runtime.lastErr = nil
+		runtime.lastSync = time.Now().UTC()
+		p.applyAccountSnapshots(runtime.cfg, snapshots)
+		updatedAny = true
+	}
+	if updatedAny {
+		return nil
+	}
+	return firstErr
+}
+
+func (p *Plugin) refreshDeviceIfNeeded(ctx context.Context, deviceID string) error {
+	accountName, ok := p.accountForDevice(deviceID)
+	if !ok {
+		return errors.New("device not found")
+	}
+	p.mu.RLock()
+	runtime := p.runtimes[accountName]
+	p.mu.RUnlock()
+	if runtime == nil {
+		return errors.New("account runtime not found")
+	}
+	snapshot, err := runtime.client.RefreshDeviceByID(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	p.applyAccountSnapshots(runtime.cfg, []deviceSnapshot{snapshot})
+	return nil
+}
+
+func (p *Plugin) applyAccountSnapshots(cfg AccountConfig, snapshots []deviceSnapshot) {
+	sort.SliceStable(snapshots, func(i, j int) bool {
+		return snapshots[i].Device.ID < snapshots[j].Device.ID
+	})
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	now := time.Now().UTC()
-	for id, device := range p.devices {
-		snapshot := p.states[id]
-		switch device.Kind {
-		case models.DeviceKindPetFeeder:
-			snapshot.State["food_level"] = pluginutil.Max(0, pluginutil.Int(snapshot.State["food_level"], 80)-1)
-			if pluginutil.Int(snapshot.State["food_level"], 80) < 20 {
-				p.emitLocked(models.Event{
-					ID:       uuid.NewString(),
-					Type:     models.EventDeviceOccurred,
-					PluginID: "petkit",
-					DeviceID: id,
-					TS:       now,
-					Payload:  map[string]any{"event": "low_food", "state": snapshot.State},
-				})
-			}
-		case models.DeviceKindPetLitterBox:
-			if pluginutil.String(snapshot.State["status"], "idle") == "cleaning" {
-				snapshot.State["status"] = "idle"
-				snapshot.State["last_usage"] = now.Format(time.RFC3339)
-			}
-			snapshot.State["waste_level"] = pluginutil.Min(100, pluginutil.Int(snapshot.State["waste_level"], 20)+2)
-		case models.DeviceKindPetFountain:
-			snapshot.State["water_level"] = pluginutil.Max(0, pluginutil.Int(snapshot.State["water_level"], 60)-1)
-			snapshot.State["filter_life"] = pluginutil.Max(0, pluginutil.Int(snapshot.State["filter_life"], 80)-1)
+
+	runtime := p.runtimes[accountKey(cfg)]
+	if runtime == nil {
+		runtime = &accountRuntime{cfg: cfg, client: NewClient(cfg), devices: map[string]deviceSnapshot{}}
+		p.runtimes[accountKey(cfg)] = runtime
+	}
+
+	next := make(map[string]deviceSnapshot, len(snapshots))
+	for _, snapshot := range snapshots {
+		next[snapshot.Device.ID] = snapshot
+		if old, ok := p.states[snapshot.Device.ID]; !ok {
+			p.emitLocked(models.Event{
+				ID:       uuid.NewString(),
+				Type:     models.EventDeviceDiscovered,
+				PluginID: "petkit",
+				DeviceID: snapshot.Device.ID,
+				TS:       snapshot.State.TS,
+				Payload: map[string]any{
+					"device": snapshot.Device,
+				},
+			})
+		} else if !stateEqual(old.State, snapshot.State.State) {
+			p.emitLocked(models.Event{
+				ID:       uuid.NewString(),
+				Type:     models.EventDeviceStateChanged,
+				PluginID: "petkit",
+				DeviceID: snapshot.Device.ID,
+				TS:       snapshot.State.TS,
+				Payload: map[string]any{
+					"state": snapshot.State.State,
+				},
+			})
 		}
-		snapshot.TS = now
-		p.states[id] = snapshot
+		p.devices[snapshot.Device.ID] = snapshot.Device
+		p.states[snapshot.Device.ID] = snapshot.State
+	}
+	runtime.devices = next
+}
+
+func (p *Plugin) applySnapshot(accountName string, snapshot deviceSnapshot) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if old, ok := p.states[snapshot.Device.ID]; !ok {
+		p.emitLocked(models.Event{
+			ID:       uuid.NewString(),
+			Type:     models.EventDeviceDiscovered,
+			PluginID: "petkit",
+			DeviceID: snapshot.Device.ID,
+			TS:       snapshot.State.TS,
+		})
+	} else if !stateEqual(old.State, snapshot.State.State) {
 		p.emitLocked(models.Event{
 			ID:       uuid.NewString(),
 			Type:     models.EventDeviceStateChanged,
 			PluginID: "petkit",
-			DeviceID: id,
-			TS:       now,
+			DeviceID: snapshot.Device.ID,
+			TS:       snapshot.State.TS,
 			Payload: map[string]any{
-				"state": snapshot.State,
+				"state": snapshot.State.State,
 			},
 		})
+	}
+	p.devices[snapshot.Device.ID] = snapshot.Device
+	p.states[snapshot.Device.ID] = snapshot.State
+	if runtime := p.runtimes[accountName]; runtime != nil {
+		runtime.devices[snapshot.Device.ID] = snapshot
+		runtime.lastSync = time.Now().UTC()
+	}
+}
+
+func (p *Plugin) snapshotForDevice(deviceID string) (deviceSnapshot, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, runtime := range p.runtimes {
+		if snapshot, ok := runtime.devices[deviceID]; ok {
+			return snapshot, true
+		}
+	}
+	return deviceSnapshot{}, false
+}
+
+func (p *Plugin) accountForDevice(deviceID string) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for key, runtime := range p.runtimes {
+		if _, ok := runtime.devices[deviceID]; ok {
+			return key, true
+		}
+	}
+	return "", false
+}
+
+func (p *Plugin) setRuntimeError(accountName string, err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if runtime := p.runtimes[accountName]; runtime != nil {
+		runtime.lastErr = err
+	}
+}
+
+func (p *Plugin) setLastGlobalError(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, runtime := range p.runtimes {
+		runtime.lastErr = err
 	}
 }
 
@@ -265,4 +440,78 @@ func (p *Plugin) emitLocked(event models.Event) {
 	case p.events <- event:
 	default:
 	}
+}
+
+func cloneDeviceViews(devices map[string]models.Device, states map[string]models.DeviceStateSnapshot) ([]models.Device, []models.DeviceStateSnapshot) {
+	deviceIDs := make([]string, 0, len(devices))
+	for id := range devices {
+		deviceIDs = append(deviceIDs, id)
+	}
+	sort.Strings(deviceIDs)
+	outDevices := make([]models.Device, 0, len(deviceIDs))
+	outStates := make([]models.DeviceStateSnapshot, 0, len(deviceIDs))
+	for _, id := range deviceIDs {
+		outDevices = append(outDevices, devices[id])
+		outStates = append(outStates, states[id])
+	}
+	return outDevices, outStates
+}
+
+func parseConfig(cfg map[string]any) (Config, error) {
+	config := Config{PollIntervalSeconds: 30}
+	if raw, ok := cfg["poll_interval_seconds"].(float64); ok && int(raw) > 0 {
+		config.PollIntervalSeconds = int(raw)
+	}
+	rawAccounts, ok := cfg["accounts"].([]any)
+	if !ok || len(rawAccounts) == 0 {
+		return Config{}, errors.New("accounts is required")
+	}
+	for i, raw := range rawAccounts {
+		entry, _ := raw.(map[string]any)
+		account := AccountConfig{
+			Name:     stringValue(entry["name"], ""),
+			Username: strings.TrimSpace(stringValue(entry["username"], "")),
+			Password: strings.TrimSpace(stringValue(entry["password"], "")),
+			Region:   strings.ToLower(strings.TrimSpace(stringValue(entry["region"], ""))),
+			Timezone: strings.TrimSpace(stringValue(entry["timezone"], "")),
+		}
+		if account.Username == "" {
+			return Config{}, fmt.Errorf("accounts[%d].username is required", i)
+		}
+		if account.Password == "" {
+			return Config{}, fmt.Errorf("accounts[%d].password is required", i)
+		}
+		if account.Region == "" {
+			return Config{}, fmt.Errorf("accounts[%d].region is required", i)
+		}
+		if account.Timezone == "" {
+			if account.Region == "cn" {
+				account.Timezone = "Asia/Shanghai"
+			} else {
+				account.Timezone = "UTC"
+			}
+		}
+		if account.Name == "" {
+			account.Name = account.Username
+		}
+		config.Accounts = append(config.Accounts, account)
+	}
+	return config, nil
+}
+
+func accountKey(cfg AccountConfig) string {
+	return accountKeyString(cfg.Name + "|" + cfg.Username + "|" + cfg.Region)
+}
+
+func accountKeyString(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.NewReplacer(" ", "-", "/", "-", "\\", "-", "|", "-").Replace(value)
+	return value
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
