@@ -224,6 +224,14 @@ function App() {
     if (capabilities.includes('pause')) suggestions.push({ label: 'Pause', action: 'pause', params: {} });
     if (capabilities.includes('resume')) suggestions.push({ label: 'Resume', action: 'resume', params: {} });
     if (capabilities.includes('power')) suggestions.push({ label: 'Toggle power', action: 'set_power', params: { on: true } });
+    if (capabilities.includes('pump_power')) suggestions.push({ label: 'Pump on', action: 'set_pump_power', params: { on: true } });
+    if (capabilities.includes('light_power')) suggestions.push({ label: 'Aquarium light', action: 'set_light_power', params: { on: true } });
+    if (capabilities.includes('light_brightness'))
+      suggestions.push({ label: 'Aquarium brightness', action: 'set_light_brightness', params: { value: 80 } });
+    if (capabilities.includes('voice_push'))
+      suggestions.push({ label: 'Voice push', action: 'push_voice_message', params: { message: '检测到异常，请查看鱼缸状态', volume: 55 } });
+    if (capabilities.includes('volume')) suggestions.push({ label: 'Set volume', action: 'set_volume', params: { value: 55 } });
+    if (capabilities.includes('mute')) suggestions.push({ label: 'Mute speaker', action: 'set_mute', params: { on: true } });
     return suggestions;
   }, [selectedDevice]);
 

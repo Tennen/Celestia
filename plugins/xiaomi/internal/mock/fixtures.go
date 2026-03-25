@@ -70,6 +70,28 @@ func SeedDevices(accounts []Account) ([]models.Device, map[string]models.DeviceS
 				Capabilities:   []string{"power", "target_temperature", "mode", "fan_speed"},
 				Metadata:       map[string]any{"account": account.Name, "region": region, "miot_type": "climate"},
 			},
+			{
+				ID:             fmt.Sprintf("xiaomi:%s:%s-aquarium", region, account.Name),
+				PluginID:       "xiaomi",
+				VendorDeviceID: fmt.Sprintf("%s-aquarium", account.Name),
+				Kind:           models.DeviceKindAquarium,
+				Name:           fmt.Sprintf("%s Smart Aquarium", strings.ToUpper(region)),
+				Room:           "Dining Room",
+				Online:         true,
+				Capabilities:   []string{"power", "pump_power", "light_power", "light_brightness", "water_temperature", "filter_life", "light_mode"},
+				Metadata:       map[string]any{"account": account.Name, "region": region, "miot_type": "aquarium"},
+			},
+			{
+				ID:             fmt.Sprintf("xiaomi:%s:%s-speaker", region, account.Name),
+				PluginID:       "xiaomi",
+				VendorDeviceID: fmt.Sprintf("%s-speaker", account.Name),
+				Kind:           models.DeviceKindSpeaker,
+				Name:           fmt.Sprintf("%s Smart Speaker", strings.ToUpper(region)),
+				Room:           "Living Room",
+				Online:         true,
+				Capabilities:   []string{"power", "volume", "mute", "voice_push", "last_message"},
+				Metadata:       map[string]any{"account": account.Name, "region": region, "miot_type": "speaker"},
+			},
 		}
 		devices = append(devices, devicesForAccount...)
 		for _, device := range devicesForAccount {
@@ -90,6 +112,25 @@ func initialState(device models.Device) models.DeviceStateSnapshot {
 		state = map[string]any{"temperature": 24.1, "humidity": 49}
 	case models.DeviceKindClimate:
 		state = map[string]any{"power": true, "target_temperature": 25, "mode": "cool", "fan_speed": "auto"}
+	case models.DeviceKindAquarium:
+		state = map[string]any{
+			"power":             true,
+			"pump_power":        true,
+			"light_power":       true,
+			"light_brightness":  68,
+			"light_mode":        "day",
+			"water_temperature": 25.3,
+			"filter_life":       92,
+		}
+	case models.DeviceKindSpeaker:
+		state = map[string]any{
+			"power":           true,
+			"volume":          45,
+			"mute":            false,
+			"last_message":    "",
+			"last_message_at": "",
+			"delivery_status": "idle",
+		}
 	}
 	return models.DeviceStateSnapshot{
 		DeviceID: device.ID,
@@ -98,4 +139,3 @@ func initialState(device models.Device) models.DeviceStateSnapshot {
 		State:    state,
 	}
 }
-

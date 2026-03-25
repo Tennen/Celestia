@@ -51,6 +51,8 @@ const (
 	DeviceKindPetFeeder     DeviceKind = "pet_feeder"
 	DeviceKindPetFountain   DeviceKind = "pet_fountain"
 	DeviceKindPetLitterBox  DeviceKind = "pet_litter_box"
+	DeviceKindAquarium      DeviceKind = "aquarium"
+	DeviceKindSpeaker       DeviceKind = "speaker"
 	DeviceKindCameraLike    DeviceKind = "camera_like"
 )
 
@@ -174,4 +176,3 @@ type DashboardSummary struct {
 	Events         int `json:"events"`
 	Audits         int `json:"audits"`
 }
-

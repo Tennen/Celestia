@@ -5,7 +5,7 @@ Celestia is a monorepo for a process-isolated home gateway written in Go with a 
 ## Included Phases
 
 - Phase 0: core runtime, plugin manager, registry, state store, event bus, audit/policy, HTTP gateway, gRPC plugin protocol
-- Phase 1: Xiaomi plugin scaffold with multi-account, multi-region, light/switch/sensor/climate mapping, command/state/event flow
+- Phase 1: Xiaomi plugin scaffold with multi-account, multi-region, light/switch/sensor/climate mapping, aquarium control, speaker voice push, and command/state/event flow
 - Phase 2: Petkit plugin scaffold with feeder/litter/fountain capability coverage
 - Phase 3: Haier washer plugin scaffold with model capability matrix behavior
 
@@ -35,4 +35,3 @@ The container exposes the gateway and admin UI on port `8080`.
 - Device inventory with live state
 - Command dispatch with actor header support
 - Event feed and audit feed
-

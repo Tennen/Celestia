@@ -10,6 +10,8 @@ export type DeviceKind =
   | 'pet_feeder'
   | 'pet_fountain'
   | 'pet_litter_box'
+  | 'aquarium'
+  | 'speaker'
   | 'camera_like';
 
 export type DashboardSummary = {
@@ -131,4 +133,3 @@ export type CommandResult = {
     message?: string;
   };
 };
-

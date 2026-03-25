@@ -45,11 +45,18 @@ func (p *Plugin) Manifest() models.PluginManifest {
 		Name:         "Xiaomi MIoT Plugin",
 		Version:      "0.1.0",
 		Vendor:       "xiaomi",
-		Capabilities: []string{"discover", "state", "command", "events", "oauth", "multi_account", "multi_region"},
+		Capabilities: []string{"discover", "state", "command", "events", "oauth", "multi_account", "multi_region", "aquarium_control", "speaker_voice_push"},
 		ConfigSchema: map[string]any{
 			"type": "object",
 		},
-		DeviceKinds: []models.DeviceKind{models.DeviceKindLight, models.DeviceKindSwitch, models.DeviceKindSensor, models.DeviceKindClimate},
+		DeviceKinds: []models.DeviceKind{
+			models.DeviceKindLight,
+			models.DeviceKindSwitch,
+			models.DeviceKindSensor,
+			models.DeviceKindClimate,
+			models.DeviceKindAquarium,
+			models.DeviceKindSpeaker,
+		},
 	}
 }
 
@@ -192,10 +199,22 @@ func (p *Plugin) ExecuteCommand(_ context.Context, req models.CommandRequest) (m
 	switch req.Action {
 	case "turn_on", "power_on":
 		snapshot.State["power"] = true
+		if device.Kind == models.DeviceKindAquarium {
+			snapshot.State["pump_power"] = true
+			snapshot.State["light_power"] = true
+		}
 	case "turn_off", "power_off":
 		snapshot.State["power"] = false
+		if device.Kind == models.DeviceKindAquarium {
+			snapshot.State["pump_power"] = false
+			snapshot.State["light_power"] = false
+		}
 	case "set_power":
 		snapshot.State["power"] = boolValue(req.Params["on"], true)
+		if device.Kind == models.DeviceKindAquarium {
+			snapshot.State["pump_power"] = boolValue(req.Params["on"], true)
+			snapshot.State["light_power"] = boolValue(req.Params["on"], true)
+		}
 	case "set_brightness":
 		if !supports(device, "brightness") {
 			return models.CommandResponse{Accepted: false, Message: "brightness unsupported"}, nil
@@ -221,6 +240,62 @@ func (p *Plugin) ExecuteCommand(_ context.Context, req models.CommandRequest) (m
 			return models.CommandResponse{Accepted: false, Message: "fan_speed unsupported"}, nil
 		}
 		snapshot.State["fan_speed"] = stringValue(req.Params["value"], "auto")
+	case "set_pump_power":
+		if !supports(device, "pump_power") {
+			return models.CommandResponse{Accepted: false, Message: "pump_power unsupported"}, nil
+		}
+		snapshot.State["pump_power"] = boolValue(req.Params["on"], true)
+	case "set_light_power":
+		if !supports(device, "light_power") {
+			return models.CommandResponse{Accepted: false, Message: "light_power unsupported"}, nil
+		}
+		snapshot.State["light_power"] = boolValue(req.Params["on"], true)
+	case "set_light_brightness":
+		if !supports(device, "light_brightness") {
+			return models.CommandResponse{Accepted: false, Message: "light_brightness unsupported"}, nil
+		}
+		snapshot.State["light_brightness"] = intValue(req.Params["value"], 60)
+	case "set_light_mode":
+		if !supports(device, "light_mode") {
+			return models.CommandResponse{Accepted: false, Message: "light_mode unsupported"}, nil
+		}
+		snapshot.State["light_mode"] = stringValue(req.Params["value"], "day")
+	case "set_volume":
+		if !supports(device, "volume") {
+			return models.CommandResponse{Accepted: false, Message: "volume unsupported"}, nil
+		}
+		snapshot.State["volume"] = intValue(req.Params["value"], 45)
+	case "set_mute":
+		if !supports(device, "mute") {
+			return models.CommandResponse{Accepted: false, Message: "mute unsupported"}, nil
+		}
+		snapshot.State["mute"] = boolValue(req.Params["on"], false)
+	case "push_voice_message":
+		if !supports(device, "voice_push") {
+			return models.CommandResponse{Accepted: false, Message: "voice_push unsupported"}, nil
+		}
+		message := strings.TrimSpace(stringValue(req.Params["message"], ""))
+		if message == "" {
+			return models.CommandResponse{Accepted: false, Message: "message is required"}, nil
+		}
+		if volume, ok := req.Params["volume"]; ok {
+			snapshot.State["volume"] = intValue(volume, intValue(snapshot.State["volume"], 45))
+		}
+		snapshot.State["last_message"] = message
+		snapshot.State["last_message_at"] = time.Now().UTC().Format(time.RFC3339)
+		snapshot.State["delivery_status"] = "sent"
+		p.emitLocked(models.Event{
+			ID:       uuid.NewString(),
+			Type:     models.EventDeviceOccurred,
+			PluginID: "xiaomi",
+			DeviceID: req.DeviceID,
+			TS:       time.Now().UTC(),
+			Payload: map[string]any{
+				"event":   "voice_message.sent",
+				"message": message,
+				"state":   snapshot.State,
+			},
+		})
 	default:
 		return models.CommandResponse{Accepted: false, Message: "action not supported"}, nil
 	}
@@ -268,10 +343,19 @@ func (p *Plugin) advance() {
 			if power, _ := snapshot.State["power"].(bool); power {
 				snapshot.State["target_temperature"] = 24 + (p.tick % 2)
 			}
+		case models.DeviceKindAquarium:
+			snapshot.State["water_temperature"] = 25.0 + float64((p.tick%5))/10
+			if p.tick%12 == 0 {
+				snapshot.State["filter_life"] = max(0, intValue(snapshot.State["filter_life"], 92)-1)
+			}
+		case models.DeviceKindSpeaker:
+			if stringValue(snapshot.State["delivery_status"], "idle") == "sent" && p.tick%2 == 0 {
+				snapshot.State["delivery_status"] = "idle"
+			}
 		}
 		snapshot.TS = time.Now().UTC()
 		p.states[id] = snapshot
-		if device.Kind == models.DeviceKindSensor || device.Kind == models.DeviceKindClimate {
+		if device.Kind == models.DeviceKindSensor || device.Kind == models.DeviceKindClimate || device.Kind == models.DeviceKindAquarium || device.Kind == models.DeviceKindSpeaker {
 			p.emitLocked(models.Event{
 				ID:       uuid.NewString(),
 				Type:     models.EventDeviceStateChanged,

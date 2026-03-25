@@ -7,14 +7,14 @@ func BuiltinCatalog() []models.CatalogPlugin {
 		{
 			ID:          "xiaomi",
 			Name:        "Xiaomi MIoT Plugin",
-			Description: "Phase 1 Xiaomi cloud adapter scaffold with multi-account and region-aware device mapping.",
+			Description: "Phase 1 Xiaomi cloud adapter scaffold with multi-account, multi-region, aquarium control, and speaker voice push.",
 			BinaryName:  "xiaomi-plugin",
 			Manifest: models.PluginManifest{
 				ID:           "xiaomi",
 				Name:         "Xiaomi MIoT Plugin",
 				Version:      "0.1.0",
 				Vendor:       "xiaomi",
-				Capabilities: []string{"discover", "state", "command", "events", "oauth", "multi_account", "multi_region"},
+				Capabilities: []string{"discover", "state", "command", "events", "oauth", "multi_account", "multi_region", "aquarium_control", "speaker_voice_push"},
 				ConfigSchema: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -28,7 +28,14 @@ func BuiltinCatalog() []models.CatalogPlugin {
 						},
 					},
 				},
-				DeviceKinds: []models.DeviceKind{models.DeviceKindLight, models.DeviceKindSwitch, models.DeviceKindSensor, models.DeviceKindClimate},
+				DeviceKinds: []models.DeviceKind{
+					models.DeviceKindLight,
+					models.DeviceKindSwitch,
+					models.DeviceKindSensor,
+					models.DeviceKindClimate,
+					models.DeviceKindAquarium,
+					models.DeviceKindSpeaker,
+				},
 			},
 		},
 		{
@@ -79,4 +86,3 @@ func BuiltinCatalog() []models.CatalogPlugin {
 		},
 	}
 }
-
