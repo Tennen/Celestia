@@ -1,0 +1,16 @@
+services:
+  celestia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: celestia:latest
+    container_name: celestia
+    ports:
+      - "8080:8080"
+    environment:
+      CELESTIA_ADDR: ":8080"
+      CELESTIA_DB_PATH: "/app/data/celestia.db"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+

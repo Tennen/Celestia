@@ -1,0 +1,8 @@
+.git
+.cache
+bin
+data
+node_modules
+web/admin/node_modules
+web/admin/dist
+

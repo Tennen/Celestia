@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package celestia.plugin.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+service PluginService {
+  rpc GetManifest(google.protobuf.Empty) returns (google.protobuf.Struct);
+  rpc ValidateConfig(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Setup(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Start(google.protobuf.Empty) returns (google.protobuf.Struct);
+  rpc Stop(google.protobuf.Empty) returns (google.protobuf.Struct);
+  rpc HealthCheck(google.protobuf.Empty) returns (google.protobuf.Struct);
+  rpc DiscoverDevices(google.protobuf.Empty) returns (google.protobuf.ListValue);
+  rpc ListDevices(google.protobuf.Empty) returns (google.protobuf.ListValue);
+  rpc GetDeviceState(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc ExecuteCommand(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc StreamEvents(google.protobuf.Empty) returns (stream google.protobuf.Struct);
+}
+
