@@ -15,11 +15,13 @@ import {
   fetchDashboard,
   fetchDevices,
   fetchEvents,
+  fetchXiaomiOAuthSession,
   fetchPluginLogs,
   fetchPlugins,
   getApiBase,
   installPlugin,
   sendCommand,
+  startXiaomiOAuth,
   updatePluginConfig,
 } from './lib/api';
 import { formatTime, prettyJson } from './lib/utils';
@@ -29,6 +31,7 @@ import type {
   DashboardSummary,
   DeviceView,
   EventRecord,
+  OAuthSession,
   PluginRuntimeView,
 } from './lib/types';
 
@@ -39,6 +42,8 @@ const DEFAULT_INSTALL_CONFIGS: Record<string, string> = {
         {
           name: 'primary',
           region: 'cn',
+          client_id: '<xiaomi-client-id>',
+          redirect_url: '<xiaomi-redirect-url>',
           access_token: '<xiaomi-access-token>',
           refresh_token: '<xiaomi-refresh-token>',
           expires_at: '<RFC3339-expiry-optional>',
@@ -86,6 +91,97 @@ const DEFAULT_INSTALL_CONFIGS: Record<string, string> = {
 
 const POLL_MS = 10000;
 
+type StatusBanner = {
+  tone: 'good' | 'warn' | 'bad';
+  text: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function parseJsonObject(raw: string, errorMessage: string) {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error(errorMessage);
+  }
+  return parsed;
+}
+
+function getXiaomiDraftSeed(raw: string) {
+  const draft = parseJsonObject(raw, 'Xiaomi config must be a JSON object');
+  const accounts = Array.isArray(draft.accounts) ? draft.accounts : [];
+  if (accounts.length === 0) {
+    throw new Error('Xiaomi config must include at least one account');
+  }
+  const firstAccount = accounts[0];
+  if (!isRecord(firstAccount)) {
+    throw new Error('Xiaomi first account must be a JSON object');
+  }
+  const region = stringValue(firstAccount.region);
+  if (!region) {
+    throw new Error('Xiaomi first account requires region');
+  }
+  const clientId = stringValue(firstAccount.client_id);
+  if (!clientId) {
+    throw new Error('Xiaomi first account requires client_id');
+  }
+  return {
+    draft,
+    accounts,
+    accountName: stringValue(firstAccount.name) || 'primary',
+    region,
+    clientId,
+  };
+}
+
+function mergeXiaomiAccountConfig(rawDraft: string, accountConfig: Record<string, unknown>) {
+  const draft = parseJsonObject(rawDraft, 'Xiaomi config must be a JSON object');
+  const nextDraft: Record<string, unknown> = { ...draft };
+  const accounts = Array.isArray(draft.accounts) ? [...draft.accounts] : [];
+  if (accounts.length === 0) {
+    throw new Error('Xiaomi config must include at least one account');
+  }
+
+  const targetName = stringValue(accountConfig.name);
+  let targetIndex = -1;
+  if (targetName) {
+    targetIndex = accounts.findIndex((account) => isRecord(account) && stringValue(account.name) === targetName);
+  }
+  if (targetIndex < 0) {
+    targetIndex = 0;
+  }
+
+  const currentAccount = isRecord(accounts[targetIndex]) ? accounts[targetIndex] : {};
+  accounts[targetIndex] = {
+    ...currentAccount,
+    ...accountConfig,
+  };
+  nextDraft.accounts = accounts;
+
+  return {
+    draft: nextDraft,
+    json: JSON.stringify(nextDraft, null, 2),
+    accountName: targetName || stringValue((accounts[targetIndex] as Record<string, unknown>).name) || stringValue(accounts[0] && isRecord(accounts[0]) ? accounts[0].name : undefined) || 'primary',
+  };
+}
+
+function getPluginDraftText(
+  pluginId: string,
+  runtimeInstalled: boolean,
+  installDrafts: Record<string, string>,
+  configDrafts: Record<string, string>,
+) {
+  if (runtimeInstalled) {
+    return configDrafts[pluginId] ?? installDrafts[pluginId] ?? '{}';
+  }
+  return installDrafts[pluginId] ?? configDrafts[pluginId] ?? '{}';
+}
+
 type LoadState = {
   dashboard: DashboardSummary | null;
   catalog: CatalogPlugin[];
@@ -122,11 +218,18 @@ function App() {
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
   const [commandResult, setCommandResult] = useState<string>('');
   const [busy, setBusy] = useState<string>('');
+  const [oauthBanner, setOauthBanner] = useState<StatusBanner | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const selectedPluginIdRef = useRef('');
   const selectedDeviceIdRef = useRef('');
   const selectedLogsPluginIdRef = useRef('');
   const deviceSearchRef = useRef('');
+  const installDraftsRef = useRef(installDrafts);
+  const configDraftsRef = useRef(configDrafts);
+  const pluginsRef = useRef<PluginRuntimeView[]>([]);
+  const xiaomiOAuthSessionRef = useRef<string>('');
+  const xiaomiOAuthPopupRef = useRef<Window | null>(null);
+  const xiaomiOAuthPollRef = useRef<number | null>(null);
 
   useEffect(() => {
     selectedPluginIdRef.current = selectedPluginId;
@@ -143,6 +246,158 @@ function App() {
   useEffect(() => {
     deviceSearchRef.current = deviceSearch;
   }, [deviceSearch]);
+
+  useEffect(() => {
+    installDraftsRef.current = installDrafts;
+  }, [installDrafts]);
+
+  useEffect(() => {
+    configDraftsRef.current = configDrafts;
+  }, [configDrafts]);
+
+  useEffect(() => {
+    pluginsRef.current = state.plugins;
+  }, [state.plugins]);
+
+  useEffect(
+    () => () => {
+      if (xiaomiOAuthPollRef.current !== null) {
+        window.clearInterval(xiaomiOAuthPollRef.current);
+        xiaomiOAuthPollRef.current = null;
+      }
+      if (xiaomiOAuthPopupRef.current && !xiaomiOAuthPopupRef.current.closed) {
+        xiaomiOAuthPopupRef.current.close();
+      }
+      xiaomiOAuthPopupRef.current = null;
+      xiaomiOAuthSessionRef.current = '';
+    },
+    [],
+  );
+
+  const clearXiaomiOAuthFlow = () => {
+    if (xiaomiOAuthPollRef.current !== null) {
+      window.clearInterval(xiaomiOAuthPollRef.current);
+      xiaomiOAuthPollRef.current = null;
+    }
+    if (xiaomiOAuthPopupRef.current && !xiaomiOAuthPopupRef.current.closed) {
+      xiaomiOAuthPopupRef.current.close();
+    }
+    xiaomiOAuthPopupRef.current = null;
+    xiaomiOAuthSessionRef.current = '';
+  };
+
+  const applyXiaomiOAuthSession = (session: OAuthSession) => {
+    const accountConfig = session.account_config;
+    if (!accountConfig) {
+      throw new Error('Xiaomi OAuth completed without account config');
+    }
+    const pluginId = session.plugin_id || 'xiaomi';
+    const runtimeInstalled = pluginsRef.current.some((plugin) => plugin.record.plugin_id === pluginId);
+    const currentDraft = getPluginDraftText(pluginId, runtimeInstalled, installDraftsRef.current, configDraftsRef.current);
+    const merged = mergeXiaomiAccountConfig(currentDraft, accountConfig);
+    if (runtimeInstalled) {
+      setConfigDrafts((current) => ({
+        ...current,
+        [pluginId]: merged.json,
+      }));
+    } else {
+      setInstallDrafts((current) => ({
+        ...current,
+        [pluginId]: merged.json,
+      }));
+    }
+    setOauthBanner({
+      tone: 'good',
+      text: `Xiaomi OAuth data injected into ${runtimeInstalled ? 'config' : 'install'} draft for ${merged.accountName}.`,
+    });
+  };
+
+  const syncXiaomiOAuthSession = async (sessionId: string) => {
+    const session = await fetchXiaomiOAuthSession(sessionId);
+    if (session.status === 'pending') {
+      return;
+    }
+    clearXiaomiOAuthFlow();
+    if (session.status === 'completed') {
+      try {
+        applyXiaomiOAuthSession(session);
+      } catch (error) {
+        setOauthBanner({
+          tone: 'bad',
+          text: error instanceof Error ? error.message : 'Failed to apply Xiaomi OAuth session.',
+        });
+      }
+      return;
+    }
+    const message = session.error || `Xiaomi OAuth ${session.status}.`;
+    setOauthBanner({
+      tone: session.status === 'expired' ? 'warn' : 'bad',
+      text: message,
+    });
+  };
+
+  const ensureXiaomiOAuthPolling = (sessionId: string) => {
+    if (xiaomiOAuthPollRef.current !== null) {
+      window.clearInterval(xiaomiOAuthPollRef.current);
+    }
+    xiaomiOAuthSessionRef.current = sessionId;
+    xiaomiOAuthPollRef.current = window.setInterval(() => {
+      void syncXiaomiOAuthSession(sessionId).catch((error) => {
+        clearXiaomiOAuthFlow();
+        setOauthBanner({
+          tone: 'bad',
+          text: error instanceof Error ? error.message : 'Failed to refresh Xiaomi OAuth session.',
+        });
+      });
+    }, 1500);
+  };
+
+  const startXiaomiOAuthFlow = async (plugin: CatalogPlugin) => {
+    const runtime = state.plugins.find((item) => item.record.plugin_id === plugin.id) ?? null;
+    const draftText = getPluginDraftText(plugin.id, Boolean(runtime), installDraftsRef.current, configDraftsRef.current);
+    const seed = getXiaomiDraftSeed(draftText);
+    const popup = window.open('', 'celestia-xiaomi-oauth', 'width=540,height=760');
+    if (!popup) {
+      throw new Error('Popup blocked. Allow popups to connect Xiaomi.');
+    }
+    popup.document.write('<!doctype html><title>Starting Xiaomi OAuth</title><p>Opening Xiaomi authorization...</p>');
+    popup.document.close();
+    xiaomiOAuthPopupRef.current = popup;
+    setOauthBanner({
+      tone: 'warn',
+      text: `Starting Xiaomi OAuth for account ${seed.accountName}.`,
+    });
+    try {
+      const response = await startXiaomiOAuth({
+        plugin_id: plugin.id,
+        account_name: seed.accountName,
+        region: seed.region,
+        client_id: seed.clientId,
+        redirect_base_url: new URL(getApiBase(), window.location.origin).origin,
+      });
+      const session = response.session;
+      if (!session.auth_url) {
+        clearXiaomiOAuthFlow();
+        throw new Error('Xiaomi OAuth start did not return an authorization URL');
+      }
+      xiaomiOAuthPopupRef.current = popup;
+      popup.location.href = session.auth_url;
+      ensureXiaomiOAuthPolling(session.id);
+      void syncXiaomiOAuthSession(session.id).catch((error) => {
+        setOauthBanner({
+          tone: 'bad',
+          text: error instanceof Error ? error.message : 'Failed to refresh Xiaomi OAuth session.',
+        });
+      });
+    } catch (error) {
+      clearXiaomiOAuthFlow();
+      setOauthBanner({
+        tone: 'bad',
+        text: error instanceof Error ? error.message : 'Failed to start Xiaomi OAuth.',
+      });
+      throw error;
+    }
+  };
 
   const refreshAll = async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
@@ -240,6 +495,29 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data as Partial<{ type: string; session_id: string; status: string }> | null;
+      if (!data || data.type !== 'celestia:xiaomi-oauth') {
+        return;
+      }
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+      if (!data.session_id || data.session_id !== xiaomiOAuthSessionRef.current) {
+        return;
+      }
+      void syncXiaomiOAuthSession(data.session_id).catch((error) => {
+        setOauthBanner({
+          tone: 'bad',
+          text: error instanceof Error ? error.message : 'Failed to refresh Xiaomi OAuth session.',
+        });
+      });
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   const selectedPlugin = useMemo(
     () => state.plugins.find((plugin) => plugin.record.plugin_id === selectedPluginId) ?? null,
     [selectedPluginId, state.plugins],
@@ -333,6 +611,15 @@ function App() {
         </Card>
       ) : null}
 
+      {oauthBanner ? (
+        <Card className="panel panel--notice">
+          <CardContent className="panel__notice">
+            <Badge tone={oauthBanner.tone}>{oauthBanner.tone === 'good' ? 'Connected' : oauthBanner.tone === 'warn' ? 'Pending' : 'Error'}</Badge>
+            <span>{oauthBanner.text}</span>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Section className="grid grid--stats">
         {[
           ['Plugins', state.dashboard?.plugins ?? 0],
@@ -407,6 +694,17 @@ function App() {
                         <strong>{plugin.manifest.device_kinds.join(', ')}</strong>
                       </div>
                       <div className="button-row">
+                        {plugin.id === 'xiaomi' ? (
+                          <Button
+                            variant="secondary"
+                            onClick={() =>
+                              void runAction(`xiaomi-oauth-${plugin.id}`, () => startXiaomiOAuthFlow(plugin))
+                            }
+                            disabled={busy === `xiaomi-oauth-${plugin.id}` || Boolean(xiaomiOAuthSessionRef.current)}
+                          >
+                            Connect OAuth
+                          </Button>
+                        ) : null}
                         <Button
                           onClick={() => void runAction(`install-${plugin.id}`, () => onInstall(plugin))}
                           disabled={busy === `install-${plugin.id}`}

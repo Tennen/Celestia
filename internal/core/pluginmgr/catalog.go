@@ -20,7 +20,7 @@ func BuiltinCatalog() []models.CatalogPlugin {
 					"properties": map[string]any{
 						"accounts": map[string]any{
 							"type":        "array",
-							"description": "Real Xiaomi MIoT accounts with region plus access_token/refresh_token/auth_code credentials.",
+							"description": "Real Xiaomi MIoT accounts with explicit client_id/redirect_url for refresh_token or auth_code flows.",
 						},
 						"poll_interval_seconds": map[string]any{
 							"type":    "number",

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/chentianyu/celestia/plugins/xiaomi/internal/auth"
+	"github.com/chentianyu/celestia/internal/xiaomi/oauth"
 	"github.com/chentianyu/celestia/plugins/xiaomi/internal/spec"
 )
 
@@ -51,7 +51,7 @@ type DeviceRecord struct {
 
 type Client struct {
 	httpClient  *http.Client
-	authClient  *auth.Client
+	authClient  *oauth.Client
 	cfg         AccountConfig
 	baseURL     string
 	clientID    string
@@ -67,22 +67,16 @@ func NewClient(cfg AccountConfig, httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
-	region := auth.NormalizeRegion(cfg.Region)
+	region := oauth.NormalizeRegion(cfg.Region)
 	host := defaultAPIHost
 	if region != "cn" {
 		host = region + "." + defaultAPIHost
 	}
 	clientID := strings.TrimSpace(cfg.ClientID)
-	if clientID == "" {
-		clientID = auth.DefaultClientID
-	}
 	redirectURL := strings.TrimSpace(cfg.RedirectURL)
-	if redirectURL == "" {
-		redirectURL = auth.DefaultRedirectURL
-	}
 	return &Client{
 		httpClient:   httpClient,
-		authClient:   auth.NewClient(httpClient),
+		authClient:   oauth.NewClient(httpClient),
 		cfg:          cfg,
 		baseURL:      "https://" + host,
 		clientID:     clientID,
@@ -110,7 +104,7 @@ func (c *Client) EnsureToken(ctx context.Context) error {
 	}
 
 	var (
-		tokenSet auth.TokenSet
+		tokenSet oauth.TokenSet
 		err      error
 	)
 	switch {
@@ -196,7 +190,7 @@ func (c *Client) ListDevices(ctx context.Context, selectedHomeIDs []string) ([]D
 					RoomID:   homeID,
 					RoomName: home.HomeName,
 					GroupID:  home.GroupID,
-					Region:   auth.NormalizeRegion(c.cfg.Region),
+					Region:   oauth.NormalizeRegion(c.cfg.Region),
 				}
 			}
 			for roomID, room := range home.RoomInfo {
@@ -208,7 +202,7 @@ func (c *Client) ListDevices(ctx context.Context, selectedHomeIDs []string) ([]D
 						RoomID:   roomID,
 						RoomName: room.RoomName,
 						GroupID:  home.GroupID,
-						Region:   auth.NormalizeRegion(c.cfg.Region),
+						Region:   oauth.NormalizeRegion(c.cfg.Region),
 					}
 				}
 			}

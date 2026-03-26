@@ -133,3 +133,29 @@ export type CommandResult = {
     message?: string;
   };
 };
+
+export type XiaomiOAuthSessionStatus = 'pending' | 'completed' | 'failed' | 'expired';
+
+export type OAuthSession = {
+  id: string;
+  provider: 'xiaomi';
+  plugin_id?: string;
+  account_name?: string;
+  region?: string;
+  client_id?: string;
+  redirect_url?: string;
+  device_id?: string;
+  auth_url?: string;
+  status: XiaomiOAuthSessionStatus;
+  error?: string;
+  account_config?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+  state_expires_at?: string | null;
+  token_expires_at?: string | null;
+};
+
+export type XiaomiOAuthStartResponse = {
+  session: OAuthSession;
+};

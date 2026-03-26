@@ -30,6 +30,10 @@ type Store interface {
 	AppendAudit(context.Context, models.AuditRecord) error
 	ListAudits(context.Context, AuditFilter) ([]models.AuditRecord, error)
 	CountAudits(context.Context) (int, error)
+
+	UpsertOAuthSession(context.Context, models.OAuthSession) error
+	GetOAuthSession(context.Context, string) (models.OAuthSession, bool, error)
+	GetOAuthSessionByState(context.Context, models.OAuthProvider, string) (models.OAuthSession, bool, error)
 }
 
 type DeviceFilter struct {
@@ -53,4 +57,3 @@ type AuditFilter struct {
 	DeviceID string
 	Limit    int
 }
-

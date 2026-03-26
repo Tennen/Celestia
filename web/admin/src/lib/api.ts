@@ -5,8 +5,10 @@ import type {
   DashboardSummary,
   DeviceView,
   EventRecord,
+  OAuthSession,
   PluginInstallRecord,
   PluginRuntimeView,
+  XiaomiOAuthStartResponse,
 } from './types';
 
 const RAW_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -133,5 +135,21 @@ export async function fetchAudits(limit = 100) {
   return request<AuditRecord[]>(`/audits?limit=${limit}`);
 }
 
-export { ApiError };
+export async function startXiaomiOAuth(payload: {
+  plugin_id?: string;
+  account_name?: string;
+  region: string;
+  client_id: string;
+  redirect_base_url?: string;
+}) {
+  return request<XiaomiOAuthStartResponse>('/oauth/xiaomi/start', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
 
+export async function fetchXiaomiOAuthSession(sessionId: string) {
+  return request<OAuthSession>(`/oauth/xiaomi/sessions/${sessionId}`);
+}
+
+export { ApiError };

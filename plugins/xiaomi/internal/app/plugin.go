@@ -12,7 +12,7 @@ import (
 
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
-	"github.com/chentianyu/celestia/plugins/xiaomi/internal/auth"
+	"github.com/chentianyu/celestia/internal/xiaomi/oauth"
 	"github.com/chentianyu/celestia/plugins/xiaomi/internal/cloud"
 	"github.com/chentianyu/celestia/plugins/xiaomi/internal/mapper"
 	"github.com/chentianyu/celestia/plugins/xiaomi/internal/spec"
@@ -104,7 +104,7 @@ func (p *Plugin) Manifest() models.PluginManifest {
 				},
 				"accounts": map[string]any{
 					"type":        "array",
-					"description": "Real Xiaomi cloud accounts with tokens or auth_code, plus region and optional home_ids.",
+					"description": "Real Xiaomi cloud accounts. auth_code/refresh_token flows require explicit client_id and redirect_url.",
 				},
 			},
 		},
@@ -704,7 +704,7 @@ func parseConfig(cfg map[string]any) (Config, map[string]*accountRuntime, error)
 func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountConfig, error) {
 	account := AccountConfig{
 		Name:         stringParam(entry["name"]),
-		Region:       auth.NormalizeRegion(stringParam(entry["region"])),
+		Region:       oauth.NormalizeRegion(stringParam(entry["region"])),
 		ClientID:     stringParam(entry["client_id"]),
 		RedirectURL:  stringParam(entry["redirect_url"]),
 		AccessToken:  stringParam(entry["access_token"]),
@@ -721,6 +721,9 @@ func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountCo
 	}
 	if account.AccessToken == "" && account.RefreshToken == "" && account.AuthCode == "" {
 		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires access_token or refresh_token or auth_code", account.Name)
+	}
+	if (account.RefreshToken != "" || account.AuthCode != "") && (account.ClientID == "" || account.RedirectURL == "") {
+		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires client_id and redirect_url for refresh_token/auth_code flows", account.Name)
 	}
 	if account.AuthCode != "" && account.DeviceID == "" {
 		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires device_id when auth_code is provided", account.Name)

@@ -1,4 +1,4 @@
-package auth
+package oauth
 
 import (
 	"context"
@@ -11,9 +11,8 @@ import (
 )
 
 const (
-	DefaultClientID    = "2882303761520251711"
-	DefaultRedirectURL = "http://homeassistant.local:8123"
 	defaultOAuthHost   = "ha.api.io.mi.com"
+	defaultAuthURL     = "https://account.xiaomi.com/oauth2/authorize"
 	tokenLifetimeRatio = 0.7
 )
 
@@ -57,16 +56,53 @@ func OAuthHost(region string) string {
 	return region + "." + defaultOAuthHost
 }
 
+func AuthorizeURL(clientID, redirectURL, deviceID, state string, scope []string, skipConfirm bool) (string, error) {
+	if strings.TrimSpace(clientID) == "" {
+		return "", fmt.Errorf("xiaomi client_id is required when generating auth_url")
+	}
+	if strings.TrimSpace(redirectURL) == "" {
+		return "", fmt.Errorf("xiaomi redirect_url is required when generating auth_url")
+	}
+	if strings.TrimSpace(deviceID) == "" {
+		return "", fmt.Errorf("xiaomi device_id is required when generating auth_url")
+	}
+	if strings.TrimSpace(state) == "" {
+		return "", fmt.Errorf("xiaomi state is required when generating auth_url")
+	}
+	endpoint, err := url.Parse(defaultAuthURL)
+	if err != nil {
+		return "", err
+	}
+	query := endpoint.Query()
+	query.Set("redirect_uri", redirectURL)
+	query.Set("client_id", clientID)
+	query.Set("response_type", "code")
+	query.Set("device_id", deviceID)
+	query.Set("state", state)
+	if len(scope) > 0 {
+		query.Set("scope", strings.Join(scope, " "))
+	}
+	query.Set("skip_confirm", fmt.Sprintf("%t", skipConfirm))
+	endpoint.RawQuery = query.Encode()
+	return endpoint.String(), nil
+}
+
 func (c *Client) ExchangeCode(ctx context.Context, region, clientID, redirectURL, authCode, deviceID string) (TokenSet, error) {
 	if strings.TrimSpace(authCode) == "" {
 		return TokenSet{}, fmt.Errorf("xiaomi auth code is required")
+	}
+	if strings.TrimSpace(clientID) == "" {
+		return TokenSet{}, fmt.Errorf("xiaomi client_id is required when exchanging auth_code")
+	}
+	if strings.TrimSpace(redirectURL) == "" {
+		return TokenSet{}, fmt.Errorf("xiaomi redirect_url is required when exchanging auth_code")
 	}
 	if strings.TrimSpace(deviceID) == "" {
 		return TokenSet{}, fmt.Errorf("xiaomi device_id is required when exchanging auth_code")
 	}
 	return c.getToken(ctx, region, map[string]any{
-		"client_id":    valueOrDefault(clientID, DefaultClientID),
-		"redirect_uri": valueOrDefault(redirectURL, DefaultRedirectURL),
+		"client_id":    clientID,
+		"redirect_uri": redirectURL,
 		"code":         authCode,
 		"device_id":    deviceID,
 	})
@@ -76,9 +112,15 @@ func (c *Client) RefreshToken(ctx context.Context, region, clientID, redirectURL
 	if strings.TrimSpace(refreshToken) == "" {
 		return TokenSet{}, fmt.Errorf("xiaomi refresh token is required")
 	}
+	if strings.TrimSpace(clientID) == "" {
+		return TokenSet{}, fmt.Errorf("xiaomi client_id is required when refreshing token")
+	}
+	if strings.TrimSpace(redirectURL) == "" {
+		return TokenSet{}, fmt.Errorf("xiaomi redirect_url is required when refreshing token")
+	}
 	return c.getToken(ctx, region, map[string]any{
-		"client_id":     valueOrDefault(clientID, DefaultClientID),
-		"redirect_uri":  valueOrDefault(redirectURL, DefaultRedirectURL),
+		"client_id":     clientID,
+		"redirect_uri":  redirectURL,
 		"refresh_token": refreshToken,
 	})
 }
@@ -130,11 +172,4 @@ func (c *Client) getToken(ctx context.Context, region string, payload map[string
 		RefreshToken: body.Result.RefreshToken,
 		ExpiresAt:    time.Now().UTC().Add(expiresIn),
 	}, nil
-}
-
-func valueOrDefault(value, fallback string) string {
-	if strings.TrimSpace(value) == "" {
-		return fallback
-	}
-	return value
 }

@@ -43,42 +43,42 @@ const (
 type DeviceKind string
 
 const (
-	DeviceKindLight         DeviceKind = "light"
-	DeviceKindSwitch        DeviceKind = "switch"
-	DeviceKindSensor        DeviceKind = "sensor"
-	DeviceKindClimate       DeviceKind = "climate"
-	DeviceKindWasher        DeviceKind = "washer"
-	DeviceKindPetFeeder     DeviceKind = "pet_feeder"
-	DeviceKindPetFountain   DeviceKind = "pet_fountain"
-	DeviceKindPetLitterBox  DeviceKind = "pet_litter_box"
-	DeviceKindAquarium      DeviceKind = "aquarium"
-	DeviceKindSpeaker       DeviceKind = "speaker"
-	DeviceKindCameraLike    DeviceKind = "camera_like"
+	DeviceKindLight        DeviceKind = "light"
+	DeviceKindSwitch       DeviceKind = "switch"
+	DeviceKindSensor       DeviceKind = "sensor"
+	DeviceKindClimate      DeviceKind = "climate"
+	DeviceKindWasher       DeviceKind = "washer"
+	DeviceKindPetFeeder    DeviceKind = "pet_feeder"
+	DeviceKindPetFountain  DeviceKind = "pet_fountain"
+	DeviceKindPetLitterBox DeviceKind = "pet_litter_box"
+	DeviceKindAquarium     DeviceKind = "aquarium"
+	DeviceKindSpeaker      DeviceKind = "speaker"
+	DeviceKindCameraLike   DeviceKind = "camera_like"
 )
 
 type PluginManifest struct {
-	ID           string                 `json:"id"`
-	Name         string                 `json:"name"`
-	Version      string                 `json:"version"`
-	Vendor       string                 `json:"vendor"`
-	Capabilities []string               `json:"capabilities"`
-	ConfigSchema map[string]any         `json:"config_schema,omitempty"`
-	DeviceKinds  []DeviceKind           `json:"device_kinds"`
-	Metadata     map[string]any         `json:"metadata,omitempty"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Version      string         `json:"version"`
+	Vendor       string         `json:"vendor"`
+	Capabilities []string       `json:"capabilities"`
+	ConfigSchema map[string]any `json:"config_schema,omitempty"`
+	DeviceKinds  []DeviceKind   `json:"device_kinds"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 type PluginInstallRecord struct {
-	PluginID         string                 `json:"plugin_id"`
-	Version          string                 `json:"version"`
-	Status           PluginStatus           `json:"status"`
-	BinaryPath       string                 `json:"binary_path"`
-	Config           map[string]any         `json:"config"`
-	ConfigRef        string                 `json:"config_ref,omitempty"`
-	InstalledAt      time.Time              `json:"installed_at"`
-	UpdatedAt        time.Time              `json:"updated_at"`
-	LastHeartbeatAt  *time.Time             `json:"last_heartbeat_at,omitempty"`
-	LastHealthStatus HealthState            `json:"last_health_status"`
-	Metadata         map[string]any         `json:"metadata,omitempty"`
+	PluginID         string         `json:"plugin_id"`
+	Version          string         `json:"version"`
+	Status           PluginStatus   `json:"status"`
+	BinaryPath       string         `json:"binary_path"`
+	Config           map[string]any `json:"config"`
+	ConfigRef        string         `json:"config_ref,omitempty"`
+	InstalledAt      time.Time      `json:"installed_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	LastHeartbeatAt  *time.Time     `json:"last_heartbeat_at,omitempty"`
+	LastHealthStatus HealthState    `json:"last_health_status"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
 }
 
 type PluginHealth struct {
@@ -119,10 +119,10 @@ type Event struct {
 }
 
 type CommandRequest struct {
-	DeviceID   string         `json:"device_id"`
-	Action     string         `json:"action"`
-	Params     map[string]any `json:"params,omitempty"`
-	RequestID  string         `json:"request_id"`
+	DeviceID  string         `json:"device_id"`
+	Action    string         `json:"action"`
+	Params    map[string]any `json:"params,omitempty"`
+	RequestID string         `json:"request_id"`
 }
 
 type CommandResponse struct {
@@ -132,15 +132,15 @@ type CommandResponse struct {
 }
 
 type AuditRecord struct {
-	ID         string         `json:"id"`
-	Actor      string         `json:"actor"`
-	DeviceID   string         `json:"device_id"`
-	Action     string         `json:"action"`
-	Params     map[string]any `json:"params,omitempty"`
-	Result     string         `json:"result"`
-	RiskLevel  RiskLevel      `json:"risk_level"`
-	Allowed    bool           `json:"allowed"`
-	CreatedAt  time.Time      `json:"created_at"`
+	ID        string         `json:"id"`
+	Actor     string         `json:"actor"`
+	DeviceID  string         `json:"device_id"`
+	Action    string         `json:"action"`
+	Params    map[string]any `json:"params,omitempty"`
+	Result    string         `json:"result"`
+	RiskLevel RiskLevel      `json:"risk_level"`
+	Allowed   bool           `json:"allowed"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 type PolicyDecision struct {
@@ -158,14 +158,14 @@ type CatalogPlugin struct {
 }
 
 type PluginRuntimeView struct {
-	Record      PluginInstallRecord `json:"record"`
-	Manifest    *PluginManifest     `json:"manifest,omitempty"`
-	Health      PluginHealth        `json:"health"`
-	Running     bool                `json:"running"`
-	LastError   string              `json:"last_error,omitempty"`
-	RecentLogs  []string            `json:"recent_logs,omitempty"`
-	ProcessPID  int                 `json:"process_pid,omitempty"`
-	ListenAddr  string              `json:"listen_addr,omitempty"`
+	Record     PluginInstallRecord `json:"record"`
+	Manifest   *PluginManifest     `json:"manifest,omitempty"`
+	Health     PluginHealth        `json:"health"`
+	Running    bool                `json:"running"`
+	LastError  string              `json:"last_error,omitempty"`
+	RecentLogs []string            `json:"recent_logs,omitempty"`
+	ProcessPID int                 `json:"process_pid,omitempty"`
+	ListenAddr string              `json:"listen_addr,omitempty"`
 }
 
 type DashboardSummary struct {
@@ -175,4 +175,40 @@ type DashboardSummary struct {
 	OnlineDevices  int `json:"online_devices"`
 	Events         int `json:"events"`
 	Audits         int `json:"audits"`
+}
+
+type OAuthProvider string
+
+const (
+	OAuthProviderXiaomi OAuthProvider = "xiaomi"
+)
+
+type OAuthSessionStatus string
+
+const (
+	OAuthSessionPending   OAuthSessionStatus = "pending"
+	OAuthSessionCompleted OAuthSessionStatus = "completed"
+	OAuthSessionFailed    OAuthSessionStatus = "failed"
+	OAuthSessionExpired   OAuthSessionStatus = "expired"
+)
+
+type OAuthSession struct {
+	ID             string             `json:"id"`
+	Provider       OAuthProvider      `json:"provider"`
+	PluginID       string             `json:"plugin_id,omitempty"`
+	AccountName    string             `json:"account_name,omitempty"`
+	Region         string             `json:"region,omitempty"`
+	ClientID       string             `json:"client_id,omitempty"`
+	RedirectURL    string             `json:"redirect_url,omitempty"`
+	DeviceID       string             `json:"device_id,omitempty"`
+	State          string             `json:"state,omitempty"`
+	AuthURL        string             `json:"auth_url,omitempty"`
+	Status         OAuthSessionStatus `json:"status"`
+	Error          string             `json:"error,omitempty"`
+	AccountConfig  map[string]any     `json:"account_config,omitempty"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	CompletedAt    *time.Time         `json:"completed_at,omitempty"`
+	StateExpiresAt *time.Time         `json:"state_expires_at,omitempty"`
+	TokenExpiresAt *time.Time         `json:"token_expires_at,omitempty"`
 }
