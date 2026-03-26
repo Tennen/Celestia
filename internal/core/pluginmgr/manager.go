@@ -140,35 +140,59 @@ func (m *Manager) UpdateConfig(ctx context.Context, pluginID string, config map[
 	if !ok {
 		return models.PluginInstallRecord{}, errors.New("plugin not installed")
 	}
-	wasEnabled := record.Status == models.PluginStatusEnabled
+
+	m.mu.RLock()
+	runtime := m.runtimes[pluginID]
+	running := runtime != nil && runtime.running && runtime.client != nil
+	m.mu.RUnlock()
+
+	if running {
+		payload, err := pluginapi.EncodeStruct(config)
+		if err != nil {
+			return models.PluginInstallRecord{}, err
+		}
+		validation, err := runtime.client.ValidateConfig(ctx, payload)
+		if err != nil {
+			return models.PluginInstallRecord{}, err
+		}
+		validMap := validation.AsMap()
+		if valid, ok := validMap["valid"].(bool); ok && !valid {
+			return models.PluginInstallRecord{}, fmt.Errorf("plugin config invalid: %v", validMap["error"])
+		}
+		if _, err := runtime.client.Setup(ctx, payload); err != nil {
+			runtime.lastError = err.Error()
+			runtime.health.Status = models.HealthStateDegraded
+			runtime.health.Message = err.Error()
+			runtime.health.CheckedAt = time.Now().UTC()
+			return models.PluginInstallRecord{}, err
+		}
+	}
+
 	record.Config = config
 	record.UpdatedAt = time.Now().UTC()
 	if err := m.store.UpsertPluginRecord(ctx, record); err != nil {
 		return models.PluginInstallRecord{}, err
 	}
-	if wasEnabled {
-		m.mu.RLock()
-		runtime := m.runtimes[pluginID]
-		running := runtime != nil && runtime.running
-		m.mu.RUnlock()
-		if running {
-			if err := m.Disable(ctx, pluginID); err != nil {
-				return models.PluginInstallRecord{}, err
-			}
+
+	if running {
+		runtime.record = record
+		if err := m.syncDevices(ctx, runtime); err != nil {
+			runtime.lastError = err.Error()
+			runtime.health.Status = models.HealthStateDegraded
+			runtime.health.Message = err.Error()
+			runtime.health.CheckedAt = time.Now().UTC()
+			record.LastHealthStatus = models.HealthStateDegraded
+		} else {
+			runtime.lastError = ""
+			runtime.health.Status = models.HealthStateHealthy
+			runtime.health.Message = "plugin running"
+			runtime.health.CheckedAt = time.Now().UTC()
+			record.LastHealthStatus = models.HealthStateHealthy
 		}
-		if err := m.Enable(ctx, pluginID); err != nil {
-			refreshed, ok, refreshErr := m.store.GetPluginRecord(ctx, pluginID)
-			if refreshErr == nil && ok {
-				return refreshed, err
-			}
+		record.UpdatedAt = time.Now().UTC()
+		runtime.record = record
+		if err := m.store.UpsertPluginRecord(ctx, record); err != nil {
 			return models.PluginInstallRecord{}, err
-		}
-		refreshed, ok, err := m.store.GetPluginRecord(ctx, pluginID)
-		if err != nil {
-			return models.PluginInstallRecord{}, err
-		}
-		if ok {
-			return refreshed, nil
 		}
 	}
 	return record, nil

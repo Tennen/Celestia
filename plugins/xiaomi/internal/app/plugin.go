@@ -132,12 +132,15 @@ func (p *Plugin) Manifest() models.PluginManifest {
 }
 
 func (p *Plugin) ValidateConfig(_ context.Context, cfg map[string]any) error {
-	_, _, err := parseConfig(cfg)
+	_, _, err := parseConfig(cfg, nil)
 	return err
 }
 
 func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
-	config, runtimes, err := parseConfig(cfg)
+	p.mu.RLock()
+	existing := p.accounts
+	p.mu.RUnlock()
+	config, runtimes, err := parseConfig(cfg, existing)
 	if err != nil {
 		return err
 	}
@@ -687,7 +690,7 @@ func propertyRefs(mapping *mapper.DeviceMapping) []namedPropertyRef {
 	return refs
 }
 
-func parseConfig(cfg map[string]any) (Config, map[string]*accountRuntime, error) {
+func parseConfig(cfg map[string]any, existing map[string]*accountRuntime) (Config, map[string]*accountRuntime, error) {
 	config := Config{PollIntervalSeconds: 30}
 	if raw, ok := cfg["poll_interval_seconds"].(float64); ok && int(raw) > 0 {
 		config.PollIntervalSeconds = int(raw)
@@ -704,6 +707,12 @@ func parseConfig(cfg map[string]any) (Config, map[string]*accountRuntime, error)
 			return Config{}, nil, err
 		}
 		config.Accounts = append(config.Accounts, account)
+		if prev := existing[account.Name]; prev != nil && canReuseAccountRuntime(prev.cfg, cloudCfg) {
+			prev.cfg = cloudCfg
+			prev.client.UpdateConfig(cloudCfg)
+			runtimes[account.Name] = prev
+			continue
+		}
 		runtimes[account.Name] = &accountRuntime{
 			cfg:    cloudCfg,
 			client: cloud.NewClient(cloudCfg, nil),
@@ -711,6 +720,13 @@ func parseConfig(cfg map[string]any) (Config, map[string]*accountRuntime, error)
 		}
 	}
 	return config, runtimes, nil
+}
+
+func canReuseAccountRuntime(current, next cloud.AccountConfig) bool {
+	return current.Name == next.Name &&
+		current.Region == next.Region &&
+		current.Username == next.Username &&
+		current.DeviceID == next.DeviceID
 }
 
 func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountConfig, error) {

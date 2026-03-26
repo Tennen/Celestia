@@ -181,7 +181,8 @@ export function PluginWorkspace({
                           <code>password</code>, and <code>device_id</code> in the JSON on the left, then click{' '}
                           <code>{selectedPlugin ? 'Save Config' : 'Install'}</code> and <code>Enable</code>. The plugin
                           authenticates when the runtime starts. On an already enabled plugin, <code>Save Config</code>{' '}
-                          now restarts the runtime and retries auth with the current draft.
+                          now reapplies the draft to the running plugin and retries auth without dropping the current
+                          login session.
                         </p>
                         <p className="muted">
                           Optional paths: provide <code>service_token</code>, <code>ssecurity</code>, and{' '}

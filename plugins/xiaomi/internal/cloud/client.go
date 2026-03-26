@@ -128,6 +128,43 @@ func NewClient(cfg AccountConfig, httpClient *http.Client) *Client {
 	}
 }
 
+func (c *Client) UpdateConfig(cfg AccountConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.cfg = cfg
+	c.clientID = strings.TrimSpace(cfg.ClientID)
+	c.redirectURL = strings.TrimSpace(cfg.RedirectURL)
+	if deviceID := strings.TrimSpace(cfg.DeviceID); deviceID != "" {
+		c.deviceID = deviceID
+		c.userAgent = legacyUserAgent(deviceID)
+	}
+	c.locale = normalizeLocale(cfg.Locale)
+	c.timezone = normalizeTimezone(cfg.Timezone)
+
+	if value := strings.TrimSpace(cfg.AccessToken); value != "" {
+		c.accessToken = value
+	}
+	if value := strings.TrimSpace(cfg.RefreshToken); value != "" {
+		c.refreshToken = value
+	}
+	if !cfg.ExpiresAt.IsZero() {
+		c.expiresAt = cfg.ExpiresAt
+	}
+	if value := strings.TrimSpace(cfg.ServiceToken); value != "" {
+		c.serviceToken = value
+	}
+	if value := strings.TrimSpace(cfg.SSecurity); value != "" {
+		c.ssecurity = value
+	}
+	if value := strings.TrimSpace(cfg.UserID); value != "" {
+		c.userID = value
+	}
+	if value := strings.TrimSpace(cfg.CUserID); value != "" {
+		c.cuserID = value
+	}
+}
+
 func (c *Client) usesLegacyAuth() bool {
 	return strings.TrimSpace(c.cfg.Username) != "" ||
 		strings.TrimSpace(c.cfg.Password) != "" ||
