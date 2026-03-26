@@ -14,11 +14,15 @@ export const DEFAULT_INSTALL_CONFIGS: Record<string, string> = {
         {
           name: 'primary',
           region: 'cn',
-          client_id: '<xiaomi-client-id>',
-          redirect_url: '<xiaomi-redirect-url>',
-          access_token: '<xiaomi-access-token>',
-          refresh_token: '<xiaomi-refresh-token>',
-          expires_at: '<RFC3339-expiry-optional>',
+          username: '<xiaomi-username>',
+          password: '<xiaomi-password>',
+          device_id: 'CELESTIAXIAOMI01',
+          service_token: '<optional-service-token>',
+          ssecurity: '<optional-ssecurity>',
+          user_id: '<optional-user-id>',
+          cuser_id: '<optional-cuser-id>',
+          locale: 'zh_CN',
+          timezone: 'GMT+08:00',
           home_ids: ['<optional-home-id>'],
         },
       ],
@@ -141,6 +145,15 @@ export function getXiaomiDraftSeed(raw: string) {
     region,
     clientId,
   };
+}
+
+export function canStartXiaomiOAuth(raw: string) {
+  try {
+    getXiaomiDraftSeed(raw);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function mergeXiaomiAccountConfig(rawDraft: string, accountConfig: Record<string, unknown>) {

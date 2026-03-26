@@ -7,20 +7,20 @@ func BuiltinCatalog() []models.CatalogPlugin {
 		{
 			ID:          "xiaomi",
 			Name:        "Xiaomi MIoT Plugin",
-			Description: "Phase 1 Xiaomi MIoT cloud integration with real OAuth/token sessions, multi-account, multi-region, aquarium control, and speaker text push.",
+			Description: "Phase 1 Xiaomi MIoT cloud integration with real account login or session reuse, multi-account, multi-region, aquarium control, and speaker text push.",
 			BinaryName:  "xiaomi-plugin",
 			Manifest: models.PluginManifest{
 				ID:           "xiaomi",
 				Name:         "Xiaomi MIoT Plugin",
 				Version:      "1.0.0",
 				Vendor:       "xiaomi",
-				Capabilities: []string{"discover", "state", "command", "events", "oauth", "real_cloud", "multi_account", "multi_region", "aquarium_control", "speaker_voice_push"},
+				Capabilities: []string{"discover", "state", "command", "events", "oauth", "account_password_login", "real_cloud", "multi_account", "multi_region", "service_token_session", "aquarium_control", "speaker_voice_push"},
 				ConfigSchema: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
 						"accounts": map[string]any{
 							"type":        "array",
-							"description": "Real Xiaomi MIoT accounts with explicit client_id/redirect_url for refresh_token or auth_code flows.",
+							"description": "Real Xiaomi MIoT accounts with username/password or service_token/ssecurity/user_id. OAuth client_id/redirect_url remains optional for auth-code or refresh-token flows.",
 						},
 						"poll_interval_seconds": map[string]any{
 							"type":    "number",

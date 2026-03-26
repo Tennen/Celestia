@@ -17,6 +17,7 @@ type Props = {
   pluginLogs: string[];
   busy: string;
   xiaomiOAuthActive: boolean;
+  xiaomiOAuthAvailable: boolean;
   onSelectPlugin: (pluginId: string) => void;
   onDraftChange: (value: string) => void;
   onConnectXiaomiOAuth: () => void;
@@ -39,6 +40,7 @@ export function PluginWorkspace({
   pluginLogs,
   busy,
   xiaomiOAuthActive,
+  xiaomiOAuthAvailable,
   onSelectPlugin,
   onDraftChange,
   onConnectXiaomiOAuth,
@@ -147,7 +149,7 @@ export function PluginWorkspace({
                         <Button
                           variant="secondary"
                           onClick={onConnectXiaomiOAuth}
-                          disabled={busy === `xiaomi-oauth-${selectedCatalogPlugin.id}` || xiaomiOAuthActive}
+                          disabled={!xiaomiOAuthAvailable || busy === `xiaomi-oauth-${selectedCatalogPlugin.id}` || xiaomiOAuthActive}
                         >
                           Connect OAuth
                         </Button>

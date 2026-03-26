@@ -24,24 +24,21 @@ The gateway serves the admin build from `web/admin/dist` and persists runtime da
 
 Each vendor plugin now expects real cloud credentials. The admin UI ships JSON templates for:
 
-- Xiaomi: `region` plus `access_token` / `refresh_token` or `auth_code`
-- Xiaomi: `region`, and for token refresh / auth-code exchange also explicit `client_id` + `redirect_url`
+- Xiaomi: `region` plus either `username/password`, or `service_token/ssecurity/user_id`
+- Xiaomi: optional OAuth `access_token` / `refresh_token` / `auth_code` remains supported, with explicit `client_id` + `redirect_url` required for refresh-token or auth-code exchange
 - Petkit: `username`, `password`, `region`, `timezone`
 - Haier: `email`, `password` or `refresh_token`, plus optional `mobile_id` and `timezone`
 
 If credentials are missing or invalid, plugin enablement fails explicitly instead of falling back to demo devices.
 
-## Xiaomi OAuth
+## Xiaomi Auth
 
-Celestia now owns the Xiaomi browser OAuth flow:
+Celestia supports two Xiaomi authentication modes:
 
-- Admin can start Xiaomi authorization directly from the Xiaomi plugin card.
-- The gateway persists pending/completed OAuth sessions in SQLite.
-- The Xiaomi callback URL is Celestia's own `http(s)://<gateway-host>/api/v1/oauth/xiaomi/callback`.
-- Xiaomi `client_id` must allow that exact callback URL in your own OAuth application registration.
-- The project does not depend on Home Assistant and does not use `homeassistant.local` as a redirect target.
+1. Preferred pragmatic path: Xiaomi account login via `username/password`, which establishes a real `serviceToken/ssecurity` cloud session inside the plugin.
+2. Optional browser OAuth flow: Admin can still start Xiaomi authorization directly from the Xiaomi plugin card. The gateway persists pending/completed OAuth sessions in SQLite, and the callback URL is Celestia's own `http(s)://<gateway-host>/api/v1/oauth/xiaomi/callback`.
 
-After OAuth completes, the admin UI injects the returned Xiaomi account tokens back into the current config draft so you can save or install the plugin with the refreshed credentials.
+For the non-OAuth path, you can also supply an already extracted Xiaomi cloud session by filling `service_token`, `ssecurity`, and `user_id`. If Xiaomi requires captcha or second-factor verification during password login, the plugin now fails explicitly with the upstream verification URL instead of fabricating a session.
 
 ## Docker
 

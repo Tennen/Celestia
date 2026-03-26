@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"sort"
 	"strings"
 	"sync"
@@ -16,20 +17,29 @@ import (
 )
 
 const (
-	defaultAPIHost = "ha.api.io.mi.com"
-	profileURL     = "https://open.account.xiaomi.com/user/profile"
+	defaultOAuthAPIHost  = "ha.api.io.mi.com"
+	defaultLegacyAPIHost = "api.io.mi.com"
+	profileURL           = "https://open.account.xiaomi.com/user/profile"
 )
 
 type AccountConfig struct {
 	Name         string
 	Region       string
+	Username     string
+	Password     string
 	ClientID     string
 	RedirectURL  string
 	AccessToken  string
 	RefreshToken string
 	AuthCode     string
 	DeviceID     string
+	ServiceToken string
+	SSecurity    string
+	UserID       string
+	CUserID      string
 	HomeIDs      []string
+	Locale       string
+	Timezone     string
 	ExpiresAt    time.Time
 }
 
@@ -51,49 +61,93 @@ type DeviceRecord struct {
 
 type Client struct {
 	httpClient  *http.Client
+	loginClient *http.Client
 	authClient  *oauth.Client
 	cfg         AccountConfig
-	baseURL     string
-	clientID    string
-	redirectURL string
+
+	oauthBaseURL  string
+	legacyBaseURL string
+	clientID      string
+	redirectURL   string
+	deviceID      string
+	userAgent     string
+	locale        string
+	timezone      string
+	sid           string
 
 	mu           sync.Mutex
 	accessToken  string
 	refreshToken string
 	expiresAt    time.Time
+
+	serviceToken string
+	ssecurity    string
+	userID       string
+	cuserID      string
 }
 
 func NewClient(cfg AccountConfig, httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
+	jar, _ := cookiejar.New(nil)
 	region := oauth.NormalizeRegion(cfg.Region)
-	host := defaultAPIHost
+	oauthHost := defaultOAuthAPIHost
+	legacyHost := defaultLegacyAPIHost
 	if region != "cn" {
-		host = region + "." + defaultAPIHost
+		oauthHost = region + "." + defaultOAuthAPIHost
+		legacyHost = region + "." + defaultLegacyAPIHost
 	}
-	clientID := strings.TrimSpace(cfg.ClientID)
-	redirectURL := strings.TrimSpace(cfg.RedirectURL)
+	deviceID := strings.TrimSpace(cfg.DeviceID)
+	if deviceID == "" {
+		deviceID = "CELESTIA00000000"
+	}
 	return &Client{
-		httpClient:   httpClient,
-		authClient:   oauth.NewClient(httpClient),
-		cfg:          cfg,
-		baseURL:      "https://" + host,
-		clientID:     clientID,
-		redirectURL:  redirectURL,
-		accessToken:  strings.TrimSpace(cfg.AccessToken),
-		refreshToken: strings.TrimSpace(cfg.RefreshToken),
-		expiresAt:    cfg.ExpiresAt,
+		httpClient:    httpClient,
+		loginClient:   &http.Client{Timeout: 30 * time.Second, Jar: jar},
+		authClient:    oauth.NewClient(httpClient),
+		cfg:           cfg,
+		oauthBaseURL:  "https://" + oauthHost,
+		legacyBaseURL: "https://" + legacyHost + "/app",
+		clientID:      strings.TrimSpace(cfg.ClientID),
+		redirectURL:   strings.TrimSpace(cfg.RedirectURL),
+		deviceID:      deviceID,
+		userAgent:     legacyUserAgent(deviceID),
+		locale:        normalizeLocale(cfg.Locale),
+		timezone:      normalizeTimezone(cfg.Timezone),
+		sid:           legacySID,
+		accessToken:   strings.TrimSpace(cfg.AccessToken),
+		refreshToken:  strings.TrimSpace(cfg.RefreshToken),
+		expiresAt:     cfg.ExpiresAt,
+		serviceToken:  strings.TrimSpace(cfg.ServiceToken),
+		ssecurity:     strings.TrimSpace(cfg.SSecurity),
+		userID:        strings.TrimSpace(cfg.UserID),
+		cuserID:       strings.TrimSpace(cfg.CUserID),
 	}
 }
 
-func (c *Client) EnsureToken(ctx context.Context) error {
+func (c *Client) usesLegacyAuth() bool {
+	return strings.TrimSpace(c.cfg.Username) != "" ||
+		strings.TrimSpace(c.cfg.Password) != "" ||
+		strings.TrimSpace(c.cfg.ServiceToken) != "" ||
+		strings.TrimSpace(c.cfg.SSecurity) != "" ||
+		strings.TrimSpace(c.cfg.UserID) != ""
+}
+
+func (c *Client) EnsureAuth(ctx context.Context) error {
+	if c.usesLegacyAuth() {
+		return c.ensureLegacySession(ctx)
+	}
+	return c.ensureOAuthToken(ctx)
+}
+
+func (c *Client) ensureOAuthToken(ctx context.Context) error {
 	c.mu.Lock()
 	accessToken := c.accessToken
 	refreshToken := c.refreshToken
 	expiresAt := c.expiresAt
 	authCode := strings.TrimSpace(c.cfg.AuthCode)
-	deviceID := strings.TrimSpace(c.cfg.DeviceID)
+	deviceID := c.deviceID
 	region := c.cfg.Region
 	clientID := c.clientID
 	redirectURL := c.redirectURL
@@ -138,7 +192,20 @@ func (c *Client) AccessToken() string {
 }
 
 func (c *Client) UserProfile(ctx context.Context) (map[string]any, error) {
-	if err := c.EnsureToken(ctx); err != nil {
+	if c.usesLegacyAuth() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if c.userID == "" {
+			return nil, fmt.Errorf("xiaomi account %q is not authenticated", c.cfg.Name)
+		}
+		return map[string]any{
+			"user_id":  c.userID,
+			"cuser_id": c.cuserID,
+			"region":   oauth.NormalizeRegion(c.cfg.Region),
+			"mode":     "service_token",
+		}, nil
+	}
+	if err := c.ensureOAuthToken(ctx); err != nil {
 		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, profileURL, nil)
@@ -164,10 +231,13 @@ func (c *Client) UserProfile(ctx context.Context) (map[string]any, error) {
 }
 
 func (c *Client) ListDevices(ctx context.Context, selectedHomeIDs []string) ([]DeviceRecord, error) {
-	if err := c.EnsureToken(ctx); err != nil {
+	if c.usesLegacyAuth() {
+		return c.legacyListDevices(ctx, selectedHomeIDs)
+	}
+	if err := c.ensureOAuthToken(ctx); err != nil {
 		return nil, err
 	}
-	homeInfos, err := c.homeInfos(ctx)
+	homeInfos, err := c.oauthHomeInfos(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +282,7 @@ func (c *Client) ListDevices(ctx context.Context, selectedHomeIDs []string) ([]D
 		return nil, nil
 	}
 
-	deviceInfos, err := c.deviceInfos(ctx, sortedKeys(deviceMeta))
+	deviceInfos, err := c.oauthDeviceInfos(ctx, sortedKeys(deviceMeta))
 	if err != nil {
 		return nil, err
 	}
@@ -238,10 +308,21 @@ func (c *Client) ListDevices(ctx context.Context, selectedHomeIDs []string) ([]D
 }
 
 func (c *Client) GetProps(ctx context.Context, params []map[string]any) ([]map[string]any, error) {
+	if c.usesLegacyAuth() {
+		var body struct {
+			Result []map[string]any `json:"result"`
+		}
+		if err := c.legacyAPIJSON(ctx, http.MethodPost, "miotspec/prop/get", map[string]any{
+			"params": params,
+		}, &body); err != nil {
+			return nil, err
+		}
+		return body.Result, nil
+	}
 	var body struct {
 		Result []map[string]any `json:"result"`
 	}
-	if err := c.apiPost(ctx, "/app/v2/miotspec/prop/get", map[string]any{
+	if err := c.oauthAPIJSON(ctx, "/app/v2/miotspec/prop/get", map[string]any{
 		"datasource": 1,
 		"params":     params,
 	}, &body); err != nil {
@@ -251,10 +332,21 @@ func (c *Client) GetProps(ctx context.Context, params []map[string]any) ([]map[s
 }
 
 func (c *Client) SetProps(ctx context.Context, params []map[string]any) ([]map[string]any, error) {
+	if c.usesLegacyAuth() {
+		var body struct {
+			Result []map[string]any `json:"result"`
+		}
+		if err := c.legacyAPIJSON(ctx, http.MethodPost, "miotspec/prop/set", map[string]any{
+			"params": params,
+		}, &body); err != nil {
+			return nil, err
+		}
+		return body.Result, nil
+	}
 	var body struct {
 		Result []map[string]any `json:"result"`
 	}
-	if err := c.apiPost(ctx, "/app/v2/miotspec/prop/set", map[string]any{
+	if err := c.oauthAPIJSON(ctx, "/app/v2/miotspec/prop/set", map[string]any{
 		"params": params,
 	}, &body); err != nil {
 		return nil, err
@@ -263,10 +355,26 @@ func (c *Client) SetProps(ctx context.Context, params []map[string]any) ([]map[s
 }
 
 func (c *Client) Action(ctx context.Context, did string, siid, aiid int, inputs []any) (map[string]any, error) {
+	if c.usesLegacyAuth() {
+		var body struct {
+			Result map[string]any `json:"result"`
+		}
+		if err := c.legacyAPIJSON(ctx, http.MethodPost, "miotspec/action", map[string]any{
+			"params": map[string]any{
+				"did":  did,
+				"siid": siid,
+				"aiid": aiid,
+				"in":   inputs,
+			},
+		}, &body); err != nil {
+			return nil, err
+		}
+		return body.Result, nil
+	}
 	var body struct {
 		Result map[string]any `json:"result"`
 	}
-	if err := c.apiPost(ctx, "/app/v2/miotspec/action", map[string]any{
+	if err := c.oauthAPIJSON(ctx, "/app/v2/miotspec/action", map[string]any{
 		"params": map[string]any{
 			"did":  did,
 			"siid": siid,
@@ -303,6 +411,7 @@ type homeInfosResponse struct {
 }
 
 type homeInfo struct {
+	UID      string
 	HomeName string
 	GroupID  string
 	DIDs     []string
@@ -314,7 +423,7 @@ type roomInfo struct {
 	DIDs     []string
 }
 
-func (c *Client) homeInfos(ctx context.Context) (homeInfosResponse, error) {
+func (c *Client) oauthHomeInfos(ctx context.Context) (homeInfosResponse, error) {
 	var body struct {
 		Result struct {
 			HomeList []struct {
@@ -341,7 +450,7 @@ func (c *Client) homeInfos(ctx context.Context) (homeInfosResponse, error) {
 			} `json:"share_home_list"`
 		} `json:"result"`
 	}
-	if err := c.apiPost(ctx, "/app/v2/homeroom/gethome", map[string]any{
+	if err := c.oauthAPIJSON(ctx, "/app/v2/homeroom/gethome", map[string]any{
 		"limit":           150,
 		"fetch_share":     true,
 		"fetch_share_dev": true,
@@ -369,6 +478,7 @@ func parseHomeInfo(name string, uid any, dids []string, rooms []struct {
 	DIDs []string `json:"dids"`
 }, homeID string) homeInfo {
 	info := homeInfo{
+		UID:      stringify(uid),
 		HomeName: name,
 		GroupID:  stringify(uid) + ":" + homeID,
 		DIDs:     dids,
@@ -383,7 +493,7 @@ func parseHomeInfo(name string, uid any, dids []string, rooms []struct {
 	return info
 }
 
-func (c *Client) deviceInfos(ctx context.Context, dids []string) (map[string]map[string]any, error) {
+func (c *Client) oauthDeviceInfos(ctx context.Context, dids []string) (map[string]map[string]any, error) {
 	result := map[string]map[string]any{}
 	start := ""
 	for {
@@ -403,7 +513,7 @@ func (c *Client) deviceInfos(ctx context.Context, dids []string) (map[string]map
 				NextStartDID string           `json:"next_start_did"`
 			} `json:"result"`
 		}
-		if err := c.apiPost(ctx, "/app/v2/home/device_list_page", payload, &body); err != nil {
+		if err := c.oauthAPIJSON(ctx, "/app/v2/home/device_list_page", payload, &body); err != nil {
 			return nil, err
 		}
 		for _, item := range body.Result.List {
@@ -429,22 +539,22 @@ func (c *Client) deviceInfos(ctx context.Context, dids []string) (map[string]map
 	return result, nil
 }
 
-func (c *Client) apiPost(ctx context.Context, path string, payload map[string]any, out any) error {
-	if err := c.EnsureToken(ctx); err != nil {
+func (c *Client) oauthAPIJSON(ctx context.Context, path string, payload map[string]any, out any) error {
+	if err := c.ensureOAuthToken(ctx); err != nil {
 		return err
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(raw))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.oauthBaseURL+path, bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Host", strings.TrimPrefix(strings.TrimPrefix(c.baseURL, "https://"), "http://"))
+	req.Header.Set("Host", strings.TrimPrefix(strings.TrimPrefix(c.oauthBaseURL, "https://"), "http://"))
 	req.Header.Set("X-Client-BizId", "haapi")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer"+c.AccessToken())
+	req.Header.Set("Authorization", "Bearer "+c.AccessToken())
 	req.Header.Set("X-Client-AppId", c.clientID)
 
 	var envelope struct {

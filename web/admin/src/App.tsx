@@ -16,7 +16,7 @@ import {
   sendCommand,
   updatePluginConfig,
 } from './lib/api';
-import { asArray, DEFAULT_INSTALL_CONFIGS, getPluginDraftText } from './lib/admin';
+import { asArray, canStartXiaomiOAuth, DEFAULT_INSTALL_CONFIGS, getPluginDraftText } from './lib/admin';
 import { prettyJson } from './lib/utils';
 import type { CatalogPlugin } from './lib/types';
 import type { AppSection } from './lib/admin';
@@ -146,6 +146,8 @@ function App() {
   const pluginDraft = selectedCatalogPlugin
     ? getPluginDraftText(selectedCatalogPlugin.id, Boolean(selectedPlugin), installDrafts, configDrafts)
     : '{}';
+  const xiaomiOAuthAvailable =
+    selectedCatalogPlugin?.id === 'xiaomi' && canStartXiaomiOAuth(pluginDraft);
 
   return (
     <div className="shell shell--app">
@@ -233,6 +235,7 @@ function App() {
               pluginLogs={pluginLogs}
               busy={busy}
               xiaomiOAuthActive={oauthActive}
+              xiaomiOAuthAvailable={xiaomiOAuthAvailable}
               onSelectPlugin={setSelectedPluginId}
               onDraftChange={(value) => {
                 if (!selectedCatalogPlugin) {

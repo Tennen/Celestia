@@ -22,12 +22,20 @@ import (
 type AccountConfig struct {
 	Name         string   `json:"name,omitempty"`
 	Region       string   `json:"region"`
+	Username     string   `json:"username,omitempty"`
+	Password     string   `json:"password,omitempty"`
 	ClientID     string   `json:"client_id,omitempty"`
 	RedirectURL  string   `json:"redirect_url,omitempty"`
 	AccessToken  string   `json:"access_token,omitempty"`
 	RefreshToken string   `json:"refresh_token,omitempty"`
 	AuthCode     string   `json:"auth_code,omitempty"`
 	DeviceID     string   `json:"device_id,omitempty"`
+	ServiceToken string   `json:"service_token,omitempty"`
+	SSecurity    string   `json:"ssecurity,omitempty"`
+	UserID       string   `json:"user_id,omitempty"`
+	CUserID      string   `json:"cuser_id,omitempty"`
+	Locale       string   `json:"locale,omitempty"`
+	Timezone     string   `json:"timezone,omitempty"`
 	ExpiresAt    string   `json:"expires_at,omitempty"`
 	HomeIDs      []string `json:"home_ids,omitempty"`
 }
@@ -89,9 +97,11 @@ func (p *Plugin) Manifest() models.PluginManifest {
 			"command",
 			"events",
 			"oauth",
+			"account_password_login",
 			"real_cloud",
 			"multi_account",
 			"multi_region",
+			"service_token_session",
 			"aquarium_control",
 			"speaker_voice_push",
 		},
@@ -104,7 +114,7 @@ func (p *Plugin) Manifest() models.PluginManifest {
 				},
 				"accounts": map[string]any{
 					"type":        "array",
-					"description": "Real Xiaomi cloud accounts. auth_code/refresh_token flows require explicit client_id and redirect_url.",
+					"description": "Real Xiaomi cloud accounts. Prefer username/password or service_token/ssecurity/user_id. OAuth auth_code/refresh_token flows remain optional.",
 				},
 			},
 		},
@@ -705,12 +715,20 @@ func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountCo
 	account := AccountConfig{
 		Name:         stringParam(entry["name"]),
 		Region:       oauth.NormalizeRegion(stringParam(entry["region"])),
+		Username:     stringParam(entry["username"]),
+		Password:     stringParam(entry["password"]),
 		ClientID:     stringParam(entry["client_id"]),
 		RedirectURL:  stringParam(entry["redirect_url"]),
 		AccessToken:  stringParam(entry["access_token"]),
 		RefreshToken: stringParam(entry["refresh_token"]),
 		AuthCode:     stringParam(entry["auth_code"]),
 		DeviceID:     stringParam(entry["device_id"]),
+		ServiceToken: stringParam(entry["service_token"]),
+		SSecurity:    stringParam(entry["ssecurity"]),
+		UserID:       stringParam(entry["user_id"]),
+		CUserID:      stringParam(entry["cuser_id"]),
+		Locale:       stringParam(entry["locale"]),
+		Timezone:     stringParam(entry["timezone"]),
 		ExpiresAt:    stringParam(entry["expires_at"]),
 	}
 	if account.Name == "" {
@@ -719,14 +737,26 @@ func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountCo
 	if !slices.Contains([]string{"cn", "de", "i2", "ru", "sg", "us"}, account.Region) {
 		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("unsupported Xiaomi region %q", account.Region)
 	}
-	if account.AccessToken == "" && account.RefreshToken == "" && account.AuthCode == "" {
-		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires access_token or refresh_token or auth_code", account.Name)
+	hasPasswordLogin := account.Username != "" || account.Password != ""
+	if hasPasswordLogin && (account.Username == "" || account.Password == "") {
+		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires both username and password", account.Name)
 	}
+	hasLegacySession := account.ServiceToken != "" || account.SSecurity != "" || account.UserID != ""
+	if hasLegacySession && (account.ServiceToken == "" || account.SSecurity == "" || account.UserID == "") {
+		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires service_token, ssecurity, and user_id together", account.Name)
+	}
+	hasOAuthSession := account.AccessToken != "" || account.RefreshToken != "" || account.AuthCode != ""
 	if (account.RefreshToken != "" || account.AuthCode != "") && (account.ClientID == "" || account.RedirectURL == "") {
 		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires client_id and redirect_url for refresh_token/auth_code flows", account.Name)
 	}
 	if account.AuthCode != "" && account.DeviceID == "" {
 		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires device_id when auth_code is provided", account.Name)
+	}
+	if !hasPasswordLogin && !hasLegacySession && !hasOAuthSession {
+		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires username/password, service_token/ssecurity/user_id, or OAuth token fields", account.Name)
+	}
+	if account.DeviceID == "" && hasPasswordLogin {
+		account.DeviceID = stableDeviceID(account.Name, account.Username, account.Region)
 	}
 	if rawHomeIDs, ok := entry["home_ids"].([]any); ok {
 		for _, item := range rawHomeIDs {
@@ -747,16 +777,40 @@ func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountCo
 	cloudCfg := cloud.AccountConfig{
 		Name:         account.Name,
 		Region:       account.Region,
+		Username:     account.Username,
+		Password:     account.Password,
 		ClientID:     account.ClientID,
 		RedirectURL:  account.RedirectURL,
 		AccessToken:  account.AccessToken,
 		RefreshToken: account.RefreshToken,
 		AuthCode:     account.AuthCode,
 		DeviceID:     account.DeviceID,
+		ServiceToken: account.ServiceToken,
+		SSecurity:    account.SSecurity,
+		UserID:       account.UserID,
+		CUserID:      account.CUserID,
 		HomeIDs:      account.HomeIDs,
+		Locale:       account.Locale,
+		Timezone:     account.Timezone,
 		ExpiresAt:    expiresAt,
 	}
 	return account, cloudCfg, nil
+}
+
+func stableDeviceID(parts ...string) string {
+	joined := strings.ToUpper(strings.Join(parts, "|"))
+	if joined == "" {
+		return "CELESTIA00000000"
+	}
+	replacer := strings.NewReplacer("|", "", "@", "", ".", "", "-", "")
+	joined = replacer.Replace(joined)
+	if len(joined) >= 16 {
+		return joined[:16]
+	}
+	for len(joined) < 16 {
+		joined += "0"
+	}
+	return joined
 }
 
 func encodePropertyValue(prop spec.Property, raw any) (any, error) {
