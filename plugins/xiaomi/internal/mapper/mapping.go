@@ -212,9 +212,7 @@ func assignSwitch(mapping *DeviceMapping, services []serviceView) {
 		return
 	}
 	mapping.Power = channels[0].Ref
-	if len(channels) > 1 {
-		mapping.ToggleChannels = channels
-	}
+	mapping.ToggleChannels = channels
 }
 
 func assignSensor(mapping *DeviceMapping, services []serviceView) {
@@ -359,25 +357,29 @@ func discoverToggleChannels(services []serviceView) []ToggleChannel {
 			if !prop.Property.Writable() || prop.Property.Format != "bool" {
 				continue
 			}
-			if !matchPropertyRef(prop, matchProperty{names: []string{"on", "switch-status", "power"}}) {
-				continue
-			}
 			label := strings.TrimSpace(prop.ServiceLabel)
 			if label == "" {
 				label = humanize(prop.ServiceName)
+			}
+			propertyLabel := strings.TrimSpace(prop.Property.Description)
+			if propertyLabel == "" {
+				propertyLabel = humanize(spec.PropertyName(prop.Property))
+			}
+			if !containsNormalized(spec.PropertyName(prop.Property), []string{"on", "switch-status", "power"}) &&
+				!strings.EqualFold(propertyLabel, label) {
+				label = strings.TrimSpace(label + " " + propertyLabel)
 			}
 			labels[label]++
 			displayLabel := label
 			if labels[label] > 1 {
 				displayLabel = fmt.Sprintf("%s %d", label, labels[label])
 			}
-			index := len(channels) + 1
 			copy := prop
 			channels = append(channels, ToggleChannel{
-				ID:          fmt.Sprintf("switch-%d", index),
+				ID:          fmt.Sprintf("toggle-%d-%d", prop.ServiceIID, prop.Property.IID),
 				Label:       displayLabel,
 				Description: fmt.Sprintf("Control %s.", strings.ToLower(displayLabel)),
-				StateKey:    fmt.Sprintf("switch_%d", index),
+				StateKey:    fmt.Sprintf("toggle_%d_%d", prop.ServiceIID, prop.Property.IID),
 				Ref:         &copy,
 			})
 		}
