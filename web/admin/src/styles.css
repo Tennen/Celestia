@@ -386,6 +386,15 @@ pre {
   border: 1px solid rgba(123, 220, 255, 0.16);
 }
 
+.plugin-auth-warning {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(62, 41, 6, 0.34);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+}
+
 .plugin-auth-guide__header {
   display: flex;
   gap: 10px;
@@ -425,9 +434,13 @@ pre {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   padding: 0 14px;
   height: 42px;
+  text-decoration: none;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, opacity 160ms ease;
 }
 

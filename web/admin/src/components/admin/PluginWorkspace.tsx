@@ -1,6 +1,7 @@
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Input } from '../ui/input';
 import { Section } from '../ui/section';
 import { Textarea } from '../ui/textarea';
 import { asArray } from '../../lib/admin';
@@ -18,9 +19,12 @@ type Props = {
   busy: string;
   xiaomiOAuthActive: boolean;
   xiaomiOAuthAvailable: boolean;
+  xiaomiVerifyTicket: string;
   onSelectPlugin: (pluginId: string) => void;
   onDraftChange: (value: string) => void;
+  onXiaomiVerifyTicketChange: (value: string) => void;
   onConnectXiaomiOAuth: () => void;
+  onRetryXiaomiVerification: (verifyURL: string) => void;
   onInstall: () => void;
   onEnable: () => void;
   onDisable: () => void;
@@ -29,6 +33,20 @@ type Props = {
   onSaveConfig: () => void;
   onReloadLogs: () => void;
 };
+
+function extractXiaomiVerificationHint(errorText?: string | null) {
+  if (!errorText) {
+    return null;
+  }
+  const match = errorText.match(/requires (secondary verification|captcha) at (\S+)/i);
+  if (!match) {
+    return null;
+  }
+  return {
+    kind: match[1].toLowerCase(),
+    url: match[2],
+  };
+}
 
 export function PluginWorkspace({
   catalog,
@@ -41,9 +59,12 @@ export function PluginWorkspace({
   busy,
   xiaomiOAuthActive,
   xiaomiOAuthAvailable,
+  xiaomiVerifyTicket,
   onSelectPlugin,
   onDraftChange,
+  onXiaomiVerifyTicketChange,
   onConnectXiaomiOAuth,
+  onRetryXiaomiVerification,
   onInstall,
   onEnable,
   onDisable,
@@ -52,6 +73,11 @@ export function PluginWorkspace({
   onSaveConfig,
   onReloadLogs,
 }: Props) {
+  const xiaomiVerificationHint =
+    selectedCatalogPlugin?.id === 'xiaomi'
+      ? extractXiaomiVerificationHint(selectedPlugin?.last_error ?? selectedPlugin?.health.message)
+      : null;
+
   return (
     <Section className="plugin-workspace">
       <Card className="plugin-explorer">
@@ -154,12 +180,57 @@ export function PluginWorkspace({
                           Primary path: fill <code>accounts[0].region</code>, <code>username</code>,{' '}
                           <code>password</code>, and <code>device_id</code> in the JSON on the left, then click{' '}
                           <code>{selectedPlugin ? 'Save Config' : 'Install'}</code> and <code>Enable</code>. The plugin
-                          authenticates when the runtime starts.
+                          authenticates when the runtime starts. On an already enabled plugin, <code>Save Config</code>{' '}
+                          now restarts the runtime and retries auth with the current draft.
                         </p>
                         <p className="muted">
                           Optional paths: provide <code>service_token</code>, <code>ssecurity</code>, and{' '}
                           <code>user_id</code> to reuse an existing Xiaomi session, or use <code>Connect OAuth</code>{' '}
                           only when the draft already contains <code>client_id</code> and <code>redirect_url</code>.
+                        </p>
+                      </div>
+                    ) : null}
+                    {xiaomiVerificationHint ? (
+                      <div className="plugin-auth-warning">
+                        <div className="plugin-auth-guide__header">
+                          <Badge tone="warn">
+                            {xiaomiVerificationHint.kind === 'captcha' ? 'Captcha Required' : '2-Step Verification'}
+                          </Badge>
+                          <strong>Xiaomi login is waiting for browser verification.</strong>
+                        </div>
+                        <p className="muted">
+                          Open the Xiaomi verification page, trigger the Xiaomi SMS or email step there, then paste the
+                          received verification code here and submit it back to the gateway.
+                        </p>
+                        <div>
+                          <label>Verification Code</label>
+                          <Input
+                            value={xiaomiVerifyTicket}
+                            onChange={(event) => onXiaomiVerifyTicketChange(event.target.value)}
+                            placeholder="Enter SMS or email code from Xiaomi"
+                          />
+                        </div>
+                        <div className="button-row">
+                          <a
+                            className="button button--secondary"
+                            href={xiaomiVerificationHint.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open Verification Page
+                          </a>
+                          {selectedPlugin ? (
+                            <Button
+                              variant="secondary"
+                              onClick={() => onRetryXiaomiVerification(xiaomiVerificationHint.url)}
+                              disabled={!xiaomiVerifyTicket.trim()}
+                            >
+                              Submit Code And Retry
+                            </Button>
+                          ) : null}
+                        </div>
+                        <p className="muted">
+                          <code>{xiaomiVerificationHint.url}</code>
                         </p>
                       </div>
                     ) : null}

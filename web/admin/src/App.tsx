@@ -16,7 +16,7 @@ import {
   sendCommand,
   updatePluginConfig,
 } from './lib/api';
-import { asArray, canStartXiaomiOAuth, DEFAULT_INSTALL_CONFIGS, getPluginDraftText } from './lib/admin';
+import { asArray, canStartXiaomiOAuth, DEFAULT_INSTALL_CONFIGS, getPluginDraftText, mergeXiaomiAccountConfig } from './lib/admin';
 import { prettyJson } from './lib/utils';
 import type { CatalogPlugin } from './lib/types';
 import type { AppSection } from './lib/admin';
@@ -28,6 +28,7 @@ function App() {
   const [selectedAction, setSelectedAction] = useState('feed_once');
   const [commandParams, setCommandParams] = useState('{\n  "portions": 1\n}');
   const [actor, setActor] = useState('admin');
+  const [xiaomiVerifyTicket, setXiaomiVerifyTicket] = useState('');
   const [installDrafts, setInstallDrafts] = useState<Record<string, string>>(DEFAULT_INSTALL_CONFIGS);
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
   const [commandResult, setCommandResult] = useState<string>('');
@@ -236,6 +237,7 @@ function App() {
               busy={busy}
               xiaomiOAuthActive={oauthActive}
               xiaomiOAuthAvailable={xiaomiOAuthAvailable}
+              xiaomiVerifyTicket={xiaomiVerifyTicket}
               onSelectPlugin={setSelectedPluginId}
               onDraftChange={(value) => {
                 if (!selectedCatalogPlugin) {
@@ -247,11 +249,30 @@ function App() {
                 }
                 setInstallDrafts((current) => ({ ...current, [selectedCatalogPlugin.id]: value }));
               }}
+              onXiaomiVerifyTicketChange={setXiaomiVerifyTicket}
               onConnectXiaomiOAuth={() => {
                 if (!selectedCatalogPlugin) {
                   return;
                 }
                 void runAction(`xiaomi-oauth-${selectedCatalogPlugin.id}`, () => startXiaomiOAuthFlow(selectedCatalogPlugin));
+              }}
+              onRetryXiaomiVerification={(verifyURL) => {
+                if (!selectedCatalogPlugin || !selectedPlugin) {
+                  return;
+                }
+                const ticket = xiaomiVerifyTicket.trim();
+                if (!ticket) {
+                  return;
+                }
+                const merged = mergeXiaomiAccountConfig(pluginDraft, {
+                  verify_url: verifyURL,
+                  verify_ticket: ticket,
+                });
+                setConfigDrafts((current) => ({ ...current, [selectedCatalogPlugin.id]: merged.json }));
+                void runAction(`xiaomi-verify-${selectedCatalogPlugin.id}`, async () => {
+                  await updatePluginConfig(selectedCatalogPlugin.id, merged.draft);
+                  setXiaomiVerifyTicket('');
+                });
               }}
               onInstall={() => {
                 if (!selectedCatalogPlugin) {

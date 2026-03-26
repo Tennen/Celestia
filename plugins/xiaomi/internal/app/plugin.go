@@ -24,6 +24,8 @@ type AccountConfig struct {
 	Region       string   `json:"region"`
 	Username     string   `json:"username,omitempty"`
 	Password     string   `json:"password,omitempty"`
+	VerifyURL    string   `json:"verify_url,omitempty"`
+	VerifyTicket string   `json:"verify_ticket,omitempty"`
 	ClientID     string   `json:"client_id,omitempty"`
 	RedirectURL  string   `json:"redirect_url,omitempty"`
 	AccessToken  string   `json:"access_token,omitempty"`
@@ -717,6 +719,8 @@ func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountCo
 		Region:       oauth.NormalizeRegion(stringParam(entry["region"])),
 		Username:     stringParam(entry["username"]),
 		Password:     stringParam(entry["password"]),
+		VerifyURL:    stringParam(entry["verify_url"]),
+		VerifyTicket: stringParam(entry["verify_ticket"]),
 		ClientID:     stringParam(entry["client_id"]),
 		RedirectURL:  stringParam(entry["redirect_url"]),
 		AccessToken:  stringParam(entry["access_token"]),
@@ -740,6 +744,13 @@ func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountCo
 	hasPasswordLogin := account.Username != "" || account.Password != ""
 	if hasPasswordLogin && (account.Username == "" || account.Password == "") {
 		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires both username and password", account.Name)
+	}
+	hasVerification := account.VerifyURL != "" || account.VerifyTicket != ""
+	if hasVerification && (account.VerifyURL == "" || account.VerifyTicket == "") {
+		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires verify_url and verify_ticket together", account.Name)
+	}
+	if hasVerification && !hasPasswordLogin {
+		return AccountConfig{}, cloud.AccountConfig{}, fmt.Errorf("xiaomi account %q requires username/password when verify_ticket is provided", account.Name)
 	}
 	hasLegacySession := account.ServiceToken != "" || account.SSecurity != "" || account.UserID != ""
 	if hasLegacySession && (account.ServiceToken == "" || account.SSecurity == "" || account.UserID == "") {
@@ -779,6 +790,8 @@ func parseAccount(entry map[string]any, idx int) (AccountConfig, cloud.AccountCo
 		Region:       account.Region,
 		Username:     account.Username,
 		Password:     account.Password,
+		VerifyURL:    account.VerifyURL,
+		VerifyTicket: account.VerifyTicket,
 		ClientID:     account.ClientID,
 		RedirectURL:  account.RedirectURL,
 		AccessToken:  account.AccessToken,

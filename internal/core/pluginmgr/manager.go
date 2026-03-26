@@ -38,28 +38,28 @@ type Manager struct {
 }
 
 type managedPlugin struct {
-	record    models.PluginInstallRecord
-	manifest  *models.PluginManifest
-	health    models.PluginHealth
-	running   bool
-	lastError string
-	addr      string
-	pid       int
-	logs      *logBuffer
+	record           models.PluginInstallRecord
+	manifest         *models.PluginManifest
+	health           models.PluginHealth
+	running          bool
+	lastError        string
+	addr             string
+	pid              int
+	logs             *logBuffer
 	stoppedByManager bool
 
-	cmd         *exec.Cmd
-	conn        *grpc.ClientConn
-	client      pluginapi.PluginClient
-	cancel      context.CancelFunc
+	cmd          *exec.Cmd
+	conn         *grpc.ClientConn
+	client       pluginapi.PluginClient
+	cancel       context.CancelFunc
 	streamCancel context.CancelFunc
 }
 
 type InstallRequest struct {
-	PluginID   string                 `json:"plugin_id"`
-	BinaryPath string                 `json:"binary_path,omitempty"`
-	Config     map[string]any         `json:"config,omitempty"`
-	Metadata   map[string]any         `json:"metadata,omitempty"`
+	PluginID   string         `json:"plugin_id"`
+	BinaryPath string         `json:"binary_path,omitempty"`
+	Config     map[string]any `json:"config,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
 func New(store storage.Store, registry *registry.Service, state *state.Service, bus *eventbus.Bus) *Manager {
@@ -140,10 +140,36 @@ func (m *Manager) UpdateConfig(ctx context.Context, pluginID string, config map[
 	if !ok {
 		return models.PluginInstallRecord{}, errors.New("plugin not installed")
 	}
+	wasEnabled := record.Status == models.PluginStatusEnabled
 	record.Config = config
 	record.UpdatedAt = time.Now().UTC()
 	if err := m.store.UpsertPluginRecord(ctx, record); err != nil {
 		return models.PluginInstallRecord{}, err
+	}
+	if wasEnabled {
+		m.mu.RLock()
+		runtime := m.runtimes[pluginID]
+		running := runtime != nil && runtime.running
+		m.mu.RUnlock()
+		if running {
+			if err := m.Disable(ctx, pluginID); err != nil {
+				return models.PluginInstallRecord{}, err
+			}
+		}
+		if err := m.Enable(ctx, pluginID); err != nil {
+			refreshed, ok, refreshErr := m.store.GetPluginRecord(ctx, pluginID)
+			if refreshErr == nil && ok {
+				return refreshed, err
+			}
+			return models.PluginInstallRecord{}, err
+		}
+		refreshed, ok, err := m.store.GetPluginRecord(ctx, pluginID)
+		if err != nil {
+			return models.PluginInstallRecord{}, err
+		}
+		if ok {
+			return refreshed, nil
+		}
 	}
 	return record, nil
 }

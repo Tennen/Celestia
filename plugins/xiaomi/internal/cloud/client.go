@@ -27,6 +27,8 @@ type AccountConfig struct {
 	Region       string
 	Username     string
 	Password     string
+	VerifyURL    string
+	VerifyTicket string
 	ClientID     string
 	RedirectURL  string
 	AccessToken  string
@@ -129,6 +131,8 @@ func NewClient(cfg AccountConfig, httpClient *http.Client) *Client {
 func (c *Client) usesLegacyAuth() bool {
 	return strings.TrimSpace(c.cfg.Username) != "" ||
 		strings.TrimSpace(c.cfg.Password) != "" ||
+		strings.TrimSpace(c.cfg.VerifyURL) != "" ||
+		strings.TrimSpace(c.cfg.VerifyTicket) != "" ||
 		strings.TrimSpace(c.cfg.ServiceToken) != "" ||
 		strings.TrimSpace(c.cfg.SSecurity) != "" ||
 		strings.TrimSpace(c.cfg.UserID) != ""

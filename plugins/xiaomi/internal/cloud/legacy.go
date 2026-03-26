@@ -92,7 +92,17 @@ func (c *Client) loginWithPassword(ctx context.Context) error {
 	c.ssecurity = ""
 	c.userID = ""
 	c.cuserID = ""
+	verifyURL := strings.TrimSpace(c.cfg.VerifyURL)
+	verifyTicket := strings.TrimSpace(c.cfg.VerifyTicket)
 	c.mu.Unlock()
+
+	if verifyURL != "" && verifyTicket != "" {
+		if err := c.loginWithVerification(ctx, verifyURL, verifyTicket); err == nil {
+			return nil
+		} else {
+			return err
+		}
+	}
 
 	auth, err := c.loginStep1(ctx)
 	if err != nil {
@@ -101,6 +111,31 @@ func (c *Client) loginWithPassword(ctx context.Context) error {
 	location, err := c.loginStep2(ctx, auth)
 	if err != nil {
 		return err
+	}
+	return c.loginStep3(ctx, location)
+}
+
+func (c *Client) loginWithVerification(ctx context.Context, verifyURL, verifyTicket string) error {
+	location, err := c.verifyTicket(ctx, verifyURL, verifyTicket)
+	if err != nil {
+		return err
+	}
+	if location != "" {
+		resp, err := c.accountRequest(ctx, http.MethodGet, location, nil, nil, nil)
+		if err != nil {
+			return err
+		}
+		_ = resp.Body.Close()
+	}
+	auth, err := c.loginStep1(ctx)
+	if err != nil {
+		return err
+	}
+	if location = stringValue(auth["location"]); location == "" {
+		location, err = c.loginStep2(ctx, auth)
+		if err != nil {
+			return err
+		}
 	}
 	return c.loginStep3(ctx, location)
 }
@@ -270,6 +305,82 @@ func cookieValue(resp *http.Response, jar http.CookieJar, name string) string {
 		}
 	}
 	return ""
+}
+
+func (c *Client) verifyTicket(ctx context.Context, verifyURL, ticket string) (string, error) {
+	options, identitySession, err := c.checkIdentityList(ctx, verifyURL)
+	if err != nil {
+		return "", err
+	}
+	for _, flag := range options {
+		api := ""
+		switch flag {
+		case 4:
+			api = "/identity/auth/verifyPhone"
+		case 8:
+			api = "/identity/auth/verifyEmail"
+		default:
+			continue
+		}
+		query := url.Values{}
+		query.Set("_dc", fmt.Sprintf("%d", time.Now().UnixMilli()))
+		form := url.Values{}
+		form.Set("_flag", fmt.Sprintf("%d", flag))
+		form.Set("ticket", ticket)
+		form.Set("trust", "true")
+		form.Set("_json", "true")
+		resp, err := c.accountRequest(ctx, http.MethodPost, api, query, form, []*http.Cookie{
+			{Name: "identity_session", Value: identitySession},
+		})
+		if err != nil {
+			return "", err
+		}
+		body, readErr := decodeAccountJSON(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			return "", readErr
+		}
+		if intValue(body["code"]) == 0 {
+			return stringValue(body["location"]), nil
+		}
+	}
+	return "", errors.New("xiaomi verification failed: verification code rejected or expired")
+}
+
+func (c *Client) checkIdentityList(ctx context.Context, verifyURL string) ([]int, string, error) {
+	listURL := strings.TrimSpace(verifyURL)
+	if listURL == "" {
+		return nil, "", errors.New("xiaomi verification requires verify_url")
+	}
+	listURL = strings.Replace(listURL, "fe/service/identity/authStart", "identity/list", 1)
+	resp, err := c.accountRequest(ctx, http.MethodGet, listURL, nil, nil, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	body, readErr := decodeAccountJSON(resp.Body)
+	identitySession := cookieValue(resp, c.loginClient.Jar, "identity_session")
+	_ = resp.Body.Close()
+	if readErr != nil {
+		return nil, "", readErr
+	}
+	if identitySession == "" {
+		return nil, "", errors.New("xiaomi verification session unavailable")
+	}
+	var options []int
+	if raw, ok := body["options"].([]any); ok {
+		for _, item := range raw {
+			options = append(options, intValue(item))
+		}
+	}
+	if len(options) == 0 {
+		if flag := intValue(body["flag"]); flag != 0 {
+			options = append(options, flag)
+		}
+	}
+	if len(options) == 0 {
+		options = append(options, 4)
+	}
+	return options, identitySession, nil
 }
 
 func respStatusText(resp *http.Response) []byte {

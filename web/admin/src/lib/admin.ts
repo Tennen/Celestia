@@ -17,6 +17,8 @@ export const DEFAULT_INSTALL_CONFIGS: Record<string, string> = {
           username: '<xiaomi-username>',
           password: '<xiaomi-password>',
           device_id: 'CELESTIAXIAOMI01',
+          verify_url: '<optional-xiaomi-verify-url>',
+          verify_ticket: '<optional-sms-or-email-code>',
           service_token: '<optional-service-token>',
           ssecurity: '<optional-ssecurity>',
           user_id: '<optional-user-id>',
