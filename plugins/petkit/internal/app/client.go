@@ -488,14 +488,14 @@ func (c *Client) doRequest(
 		}
 		switch value := payload.(type) {
 		case map[string]any:
-			if errObj, ok := value["error"].(map[string]any); ok {
-				if code := intFromAny(errObj["code"], 0); code == 5 && useSession && attempt == 0 {
+			if code, message, ok := petkitAPIError(value); ok {
+				if code == 5 && useSession && attempt == 0 {
 					if err := c.login(ctx); err != nil {
 						return nil, err
 					}
 					continue
 				}
-				return nil, fmt.Errorf("petkit api error %v", errObj)
+				return nil, fmt.Errorf("petkit api error map[code:%d msg:%s]", code, message)
 			}
 			if result, ok := value["result"]; ok {
 				return result, nil
@@ -509,6 +509,30 @@ func (c *Client) doRequest(
 		}
 	}
 	return nil, errors.New("petkit request failed after re-authentication")
+}
+
+func petkitAPIError(payload map[string]any) (int, string, bool) {
+	if errObj, ok := payload["error"].(map[string]any); ok {
+		code := intFromAny(errObj["code"], 0)
+		message := firstNonEmpty(
+			stringFromAny(errObj["msg"], ""),
+			stringFromAny(errObj["message"], ""),
+			stringFromAny(errObj["desc"], ""),
+		)
+		if code != 0 || message != "" {
+			return code, message, true
+		}
+	}
+	code := intFromAny(payload["code"], 0)
+	message := firstNonEmpty(
+		stringFromAny(payload["msg"], ""),
+		stringFromAny(payload["message"], ""),
+		stringFromAny(payload["desc"], ""),
+	)
+	if code != 0 || message != "" {
+		return code, message, true
+	}
+	return 0, "", false
 }
 
 func readPetkitBody(resp *http.Response) ([]byte, error) {
@@ -978,6 +1002,15 @@ func boolFromAny(value any, fallback bool) bool {
 		}
 	}
 	return fallback
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func firstAny(detail map[string]any, keys ...string) any {
