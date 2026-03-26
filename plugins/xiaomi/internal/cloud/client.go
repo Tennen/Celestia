@@ -232,6 +232,15 @@ func (c *Client) AccessToken() string {
 	return c.accessToken
 }
 
+func (c *Client) CurrentLegacySession() (serviceToken, ssecurity, userID, cuserID string, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.serviceToken == "" || c.ssecurity == "" || c.userID == "" {
+		return "", "", "", "", false
+	}
+	return c.serviceToken, c.ssecurity, c.userID, c.cuserID, true
+}
+
 func (c *Client) UserProfile(ctx context.Context) (map[string]any, error) {
 	if c.usesLegacyAuth() {
 		c.mu.Lock()

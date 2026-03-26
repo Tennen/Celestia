@@ -249,6 +249,12 @@ func (c *Client) loginStep3(ctx context.Context, location string) error {
 	if value := cookieValue(resp, c.loginClient.Jar, "cUserId"); value != "" {
 		c.cuserID = value
 	}
+	c.cfg.ServiceToken = c.serviceToken
+	c.cfg.SSecurity = c.ssecurity
+	c.cfg.UserID = c.userID
+	c.cfg.CUserID = c.cuserID
+	c.cfg.VerifyURL = ""
+	c.cfg.VerifyTicket = ""
 	c.mu.Unlock()
 	return nil
 }

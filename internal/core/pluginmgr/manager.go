@@ -588,6 +588,16 @@ func (m *Manager) consumeEvents(ctx context.Context, runtime *managedPlugin) {
 		if event.PluginID == "" {
 			event.PluginID = runtime.record.PluginID
 		}
+		if event.Type == models.EventPluginConfigUpdated {
+			if cfg, ok := event.Payload["config"].(map[string]any); ok && len(cfg) > 0 {
+				runtime.record.Config = cfg
+				runtime.record.UpdatedAt = time.Now().UTC()
+				if err := m.store.UpsertPluginRecord(context.Background(), runtime.record); err != nil {
+					runtime.logs.Append("persist config update error: " + err.Error())
+				}
+			}
+			continue
+		}
 		if err := m.store.AppendEvent(context.Background(), event); err != nil {
 			runtime.logs.Append("persist event error: " + err.Error())
 		}

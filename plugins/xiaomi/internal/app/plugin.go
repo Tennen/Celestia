@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -479,6 +480,7 @@ func (p *Plugin) refreshAll(ctx context.Context, emitEvents bool) error {
 		devices, err := p.refreshAccount(ctx, account)
 		account.lastSync = time.Now().UTC()
 		account.lastErr = err
+		p.syncAccountSessionConfig(account.cfg.Name, account.client)
 		if err != nil {
 			errs = append(errs, err.Error())
 			if len(devices) == 0 {
@@ -546,6 +548,7 @@ func (p *Plugin) refreshSingle(ctx context.Context, deviceID string, emitEvent b
 	if err != nil {
 		return err
 	}
+	p.syncAccountSessionConfig(runtime.accountName, runtime.account.client)
 	var previous models.DeviceStateSnapshot
 	var hadPrev bool
 	p.mu.Lock()
@@ -714,6 +717,83 @@ func stateReadable(ref *mapper.PropertyRef) bool {
 		return false
 	}
 	return ref.Property.Readable() || ref.Property.Notifiable()
+}
+
+func (p *Plugin) syncAccountSessionConfig(accountName string, client *cloud.Client) {
+	serviceToken, ssecurity, userID, cuserID, ok := client.CurrentLegacySession()
+	if !ok {
+		return
+	}
+
+	var snapshot Config
+	changed := false
+
+	p.mu.Lock()
+	for idx := range p.config.Accounts {
+		account := p.config.Accounts[idx]
+		if account.Name != accountName {
+			continue
+		}
+		if account.ServiceToken != serviceToken {
+			account.ServiceToken = serviceToken
+			changed = true
+		}
+		if account.SSecurity != ssecurity {
+			account.SSecurity = ssecurity
+			changed = true
+		}
+		if account.UserID != userID {
+			account.UserID = userID
+			changed = true
+		}
+		if account.CUserID != cuserID {
+			account.CUserID = cuserID
+			changed = true
+		}
+		if account.VerifyURL != "" {
+			account.VerifyURL = ""
+			changed = true
+		}
+		if account.VerifyTicket != "" {
+			account.VerifyTicket = ""
+			changed = true
+		}
+		if changed {
+			p.config.Accounts[idx] = account
+			snapshot = p.config
+		}
+		break
+	}
+	p.mu.Unlock()
+
+	if !changed {
+		return
+	}
+	payload, err := configMap(snapshot)
+	if err != nil {
+		return
+	}
+	p.emit(models.Event{
+		ID:       uuid.NewString(),
+		Type:     models.EventPluginConfigUpdated,
+		PluginID: "xiaomi",
+		TS:       time.Now().UTC(),
+		Payload: map[string]any{
+			"config": payload,
+		},
+	})
+}
+
+func configMap(cfg Config) (map[string]any, error) {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func parseConfig(cfg map[string]any, existing map[string]*accountRuntime) (Config, map[string]*accountRuntime, error) {

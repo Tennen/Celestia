@@ -37,6 +37,7 @@ const (
 	EventDeviceCommandAccept  EventType = "device.command.accepted"
 	EventDeviceCommandFailed  EventType = "device.command.failed"
 	EventPluginHealthChanged  EventType = "plugin.health.changed"
+	EventPluginConfigUpdated  EventType = "plugin.config.updated"
 	EventPluginLifecycleState EventType = "plugin.lifecycle.changed"
 )
 
