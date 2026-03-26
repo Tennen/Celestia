@@ -85,24 +85,34 @@ func (c *Client) ensureLegacySession(ctx context.Context) error {
 }
 
 func (c *Client) loginWithPassword(ctx context.Context) error {
-	jar, _ := cookiejar.New(nil)
 	c.mu.Lock()
-	c.loginClient = &http.Client{Timeout: 30 * time.Second, Jar: jar}
-	c.serviceToken = ""
-	c.ssecurity = ""
-	c.userID = ""
-	c.cuserID = ""
 	verifyURL := strings.TrimSpace(c.cfg.VerifyURL)
 	verifyTicket := strings.TrimSpace(c.cfg.VerifyTicket)
-	c.mu.Unlock()
-
 	if verifyURL != "" && verifyTicket != "" {
+		if c.loginClient == nil || c.loginClient.Jar == nil {
+			jar, _ := cookiejar.New(nil)
+			c.loginClient = &http.Client{Timeout: 30 * time.Second, Jar: jar}
+		}
+		c.serviceToken = ""
+		c.ssecurity = ""
+		c.userID = ""
+		c.cuserID = ""
+		c.mu.Unlock()
+
 		if err := c.loginWithVerification(ctx, verifyURL, verifyTicket); err == nil {
 			return nil
 		} else {
 			return err
 		}
 	}
+
+	jar, _ := cookiejar.New(nil)
+	c.loginClient = &http.Client{Timeout: 30 * time.Second, Jar: jar}
+	c.serviceToken = ""
+	c.ssecurity = ""
+	c.userID = ""
+	c.cuserID = ""
+	c.mu.Unlock()
 
 	auth, err := c.loginStep1(ctx)
 	if err != nil {
