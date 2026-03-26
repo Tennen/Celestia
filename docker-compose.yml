@@ -11,6 +11,8 @@ services:
       CELESTIA_ADDR: ":8080"
       CELESTIA_DB_PATH: "/app/data/celestia.db"
     volumes:
-      - ./data:/app/data
+      - celestia-data:/app/data
     restart: unless-stopped
 
+volumes:
+  celestia-data:
