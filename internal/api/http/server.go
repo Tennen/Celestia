@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/core/control"
 	oauth "github.com/chentianyu/celestia/internal/core/oauth"
 	"github.com/chentianyu/celestia/internal/core/pluginmgr"
 	runtimepkg "github.com/chentianyu/celestia/internal/core/runtime"
@@ -43,6 +44,9 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("GET /api/v1/devices", s.handleDevices)
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/commands", s.handleCommand)
+	mux.HandleFunc("POST /api/v1/toggle/{id}/on", s.handleToggleOn)
+	mux.HandleFunc("POST /api/v1/toggle/{id}/off", s.handleToggleOff)
+	mux.HandleFunc("POST /api/v1/action/{id}", s.handleActionControl)
 	mux.HandleFunc("GET /api/v1/events", s.handleEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("GET /api/v1/audits", s.handleAudits)
@@ -188,13 +192,9 @@ func (s *Server) handleDevices(w http.ResponseWriter, r *http.Request) {
 	for _, item := range states {
 		stateMap[item.DeviceID] = item
 	}
-	type deviceView struct {
-		Device models.Device              `json:"device"`
-		State  models.DeviceStateSnapshot `json:"state"`
-	}
-	out := make([]deviceView, 0, len(devices))
+	out := make([]models.DeviceView, 0, len(devices))
 	for _, device := range devices {
-		out = append(out, deviceView{Device: device, State: stateMap[device.ID]})
+		out = append(out, s.runtime.Controls.BuildView(device, stateMap[device.ID]))
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -214,10 +214,7 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"device": device,
-		"state":  state,
-	})
+	writeJSON(w, http.StatusOK, s.runtime.Controls.BuildView(device, state))
 }
 
 func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
@@ -238,14 +235,81 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	actor := actorFromRequest(r)
-	decision := s.runtime.Policy.Evaluate(actor, payload.Action)
-	auditRecord := models.AuditRecord{
-		ID:        uuid.NewString(),
-		Actor:     actor,
+	s.executeDeviceCommand(w, r, device, models.CommandRequest{
 		DeviceID:  device.ID,
 		Action:    payload.Action,
 		Params:    payload.Params,
+		RequestID: uuid.NewString(),
+	})
+}
+
+func (s *Server) handleToggleOn(w http.ResponseWriter, r *http.Request) {
+	s.handleToggleControl(w, r, true)
+}
+
+func (s *Server) handleToggleOff(w http.ResponseWriter, r *http.Request) {
+	s.handleToggleControl(w, r, false)
+}
+
+func (s *Server) handleToggleControl(w http.ResponseWriter, r *http.Request, on bool) {
+	device, state, controlID, ok := s.resolveControlTarget(w, r)
+	if !ok {
+		return
+	}
+	req, err := s.runtime.Controls.ResolveToggle(device, state, controlID, on)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	req.RequestID = uuid.NewString()
+	s.executeDeviceCommand(w, r, device, req)
+}
+
+func (s *Server) handleActionControl(w http.ResponseWriter, r *http.Request) {
+	device, state, controlID, ok := s.resolveControlTarget(w, r)
+	if !ok {
+		return
+	}
+	req, err := s.runtime.Controls.ResolveAction(device, state, controlID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	req.RequestID = uuid.NewString()
+	s.executeDeviceCommand(w, r, device, req)
+}
+
+func (s *Server) resolveControlTarget(w http.ResponseWriter, r *http.Request) (models.Device, models.DeviceStateSnapshot, string, bool) {
+	deviceID, controlID, err := control.ParseCompoundControlID(r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return models.Device{}, models.DeviceStateSnapshot{}, "", false
+	}
+	device, ok, err := s.runtime.Registry.Get(r.Context(), deviceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return models.Device{}, models.DeviceStateSnapshot{}, "", false
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, errors.New("device not found"))
+		return models.Device{}, models.DeviceStateSnapshot{}, "", false
+	}
+	state, _, err := s.runtime.State.Get(r.Context(), device.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return models.Device{}, models.DeviceStateSnapshot{}, "", false
+	}
+	return device, state, controlID, true
+}
+
+func (s *Server) executeDeviceCommand(w http.ResponseWriter, r *http.Request, device models.Device, req models.CommandRequest) {
+	decision := s.runtime.Policy.Evaluate(actorFromRequest(r), req.Action)
+	auditRecord := models.AuditRecord{
+		ID:        uuid.NewString(),
+		Actor:     actorFromRequest(r),
+		DeviceID:  device.ID,
+		Action:    req.Action,
+		Params:    req.Params,
 		Allowed:   decision.Allowed,
 		RiskLevel: decision.RiskLevel,
 		CreatedAt: time.Now().UTC(),
@@ -259,12 +323,7 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	resp, err := s.runtime.PluginMgr.ExecuteCommand(r.Context(), device, models.CommandRequest{
-		DeviceID:  device.ID,
-		Action:    payload.Action,
-		Params:    payload.Params,
-		RequestID: uuid.NewString(),
-	})
+	resp, err := s.runtime.PluginMgr.ExecuteCommand(r.Context(), device, req)
 	if err != nil {
 		auditRecord.Result = "failed"
 		_ = s.runtime.Audit.Append(r.Context(), auditRecord)

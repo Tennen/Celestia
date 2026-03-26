@@ -116,7 +116,7 @@ export async function fetchDevices(query = '') {
 }
 
 export async function fetchDevice(deviceId: string) {
-  return request<{ device: DeviceView['device']; state: DeviceView['state'] }>(`/devices/${deviceId}`);
+  return request<DeviceView>(`/devices/${deviceId}`);
 }
 
 export async function sendCommand(deviceId: string, action: string, params: Record<string, unknown>, actor = 'admin') {
@@ -124,6 +124,20 @@ export async function sendCommand(deviceId: string, action: string, params: Reco
     method: 'POST',
     headers: { 'X-Actor': actor },
     body: JSON.stringify({ action, params }),
+  });
+}
+
+export async function sendToggle(compoundId: string, on: boolean, actor = 'admin') {
+  return request<CommandResult>(`/toggle/${compoundId}/${on ? 'on' : 'off'}`, {
+    method: 'POST',
+    headers: { 'X-Actor': actor },
+  });
+}
+
+export async function runActionControl(compoundId: string, actor = 'admin') {
+  return request<CommandResult>(`/action/${compoundId}`, {
+    method: 'POST',
+    headers: { 'X-Actor': actor },
   });
 }
 

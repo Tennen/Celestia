@@ -11,9 +11,10 @@ import (
 )
 
 type PropertyRef struct {
-	ServiceName string
-	ServiceIID  int
-	Property    spec.Property
+	ServiceName  string
+	ServiceLabel string
+	ServiceIID   int
+	Property     spec.Property
 }
 
 type ActionRef struct {
@@ -25,6 +26,7 @@ type ActionRef struct {
 
 type DeviceMapping struct {
 	Kind              models.DeviceKind
+	ToggleChannels    []ToggleChannel
 	Power             *PropertyRef
 	Brightness        *PropertyRef
 	ColorTemp         *PropertyRef
@@ -45,6 +47,14 @@ type DeviceMapping struct {
 	NotifyAction      *ActionRef
 }
 
+type ToggleChannel struct {
+	ID          string
+	Label       string
+	Description string
+	StateKey    string
+	Ref         *PropertyRef
+}
+
 func Build(raw cloud.DeviceRecord, instance spec.Instance, accountName string) (*models.Device, *DeviceMapping, error) {
 	kind := inferKind(raw, instance)
 	if kind == "" {
@@ -55,13 +65,15 @@ func Build(raw cloud.DeviceRecord, instance spec.Instance, accountName string) (
 	for _, service := range instance.Services {
 		sv := serviceView{
 			name:       spec.ServiceName(service),
+			label:      strings.TrimSpace(service.Description),
 			serviceIID: service.IID,
 		}
 		for _, prop := range service.Properties {
 			sv.properties = append(sv.properties, PropertyRef{
-				ServiceName: sv.name,
-				ServiceIID:  service.IID,
-				Property:    prop,
+				ServiceName:  sv.name,
+				ServiceLabel: sv.label,
+				ServiceIID:   service.IID,
+				Property:     prop,
 			})
 		}
 		propertyByIID := map[int]spec.Property{}
@@ -89,6 +101,7 @@ func Build(raw cloud.DeviceRecord, instance spec.Instance, accountName string) (
 	case models.DeviceKindLight:
 		assignLight(mapping, services)
 	case models.DeviceKindSwitch:
+		assignSwitch(mapping, services)
 	case models.DeviceKindSensor:
 		assignSensor(mapping, services)
 	case models.DeviceKindClimate:
@@ -128,11 +141,15 @@ func Build(raw cloud.DeviceRecord, instance spec.Instance, accountName string) (
 			"group_id":   raw.GroupID,
 		},
 	}
+	if len(mapping.ToggleChannels) > 0 {
+		device.Metadata["toggle_refs"] = toggleMetadata(mapping.ToggleChannels)
+	}
 	return device, mapping, nil
 }
 
 type serviceView struct {
 	name       string
+	label      string
 	serviceIID int
 	properties []PropertyRef
 	actions    []ActionRef
@@ -187,6 +204,17 @@ func assignCommon(mapping *DeviceMapping, services []serviceView) {
 func assignLight(mapping *DeviceMapping, services []serviceView) {
 	mapping.Brightness = firstWritableProperty(services, matchProperty{names: []string{"brightness"}})
 	mapping.ColorTemp = firstWritableProperty(services, matchProperty{names: []string{"color-temperature", "color-temp"}})
+}
+
+func assignSwitch(mapping *DeviceMapping, services []serviceView) {
+	channels := discoverToggleChannels(services)
+	if len(channels) == 0 {
+		return
+	}
+	mapping.Power = channels[0].Ref
+	if len(channels) > 1 {
+		mapping.ToggleChannels = channels
+	}
 }
 
 func assignSensor(mapping *DeviceMapping, services []serviceView) {
@@ -323,6 +351,65 @@ func matchPropertyRef(prop PropertyRef, match matchProperty) bool {
 	return true
 }
 
+func discoverToggleChannels(services []serviceView) []ToggleChannel {
+	channels := make([]ToggleChannel, 0, 4)
+	labels := map[string]int{}
+	for _, service := range services {
+		for _, prop := range service.properties {
+			if !prop.Property.Writable() || prop.Property.Format != "bool" {
+				continue
+			}
+			if !matchPropertyRef(prop, matchProperty{names: []string{"on", "switch-status", "power"}}) {
+				continue
+			}
+			label := strings.TrimSpace(prop.ServiceLabel)
+			if label == "" {
+				label = humanize(prop.ServiceName)
+			}
+			labels[label]++
+			displayLabel := label
+			if labels[label] > 1 {
+				displayLabel = fmt.Sprintf("%s %d", label, labels[label])
+			}
+			index := len(channels) + 1
+			copy := prop
+			channels = append(channels, ToggleChannel{
+				ID:          fmt.Sprintf("switch-%d", index),
+				Label:       displayLabel,
+				Description: fmt.Sprintf("Control %s.", strings.ToLower(displayLabel)),
+				StateKey:    fmt.Sprintf("switch_%d", index),
+				Ref:         &copy,
+			})
+		}
+	}
+	return channels
+}
+
+func toggleMetadata(channels []ToggleChannel) []map[string]any {
+	out := make([]map[string]any, 0, len(channels))
+	for _, item := range channels {
+		out = append(out, map[string]any{
+			"id":          item.ID,
+			"label":       item.Label,
+			"description": item.Description,
+			"state_key":   item.StateKey,
+		})
+	}
+	return out
+}
+
+func humanize(value string) string {
+	value = strings.ReplaceAll(strings.TrimSpace(value), "-", " ")
+	if value == "" {
+		return "Switch"
+	}
+	parts := strings.Fields(strings.ToLower(value))
+	for i, item := range parts {
+		parts[i] = strings.ToUpper(item[:1]) + item[1:]
+	}
+	return strings.Join(parts, " ")
+}
+
 func matchActionRef(action ActionRef, match matchAction) bool {
 	if match.requireInput && len(action.Inputs) == 0 {
 		return false
@@ -431,6 +518,9 @@ func (m DeviceMapping) capabilities() []string {
 	}
 	if m.NotifyAction != nil || m.Text != nil {
 		appendOnce("voice_push")
+	}
+	if len(m.ToggleChannels) > 1 {
+		appendOnce("toggle_channels")
 	}
 	return out
 }

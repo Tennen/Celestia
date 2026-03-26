@@ -270,6 +270,10 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 		if err := p.setPower(ctx, runtime, boolParam(req.Params, "on", true)); err != nil {
 			return models.CommandResponse{}, err
 		}
+	case "set_toggle":
+		if err := p.setToggle(ctx, runtime, stringParam(req.Params["toggle_id"]), boolParam(req.Params, "on", true)); err != nil {
+			return models.CommandResponse{}, err
+		}
 	case "set_brightness":
 		if err := p.setPropertyCommand(ctx, runtime, runtime.mapping.Brightness, req.Params["value"]); err != nil {
 			return models.CommandResponse{}, err
@@ -359,6 +363,18 @@ func (p *Plugin) setPower(ctx context.Context, runtime *deviceRuntime, on bool) 
 		return nil
 	}
 	return errors.New("power unsupported")
+}
+
+func (p *Plugin) setToggle(ctx context.Context, runtime *deviceRuntime, toggleID string, on bool) error {
+	for _, item := range runtime.mapping.ToggleChannels {
+		if item.ID == toggleID && item.Ref != nil {
+			return p.setPropertyCommand(ctx, runtime, item.Ref, on)
+		}
+	}
+	if toggleID == "power" || toggleID == "" {
+		return p.setPower(ctx, runtime, on)
+	}
+	return fmt.Errorf("toggle %q unsupported", toggleID)
 }
 
 func (p *Plugin) setPropertyCommand(ctx context.Context, runtime *deviceRuntime, ref *mapper.PropertyRef, raw any) error {
@@ -687,6 +703,9 @@ func propertyRefs(mapping *mapper.DeviceMapping) []namedPropertyRef {
 	appendRef("filter_life", mapping.FilterLife)
 	appendRef("volume", mapping.Volume)
 	appendRef("mute", mapping.Mute)
+	for _, toggle := range mapping.ToggleChannels {
+		appendRef(toggle.StateKey, toggle.Ref)
+	}
 	return refs
 }
 

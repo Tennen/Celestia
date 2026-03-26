@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/chentianyu/celestia/internal/core/audit"
+	"github.com/chentianyu/celestia/internal/core/control"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	oauthsvc "github.com/chentianyu/celestia/internal/core/oauth"
 	"github.com/chentianyu/celestia/internal/core/pluginmgr"
@@ -20,6 +21,7 @@ type Runtime struct {
 	Registry  *registry.Service
 	State     *state.Service
 	Audit     *audit.Service
+	Controls  *control.Service
 	Policy    *policy.Service
 	OAuth     *oauthsvc.Service
 	PluginMgr *pluginmgr.Manager
@@ -35,6 +37,7 @@ func New(store storage.Store) *Runtime {
 		Registry:  registrySvc,
 		State:     stateSvc,
 		Audit:     audit.New(store),
+		Controls:  control.New(),
 		Policy:    policy.New(),
 		OAuth:     oauthsvc.New(store),
 		PluginMgr: pluginmgr.New(store, registrySvc, stateSvc, bus),

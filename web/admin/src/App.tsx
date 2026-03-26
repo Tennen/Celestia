@@ -13,7 +13,9 @@ import {
   disablePlugin,
   getApiBase,
   installPlugin,
+  runActionControl,
   sendCommand,
+  sendToggle,
   updatePluginConfig,
 } from './lib/api';
 import { asArray, canStartXiaomiOAuth, DEFAULT_INSTALL_CONFIGS, getPluginDraftText, mergeXiaomiAccountConfig } from './lib/admin';
@@ -328,6 +330,7 @@ function App() {
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={setSelectedDeviceId}
               selectedDevice={selectedDevice}
+              busy={busy}
               selectedAction={selectedAction}
               onSelectedActionChange={setSelectedAction}
               actor={actor}
@@ -341,6 +344,20 @@ function App() {
               }}
               onSendCommand={() => {
                 void runAction('send-command', onSendCommand);
+              }}
+              onToggleControl={(controlId, on) => {
+                if (!selectedDevice) {
+                  return;
+                }
+                const compoundId = `${selectedDevice.device.id}.${controlId}`;
+                void runAction(`toggle-${compoundId}-${on ? 'on' : 'off'}`, () => sendToggle(compoundId, on, actor));
+              }}
+              onActionControl={(controlId) => {
+                if (!selectedDevice) {
+                  return;
+                }
+                const compoundId = `${selectedDevice.device.id}.${controlId}`;
+                void runAction(`action-${compoundId}`, () => runActionControl(compoundId, actor));
               }}
               commandResult={commandResult}
               selectedDeviceDetails={selectedDeviceDetails}

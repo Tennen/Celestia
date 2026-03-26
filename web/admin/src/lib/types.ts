@@ -95,9 +95,20 @@ export type DeviceStateSnapshot = {
   state: Record<string, unknown>;
 };
 
+export type DeviceControlKind = 'toggle' | 'action';
+
+export type DeviceControl = {
+  id: string;
+  kind: DeviceControlKind;
+  label: string;
+  description?: string;
+  state?: boolean | null;
+};
+
 export type DeviceView = {
   device: Device;
   state: DeviceStateSnapshot;
+  controls: DeviceControl[];
 };
 
 export type EventRecord = {

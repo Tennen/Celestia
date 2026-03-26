@@ -109,6 +109,27 @@ type DeviceStateSnapshot struct {
 	State    map[string]any `json:"state"`
 }
 
+type DeviceControlKind string
+
+const (
+	DeviceControlKindToggle DeviceControlKind = "toggle"
+	DeviceControlKindAction DeviceControlKind = "action"
+)
+
+type DeviceControl struct {
+	ID          string            `json:"id"`
+	Kind        DeviceControlKind `json:"kind"`
+	Label       string            `json:"label"`
+	Description string            `json:"description,omitempty"`
+	State       *bool             `json:"state,omitempty"`
+}
+
+type DeviceView struct {
+	Device   Device              `json:"device"`
+	State    DeviceStateSnapshot `json:"state"`
+	Controls []DeviceControl     `json:"controls,omitempty"`
+}
+
 type Event struct {
 	ID       string         `json:"id"`
 	Type     EventType      `json:"type"`
