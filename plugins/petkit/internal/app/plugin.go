@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -9,17 +10,23 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/coreapi"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
 	"github.com/google/uuid"
 )
 
 type AccountConfig struct {
-	Name     string `json:"name,omitempty"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Region   string `json:"region"`
-	Timezone string `json:"timezone,omitempty"`
+	Name             string `json:"name,omitempty"`
+	Username         string `json:"username"`
+	Password         string `json:"password"`
+	Region           string `json:"region"`
+	Timezone         string `json:"timezone,omitempty"`
+	SessionID        string `json:"session_id,omitempty"`
+	SessionUserID    string `json:"session_user_id,omitempty"`
+	SessionCreatedAt string `json:"session_created_at,omitempty"`
+	SessionExpiresAt string `json:"session_expires_at,omitempty"`
+	SessionBaseURL   string `json:"session_base_url,omitempty"`
 }
 
 type Config struct {
@@ -227,6 +234,9 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 	if err := snapshot.Client.ExecuteCommand(ctx, snapshot, req); err != nil {
 		return models.CommandResponse{}, err
 	}
+	if err := p.syncAccountSession(snapshot.AccountName, snapshot.Client); err != nil {
+		return models.CommandResponse{}, err
+	}
 
 	if refreshed, err := snapshot.Client.RefreshDevice(ctx, snapshot); err == nil {
 		p.applySnapshot(snapshot.AccountName, refreshed)
@@ -292,6 +302,12 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 		}
 		runtime.lastErr = nil
 		runtime.lastSync = time.Now().UTC()
+		if err := p.syncAccountSession(runtime.cfg.Name, runtime.client); err != nil {
+			runtime.lastErr = err
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
 		p.applyAccountSnapshots(runtime.cfg, snapshots)
 		updatedAny = true
 	}
@@ -314,6 +330,9 @@ func (p *Plugin) refreshDeviceIfNeeded(ctx context.Context, deviceID string) err
 	}
 	snapshot, err := runtime.client.RefreshDeviceByID(ctx, deviceID)
 	if err != nil {
+		return err
+	}
+	if err := p.syncAccountSession(runtime.cfg.Name, runtime.client); err != nil {
 		return err
 	}
 	p.applyAccountSnapshots(runtime.cfg, []deviceSnapshot{snapshot})
@@ -469,11 +488,16 @@ func parseConfig(cfg map[string]any) (Config, error) {
 	for i, raw := range rawAccounts {
 		entry, _ := raw.(map[string]any)
 		account := AccountConfig{
-			Name:     stringValue(entry["name"], ""),
-			Username: strings.TrimSpace(stringValue(entry["username"], "")),
-			Password: strings.TrimSpace(stringValue(entry["password"], "")),
-			Region:   strings.ToLower(strings.TrimSpace(stringValue(entry["region"], ""))),
-			Timezone: strings.TrimSpace(stringValue(entry["timezone"], "")),
+			Name:             stringValue(entry["name"], ""),
+			Username:         strings.TrimSpace(stringValue(entry["username"], "")),
+			Password:         strings.TrimSpace(stringValue(entry["password"], "")),
+			Region:           strings.ToLower(strings.TrimSpace(stringValue(entry["region"], ""))),
+			Timezone:         strings.TrimSpace(stringValue(entry["timezone"], "")),
+			SessionID:        strings.TrimSpace(stringValue(entry["session_id"], "")),
+			SessionUserID:    strings.TrimSpace(stringValue(entry["session_user_id"], "")),
+			SessionCreatedAt: strings.TrimSpace(stringValue(entry["session_created_at"], "")),
+			SessionExpiresAt: strings.TrimSpace(stringValue(entry["session_expires_at"], "")),
+			SessionBaseURL:   strings.TrimSpace(stringValue(entry["session_base_url"], "")),
 		}
 		if account.Username == "" {
 			return Config{}, fmt.Errorf("accounts[%d].username is required", i)
@@ -501,6 +525,87 @@ func parseConfig(cfg map[string]any) (Config, error) {
 
 func accountKey(cfg AccountConfig) string {
 	return accountKeyString(cfg.Name + "|" + cfg.Username + "|" + cfg.Region)
+}
+
+func (p *Plugin) syncAccountSession(accountName string, client *Client) error {
+	baseURL, session, ok := client.CurrentSession()
+	if !ok {
+		return nil
+	}
+
+	var snapshot Config
+	changed := false
+
+	p.mu.Lock()
+	for idx := range p.config.Accounts {
+		account := p.config.Accounts[idx]
+		if account.Name != accountName {
+			continue
+		}
+		createdAt := ""
+		if !session.CreatedAt.IsZero() {
+			createdAt = session.CreatedAt.UTC().Format(time.RFC3339)
+		}
+		expiresAt := ""
+		if !session.ExpiresAt.IsZero() {
+			expiresAt = session.ExpiresAt.UTC().Format(time.RFC3339)
+		}
+		if account.SessionID != session.ID {
+			account.SessionID = session.ID
+			changed = true
+		}
+		if account.SessionUserID != session.UserID {
+			account.SessionUserID = session.UserID
+			changed = true
+		}
+		if account.SessionCreatedAt != createdAt {
+			account.SessionCreatedAt = createdAt
+			changed = true
+		}
+		if account.SessionExpiresAt != expiresAt {
+			account.SessionExpiresAt = expiresAt
+			changed = true
+		}
+		if account.SessionBaseURL != baseURL {
+			account.SessionBaseURL = baseURL
+			changed = true
+		}
+		if changed {
+			p.config.Accounts[idx] = account
+			if runtime := p.runtimes[accountKey(account)]; runtime != nil {
+				runtime.cfg = account
+			}
+			snapshot = p.config
+		}
+		break
+	}
+	p.mu.Unlock()
+
+	if !changed {
+		return nil
+	}
+	payload, err := configMap(snapshot)
+	if err != nil {
+		return err
+	}
+	persistCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := coreapi.PersistPluginConfig(persistCtx, "petkit", payload); err != nil {
+		return fmt.Errorf("persist petkit runtime config: %w", err)
+	}
+	return nil
+}
+
+func configMap(cfg Config) (map[string]any, error) {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func accountKeyString(value string) string {

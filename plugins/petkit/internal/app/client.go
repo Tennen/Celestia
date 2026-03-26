@@ -64,13 +64,20 @@ type Client struct {
 }
 
 func NewClient(cfg AccountConfig) *Client {
-	return &Client{
+	client := &Client{
 		cfg: cfg,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		bleCounters: map[int]int{},
 	}
+	if baseURL := strings.TrimSpace(cfg.SessionBaseURL); baseURL != "" {
+		client.baseURL = strings.TrimRight(baseURL, "/") + "/"
+	}
+	if session, ok := storedSessionFromConfig(cfg); ok {
+		client.session = session
+	}
+	return client
 }
 
 func (c *Client) Sync(ctx context.Context) ([]deviceSnapshot, error) {
@@ -578,6 +585,15 @@ func (c *Client) snapshotTransport() (string, *sessionInfo, error) {
 	return c.baseURL, c.session, nil
 }
 
+func (c *Client) CurrentSession() (string, sessionInfo, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.session == nil || c.session.ID == "" || strings.TrimSpace(c.baseURL) == "" {
+		return "", sessionInfo{}, false
+	}
+	return c.baseURL, *c.session, true
+}
+
 func (c *Client) ensureSession(ctx context.Context) error {
 	c.mu.Lock()
 	session := c.session
@@ -917,6 +933,31 @@ func parseSession(session map[string]any, region string) (*sessionInfo, error) {
 		CreatedAt: createdAt,
 		ExpiresAt: createdAt.Add(time.Duration(expiresIn) * time.Second),
 	}, nil
+}
+
+func storedSessionFromConfig(cfg AccountConfig) (*sessionInfo, bool) {
+	sessionID := strings.TrimSpace(cfg.SessionID)
+	if sessionID == "" {
+		return nil, false
+	}
+	expiresAt, err := time.Parse(time.RFC3339, strings.TrimSpace(cfg.SessionExpiresAt))
+	if err != nil || expiresAt.IsZero() || time.Now().UTC().After(expiresAt) {
+		return nil, false
+	}
+	createdAt := time.Now().UTC()
+	if raw := strings.TrimSpace(cfg.SessionCreatedAt); raw != "" {
+		if parsed, parseErr := time.Parse(time.RFC3339, raw); parseErr == nil {
+			createdAt = parsed
+		}
+	}
+	return &sessionInfo{
+		ID:        sessionID,
+		UserID:    strings.TrimSpace(cfg.SessionUserID),
+		Region:    cfg.Region,
+		CreatedAt: createdAt,
+		ExpiresAt: expiresAt,
+		ExpiresIn: int(expiresAt.Sub(createdAt).Seconds()),
+	}, true
 }
 
 var fountainCommandMap = map[FountainAction][]int{
