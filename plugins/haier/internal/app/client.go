@@ -73,6 +73,10 @@ func (c *haierClient) authenticated(ctx context.Context) bool {
 	return c.auth.CognitoToken != "" && c.auth.IDToken != ""
 }
 
+func (c *haierClient) CurrentRefreshToken() string {
+	return strings.TrimSpace(c.cfg.RefreshToken)
+}
+
 func (c *haierClient) authenticate(ctx context.Context) error {
 	if strings.TrimSpace(c.cfg.RefreshToken) != "" {
 		if err := c.refresh(ctx, c.cfg.RefreshToken); err == nil {

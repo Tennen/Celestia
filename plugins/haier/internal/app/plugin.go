@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/coreapi"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
 	"github.com/chentianyu/celestia/internal/pluginutil"
@@ -339,7 +340,10 @@ func (p *Plugin) refreshSingle(ctx context.Context, deviceID string) error {
 	if account == nil {
 		return errors.New("device account not found")
 	}
-	return p.syncDevice(ctx, account, device)
+	if err := p.syncDevice(ctx, account, device); err != nil {
+		return err
+	}
+	return p.syncAccountConfig(account)
 }
 
 func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, nextDevices map[string]*applianceRuntime) error {
@@ -347,6 +351,9 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 		return errors.New("account client missing")
 	}
 	if err := account.Client.authenticate(ctx); err != nil {
+		return err
+	}
+	if err := p.syncAccountConfig(account); err != nil {
 		return err
 	}
 	appliances, err := account.Client.loadAppliances(ctx)
@@ -436,6 +443,65 @@ func (p *Plugin) syncDevice(ctx context.Context, account *accountRuntime, device
 		}
 	}
 	return nil
+}
+
+func (p *Plugin) syncAccountConfig(account *accountRuntime) error {
+	if account == nil || account.Client == nil {
+		return nil
+	}
+	refreshToken := account.Client.CurrentRefreshToken()
+	if refreshToken == "" {
+		return nil
+	}
+
+	var snapshot Config
+	changed := false
+	accountName := account.Config.normalizedName()
+
+	p.mu.Lock()
+	for idx := range p.config.Accounts {
+		cfg := p.config.Accounts[idx]
+		if cfg.normalizedName() != accountName {
+			continue
+		}
+		if cfg.RefreshToken != refreshToken {
+			cfg.RefreshToken = refreshToken
+			changed = true
+		}
+		if changed {
+			p.config.Accounts[idx] = cfg
+			account.Config = cfg
+			snapshot = p.config
+		}
+		break
+	}
+	p.mu.Unlock()
+
+	if !changed {
+		return nil
+	}
+	payload, err := configMap(snapshot)
+	if err != nil {
+		return err
+	}
+	persistCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := coreapi.PersistPluginConfig(persistCtx, "haier", payload); err != nil {
+		return fmt.Errorf("persist haier runtime config: %w", err)
+	}
+	return nil
+}
+
+func configMap(cfg Config) (map[string]any, error) {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (p *Plugin) snapshot() ([]models.Device, []models.DeviceStateSnapshot, error) {

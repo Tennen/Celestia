@@ -32,6 +32,7 @@ All work in this repository must preserve the current architecture:
 5. Plugins own vendor auth, vendor discovery, vendor state translation, vendor command execution, and vendor event ingestion.
 6. Persistence remains SQLite-backed in the core unless a requirement explicitly calls for another production-grade backing service.
 7. Admin UI remains a Vite + React + shadcn/ui surface over the gateway API, not a side-channel integration path.
+8. Plugin configuration and runtime-derived credential persistence are Core-owned concerns. Plugins must request config changes through a Core-exposed abstraction and must not persist config through event side channels or direct storage access.
 
 ## Backend Implementation Rules
 
@@ -41,6 +42,7 @@ All work in this repository must preserve the current architecture:
 - Use polling only when it is a real vendor API strategy or a deliberate fallback for a real endpoint. Polling is not a substitute for missing logic.
 - Enforce capability checks from real model data before command execution.
 - Store and refresh tokens using the existing plugin config path until a dedicated secure secret mechanism is added. Do not replace this with local fixture files.
+- Do not implement plugin-driven config persistence through generic event streams. If a plugin obtains refreshed tokens, session cookies, or derived runtime credentials, it must hand them to a Core-owned config update capability for validation and persistence.
 
 ## Frontend Implementation Rules
 

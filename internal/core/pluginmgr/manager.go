@@ -3,6 +3,7 @@ package pluginmgr
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	"github.com/chentianyu/celestia/internal/core/registry"
 	"github.com/chentianyu/celestia/internal/core/state"
+	"github.com/chentianyu/celestia/internal/coreapi"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginapi"
 	"github.com/chentianyu/celestia/internal/storage"
@@ -24,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Manager struct {
@@ -35,6 +38,9 @@ type Manager struct {
 	mu       sync.RWMutex
 	runtimes map[string]*managedPlugin
 	catalog  map[string]models.CatalogPlugin
+
+	coreAddr   string
+	coreServer *grpc.Server
 }
 
 type managedPlugin struct {
@@ -53,6 +59,10 @@ type managedPlugin struct {
 	client       pluginapi.PluginClient
 	cancel       context.CancelFunc
 	streamCancel context.CancelFunc
+}
+
+type configServiceServer struct {
+	manager *Manager
 }
 
 type InstallRequest struct {
@@ -75,6 +85,93 @@ func New(store storage.Store, registry *registry.Service, state *state.Service, 
 		runtimes: make(map[string]*managedPlugin),
 		catalog:  catalog,
 	}
+}
+
+func (m *Manager) ensureCoreAPI() error {
+	m.mu.Lock()
+	if m.coreServer != nil && m.coreAddr != "" {
+		m.mu.Unlock()
+		return nil
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		m.mu.Unlock()
+		return err
+	}
+	server := grpc.NewServer()
+	coreapi.RegisterConfigServiceServer(server, &configServiceServer{manager: m})
+	m.coreAddr = listener.Addr().String()
+	m.coreServer = server
+	m.mu.Unlock()
+
+	go func() {
+		_ = server.Serve(listener)
+	}()
+	return nil
+}
+
+func (m *Manager) stopCoreAPI() {
+	m.mu.Lock()
+	server := m.coreServer
+	m.coreServer = nil
+	m.coreAddr = ""
+	m.mu.Unlock()
+	if server != nil {
+		server.GracefulStop()
+	}
+}
+
+func (m *Manager) persistPluginConfig(ctx context.Context, pluginID string, config map[string]any) (models.PluginInstallRecord, error) {
+	record, ok, err := m.store.GetPluginRecord(ctx, pluginID)
+	if err != nil {
+		return models.PluginInstallRecord{}, err
+	}
+	if !ok {
+		return models.PluginInstallRecord{}, errors.New("plugin not installed")
+	}
+	cloned, err := cloneConfig(config)
+	if err != nil {
+		return models.PluginInstallRecord{}, err
+	}
+	record.Config = cloned
+	record.UpdatedAt = time.Now().UTC()
+	if err := m.store.UpsertPluginRecord(ctx, record); err != nil {
+		return models.PluginInstallRecord{}, err
+	}
+	m.mu.RLock()
+	runtime := m.runtimes[pluginID]
+	m.mu.RUnlock()
+	if runtime != nil {
+		runtime.record.Config = cloned
+		runtime.record.UpdatedAt = record.UpdatedAt
+	}
+	return record, nil
+}
+
+func cloneConfig(config map[string]any) (map[string]any, error) {
+	raw, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *configServiceServer) PersistPluginConfig(ctx context.Context, in *structpb.Struct) (*structpb.Struct, error) {
+	var req coreapi.PersistPluginConfigRequest
+	if err := pluginapi.DecodeStruct(in, &req); err != nil {
+		return nil, err
+	}
+	if req.PluginID == "" {
+		return nil, errors.New("plugin_id is required")
+	}
+	if _, err := s.manager.persistPluginConfig(ctx, req.PluginID, req.Config); err != nil {
+		return nil, err
+	}
+	return pluginapi.EncodeStruct(coreapi.PersistPluginConfigResponse{OK: true})
 }
 
 func (m *Manager) Catalog() []models.CatalogPlugin {
@@ -168,29 +265,36 @@ func (m *Manager) UpdateConfig(ctx context.Context, pluginID string, config map[
 		}
 	}
 
-	record.Config = config
-	record.UpdatedAt = time.Now().UTC()
-	if err := m.store.UpsertPluginRecord(ctx, record); err != nil {
+	record, err = m.persistPluginConfig(ctx, pluginID, config)
+	if err != nil {
 		return models.PluginInstallRecord{}, err
 	}
 
 	if running {
-		runtime.record = record
+		runtime.record.PluginID = record.PluginID
+		runtime.record.Version = record.Version
+		runtime.record.Status = record.Status
+		runtime.record.BinaryPath = record.BinaryPath
+		runtime.record.ConfigRef = record.ConfigRef
+		runtime.record.InstalledAt = record.InstalledAt
+		runtime.record.Metadata = record.Metadata
+		runtime.record.LastHeartbeatAt = record.LastHeartbeatAt
+		runtime.record.LastHealthStatus = record.LastHealthStatus
 		if err := m.syncDevices(ctx, runtime); err != nil {
 			runtime.lastError = err.Error()
 			runtime.health.Status = models.HealthStateDegraded
 			runtime.health.Message = err.Error()
 			runtime.health.CheckedAt = time.Now().UTC()
-			record.LastHealthStatus = models.HealthStateDegraded
+			runtime.record.LastHealthStatus = models.HealthStateDegraded
 		} else {
 			runtime.lastError = ""
 			runtime.health.Status = models.HealthStateHealthy
 			runtime.health.Message = "plugin running"
 			runtime.health.CheckedAt = time.Now().UTC()
-			record.LastHealthStatus = models.HealthStateHealthy
+			runtime.record.LastHealthStatus = models.HealthStateHealthy
 		}
-		record.UpdatedAt = time.Now().UTC()
-		runtime.record = record
+		runtime.record.UpdatedAt = time.Now().UTC()
+		record = runtime.record
 		if err := m.store.UpsertPluginRecord(ctx, record); err != nil {
 			return models.PluginInstallRecord{}, err
 		}
@@ -213,14 +317,23 @@ func (m *Manager) Enable(ctx context.Context, pluginID string) error {
 	if existing != nil && existing.running {
 		return nil
 	}
+	if err := m.ensureCoreAPI(); err != nil {
+		return err
+	}
 
 	addr, port, err := allocateAddr()
 	if err != nil {
 		return err
 	}
+	m.mu.RLock()
+	coreAddr := m.coreAddr
+	m.mu.RUnlock()
 	processCtx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(processCtx, record.BinaryPath)
-	cmd.Env = append(os.Environ(), "CELESTIA_PLUGIN_PORT="+port)
+	cmd.Env = append(os.Environ(),
+		"CELESTIA_PLUGIN_PORT="+port,
+		coreapi.EnvCoreAddr+"="+coreAddr,
+	)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
@@ -360,6 +473,7 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 			}
 		}
 	}
+	m.stopCoreAPI()
 	return nil
 }
 
@@ -587,16 +701,6 @@ func (m *Manager) consumeEvents(ctx context.Context, runtime *managedPlugin) {
 		}
 		if event.PluginID == "" {
 			event.PluginID = runtime.record.PluginID
-		}
-		if event.Type == models.EventPluginConfigUpdated {
-			if cfg, ok := event.Payload["config"].(map[string]any); ok && len(cfg) > 0 {
-				runtime.record.Config = cfg
-				runtime.record.UpdatedAt = time.Now().UTC()
-				if err := m.store.UpsertPluginRecord(context.Background(), runtime.record); err != nil {
-					runtime.logs.Append("persist config update error: " + err.Error())
-				}
-			}
-			continue
 		}
 		if err := m.store.AppendEvent(context.Background(), event); err != nil {
 			runtime.logs.Append("persist event error: " + err.Error())

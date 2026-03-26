@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/coreapi"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
 	"github.com/chentianyu/celestia/internal/xiaomi/oauth"
@@ -480,7 +481,9 @@ func (p *Plugin) refreshAll(ctx context.Context, emitEvents bool) error {
 		devices, err := p.refreshAccount(ctx, account)
 		account.lastSync = time.Now().UTC()
 		account.lastErr = err
-		p.syncAccountSessionConfig(account.cfg.Name, account.client)
+		if syncErr := p.syncAccountSessionConfig(account.cfg.Name, account.client); syncErr != nil {
+			errs = append(errs, syncErr.Error())
+		}
 		if err != nil {
 			errs = append(errs, err.Error())
 			if len(devices) == 0 {
@@ -548,7 +551,9 @@ func (p *Plugin) refreshSingle(ctx context.Context, deviceID string, emitEvent b
 	if err != nil {
 		return err
 	}
-	p.syncAccountSessionConfig(runtime.accountName, runtime.account.client)
+	if err := p.syncAccountSessionConfig(runtime.accountName, runtime.account.client); err != nil {
+		return err
+	}
 	var previous models.DeviceStateSnapshot
 	var hadPrev bool
 	p.mu.Lock()
@@ -719,10 +724,11 @@ func stateReadable(ref *mapper.PropertyRef) bool {
 	return ref.Property.Readable() || ref.Property.Notifiable()
 }
 
-func (p *Plugin) syncAccountSessionConfig(accountName string, client *cloud.Client) {
-	serviceToken, ssecurity, userID, cuserID, ok := client.CurrentLegacySession()
-	if !ok {
-		return
+func (p *Plugin) syncAccountSessionConfig(accountName string, client *cloud.Client) error {
+	serviceToken, ssecurity, userID, cuserID, hasLegacy := client.CurrentLegacySession()
+	accessToken, refreshToken, expiresAt, hasOAuth := client.CurrentOAuthTokenSet()
+	if !hasLegacy && !hasOAuth {
+		return nil
 	}
 
 	var snapshot Config
@@ -734,29 +740,53 @@ func (p *Plugin) syncAccountSessionConfig(accountName string, client *cloud.Clie
 		if account.Name != accountName {
 			continue
 		}
-		if account.ServiceToken != serviceToken {
-			account.ServiceToken = serviceToken
-			changed = true
+		if hasLegacy {
+			if account.ServiceToken != serviceToken {
+				account.ServiceToken = serviceToken
+				changed = true
+			}
+			if account.SSecurity != ssecurity {
+				account.SSecurity = ssecurity
+				changed = true
+			}
+			if account.UserID != userID {
+				account.UserID = userID
+				changed = true
+			}
+			if account.CUserID != cuserID {
+				account.CUserID = cuserID
+				changed = true
+			}
+			if account.VerifyURL != "" {
+				account.VerifyURL = ""
+				changed = true
+			}
+			if account.VerifyTicket != "" {
+				account.VerifyTicket = ""
+				changed = true
+			}
 		}
-		if account.SSecurity != ssecurity {
-			account.SSecurity = ssecurity
-			changed = true
-		}
-		if account.UserID != userID {
-			account.UserID = userID
-			changed = true
-		}
-		if account.CUserID != cuserID {
-			account.CUserID = cuserID
-			changed = true
-		}
-		if account.VerifyURL != "" {
-			account.VerifyURL = ""
-			changed = true
-		}
-		if account.VerifyTicket != "" {
-			account.VerifyTicket = ""
-			changed = true
+		if hasOAuth {
+			if account.AccessToken != accessToken {
+				account.AccessToken = accessToken
+				changed = true
+			}
+			if refreshToken != "" && account.RefreshToken != refreshToken {
+				account.RefreshToken = refreshToken
+				changed = true
+			}
+			expires := ""
+			if !expiresAt.IsZero() {
+				expires = expiresAt.UTC().Format(time.RFC3339)
+			}
+			if account.ExpiresAt != expires {
+				account.ExpiresAt = expires
+				changed = true
+			}
+			if account.AuthCode != "" {
+				account.AuthCode = ""
+				changed = true
+			}
 		}
 		if changed {
 			p.config.Accounts[idx] = account
@@ -767,21 +797,18 @@ func (p *Plugin) syncAccountSessionConfig(accountName string, client *cloud.Clie
 	p.mu.Unlock()
 
 	if !changed {
-		return
+		return nil
 	}
 	payload, err := configMap(snapshot)
 	if err != nil {
-		return
+		return err
 	}
-	p.emit(models.Event{
-		ID:       uuid.NewString(),
-		Type:     models.EventPluginConfigUpdated,
-		PluginID: "xiaomi",
-		TS:       time.Now().UTC(),
-		Payload: map[string]any{
-			"config": payload,
-		},
-	})
+	persistCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := coreapi.PersistPluginConfig(persistCtx, "xiaomi", payload); err != nil {
+		return fmt.Errorf("persist xiaomi runtime config: %w", err)
+	}
+	return nil
 }
 
 func configMap(cfg Config) (map[string]any, error) {

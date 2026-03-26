@@ -241,6 +241,15 @@ func (c *Client) CurrentLegacySession() (serviceToken, ssecurity, userID, cuserI
 	return c.serviceToken, c.ssecurity, c.userID, c.cuserID, true
 }
 
+func (c *Client) CurrentOAuthTokenSet() (accessToken, refreshToken string, expiresAt time.Time, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.accessToken == "" {
+		return "", "", time.Time{}, false
+	}
+	return c.accessToken, c.refreshToken, c.expiresAt, true
+}
+
 func (c *Client) UserProfile(ctx context.Context) (map[string]any, error) {
 	if c.usesLegacyAuth() {
 		c.mu.Lock()
