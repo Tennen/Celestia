@@ -1,6 +1,9 @@
 package app
 
 import (
+	"bytes"
+	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"crypto/md5"
 	"encoding/base64"
@@ -459,7 +462,7 @@ func (c *Client) doRequest(
 		if err != nil {
 			return nil, err
 		}
-		bodyBytes, err := io.ReadAll(resp.Body)
+		bodyBytes, err := readPetkitBody(resp)
 		resp.Body.Close()
 		if err != nil {
 			return nil, err
@@ -506,6 +509,40 @@ func (c *Client) doRequest(
 		}
 	}
 	return nil, errors.New("petkit request failed after re-authentication")
+}
+
+func readPetkitBody(resp *http.Response) ([]byte, error) {
+	encoding := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Encoding")))
+	switch {
+	case strings.Contains(encoding, "gzip"):
+		reader, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		return io.ReadAll(reader)
+	case strings.Contains(encoding, "deflate"):
+		reader, err := zlib.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		return io.ReadAll(reader)
+	default:
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		if len(bodyBytes) >= 2 && bodyBytes[0] == 0x1f && bodyBytes[1] == 0x8b {
+			reader, err := gzip.NewReader(bytes.NewReader(bodyBytes))
+			if err != nil {
+				return nil, err
+			}
+			defer reader.Close()
+			return io.ReadAll(reader)
+		}
+		return bodyBytes, nil
+	}
 }
 
 func (c *Client) snapshotTransport() (string, *sessionInfo, error) {
