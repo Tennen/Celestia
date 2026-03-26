@@ -144,6 +144,25 @@ export function PluginWorkspace({
                       <span>Devices</span>
                       <strong>{asArray(selectedCatalogPlugin.manifest.device_kinds).join(', ')}</strong>
                     </div>
+                    {selectedCatalogPlugin.id === 'xiaomi' ? (
+                      <div className="plugin-auth-guide">
+                        <div className="plugin-auth-guide__header">
+                          <Badge tone="accent">Xiaomi Login</Badge>
+                          <strong>Install or save config to authenticate.</strong>
+                        </div>
+                        <p className="muted">
+                          Primary path: fill <code>accounts[0].region</code>, <code>username</code>,{' '}
+                          <code>password</code>, and <code>device_id</code> in the JSON on the left, then click{' '}
+                          <code>{selectedPlugin ? 'Save Config' : 'Install'}</code> and <code>Enable</code>. The plugin
+                          authenticates when the runtime starts.
+                        </p>
+                        <p className="muted">
+                          Optional paths: provide <code>service_token</code>, <code>ssecurity</code>, and{' '}
+                          <code>user_id</code> to reuse an existing Xiaomi session, or use <code>Connect OAuth</code>{' '}
+                          only when the draft already contains <code>client_id</code> and <code>redirect_url</code>.
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="button-row">
                       {selectedCatalogPlugin.id === 'xiaomi' ? (
                         <Button
