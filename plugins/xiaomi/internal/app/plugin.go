@@ -682,7 +682,7 @@ type namedPropertyRef struct {
 func propertyRefs(mapping *mapper.DeviceMapping) []namedPropertyRef {
 	var refs []namedPropertyRef
 	appendRef := func(name string, ref *mapper.PropertyRef) {
-		if ref == nil {
+		if ref == nil || !stateReadable(ref) {
 			return
 		}
 		refs = append(refs, namedPropertyRef{name: name, ref: ref})
@@ -707,6 +707,13 @@ func propertyRefs(mapping *mapper.DeviceMapping) []namedPropertyRef {
 		appendRef(toggle.StateKey, toggle.Ref)
 	}
 	return refs
+}
+
+func stateReadable(ref *mapper.PropertyRef) bool {
+	if ref == nil {
+		return false
+	}
+	return ref.Property.Readable() || ref.Property.Notifiable()
 }
 
 func parseConfig(cfg map[string]any, existing map[string]*accountRuntime) (Config, map[string]*accountRuntime, error) {
