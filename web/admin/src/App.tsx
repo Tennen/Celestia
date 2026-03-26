@@ -104,6 +104,10 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function parseJsonObject(raw: string, errorMessage: string) {
   const parsed = JSON.parse(raw) as unknown;
   if (!isRecord(parsed)) {
@@ -402,7 +406,7 @@ function App() {
   const refreshAll = async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
-      const [dashboard, catalog, plugins, devices, events, audits] = await Promise.all([
+      const [dashboard, rawCatalog, rawPlugins, rawDevices, rawEvents, rawAudits] = await Promise.all([
         fetchDashboard(),
         fetchCatalogPlugins(),
         fetchPlugins(),
@@ -410,6 +414,11 @@ function App() {
         fetchEvents(80),
         fetchAudits(80),
       ]);
+      const catalog = asArray(rawCatalog);
+      const plugins = asArray(rawPlugins);
+      const devices = asArray(rawDevices);
+      const events = asArray(rawEvents);
+      const audits = asArray(rawAudits);
 
       setState({
         dashboard,
@@ -469,7 +478,7 @@ function App() {
     let canceled = false;
     void fetchPluginLogs(selectedLogsPluginId)
       .then((data) => {
-        if (!canceled) setPluginLogs(data.logs);
+        if (!canceled) setPluginLogs(asArray(data.logs));
       })
       .catch(() => {
         if (!canceled) setPluginLogs(['Unable to load logs.']);
@@ -530,7 +539,7 @@ function App() {
 
   const commandSuggestions = useMemo(() => {
     if (!selectedDevice) return [];
-    const capabilities = selectedDevice.device.capabilities;
+    const capabilities = asArray(selectedDevice.device.capabilities);
     const suggestions: Array<{ label: string; action: string; params: Record<string, unknown> }> = [];
     if (capabilities.includes('feed_once')) suggestions.push({ label: 'Feed once', action: 'feed_once', params: { portions: 1 } });
     if (capabilities.includes('clean_now')) suggestions.push({ label: 'Clean now', action: 'clean_now', params: {} });
@@ -687,11 +696,11 @@ function App() {
                       </div>
                       <div className="kv">
                         <span>Capabilities</span>
-                        <strong>{plugin.manifest.capabilities.join(', ')}</strong>
+                        <strong>{asArray(plugin.manifest.capabilities).join(', ')}</strong>
                       </div>
                       <div className="kv">
                         <span>Devices</span>
-                        <strong>{plugin.manifest.device_kinds.join(', ')}</strong>
+                        <strong>{asArray(plugin.manifest.device_kinds).join(', ')}</strong>
                       </div>
                       <div className="button-row">
                         {plugin.id === 'xiaomi' ? (
@@ -774,7 +783,7 @@ function App() {
                   </option>
                 ))}
               </select>
-              <Button variant="secondary" onClick={() => void fetchPluginLogs(selectedLogsPluginId).then((data) => setPluginLogs(data.logs))}>
+              <Button variant="secondary" onClick={() => void fetchPluginLogs(selectedLogsPluginId).then((data) => setPluginLogs(asArray(data.logs)))}>
                 Reload
               </Button>
             </div>
@@ -831,7 +840,7 @@ function App() {
                   </Badge>
                 </div>
                 <div className="chip-list">
-                  {selectedDevice.device.capabilities.map((capability) => (
+                  {asArray(selectedDevice.device.capabilities).map((capability) => (
                     <Badge key={capability} tone="neutral">
                       {capability}
                     </Badge>
