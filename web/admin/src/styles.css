@@ -590,6 +590,13 @@ pre {
   align-items: start;
 }
 
+.control-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .control-card__header p,
 .advanced-command__header p {
   margin: 6px 0 0;
@@ -598,6 +605,86 @@ pre {
 .control-card__editor {
   display: grid;
   gap: 10px;
+}
+
+.control-card__visibility {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.control-card__visibility svg,
+.collapse-toggle__icon {
+  width: 16px;
+  height: 16px;
+}
+
+.control-card__visibility:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(18, 26, 45, 0.92);
+}
+
+.control-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(6, 10, 18, 0.88);
+  border: 1px solid rgba(151, 168, 221, 0.14);
+}
+
+.control-toggle__option {
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  color: var(--muted);
+}
+
+.control-toggle__option:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.control-toggle__option.is-active {
+  color: #03101b;
+  border-color: transparent;
+}
+
+.control-toggle__option--on.is-active {
+  background: linear-gradient(135deg, #5eead4, #7bdcff);
+}
+
+.control-toggle__option--off.is-active {
+  background: linear-gradient(135deg, #fb7185, #f59e0b);
+}
+
+.section-title--inline {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-title--inline label {
+  margin-bottom: 0;
+}
+
+.collapse-toggle {
+  gap: 8px;
+  color: var(--muted);
+}
+
+.collapse-toggle:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(18, 26, 45, 0.92);
+}
+
+.collapse-toggle__icon {
+  transition: transform 160ms ease;
+}
+
+.collapse-toggle__icon.is-expanded {
+  transform: rotate(180deg);
 }
 
 .detail__header {
@@ -689,6 +776,19 @@ label {
   .section-title {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .section-title--inline {
+    align-items: stretch;
+  }
+
+  .control-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .control-card__meta {
+    justify-content: space-between;
   }
 
   .sidemenu__button,

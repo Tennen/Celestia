@@ -7,6 +7,7 @@ import { Section } from '../ui/section';
 import { Textarea } from '../ui/textarea';
 import { asArray } from '../../lib/admin';
 import type { DeviceControl, DeviceView } from '../../lib/types';
+import { cn } from '../../lib/utils';
 
 type Props = {
   deviceSearch: string;
@@ -45,6 +46,43 @@ function toggleText(control: DeviceControl) {
   return 'unknown';
 }
 
+function VisibilityIcon({ visible }: { visible: boolean }) {
+  if (visible) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.7 5.1A11.4 11.4 0 0 1 12 5c6.4 0 10 7 10 7a17.2 17.2 0 0 1-2.4 3.2" />
+      <path d="M6.6 6.7A16.8 16.8 0 0 0 2 12s3.6 7 10 7a10.8 10.8 0 0 0 4.1-.8" />
+      <path d="m3 3 18 18" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      className={cn('collapse-toggle__icon', expanded && 'is-expanded')}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 export function DeviceWorkspace({
   deviceSearch,
   onDeviceSearchChange,
@@ -70,10 +108,12 @@ export function DeviceWorkspace({
   selectedDeviceDetails,
 }: Props) {
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
+  const [hiddenControlsCollapsed, setHiddenControlsCollapsed] = useState(true);
 
   useEffect(() => {
     if (!selectedDevice) {
       setAliasDrafts({});
+      setHiddenControlsCollapsed(true);
       return;
     }
     const next: Record<string, string> = {};
@@ -81,6 +121,7 @@ export function DeviceWorkspace({
       next[control.id] = control.alias ?? '';
     }
     setAliasDrafts(next);
+    setHiddenControlsCollapsed(true);
   }, [selectedDevice]);
 
   const visibleControls = useMemo(
@@ -122,15 +163,28 @@ export function DeviceWorkspace({
           >
             Reset Label
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => onUpdateControlPreference(control.id, { alias: aliasValue.trim(), visible: control.visible === false })}
-            disabled={prefBusy}
-          >
-            {control.visible === false ? 'Show' : 'Hide'}
-          </Button>
         </div>
       </div>
+    );
+  };
+
+  const renderVisibilityButton = (control: DeviceControl) => {
+    if (!selectedDevice) return null;
+    const prefBusy = busy === `control-pref-${selectedDevice.device.id}.${control.id}`;
+    const isVisible = control.visible !== false;
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="control-card__visibility"
+        onClick={() => onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: !isVisible })}
+        disabled={prefBusy}
+        aria-label={isVisible ? `Hide ${control.label}` : `Show ${control.label}`}
+        title={isVisible ? 'Hide control' : 'Show control'}
+      >
+        <VisibilityIcon visible={isVisible} />
+      </Button>
     );
   };
 
@@ -210,23 +264,38 @@ export function DeviceWorkspace({
                               {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
                               {control.description ? <p>{control.description}</p> : null}
                             </div>
-                            <Badge tone={control.kind === 'toggle' ? toggleTone(control) : 'accent'}>
-                              {control.kind === 'toggle' ? toggleText(control) : 'action'}
-                            </Badge>
+                            <div className="control-card__meta">
+                              <Badge tone={control.kind === 'toggle' ? toggleTone(control) : 'accent'}>
+                                {control.kind === 'toggle' ? toggleText(control) : 'action'}
+                              </Badge>
+                              {renderVisibilityButton(control)}
+                            </div>
                           </div>
                           {control.kind === 'toggle' ? (
-                            <div className="button-row">
+                            <div className="control-toggle" role="group" aria-label={`${control.label} toggle`}>
                               <Button
-                                variant="secondary"
+                                type="button"
+                                variant="ghost"
+                                className={cn('control-toggle__option', control.state === true && 'is-active', 'control-toggle__option--on')}
                                 onClick={() => onToggleControl(control.id, true)}
-                                disabled={busy === `toggle-${selectedDevice.device.id}.${control.id}-on`}
+                                disabled={
+                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-on` ||
+                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-off`
+                                }
+                                aria-pressed={control.state === true}
                               >
                                 On
                               </Button>
                               <Button
-                                variant="secondary"
+                                type="button"
+                                variant="ghost"
+                                className={cn('control-toggle__option', control.state === false && 'is-active', 'control-toggle__option--off')}
                                 onClick={() => onToggleControl(control.id, false)}
-                                disabled={busy === `toggle-${selectedDevice.device.id}.${control.id}-off`}
+                                disabled={
+                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-on` ||
+                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-off`
+                                }
+                                aria-pressed={control.state === false}
                               >
                                 Off
                               </Button>
@@ -252,9 +321,25 @@ export function DeviceWorkspace({
                 </div>
 
                 <div>
-                  <label>Hidden Controls</label>
-                  {hiddenControls.length > 0 ? (
-                    <div className="control-grid">
+                  <div className="section-title section-title--inline">
+                    <label>Hidden Controls</label>
+                    {hiddenControls.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="collapse-toggle"
+                        onClick={() => setHiddenControlsCollapsed((current) => !current)}
+                        aria-expanded={!hiddenControlsCollapsed}
+                        aria-controls="hidden-controls-panel"
+                      >
+                        <span>{hiddenControlsCollapsed ? `Show ${hiddenControls.length}` : `Hide ${hiddenControls.length}`}</span>
+                        <ChevronIcon expanded={!hiddenControlsCollapsed} />
+                      </Button>
+                    ) : null}
+                  </div>
+                  {hiddenControls.length > 0 && !hiddenControlsCollapsed ? (
+                    <div id="hidden-controls-panel" className="control-grid">
                       {hiddenControls.map((control) => (
                         <div key={control.id} className="control-card control-card--hidden">
                           <div className="control-card__header">
@@ -263,15 +348,22 @@ export function DeviceWorkspace({
                               {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
                               {control.description ? <p>{control.description}</p> : null}
                             </div>
-                            <Badge tone="neutral">hidden</Badge>
+                            <div className="control-card__meta">
+                              <Badge tone="neutral">hidden</Badge>
+                              {renderVisibilityButton(control)}
+                            </div>
                           </div>
                           {renderPreferenceEditor(control)}
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : null}
+                  {hiddenControls.length > 0 && hiddenControlsCollapsed ? (
+                    <p className="muted">Hidden quick controls are collapsed.</p>
+                  ) : null}
+                  {hiddenControls.length === 0 ? (
                     <p className="muted">No hidden quick controls.</p>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="advanced-command">
