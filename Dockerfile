@@ -1,9 +1,7 @@
-ARG BUILDPLATFORM
-ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
-FROM --platform=$BUILDPLATFORM node:20-bookworm AS web-builder
+FROM node:20-bookworm AS web-builder
 WORKDIR /src
 COPY package.json package-lock.json ./
 COPY web/admin/package.json ./web/admin/package.json
@@ -11,7 +9,7 @@ RUN npm ci
 COPY web/admin ./web/admin
 RUN npm run build --workspace web/admin
 
-FROM --platform=$TARGETPLATFORM golang:1.23-bookworm AS go-builder
+FROM golang:1.23-bookworm AS go-builder
 ARG TARGETOS
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -29,7 +27,7 @@ RUN target_os="${TARGETOS:-$(go env GOOS)}"; \
     CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/petkit-plugin ./plugins/petkit/cmd/petkit-plugin && \
     CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/haier-plugin ./plugins/haier/cmd/haier-plugin
 
-FROM --platform=$TARGETPLATFORM debian:bookworm-slim
+FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libstdc++6 libgcc-s1 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=go-builder /out/bin ./bin
