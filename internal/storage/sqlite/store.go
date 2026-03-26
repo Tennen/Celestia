@@ -61,6 +61,14 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			ts text not null,
 			state_json text not null
 		)`,
+		`create table if not exists device_control_preferences (
+			device_id text not null,
+			control_id text not null,
+			alias text not null default '',
+			visible integer not null default 1,
+			updated_at text not null,
+			primary key(device_id, control_id)
+		)`,
 		`create table if not exists events (
 			id text primary key,
 			type text not null,
@@ -101,6 +109,7 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			token_expires_at text
 		)`,
 		`create index if not exists idx_devices_plugin on devices(plugin_id)`,
+		`create index if not exists idx_device_control_preferences_device on device_control_preferences(device_id)`,
 		`create index if not exists idx_events_plugin_ts on events(plugin_id, ts desc)`,
 		`create index if not exists idx_audits_created_at on audits(created_at desc)`,
 		`create unique index if not exists idx_oauth_sessions_provider_state on oauth_sessions(provider, state)`,
@@ -343,6 +352,57 @@ func (s *Store) ListDeviceStates(ctx context.Context, filter storage.StateFilter
 			return nil, err
 		}
 		out = append(out, state)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) UpsertDeviceControlPreference(ctx context.Context, pref models.DeviceControlPreference) error {
+	alias := strings.TrimSpace(pref.Alias)
+	if alias == "" && pref.Visible {
+		_, err := s.db.ExecContext(ctx, `delete from device_control_preferences where device_id = ? and control_id = ?`, pref.DeviceID, pref.ControlID)
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, `
+		insert into device_control_preferences(device_id, control_id, alias, visible, updated_at)
+		values (?, ?, ?, ?, ?)
+		on conflict(device_id, control_id) do update set
+			alias=excluded.alias,
+			visible=excluded.visible,
+			updated_at=excluded.updated_at
+	`, pref.DeviceID, pref.ControlID, alias, boolToInt(pref.Visible), pref.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	return err
+}
+
+func (s *Store) ListDeviceControlPreferences(ctx context.Context, deviceID string) ([]models.DeviceControlPreference, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select device_id, control_id, alias, visible, updated_at
+		from device_control_preferences
+		where device_id = ?
+		order by control_id
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.DeviceControlPreference
+	for rows.Next() {
+		var (
+			pref      models.DeviceControlPreference
+			visible   int
+			updatedAt string
+		)
+		if err := rows.Scan(&pref.DeviceID, &pref.ControlID, &pref.Alias, &visible, &updatedAt); err != nil {
+			return nil, err
+		}
+		pref.Visible = visible != 0
+		if updatedAt != "" {
+			parsed, err := time.Parse(time.RFC3339Nano, updatedAt)
+			if err != nil {
+				return nil, err
+			}
+			pref.UpdatedAt = parsed.UTC()
+		}
+		out = append(out, pref)
 	}
 	return out, rows.Err()
 }

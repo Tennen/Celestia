@@ -57,3 +57,8 @@ When asked to implement a feature:
 3. Complete the path end-to-end: config, runtime behavior, API surface, UI surface, and docs when needed.
 4. Validate with builds/tests and, when credentials are available, real integration smoke checks.
 5. If a requirement cannot be completed truthfully, say exactly what is missing instead of shipping a mock.
+
+## API Documentation Rule
+
+- Any change that adds, removes, renames, or changes the behavior of an HTTP API must update the repository Markdown API documentation in the same task.
+- Do not leave API docs stale after changing request paths, request bodies, response fields, auth expectations, or control semantics.

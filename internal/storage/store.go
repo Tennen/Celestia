@@ -23,6 +23,9 @@ type Store interface {
 	GetDeviceState(context.Context, string) (models.DeviceStateSnapshot, bool, error)
 	ListDeviceStates(context.Context, StateFilter) ([]models.DeviceStateSnapshot, error)
 
+	UpsertDeviceControlPreference(context.Context, models.DeviceControlPreference) error
+	ListDeviceControlPreferences(context.Context, string) ([]models.DeviceControlPreference, error)
+
 	AppendEvent(context.Context, models.Event) error
 	ListEvents(context.Context, EventFilter) ([]models.Event, error)
 	CountEvents(context.Context) (int, error)

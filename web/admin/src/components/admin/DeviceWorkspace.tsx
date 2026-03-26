@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -27,6 +28,7 @@ type Props = {
   onSendCommand: () => void;
   onToggleControl: (controlId: string, on: boolean) => void;
   onActionControl: (controlId: string) => void;
+  onUpdateControlPreference: (controlId: string, payload: { alias?: string; visible: boolean }) => void;
   commandResult: string;
   selectedDeviceDetails: string;
 };
@@ -63,9 +65,75 @@ export function DeviceWorkspace({
   onSendCommand,
   onToggleControl,
   onActionControl,
+  onUpdateControlPreference,
   commandResult,
   selectedDeviceDetails,
 }: Props) {
+  const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!selectedDevice) {
+      setAliasDrafts({});
+      return;
+    }
+    const next: Record<string, string> = {};
+    for (const control of selectedDevice.controls) {
+      next[control.id] = control.alias ?? '';
+    }
+    setAliasDrafts(next);
+  }, [selectedDevice]);
+
+  const visibleControls = useMemo(
+    () => selectedDevice?.controls.filter((control) => control.visible !== false) ?? [],
+    [selectedDevice],
+  );
+  const hiddenControls = useMemo(
+    () => selectedDevice?.controls.filter((control) => control.visible === false) ?? [],
+    [selectedDevice],
+  );
+
+  const renderPreferenceEditor = (control: DeviceControl) => {
+    if (!selectedDevice) return null;
+    const prefBusy = busy === `control-pref-${selectedDevice.device.id}.${control.id}`;
+    const aliasValue = aliasDrafts[control.id] ?? '';
+    const defaultLabel = control.default_label ?? control.label;
+    return (
+      <div className="control-card__editor">
+        <Input
+          value={aliasValue}
+          onChange={(event) => setAliasDrafts((current) => ({ ...current, [control.id]: event.target.value }))}
+          placeholder={defaultLabel}
+        />
+        <div className="button-row">
+          <Button
+            variant="secondary"
+            onClick={() => onUpdateControlPreference(control.id, { alias: aliasValue.trim(), visible: control.visible !== false })}
+            disabled={prefBusy}
+          >
+            Save Label
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setAliasDrafts((current) => ({ ...current, [control.id]: '' }));
+              onUpdateControlPreference(control.id, { alias: '', visible: control.visible !== false });
+            }}
+            disabled={prefBusy}
+          >
+            Reset Label
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => onUpdateControlPreference(control.id, { alias: aliasValue.trim(), visible: control.visible === false })}
+            disabled={prefBusy}
+          >
+            {control.visible === false ? 'Show' : 'Hide'}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Section className="grid grid--two">
       <Card>
@@ -132,13 +200,14 @@ export function DeviceWorkspace({
               <div className="stack">
                 <div>
                   <label>Quick Controls</label>
-                  {selectedDevice.controls.length > 0 ? (
+                  {visibleControls.length > 0 ? (
                     <div className="control-grid">
-                      {selectedDevice.controls.map((control) => (
+                      {visibleControls.map((control) => (
                         <div key={control.id} className="control-card">
                           <div className="control-card__header">
                             <div>
                               <strong>{control.label}</strong>
+                              {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
                               {control.description ? <p>{control.description}</p> : null}
                             </div>
                             <Badge tone={control.kind === 'toggle' ? toggleTone(control) : 'accent'}>
@@ -173,11 +242,35 @@ export function DeviceWorkspace({
                               </Button>
                             </div>
                           )}
+                          {renderPreferenceEditor(control)}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="muted">No abstract quick controls are available for this device yet.</p>
+                    <p className="muted">No visible quick controls are configured for this device.</p>
+                  )}
+                </div>
+
+                <div>
+                  <label>Hidden Controls</label>
+                  {hiddenControls.length > 0 ? (
+                    <div className="control-grid">
+                      {hiddenControls.map((control) => (
+                        <div key={control.id} className="control-card control-card--hidden">
+                          <div className="control-card__header">
+                            <div>
+                              <strong>{control.label}</strong>
+                              {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
+                              {control.description ? <p>{control.description}</p> : null}
+                            </div>
+                            <Badge tone="neutral">hidden</Badge>
+                          </div>
+                          {renderPreferenceEditor(control)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">No hidden quick controls.</p>
                   )}
                 </div>
 

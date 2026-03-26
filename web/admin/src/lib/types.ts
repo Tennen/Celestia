@@ -101,8 +101,11 @@ export type DeviceControl = {
   id: string;
   kind: DeviceControlKind;
   label: string;
+  default_label?: string;
+  alias?: string;
   description?: string;
   state?: boolean | null;
+  visible: boolean;
 };
 
 export type DeviceView = {

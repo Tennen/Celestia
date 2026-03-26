@@ -16,6 +16,7 @@ import {
   runActionControl,
   sendCommand,
   sendToggle,
+  updateDeviceControlPreference,
   updatePluginConfig,
 } from './lib/api';
 import { asArray, canStartXiaomiOAuth, DEFAULT_INSTALL_CONFIGS, getPluginDraftText, mergeXiaomiAccountConfig } from './lib/admin';
@@ -358,6 +359,14 @@ function App() {
                 }
                 const compoundId = `${selectedDevice.device.id}.${controlId}`;
                 void runAction(`action-${compoundId}`, () => runActionControl(compoundId, actor));
+              }}
+              onUpdateControlPreference={(controlId, payload) => {
+                if (!selectedDevice) {
+                  return;
+                }
+                void runAction(`control-pref-${selectedDevice.device.id}.${controlId}`, () =>
+                  updateDeviceControlPreference(selectedDevice.device.id, controlId, payload),
+                );
               }}
               commandResult={commandResult}
               selectedDeviceDetails={selectedDeviceDetails}

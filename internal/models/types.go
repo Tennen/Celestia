@@ -118,17 +118,28 @@ const (
 )
 
 type DeviceControl struct {
-	ID          string            `json:"id"`
-	Kind        DeviceControlKind `json:"kind"`
-	Label       string            `json:"label"`
-	Description string            `json:"description,omitempty"`
-	State       *bool             `json:"state,omitempty"`
+	ID           string            `json:"id"`
+	Kind         DeviceControlKind `json:"kind"`
+	Label        string            `json:"label"`
+	DefaultLabel string            `json:"default_label,omitempty"`
+	Alias        string            `json:"alias,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	State        *bool             `json:"state,omitempty"`
+	Visible      bool              `json:"visible"`
 }
 
 type DeviceView struct {
 	Device   Device              `json:"device"`
 	State    DeviceStateSnapshot `json:"state"`
 	Controls []DeviceControl     `json:"controls,omitempty"`
+}
+
+type DeviceControlPreference struct {
+	DeviceID  string    `json:"device_id"`
+	ControlID string    `json:"control_id"`
+	Alias     string    `json:"alias,omitempty"`
+	Visible   bool      `json:"visible"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Event struct {

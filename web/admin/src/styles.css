@@ -577,6 +577,11 @@ pre {
   border: 1px solid rgba(151, 168, 221, 0.14);
 }
 
+.control-card--hidden {
+  opacity: 0.88;
+  border-style: dashed;
+}
+
 .control-card__header,
 .advanced-command__header {
   display: flex;
@@ -588,6 +593,11 @@ pre {
 .control-card__header p,
 .advanced-command__header p {
   margin: 6px 0 0;
+}
+
+.control-card__editor {
+  display: grid;
+  gap: 10px;
 }
 
 .detail__header {

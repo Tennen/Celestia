@@ -43,10 +43,17 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("GET /api/v1/plugins/{id}/logs", s.handlePluginLogs)
 	mux.HandleFunc("GET /api/v1/devices", s.handleDevices)
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleDevice)
+	mux.HandleFunc("PUT /api/v1/devices/{id}/controls/{controlId}", s.handleUpdateControlPreference)
 	mux.HandleFunc("POST /api/v1/devices/{id}/commands", s.handleCommand)
 	mux.HandleFunc("POST /api/v1/toggle/{id}/on", s.handleToggleOn)
 	mux.HandleFunc("POST /api/v1/toggle/{id}/off", s.handleToggleOff)
 	mux.HandleFunc("POST /api/v1/action/{id}", s.handleActionControl)
+	mux.HandleFunc("GET /api/external/v1/devices", s.handleDevices)
+	mux.HandleFunc("GET /api/external/v1/devices/{id}", s.handleDevice)
+	mux.HandleFunc("POST /api/external/v1/devices/{id}/commands", s.handleCommand)
+	mux.HandleFunc("POST /api/external/v1/toggle/{id}/on", s.handleToggleOn)
+	mux.HandleFunc("POST /api/external/v1/toggle/{id}/off", s.handleToggleOff)
+	mux.HandleFunc("POST /api/external/v1/action/{id}", s.handleActionControl)
 	mux.HandleFunc("GET /api/v1/events", s.handleEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("GET /api/v1/audits", s.handleAudits)
@@ -194,7 +201,12 @@ func (s *Server) handleDevices(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]models.DeviceView, 0, len(devices))
 	for _, device := range devices {
-		out = append(out, s.runtime.Controls.BuildView(device, stateMap[device.ID]))
+		view, err := s.deviceView(r.Context(), device, stateMap[device.ID])
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		out = append(out, view)
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -214,7 +226,65 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.runtime.Controls.BuildView(device, state))
+	view, err := s.deviceView(r.Context(), device, state)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (s *Server) handleUpdateControlPreference(w http.ResponseWriter, r *http.Request) {
+	device, ok, err := s.runtime.Registry.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, errors.New("device not found"))
+		return
+	}
+	state, _, err := s.runtime.State.Get(r.Context(), device.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	view, err := s.deviceView(r.Context(), device, state)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	controlID := strings.TrimSpace(r.PathValue("controlId"))
+	if !hasControl(view.Controls, controlID) {
+		writeError(w, http.StatusNotFound, errors.New("control not found"))
+		return
+	}
+
+	var payload struct {
+		Alias   string `json:"alias"`
+		Visible *bool  `json:"visible"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	visible := true
+	if payload.Visible != nil {
+		visible = *payload.Visible
+	}
+	pref := models.DeviceControlPreference{
+		DeviceID:  device.ID,
+		ControlID: controlID,
+		Alias:     strings.TrimSpace(payload.Alias),
+		Visible:   visible,
+		UpdatedAt: time.Now().UTC(),
+	}
+	if err := s.runtime.Store.UpsertDeviceControlPreference(r.Context(), pref); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, pref)
 }
 
 func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
@@ -339,6 +409,24 @@ func (s *Server) executeDeviceCommand(w http.ResponseWriter, r *http.Request, de
 		"decision": decision,
 		"result":   resp,
 	})
+}
+
+func (s *Server) deviceView(ctx context.Context, device models.Device, state models.DeviceStateSnapshot) (models.DeviceView, error) {
+	view := s.runtime.Controls.BuildView(device, state)
+	prefs, err := s.runtime.Store.ListDeviceControlPreferences(ctx, device.ID)
+	if err != nil {
+		return models.DeviceView{}, err
+	}
+	return s.runtime.Controls.ApplyPreferences(view, prefs), nil
+}
+
+func hasControl(controls []models.DeviceControl, controlID string) bool {
+	for _, control := range controls {
+		if control.ID == controlID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {

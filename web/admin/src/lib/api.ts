@@ -141,6 +141,23 @@ export async function runActionControl(compoundId: string, actor = 'admin') {
   });
 }
 
+export async function updateDeviceControlPreference(
+  deviceId: string,
+  controlId: string,
+  payload: {
+    alias?: string;
+    visible: boolean;
+  },
+) {
+  return request<{ device_id: string; control_id: string; alias?: string; visible: boolean; updated_at: string }>(
+    `/devices/${deviceId}/controls/${controlId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 export async function fetchEvents(limit = 100) {
   return request<EventRecord[]>(`/events?limit=${limit}`);
 }

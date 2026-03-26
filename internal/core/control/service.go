@@ -34,6 +34,27 @@ func (s *Service) BuildView(device models.Device, state models.DeviceStateSnapsh
 	}
 }
 
+func (s *Service) ApplyPreferences(view models.DeviceView, prefs []models.DeviceControlPreference) models.DeviceView {
+	indexed := make(map[string]models.DeviceControlPreference, len(prefs))
+	for _, pref := range prefs {
+		indexed[pref.ControlID] = pref
+	}
+	for idx := range view.Controls {
+		control := view.Controls[idx]
+		control.DefaultLabel = control.Label
+		control.Visible = true
+		if pref, ok := indexed[control.ID]; ok {
+			control.Alias = pref.Alias
+			control.Visible = pref.Visible
+			if strings.TrimSpace(pref.Alias) != "" {
+				control.Label = pref.Alias
+			}
+		}
+		view.Controls[idx] = control
+	}
+	return view
+}
+
 func (s *Service) List(device models.Device, state models.DeviceStateSnapshot) []models.DeviceControl {
 	specs := controlSpecs(device, state)
 	out := make([]models.DeviceControl, 0, len(specs))
@@ -149,6 +170,7 @@ func actionSpec(id, label, description, action string, params map[string]any) co
 			Kind:        models.DeviceControlKindAction,
 			Label:       label,
 			Description: description,
+			Visible:     true,
 		},
 		action: action,
 		params: params,
@@ -163,6 +185,7 @@ func toggleSpec(id, label, description string, state *bool, onAction string, onP
 			Label:       label,
 			Description: description,
 			State:       state,
+			Visible:     true,
 		},
 		onAction:  onAction,
 		onParams:  onParams,
