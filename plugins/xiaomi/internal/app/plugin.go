@@ -293,6 +293,10 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 		if err := p.setPropertyCommand(ctx, runtime, runtime.mapping.PumpPower, req.Params["on"]); err != nil {
 			return models.CommandResponse{}, err
 		}
+	case "set_pump_level":
+		if err := p.setPropertyCommand(ctx, runtime, runtime.mapping.PumpLevel, req.Params["value"]); err != nil {
+			return models.CommandResponse{}, err
+		}
 	case "set_light_power":
 		if err := p.setPropertyCommand(ctx, runtime, runtime.mapping.LightPower, req.Params["on"]); err != nil {
 			return models.CommandResponse{}, err

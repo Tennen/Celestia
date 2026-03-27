@@ -41,6 +41,7 @@ func propertyRefs(mapping *mapper.DeviceMapping) []namedPropertyRef {
 	appendRef("temperature", mapping.Temperature)
 	appendRef("humidity", mapping.Humidity)
 	appendRef("pump_power", mapping.PumpPower)
+	appendRef("pump_level", mapping.PumpLevel)
 	appendRef("light_power", mapping.LightPower)
 	appendRef("light_brightness", mapping.LightBrightness)
 	appendRef("light_mode", mapping.LightMode)

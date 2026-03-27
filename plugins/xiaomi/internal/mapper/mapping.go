@@ -35,6 +35,7 @@ type DeviceMapping struct {
 	Temperature       *PropertyRef
 	Humidity          *PropertyRef
 	PumpPower         *PropertyRef
+	PumpLevel         *PropertyRef
 	LightPower        *PropertyRef
 	LightBrightness   *PropertyRef
 	LightMode         *PropertyRef
@@ -142,6 +143,9 @@ func Build(raw cloud.DeviceRecord, instance spec.Instance, accountName string) (
 	}
 	if len(mapping.ToggleChannels) > 0 {
 		device.Metadata["toggle_refs"] = toggleMetadata(mapping.ToggleChannels)
+	}
+	if controls := valueControlMetadata(mapping); len(controls) > 0 {
+		device.Metadata["value_controls"] = controls
 	}
 	return device, mapping, nil
 }

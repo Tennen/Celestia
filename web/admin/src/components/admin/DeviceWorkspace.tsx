@@ -6,8 +6,9 @@ import { Input } from '../ui/input';
 import { Section } from '../ui/section';
 import { Textarea } from '../ui/textarea';
 import { asArray } from '../../lib/admin';
-import type { DeviceControl, DeviceView } from '../../lib/types';
+import type { DeviceView } from '../../lib/types';
 import { cn } from '../../lib/utils';
+import { DeviceControlCard } from './DeviceControlCard';
 
 type Props = {
   deviceSearch: string;
@@ -29,42 +30,11 @@ type Props = {
   onSendCommand: () => void;
   onToggleControl: (controlId: string, on: boolean) => void;
   onActionControl: (controlId: string) => void;
+  onValueControl: (controlId: string, value: string | number) => void;
   onUpdateControlPreference: (controlId: string, payload: { alias?: string; visible: boolean }) => void;
   commandResult: string;
   selectedDeviceDetails: string;
 };
-
-function toggleTone(control: DeviceControl) {
-  if (control.state === true) return 'good';
-  if (control.state === false) return 'neutral';
-  return 'warn';
-}
-
-function toggleText(control: DeviceControl) {
-  if (control.state === true) return 'on';
-  if (control.state === false) return 'off';
-  return 'unknown';
-}
-
-function VisibilityIcon({ visible }: { visible: boolean }) {
-  if (visible) {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M10.7 5.1A11.4 11.4 0 0 1 12 5c6.4 0 10 7 10 7a17.2 17.2 0 0 1-2.4 3.2" />
-      <path d="M6.6 6.7A16.8 16.8 0 0 0 2 12s3.6 7 10 7a10.8 10.8 0 0 0 4.1-.8" />
-      <path d="m3 3 18 18" />
-      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-    </svg>
-  );
-}
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
@@ -103,24 +73,32 @@ export function DeviceWorkspace({
   onSendCommand,
   onToggleControl,
   onActionControl,
+  onValueControl,
   onUpdateControlPreference,
   commandResult,
   selectedDeviceDetails,
 }: Props) {
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
+  const [controlDrafts, setControlDrafts] = useState<Record<string, string>>({});
   const [hiddenControlsCollapsed, setHiddenControlsCollapsed] = useState(true);
 
   useEffect(() => {
     if (!selectedDevice) {
       setAliasDrafts({});
+      setControlDrafts({});
       setHiddenControlsCollapsed(true);
       return;
     }
-    const next: Record<string, string> = {};
+    const nextAliasDrafts: Record<string, string> = {};
+    const nextControlDrafts: Record<string, string> = {};
     for (const control of selectedDevice.controls) {
-      next[control.id] = control.alias ?? '';
+      nextAliasDrafts[control.id] = control.alias ?? '';
+      if (control.kind === 'select' || control.kind === 'number') {
+        nextControlDrafts[control.id] = control.value === null || control.value === undefined ? '' : String(control.value);
+      }
     }
-    setAliasDrafts(next);
+    setAliasDrafts(nextAliasDrafts);
+    setControlDrafts(nextControlDrafts);
     setHiddenControlsCollapsed(true);
   }, [selectedDevice]);
 
@@ -132,61 +110,6 @@ export function DeviceWorkspace({
     () => selectedDevice?.controls.filter((control) => control.visible === false) ?? [],
     [selectedDevice],
   );
-
-  const renderPreferenceEditor = (control: DeviceControl) => {
-    if (!selectedDevice) return null;
-    const prefBusy = busy === `control-pref-${selectedDevice.device.id}.${control.id}`;
-    const aliasValue = aliasDrafts[control.id] ?? '';
-    const defaultLabel = control.default_label ?? control.label;
-    return (
-      <div className="control-card__editor">
-        <Input
-          value={aliasValue}
-          onChange={(event) => setAliasDrafts((current) => ({ ...current, [control.id]: event.target.value }))}
-          placeholder={defaultLabel}
-        />
-        <div className="button-row">
-          <Button
-            variant="secondary"
-            onClick={() => onUpdateControlPreference(control.id, { alias: aliasValue.trim(), visible: control.visible !== false })}
-            disabled={prefBusy}
-          >
-            Save Label
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setAliasDrafts((current) => ({ ...current, [control.id]: '' }));
-              onUpdateControlPreference(control.id, { alias: '', visible: control.visible !== false });
-            }}
-            disabled={prefBusy}
-          >
-            Reset Label
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  const renderVisibilityButton = (control: DeviceControl) => {
-    if (!selectedDevice) return null;
-    const prefBusy = busy === `control-pref-${selectedDevice.device.id}.${control.id}`;
-    const isVisible = control.visible !== false;
-    return (
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="control-card__visibility"
-        onClick={() => onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: !isVisible })}
-        disabled={prefBusy}
-        aria-label={isVisible ? `Hide ${control.label}` : `Show ${control.label}`}
-        title={isVisible ? 'Hide control' : 'Show control'}
-      >
-        <VisibilityIcon visible={isVisible} />
-      </Button>
-    );
-  };
 
   return (
     <Section className="grid grid--two">
@@ -257,62 +180,32 @@ export function DeviceWorkspace({
                   {visibleControls.length > 0 ? (
                     <div className="control-grid">
                       {visibleControls.map((control) => (
-                        <div key={control.id} className="control-card">
-                          <div className="control-card__header">
-                            <div>
-                              <strong>{control.label}</strong>
-                              {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
-                              {control.description ? <p>{control.description}</p> : null}
-                            </div>
-                            <div className="control-card__meta">
-                              <Badge tone={control.kind === 'toggle' ? toggleTone(control) : 'accent'}>
-                                {control.kind === 'toggle' ? toggleText(control) : 'action'}
-                              </Badge>
-                              {renderVisibilityButton(control)}
-                            </div>
-                          </div>
-                          {control.kind === 'toggle' ? (
-                            <div className="control-toggle" role="group" aria-label={`${control.label} toggle`}>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className={cn('control-toggle__option', control.state === true && 'is-active', 'control-toggle__option--on')}
-                                onClick={() => onToggleControl(control.id, true)}
-                                disabled={
-                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-on` ||
-                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-off`
-                                }
-                                aria-pressed={control.state === true}
-                              >
-                                On
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className={cn('control-toggle__option', control.state === false && 'is-active', 'control-toggle__option--off')}
-                                onClick={() => onToggleControl(control.id, false)}
-                                disabled={
-                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-on` ||
-                                  busy === `toggle-${selectedDevice.device.id}.${control.id}-off`
-                                }
-                                aria-pressed={control.state === false}
-                              >
-                                Off
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="button-row">
-                              <Button
-                                variant="secondary"
-                                onClick={() => onActionControl(control.id)}
-                                disabled={busy === `action-${selectedDevice.device.id}.${control.id}`}
-                              >
-                                Run
-                              </Button>
-                            </div>
-                          )}
-                          {renderPreferenceEditor(control)}
-                        </div>
+                        <DeviceControlCard
+                          key={control.id}
+                          deviceId={selectedDevice.device.id}
+                          control={control}
+                          busy={busy}
+                          aliasValue={aliasDrafts[control.id] ?? ''}
+                          valueDraft={controlDrafts[control.id] ?? ''}
+                          onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
+                          onSavePreference={() =>
+                            onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })
+                          }
+                          onResetPreference={() => {
+                            setAliasDrafts((current) => ({ ...current, [control.id]: '' }));
+                            onUpdateControlPreference(control.id, { alias: '', visible: control.visible !== false });
+                          }}
+                          onToggleVisibility={() =>
+                            onUpdateControlPreference(control.id, {
+                              alias: (aliasDrafts[control.id] ?? '').trim(),
+                              visible: control.visible === false,
+                            })
+                          }
+                          onToggle={(on) => onToggleControl(control.id, on)}
+                          onAction={() => onActionControl(control.id)}
+                          onValueChange={(value) => setControlDrafts((current) => ({ ...current, [control.id]: value }))}
+                          onValueControl={(value) => onValueControl(control.id, value)}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -341,20 +234,34 @@ export function DeviceWorkspace({
                   {hiddenControls.length > 0 && !hiddenControlsCollapsed ? (
                     <div id="hidden-controls-panel" className="control-grid">
                       {hiddenControls.map((control) => (
-                        <div key={control.id} className="control-card control-card--hidden">
-                          <div className="control-card__header">
-                            <div>
-                              <strong>{control.label}</strong>
-                              {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
-                              {control.description ? <p>{control.description}</p> : null}
-                            </div>
-                            <div className="control-card__meta">
-                              <Badge tone="neutral">hidden</Badge>
-                              {renderVisibilityButton(control)}
-                            </div>
-                          </div>
-                          {renderPreferenceEditor(control)}
-                        </div>
+                        <DeviceControlCard
+                          key={control.id}
+                          deviceId={selectedDevice.device.id}
+                          control={control}
+                          busy={busy}
+                          aliasValue={aliasDrafts[control.id] ?? ''}
+                          valueDraft={controlDrafts[control.id] ?? ''}
+                          hidden
+                          showControlBody={false}
+                          onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
+                          onSavePreference={() =>
+                            onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })
+                          }
+                          onResetPreference={() => {
+                            setAliasDrafts((current) => ({ ...current, [control.id]: '' }));
+                            onUpdateControlPreference(control.id, { alias: '', visible: control.visible !== false });
+                          }}
+                          onToggleVisibility={() =>
+                            onUpdateControlPreference(control.id, {
+                              alias: (aliasDrafts[control.id] ?? '').trim(),
+                              visible: control.visible === false,
+                            })
+                          }
+                          onToggle={(on) => onToggleControl(control.id, on)}
+                          onAction={() => onActionControl(control.id)}
+                          onValueChange={(value) => setControlDrafts((current) => ({ ...current, [control.id]: value }))}
+                          onValueControl={(value) => onValueControl(control.id, value)}
+                        />
                       ))}
                     </div>
                   ) : null}

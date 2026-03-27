@@ -37,6 +37,9 @@ func (m DeviceMapping) capabilities() []string {
 	if m.PumpPower != nil {
 		appendOnce("pump_power")
 	}
+	if m.PumpLevel != nil {
+		appendOnce("pump_level")
+	}
 	if m.LightPower != nil {
 		appendOnce("light_power")
 	}

@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/chentianyu/celestia/internal/models"
@@ -19,6 +20,9 @@ func encodePropertyValue(prop spec.Property, raw any) (any, error) {
 			switch typed := raw.(type) {
 			case string:
 				if value, ok := prop.EnumValue(typed); ok {
+					return value, nil
+				}
+				if value, err := strconv.Atoi(strings.TrimSpace(typed)); err == nil {
 					return value, nil
 				}
 				return nil, fmt.Errorf("unsupported enum value %q", typed)
@@ -49,7 +53,7 @@ func decodePropertyValue(prop spec.Property, key string, raw any) any {
 		}
 	}
 	switch key {
-	case "brightness", "color_temp", "target_temperature", "light_brightness", "filter_life", "volume":
+	case "brightness", "color_temp", "target_temperature", "pump_level", "light_brightness", "filter_life", "volume":
 		return intParam(raw)
 	case "temperature", "water_temperature":
 		return floatParam(raw)
@@ -125,6 +129,9 @@ func intParam(value any) int {
 		return int(typed)
 	case float64:
 		return int(typed)
+	case string:
+		number, _ := strconv.Atoi(strings.TrimSpace(typed))
+		return number
 	default:
 		return 0
 	}
@@ -140,6 +147,9 @@ func floatParam(value any) float64 {
 		return float64(typed)
 	case float64:
 		return typed
+	case string:
+		number, _ := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		return number
 	default:
 		return 0
 	}

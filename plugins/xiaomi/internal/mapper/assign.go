@@ -86,6 +86,11 @@ func assignAquarium(mapping *DeviceMapping, services []serviceView) {
 		serviceHints: []string{"pump", "filter", "fish", "water"},
 		boolOnly:     true,
 	})
+	mapping.PumpLevel = firstWritableProperty(services, matchProperty{
+		names:        []string{"mode", "mode-a", "fan-level", "fan-speed", "gear", "water-flow", "flow-level", "flow-rate", "pump-level"},
+		serviceHints: []string{"pump", "filter", "circulation", "fish", "water"},
+		excludeKinds: []string{"bool"},
+	})
 	mapping.LightPower = firstWritableProperty(services, matchProperty{
 		names:        []string{"on", "switch-status"},
 		serviceHints: []string{"light", "lamp"},

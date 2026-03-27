@@ -369,6 +369,22 @@ function App() {
                 const compoundId = `${selectedDevice.device.id}.${controlId}`;
                 void runAction(`action-${compoundId}`, () => runActionControl(compoundId, actor));
               }}
+              onValueControl={(controlId, value) => {
+                if (!selectedDevice) {
+                  return;
+                }
+                const control = selectedDevice.controls.find((item) => item.id === controlId);
+                if (!control?.command?.action) {
+                  return;
+                }
+                const params = {
+                  ...(control.command.params ?? {}),
+                  [(control.command.value_param ?? 'value') as string]: value,
+                };
+                void runAction(`value-${selectedDevice.device.id}.${controlId}`, () =>
+                  sendCommand(selectedDevice.device.id, control.command!.action, params, actor),
+                );
+              }}
               onUpdateControlPreference={(controlId, payload) => {
                 if (!selectedDevice) {
                   return;

@@ -62,8 +62,8 @@ func (s *Service) List(device models.Device, state models.DeviceStateSnapshot) [
 		out = append(out, item.view)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].Kind != out[j].Kind {
-			return out[i].Kind < out[j].Kind
+		if controlKindOrder(out[i].Kind) != controlKindOrder(out[j].Kind) {
+			return controlKindOrder(out[i].Kind) < controlKindOrder(out[j].Kind)
 		}
 		if out[i].Label != out[j].Label {
 			return out[i].Label < out[j].Label
@@ -126,6 +126,9 @@ func controlSpecs(device models.Device, state models.DeviceStateSnapshot) []cont
 
 	toggleRefs := parseToggleRefs(device, state)
 	for _, item := range toggleRefs {
+		appendSpec(item)
+	}
+	for _, item := range parseValueControls(device, state) {
 		appendSpec(item)
 	}
 
@@ -194,21 +197,65 @@ func toggleSpec(id, label, description string, state *bool, onAction string, onP
 	}
 }
 
-func parseToggleRefs(device models.Device, state models.DeviceStateSnapshot) []controlSpec {
-	raw, ok := device.Metadata["toggle_refs"]
-	if !ok {
-		return nil
-	}
-	items, ok := raw.([]any)
-	if !ok {
+func parseValueControls(device models.Device, state models.DeviceStateSnapshot) []controlSpec {
+	items := mapSlice(device.Metadata["value_controls"])
+	if len(items) == 0 {
 		return nil
 	}
 	specs := make([]controlSpec, 0, len(items))
-	for _, entry := range items {
-		toggle, ok := entry.(map[string]any)
-		if !ok {
+	for _, valueControl := range items {
+		id := stringValue(valueControl["id"])
+		if id == "" {
 			continue
 		}
+		kind := models.DeviceControlKind(stringValue(valueControl["kind"]))
+		if kind != models.DeviceControlKindSelect && kind != models.DeviceControlKindNumber {
+			continue
+		}
+		action := stringValue(valueControl["action"])
+		valueParam := stringValue(valueControl["value_param"])
+		if action == "" || valueParam == "" {
+			continue
+		}
+		label := firstNonEmpty(stringValue(valueControl["label"]), id)
+		stateKey := stringValue(valueControl["state_key"])
+		view := models.DeviceControl{
+			ID:          id,
+			Kind:        kind,
+			Label:       label,
+			Description: stringValue(valueControl["description"]),
+			Value:       stateValue(state, stateKey),
+			Unit:        stringValue(valueControl["unit"]),
+			Command: &models.DeviceControlCommand{
+				Action:     action,
+				Params:     mapValue(valueControl["params"]),
+				ValueParam: valueParam,
+			},
+			Visible: true,
+		}
+		if kind == models.DeviceControlKindNumber {
+			view.Min = numberPtr(valueControl["min"])
+			view.Max = numberPtr(valueControl["max"])
+			view.Step = numberPtr(valueControl["step"])
+		}
+		if kind == models.DeviceControlKindSelect {
+			view.Options = parseControlOptions(valueControl["options"])
+			if len(view.Options) == 0 {
+				continue
+			}
+		}
+		specs = append(specs, controlSpec{view: view})
+	}
+	return specs
+}
+
+func parseToggleRefs(device models.Device, state models.DeviceStateSnapshot) []controlSpec {
+	items := mapSlice(device.Metadata["toggle_refs"])
+	if len(items) == 0 {
+		return nil
+	}
+	specs := make([]controlSpec, 0, len(items))
+	for _, toggle := range items {
 		id := stringValue(toggle["id"])
 		if id == "" {
 			continue
@@ -233,6 +280,17 @@ func parseToggleRefs(device models.Device, state models.DeviceStateSnapshot) []c
 	return specs
 }
 
+func stateValue(state models.DeviceStateSnapshot, key string) any {
+	if key == "" || state.State == nil {
+		return nil
+	}
+	value, ok := state.State[key]
+	if !ok {
+		return nil
+	}
+	return value
+}
+
 func toggleState(state models.DeviceStateSnapshot, keys ...string) *bool {
 	for _, key := range keys {
 		if key == "" || state.State == nil {
@@ -247,6 +305,19 @@ func toggleState(state models.DeviceStateSnapshot, keys ...string) *bool {
 		}
 	}
 	return nil
+}
+
+func controlKindOrder(kind models.DeviceControlKind) int {
+	switch kind {
+	case models.DeviceControlKindToggle:
+		return 0
+	case models.DeviceControlKindSelect, models.DeviceControlKindNumber:
+		return 1
+	case models.DeviceControlKindAction:
+		return 2
+	default:
+		return 3
+	}
 }
 
 func boolFromAny(value any) (bool, bool) {
@@ -274,6 +345,44 @@ func boolFromAny(value any) (bool, bool) {
 	return false, false
 }
 
+func numberPtr(value any) *float64 {
+	switch typed := value.(type) {
+	case float64:
+		return &typed
+	case int:
+		number := float64(typed)
+		return &number
+	case int64:
+		number := float64(typed)
+		return &number
+	default:
+		return nil
+	}
+}
+
+func parseControlOptions(value any) []models.DeviceControlOption {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	options := make([]models.DeviceControlOption, 0, len(items))
+	for _, item := range items {
+		option, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		optionValue := stringValue(option["value"])
+		if optionValue == "" {
+			continue
+		}
+		options = append(options, models.DeviceControlOption{
+			Value: optionValue,
+			Label: firstNonEmpty(stringValue(option["label"]), optionValue),
+		})
+	}
+	return options
+}
+
 func cloneParams(input map[string]any) map[string]any {
 	if len(input) == 0 {
 		return nil
@@ -283,6 +392,32 @@ func cloneParams(input map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
+}
+
+func mapValue(value any) map[string]any {
+	item, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return cloneParams(item)
+}
+
+func mapSlice(value any) []map[string]any {
+	switch typed := value.(type) {
+	case []map[string]any:
+		return typed
+	case []any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			mapped, ok := item.(map[string]any)
+			if ok {
+				out = append(out, mapped)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func hasCapability(device models.Device, capability string) bool {

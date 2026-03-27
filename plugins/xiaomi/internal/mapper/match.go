@@ -11,6 +11,7 @@ type matchProperty struct {
 	serviceHints []string
 	format       string
 	boolOnly     bool
+	excludeKinds []string
 }
 
 type matchAction struct {
@@ -60,6 +61,11 @@ func matchPropertyRef(prop PropertyRef, match matchProperty) bool {
 	}
 	if match.format != "" && prop.Property.Format != match.format {
 		return false
+	}
+	for _, format := range match.excludeKinds {
+		if prop.Property.Format == format {
+			return false
+		}
 	}
 	name := spec.PropertyName(prop.Property)
 	if len(match.names) > 0 && !containsNormalized(name, match.names) {

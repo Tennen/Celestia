@@ -95,7 +95,18 @@ export type DeviceStateSnapshot = {
   state: Record<string, unknown>;
 };
 
-export type DeviceControlKind = 'toggle' | 'action';
+export type DeviceControlKind = 'toggle' | 'action' | 'select' | 'number';
+
+export type DeviceControlOption = {
+  value: string;
+  label: string;
+};
+
+export type DeviceControlCommand = {
+  action: string;
+  params?: Record<string, unknown>;
+  value_param?: string;
+};
 
 export type DeviceControl = {
   id: string;
@@ -105,6 +116,13 @@ export type DeviceControl = {
   alias?: string;
   description?: string;
   state?: boolean | null;
+  value?: string | number | boolean | null;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  options?: DeviceControlOption[];
+  command?: DeviceControlCommand | null;
   visible: boolean;
 };
 
