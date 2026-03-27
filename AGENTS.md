@@ -21,6 +21,12 @@ Do not optimize for demos, placeholders, transitional adapters, or "temporary" p
 - If credentials, vendor permissions, or upstream API limitations block completion, fail explicitly and surface the blocker. Do not fabricate behavior.
 - Placeholder values are allowed only in documentation or config examples, and they must be clearly marked as user-supplied secrets or identifiers.
 
+## Code Size Rule
+
+- No code file may exceed 500 lines.
+- When an existing file grows near this limit, split it by responsibility before adding more logic.
+- New code must be organized into reasonably scoped modules instead of extending large catch-all files.
+
 ## Repository Architecture Pattern
 
 All work in this repository must preserve the current architecture:
@@ -34,6 +40,12 @@ All work in this repository must preserve the current architecture:
 7. Admin UI remains a Vite + React + shadcn/ui surface over the gateway API, not a side-channel integration path.
 8. Plugin configuration and runtime-derived credential persistence are Core-owned concerns. Plugins must request config changes through a Core-exposed abstraction and must not persist config through event side channels or direct storage access.
 9. Admin configuration defaults and editable plugin config surfaces must be driven by Core-exposed catalog/schema data. Do not maintain a second frontend-owned source of truth for plugin defaults or vendor compatibility knobs.
+
+## File Size And Modularization Rule
+
+- Any code file over 500 lines must be split before the task is considered complete.
+- New code must be added in module-focused files instead of growing existing files past 500 lines.
+- Splits must follow real responsibility boundaries such as config, auth, discovery, mapping, state, commands, transport, handlers, or persistence helpers. Do not create arbitrary fragments that only move the line-count problem around.
 
 ## Backend Implementation Rules
 
