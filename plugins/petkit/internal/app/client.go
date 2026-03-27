@@ -75,7 +75,7 @@ func NewClient(cfg AccountConfig, compat CompatConfig) *Client {
 		},
 		bleCounters: map[int]int{},
 	}
-	if baseURL := strings.TrimSpace(cfg.SessionBaseURL); baseURL != "" {
+	if baseURL := sanitizeSessionBaseURL(strings.TrimSpace(cfg.SessionBaseURL), cfg.Region, compat); baseURL != "" {
 		client.baseURL = strings.TrimRight(baseURL, "/") + "/"
 	}
 	if session, ok := storedSessionFromConfig(cfg); ok {
@@ -485,10 +485,17 @@ func (c *Client) doRequest(
 			continue
 		}
 		if resp.StatusCode >= 400 {
-			if len(bodyBytes) == 0 {
-				return nil, fmt.Errorf("petkit request failed with status %d", resp.StatusCode)
+			if code, _, ok := petkitErrorFromStatusBody(bodyBytes); ok && code == 97 && attempt == 0 {
+				c.clearSessionTransport()
+				if err := c.login(ctx); err != nil {
+					return nil, err
+				}
+				continue
 			}
-			return nil, fmt.Errorf("petkit request failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(bodyBytes)))
+			if len(bodyBytes) == 0 {
+				return nil, fmt.Errorf("petkit request failed with status %d for %s", resp.StatusCode, reqURL)
+			}
+			return nil, fmt.Errorf("petkit request failed with status %d for %s: %s", resp.StatusCode, reqURL, strings.TrimSpace(string(bodyBytes)))
 		}
 		var payload any
 		if len(bodyBytes) == 0 {
@@ -544,6 +551,17 @@ func petkitAPIError(payload map[string]any) (int, string, bool) {
 		return code, message, true
 	}
 	return 0, "", false
+}
+
+func petkitErrorFromStatusBody(body []byte) (int, string, bool) {
+	if len(body) == 0 {
+		return 0, "", false
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return 0, "", false
+	}
+	return petkitAPIError(payload)
 }
 
 func readPetkitBody(resp *http.Response) ([]byte, error) {
@@ -927,7 +945,7 @@ func (c *Client) compatClientHeader() string {
 
 func (c *Client) compatClientPayload(timezone string) string {
 	return fmt.Sprintf(
-		`{"locale":"%s","name":"%s","osVersion":"%s","phoneBrand":"%s","platform":"%s","source":"%s","version":"%s","timezoneId":"%s"}`,
+		"{'locale': '%s', 'name': '%s', 'osVersion': '%s', 'phoneBrand': '%s', 'platform': '%s', 'source': '%s', 'version': '%s', 'timezoneId': '%s'}",
 		c.compat.Locale,
 		c.compat.ModelName,
 		c.compat.OSVersion,
@@ -944,6 +962,28 @@ func (c *Client) defaultBaseURLForRegion() string {
 		return strings.TrimRight(c.compat.ChinaBaseURL, "/") + "/"
 	}
 	return strings.TrimRight(c.compat.PassportBaseURL, "/") + "/"
+}
+
+func (c *Client) clearSessionTransport() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.baseURL = ""
+	c.session = nil
+}
+
+func sanitizeSessionBaseURL(baseURL string, region string, compat CompatConfig) string {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return ""
+	}
+	trimmed := strings.TrimRight(baseURL, "/")
+	if strings.EqualFold(trimmed, strings.TrimRight(compat.PassportBaseURL, "/")) {
+		return ""
+	}
+	if !strings.EqualFold(region, "cn") && strings.Contains(trimmed, "passport.petkt.com/6") {
+		return ""
+	}
+	return trimmed + "/"
 }
 
 func parseSession(session map[string]any, region string) (*sessionInfo, error) {
