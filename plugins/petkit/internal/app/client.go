@@ -26,6 +26,7 @@ import (
 const (
 	petkitEndpointFamilyList   = "group/family/list"
 	petkitEndpointDeviceDetail = "device_detail"
+	petkitEndpointDeviceData   = "deviceData"
 )
 
 type requestAuthMode int
@@ -42,6 +43,24 @@ type sessionInfo struct {
 	Region    string
 	CreatedAt time.Time
 	ExpiresAt time.Time
+}
+
+type petkitRequestError struct {
+	Status  int
+	URL     string
+	Code    int
+	Message string
+	Body    string
+}
+
+func (e *petkitRequestError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Body == "" {
+		return fmt.Sprintf("petkit request failed with status %d for %s", e.Status, e.URL)
+	}
+	return fmt.Sprintf("petkit request failed with status %d for %s: %s", e.Status, e.URL, e.Body)
 }
 
 type petkitDeviceInfo struct {
@@ -398,7 +417,14 @@ func (c *Client) loadDeviceDetail(ctx context.Context, info petkitDeviceInfo) (m
 		"id": []string{strconv.Itoa(info.DeviceID)},
 	})
 	if err != nil {
-		return nil, err
+		if !shouldFallbackDeviceDetail(err) {
+			return nil, err
+		}
+		originalErr := err
+		resp, err = c.loadTypedDeviceData(ctx, info)
+		if err != nil {
+			return nil, fmt.Errorf("%w; fallback to %s/%s failed: %v", originalErr, strings.ToLower(info.DeviceType), petkitEndpointDeviceData, err)
+		}
 	}
 	detail, ok := resp.(map[string]any)
 	if !ok {
@@ -409,6 +435,10 @@ func (c *Client) loadDeviceDetail(ctx context.Context, info petkitDeviceInfo) (m
 
 func (c *Client) postSessionForm(ctx context.Context, endpoint string, form url.Values) (any, error) {
 	return c.doRequest(ctx, http.MethodPost, endpoint, nil, form, requestAuthSession)
+}
+
+func (c *Client) postSessionJSON(ctx context.Context, endpoint string, params url.Values) (any, error) {
+	return c.doRequest(ctx, http.MethodPost, endpoint, params, nil, requestAuthSession)
 }
 
 func (c *Client) getSessionJSON(ctx context.Context, endpoint string, params url.Values) (any, error) {
@@ -492,10 +522,7 @@ func (c *Client) doRequest(
 				}
 				continue
 			}
-			if len(bodyBytes) == 0 {
-				return nil, fmt.Errorf("petkit request failed with status %d for %s", resp.StatusCode, reqURL)
-			}
-			return nil, fmt.Errorf("petkit request failed with status %d for %s: %s", resp.StatusCode, reqURL, strings.TrimSpace(string(bodyBytes)))
+			return nil, newPetkitRequestError(resp.StatusCode, reqURL, bodyBytes)
 		}
 		var payload any
 		if len(bodyBytes) == 0 {
@@ -527,6 +554,41 @@ func (c *Client) doRequest(
 		}
 	}
 	return nil, errors.New("petkit request failed after re-authentication")
+}
+
+func shouldFallbackDeviceDetail(err error) bool {
+	var reqErr *petkitRequestError
+	if !errors.As(err, &reqErr) {
+		return false
+	}
+	return reqErr.Status == http.StatusNotFound && reqErr.Code == 97
+}
+
+func newPetkitRequestError(status int, reqURL string, body []byte) error {
+	code, message, ok := petkitErrorFromStatusBody(body)
+	if len(body) == 0 {
+		return &petkitRequestError{
+			Status: status,
+			URL:    reqURL,
+			Code:   code,
+			Body:   "",
+		}
+	}
+	trimmed := strings.TrimSpace(string(body))
+	if ok {
+		return &petkitRequestError{
+			Status:  status,
+			URL:     reqURL,
+			Code:    code,
+			Message: message,
+			Body:    trimmed,
+		}
+	}
+	return &petkitRequestError{
+		Status: status,
+		URL:    reqURL,
+		Body:   trimmed,
+	}
 }
 
 func petkitAPIError(payload map[string]any) (int, string, bool) {
@@ -955,6 +1017,21 @@ func (c *Client) compatClientPayload(timezone string) string {
 		c.compat.APIVersion,
 		timezone,
 	)
+}
+
+func (c *Client) loadTypedDeviceData(ctx context.Context, info petkitDeviceInfo) (map[string]any, error) {
+	endpoint := fmt.Sprintf("%s/%s", strings.ToLower(strings.TrimSpace(info.DeviceType)), petkitEndpointDeviceData)
+	resp, err := c.postSessionJSON(ctx, endpoint, url.Values{
+		"id": []string{strconv.Itoa(info.DeviceID)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	detail, ok := resp.(map[string]any)
+	if !ok {
+		return nil, errors.New("unexpected Petkit device data response")
+	}
+	return detail, nil
 }
 
 func (c *Client) defaultBaseURLForRegion() string {

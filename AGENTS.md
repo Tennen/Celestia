@@ -53,6 +53,12 @@ All work in this repository must preserve the current architecture:
 - Do not preload fake accounts, fake devices, or fake command presets that imply the backend is already connected.
 - UI examples may illustrate JSON structure, but they must not masquerade as runnable demo sessions.
 
+## Git Workflow Rules
+
+- Never create or switch branches unless the user explicitly asks for it.
+- When the user asks to `commit`, `push`, or `commit push`, stay on the current branch by default.
+- Do not infer branch creation from generic publish workflows or helper skills.
+
 ## Delivery Standard
 
 When asked to implement a feature:
