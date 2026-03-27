@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -79,13 +80,13 @@ func buildDeviceInfo(info petkitDeviceInfo) (petkitDeviceInfo, bool) {
 	return info, true
 }
 
-func buildDevice(info petkitDeviceInfo, kind models.DeviceKind, detail map[string]any, accountLabel string) models.Device {
+func buildDevice(info petkitDeviceInfo, kind models.DeviceKind, detail map[string]any, records map[string]any, accountLabel string) models.Device {
 	name := info.DeviceName
 	if name == "" {
 		name = strings.Title(strings.ReplaceAll(info.DeviceType, "_", " "))
 	}
-	state := buildState(info, kind, detail)
-	caps := capabilitiesForKind(kind)
+	state := buildState(info, kind, detail, records)
+	caps := capabilitiesForDevice(info, kind, state)
 	return models.Device{
 		ID:             fmt.Sprintf("petkit:%s:%d", info.DeviceType, info.DeviceID),
 		PluginID:       "petkit",
@@ -107,7 +108,7 @@ func buildDevice(info petkitDeviceInfo, kind models.DeviceKind, detail map[strin
 	}
 }
 
-func buildState(info petkitDeviceInfo, kind models.DeviceKind, detail map[string]any) map[string]any {
+func buildState(info petkitDeviceInfo, kind models.DeviceKind, detail map[string]any, records map[string]any) map[string]any {
 	state := map[string]any{
 		"online": true,
 		"raw":    detail,
@@ -118,12 +119,35 @@ func buildState(info petkitDeviceInfo, kind models.DeviceKind, detail map[string
 		if stateMap == nil {
 			stateMap = detail
 		}
+		settingsMap := mapFromAny(detail["settings"])
 		state["food_level"] = intFromAny(firstAny(stateMap, "food", "foodLevel"), 0)
 		state["battery_power"] = intFromAny(firstAny(stateMap, "batteryPower"), 0)
 		state["feeding"] = intFromAny(firstAny(stateMap, "feeding"), 0)
 		state["error_code"] = stringFromAny(firstAny(stateMap, "errorCode"), "")
 		state["error_msg"] = stringFromAny(firstAny(stateMap, "errorMsg"), "")
 		state["status"] = feederStatusFromDetail(detail)
+		if value := firstAny(stateMap, "food1"); value != nil {
+			state["food_level_hopper_1"] = intFromAny(value, 0)
+		}
+		if value := firstAny(stateMap, "food2"); value != nil {
+			state["food_level_hopper_2"] = intFromAny(value, 0)
+		}
+		if value := firstAny(settingsMap, "surplusControl"); value != nil {
+			state["surplus_control"] = intFromAny(value, 0)
+		}
+		if value := firstAny(settingsMap, "surplusStandard"); value != nil {
+			state["surplus_standard"] = intFromAny(value, 0)
+		}
+		if value := firstAny(settingsMap, "selectedSound"); value != nil {
+			state["selected_sound"] = intFromAny(value, 0)
+		}
+		if value := firstAny(stateMap, "desiccantLeftDays"); value != nil {
+			state["desiccant_left_days"] = intFromAny(value, 0)
+		}
+		if latest := latestFeederOccurredEvent(records); latest != nil {
+			state["last_feed_event"] = stringFromAny(latest.Payload["event"], "")
+			state["last_feed_at"] = latest.TS.Format(time.RFC3339)
+		}
 	case models.DeviceKindPetLitterBox:
 		stateMap := mapFromAny(detail["state"])
 		if stateMap == nil {
@@ -154,10 +178,29 @@ func buildState(info petkitDeviceInfo, kind models.DeviceKind, detail map[string
 	return state
 }
 
-func capabilitiesForKind(kind models.DeviceKind) []string {
+func capabilitiesForDevice(info petkitDeviceInfo, kind models.DeviceKind, state map[string]any) []string {
 	switch kind {
 	case models.DeviceKindPetFeeder:
-		return []string{"feed_once", "food_level", "online", "error"}
+		caps := []string{"feed_once", "manual_feed", "cancel_manual_feed", "reset_desiccant", "food_level", "online", "error"}
+		if isDualHopperFeeder(info.DeviceType) {
+			caps = append(caps, "manual_feed_dual")
+			if _, ok := state["food_level_hopper_1"]; ok {
+				caps = append(caps, "food_level_hopper_1")
+			}
+			if _, ok := state["food_level_hopper_2"]; ok {
+				caps = append(caps, "food_level_hopper_2")
+			}
+		}
+		if supportsFeederFoodReplenished(info.DeviceType) {
+			caps = append(caps, "food_replenished")
+		}
+		if supportsFeederPlaySound(info.DeviceType) {
+			caps = append(caps, "play_sound")
+		}
+		if supportsFeederCallPet(info.DeviceType) {
+			caps = append(caps, "call_pet")
+		}
+		return caps
 	case models.DeviceKindPetLitterBox:
 		return []string{"clean_now", "pause", "resume", "waste_level", "online", "error", "last_usage"}
 	case models.DeviceKindPetFountain:

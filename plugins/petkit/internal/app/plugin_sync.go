@@ -110,6 +110,7 @@ func (p *Plugin) applyAccountSnapshots(cfg AccountConfig, snapshots []deviceSnap
 		}
 		p.devices[snapshot.Device.ID] = snapshot.Device
 		p.states[snapshot.Device.ID] = snapshot.State
+		p.emitSnapshotEventLocked(snapshot)
 	}
 	runtime.devices = next
 }
@@ -139,6 +140,7 @@ func (p *Plugin) applySnapshot(accountName string, snapshot deviceSnapshot) {
 	}
 	p.devices[snapshot.Device.ID] = snapshot.Device
 	p.states[snapshot.Device.ID] = snapshot.State
+	p.emitSnapshotEventLocked(snapshot)
 	if runtime := p.runtimes[accountName]; runtime != nil {
 		runtime.devices[snapshot.Device.ID] = snapshot
 		runtime.lastSync = time.Now().UTC()

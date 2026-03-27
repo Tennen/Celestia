@@ -15,25 +15,7 @@ import (
 )
 
 func (c *Client) executeFeeder(ctx context.Context, snapshot deviceSnapshot, req models.CommandRequest) error {
-	if req.Action != "feed_once" {
-		return fmt.Errorf("action %q is not supported for Petkit feeder", req.Action)
-	}
-	portions := intFromAny(req.Params["portions"], 1)
-	if portions <= 0 {
-		return errors.New("portions must be greater than zero")
-	}
-	endpoint := "saveDailyFeed"
-	if isFeederMini(snapshot.Info.DeviceType) || snapshot.Info.DeviceType == "feeder" {
-		endpoint = "save_dailyfeed"
-	}
-	form := url.Values{}
-	form.Set("day", time.Now().Format("20060102"))
-	form.Set("deviceId", strconv.Itoa(snapshot.Info.DeviceID))
-	form.Set("name", "")
-	form.Set("time", "-1")
-	form.Set("amount", strconv.Itoa(portions))
-	_, err := c.postSessionForm(ctx, endpoint, form)
-	return err
+	return c.executeFeederAction(ctx, snapshot, req)
 }
 
 func (c *Client) executeLitter(ctx context.Context, snapshot deviceSnapshot, req models.CommandRequest) error {
@@ -53,7 +35,7 @@ func (c *Client) executeLitter(ctx context.Context, snapshot deviceSnapshot, req
 	form.Set("type", actionName)
 	kv, _ := json.Marshal(map[string]any{actionName: 0})
 	form.Set("kv", string(kv))
-	_, err := c.postSessionForm(ctx, "controlDevice", form)
+	_, err := c.postTypedSessionForm(ctx, snapshot.Info.DeviceType, "controlDevice", form)
 	return err
 }
 

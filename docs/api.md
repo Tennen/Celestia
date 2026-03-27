@@ -42,11 +42,51 @@ Response shape:
         "alias": "Left Switch",
         "visible": true,
         "state": true
+      },
+      {
+        "id": "light-mode",
+        "kind": "select",
+        "label": "Light Mode",
+        "description": "Set the aquarium light mode.",
+        "visible": true,
+        "value": "daylight",
+        "options": [
+          { "value": "daylight", "label": "Daylight" },
+          { "value": "plant", "label": "Plant" }
+        ],
+        "command": {
+          "action": "set_light_mode",
+          "value_param": "value"
+        }
+      },
+      {
+        "id": "pump-level",
+        "kind": "number",
+        "label": "Pump Level",
+        "description": "Adjust the aquarium pump level.",
+        "visible": true,
+        "value": 2,
+        "min": 1,
+        "max": 3,
+        "step": 1,
+        "command": {
+          "action": "set_pump_level",
+          "value_param": "value"
+        }
       }
     ]
   }
 ]
 ```
+
+`controls[].kind` supports:
+
+- `toggle` with boolean `state`
+- `action` with a single-click execution flow
+- `select` with `value`, `options`, and `command`
+- `number` with `value`, optional `min` / `max` / `step`, and `command`
+
+For `select` and `number` controls, clients should send the selected value through the generic device command endpoint using the embedded `command.action` and `command.value_param`.
 
 ### Get One Device
 
@@ -90,6 +130,22 @@ Request body:
 Optional header:
 
 - `X-Actor: your-client-name`
+
+Notes:
+
+- For Petkit feeders, `feed_once` is a Celestia normalized command that maps to the upstream Petkit manual-feed API. It is not an upstream Petkit event name.
+- Additional Petkit feeder actions accepted by the same endpoint include `manual_feed_dual`, `cancel_manual_feed`, `reset_desiccant`, `food_replenished`, `play_sound`, and `call_pet` when the selected feeder model supports them.
+- Example dual-hopper manual feed request:
+
+```json
+{
+  "action": "manual_feed_dual",
+  "params": {
+    "amount1": 20,
+    "amount2": 20
+  }
+}
+```
 
 ## Admin Control Preference API
 

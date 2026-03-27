@@ -50,6 +50,8 @@ type deviceSnapshot struct {
 	Device      models.Device
 	State       models.DeviceStateSnapshot
 	Detail      map[string]any
+	Records     map[string]any
+	LatestEvent *deviceOccurredEvent
 }
 
 type accountRuntime struct {
@@ -61,22 +63,30 @@ type accountRuntime struct {
 }
 
 type Plugin struct {
-	mu       sync.RWMutex
-	config   Config
-	runtimes map[string]*accountRuntime
-	devices  map[string]models.Device
-	states   map[string]models.DeviceStateSnapshot
-	events   chan models.Event
-	cancel   context.CancelFunc
-	started  bool
+	mu        sync.RWMutex
+	config    Config
+	runtimes  map[string]*accountRuntime
+	devices   map[string]models.Device
+	states    map[string]models.DeviceStateSnapshot
+	eventKeys map[string]string
+	events    chan models.Event
+	cancel    context.CancelFunc
+	started   bool
+}
+
+type deviceOccurredEvent struct {
+	Key     string
+	TS      time.Time
+	Payload map[string]any
 }
 
 func New() *Plugin {
 	return &Plugin{
-		runtimes: map[string]*accountRuntime{},
-		devices:  map[string]models.Device{},
-		states:   map[string]models.DeviceStateSnapshot{},
-		events:   make(chan models.Event, 128),
+		runtimes:  map[string]*accountRuntime{},
+		devices:   map[string]models.Device{},
+		states:    map[string]models.DeviceStateSnapshot{},
+		eventKeys: map[string]string{},
+		events:    make(chan models.Event, 128),
 	}
 }
 
@@ -173,6 +183,7 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	p.runtimes = runtimes
 	p.devices = map[string]models.Device{}
 	p.states = map[string]models.DeviceStateSnapshot{}
+	p.eventKeys = map[string]string{}
 	p.mu.Unlock()
 	return nil
 }

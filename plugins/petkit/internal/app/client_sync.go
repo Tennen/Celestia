@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
@@ -36,7 +35,14 @@ func (c *Client) Sync(ctx context.Context) ([]deviceSnapshot, error) {
 				}
 				continue
 			}
-			snapshot, err := c.buildSnapshot(info, detail)
+			records := map[string]any(nil)
+			if kind, supported := kindFromPetkitType(info.DeviceType); supported && kind == models.DeviceKindPetFeeder {
+				records, err = c.loadFeederRecords(ctx, info)
+				if err != nil && firstErr == nil {
+					firstErr = err
+				}
+			}
+			snapshot, err := c.buildSnapshot(info, detail, records)
 			if err != nil {
 				if firstErr == nil {
 					firstErr = err
@@ -87,7 +93,7 @@ func (c *Client) ExecuteCommand(ctx context.Context, snapshot deviceSnapshot, re
 	}
 }
 
-func (c *Client) buildSnapshot(info petkitDeviceInfo, detail map[string]any) (deviceSnapshot, error) {
+func (c *Client) buildSnapshot(info petkitDeviceInfo, detail map[string]any, records map[string]any) (deviceSnapshot, error) {
 	kind, ok := kindFromPetkitType(info.DeviceType)
 	if !ok {
 		return deviceSnapshot{}, fmt.Errorf("unsupported Petkit device type %q", info.DeviceType)
@@ -98,8 +104,12 @@ func (c *Client) buildSnapshot(info petkitDeviceInfo, detail map[string]any) (de
 			info.UniqueID = mac
 		}
 	}
-	device := buildDevice(info, kind, detail, c.cfg.Name)
-	state := buildState(info, kind, detail)
+	device := buildDevice(info, kind, detail, records, c.cfg.Name)
+	state := buildState(info, kind, detail, records)
+	latestEvent := (*deviceOccurredEvent)(nil)
+	if kind == models.DeviceKindPetFeeder && records != nil {
+		latestEvent = latestFeederOccurredEvent(records)
+	}
 	return deviceSnapshot{
 		Info:   info,
 		Device: device,
@@ -109,7 +119,9 @@ func (c *Client) buildSnapshot(info petkitDeviceInfo, detail map[string]any) (de
 			TS:       time.Now().UTC(),
 			State:    state,
 		},
-		Detail: detail,
+		Detail:      detail,
+		Records:     records,
+		LatestEvent: latestEvent,
 	}, nil
 }
 
@@ -118,7 +130,14 @@ func (c *Client) loadSnapshotByInfo(ctx context.Context, info petkitDeviceInfo) 
 	if err != nil {
 		return deviceSnapshot{}, err
 	}
-	snapshot, err := c.buildSnapshot(info, detail)
+	records := map[string]any(nil)
+	if kind, supported := kindFromPetkitType(info.DeviceType); supported && kind == models.DeviceKindPetFeeder {
+		records, err = c.loadFeederRecords(ctx, info)
+		if err != nil {
+			return deviceSnapshot{}, err
+		}
+	}
+	snapshot, err := c.buildSnapshot(info, detail, records)
 	if err != nil {
 		return deviceSnapshot{}, err
 	}
@@ -148,8 +167,7 @@ func (c *Client) loadFamilies(ctx context.Context) ([]petkitFamily, error) {
 }
 
 func (c *Client) loadDeviceDetail(ctx context.Context, info petkitDeviceInfo) (map[string]any, error) {
-	endpoint := fmt.Sprintf("%s/%s", strings.ToLower(strings.TrimSpace(info.DeviceType)), petkitEndpointDeviceDetail)
-	resp, err := c.postSessionJSON(ctx, endpoint, url.Values{
+	resp, err := c.postTypedSessionJSON(ctx, info.DeviceType, petkitEndpointDeviceDetail, url.Values{
 		"id": []string{strconv.Itoa(info.DeviceID)},
 	})
 	if err != nil {
