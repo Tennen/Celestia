@@ -129,7 +129,7 @@ export type DeviceControl = {
 export type DeviceView = {
   device: Device;
   state: DeviceStateSnapshot;
-  controls: DeviceControl[];
+  controls?: DeviceControl[];
 };
 
 export type EventRecord = {

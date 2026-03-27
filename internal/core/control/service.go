@@ -147,6 +147,18 @@ func controlSpecs(device models.Device, state models.DeviceStateSnapshot) []cont
 	if hasCapability(device, "feed_once") {
 		appendSpec(actionSpec("feed-once", "Feed Once", "Dispense a single feeding portion.", "feed_once", map[string]any{"portions": 1}))
 	}
+	if hasCapability(device, "cancel_manual_feed") {
+		appendSpec(actionSpec("cancel-manual-feed", "Cancel Manual Feed", "Cancel the feeder's active manual dispensing task.", "cancel_manual_feed", nil))
+	}
+	if hasCapability(device, "reset_desiccant") {
+		appendSpec(actionSpec("reset-desiccant", "Reset Desiccant", "Reset the feeder desiccant maintenance counter.", "reset_desiccant", nil))
+	}
+	if hasCapability(device, "food_replenished") {
+		appendSpec(actionSpec("food-replenished", "Food Replenished", "Clear the low-food reminder after refilling the hopper.", "food_replenished", nil))
+	}
+	if hasCapability(device, "call_pet") {
+		appendSpec(actionSpec("call-pet", "Call Pet", "Trigger the feeder's pet call action.", "call_pet", nil))
+	}
 	if hasCapability(device, "clean_now") {
 		appendSpec(actionSpec("clean-now", "Clean Now", "Start an immediate cleaning cycle.", "clean_now", nil))
 	}

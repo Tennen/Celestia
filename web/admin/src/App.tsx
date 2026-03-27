@@ -81,8 +81,20 @@ function App() {
   const commandSuggestions = useMemo(() => {
     if (!selectedDevice) return [];
     const capabilities = asArray(selectedDevice.device.capabilities);
+    const selectedSound = Number((selectedDevice.state.state as Record<string, unknown> | undefined)?.selected_sound ?? 0);
     const suggestions: Array<{ label: string; action: string; params: Record<string, unknown> }> = [];
     if (capabilities.includes('feed_once')) suggestions.push({ label: 'Feed once', action: 'feed_once', params: { portions: 1 } });
+    if (capabilities.includes('manual_feed_dual'))
+      suggestions.push({ label: 'Feed dual', action: 'manual_feed_dual', params: { amount1: 20, amount2: 20 } });
+    if (capabilities.includes('cancel_manual_feed'))
+      suggestions.push({ label: 'Cancel feed', action: 'cancel_manual_feed', params: {} });
+    if (capabilities.includes('reset_desiccant'))
+      suggestions.push({ label: 'Reset desiccant', action: 'reset_desiccant', params: {} });
+    if (capabilities.includes('food_replenished'))
+      suggestions.push({ label: 'Food replenished', action: 'food_replenished', params: {} });
+    if (capabilities.includes('call_pet')) suggestions.push({ label: 'Call pet', action: 'call_pet', params: {} });
+    if (capabilities.includes('play_sound') && selectedSound > 0)
+      suggestions.push({ label: 'Play sound', action: 'play_sound', params: { sound_id: selectedSound } });
     if (capabilities.includes('clean_now')) suggestions.push({ label: 'Clean now', action: 'clean_now', params: {} });
     if (capabilities.includes('start')) suggestions.push({ label: 'Start cycle', action: 'start', params: {} });
     if (capabilities.includes('pause')) suggestions.push({ label: 'Pause', action: 'pause', params: {} });
@@ -373,7 +385,7 @@ function App() {
                 if (!selectedDevice) {
                   return;
                 }
-                const control = selectedDevice.controls.find((item) => item.id === controlId);
+                const control = (selectedDevice.controls ?? []).find((item) => item.id === controlId);
                 if (!control?.command?.action) {
                   return;
                 }

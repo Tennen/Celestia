@@ -91,7 +91,7 @@ export function DeviceWorkspace({
     }
     const nextAliasDrafts: Record<string, string> = {};
     const nextControlDrafts: Record<string, string> = {};
-    for (const control of selectedDevice.controls) {
+    for (const control of selectedDevice.controls ?? []) {
       nextAliasDrafts[control.id] = control.alias ?? '';
       if (control.kind === 'select' || control.kind === 'number') {
         nextControlDrafts[control.id] = control.value === null || control.value === undefined ? '' : String(control.value);
@@ -103,11 +103,11 @@ export function DeviceWorkspace({
   }, [selectedDevice]);
 
   const visibleControls = useMemo(
-    () => selectedDevice?.controls.filter((control) => control.visible !== false) ?? [],
+    () => (selectedDevice?.controls ?? []).filter((control) => control.visible !== false),
     [selectedDevice],
   );
   const hiddenControls = useMemo(
-    () => selectedDevice?.controls.filter((control) => control.visible === false) ?? [],
+    () => (selectedDevice?.controls ?? []).filter((control) => control.visible === false),
     [selectedDevice],
   );
 

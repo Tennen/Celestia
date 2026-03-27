@@ -150,7 +150,7 @@ type DeviceControl struct {
 type DeviceView struct {
 	Device   Device              `json:"device"`
 	State    DeviceStateSnapshot `json:"state"`
-	Controls []DeviceControl     `json:"controls,omitempty"`
+	Controls []DeviceControl     `json:"controls"`
 }
 
 type DeviceControlPreference struct {

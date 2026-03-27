@@ -94,6 +94,8 @@ For `select` and `number` controls, clients should send the selected value throu
 
 Returns the same shape as the list endpoint for a single device.
 
+`controls` is always present. Devices without quick controls return `"controls": []`.
+
 ### Toggle Control
 
 `POST /api/external/v1/toggle/{device_id.control_id}/on`
