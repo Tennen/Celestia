@@ -17,6 +17,27 @@ func BuiltinCatalog() []models.CatalogPlugin {
 				Capabilities: []string{"discover", "state", "command", "events", "oauth", "account_password_login", "real_cloud", "multi_account", "multi_region", "service_token_session", "aquarium_control", "speaker_voice_push"},
 				ConfigSchema: map[string]any{
 					"type": "object",
+					"default": map[string]any{
+						"accounts": []map[string]any{
+							{
+								"name":          "primary",
+								"region":        "cn",
+								"username":      "<xiaomi-username>",
+								"password":      "<xiaomi-password>",
+								"device_id":     "CELESTIAXIAOMI01",
+								"verify_url":    "<optional-xiaomi-verify-url>",
+								"verify_ticket": "<optional-sms-or-email-code>",
+								"service_token": "<optional-service-token>",
+								"ssecurity":     "<optional-ssecurity>",
+								"user_id":       "<optional-user-id>",
+								"cuser_id":      "<optional-cuser-id>",
+								"locale":        "zh_CN",
+								"timezone":      "GMT+08:00",
+								"home_ids":      []string{"<optional-home-id>"},
+							},
+						},
+						"poll_interval_seconds": 30,
+					},
 					"properties": map[string]any{
 						"accounts": map[string]any{
 							"type":        "array",
@@ -51,10 +72,45 @@ func BuiltinCatalog() []models.CatalogPlugin {
 				Capabilities: []string{"discover", "state", "command", "events", "cloud_login", "cloud_session", "feeder_control", "litter_control", "fountain_ble_relay"},
 				ConfigSchema: map[string]any{
 					"type": "object",
+					"default": map[string]any{
+						"accounts": []map[string]any{
+							{
+								"name":     "primary",
+								"username": "<petkit-username>",
+								"password": "<petkit-password>",
+								"region":   "US",
+								"timezone": "Asia/Shanghai",
+							},
+						},
+						"poll_interval_seconds": 30,
+						"compat": map[string]any{
+							"passport_base_url": "https://passport.petkt.com/",
+							"china_base_url":    "https://api.petkit.cn/6/",
+							"api_version":       "13.2.1",
+							"client_header":     "android(16.1;23127PN0CG)",
+							"user_agent":        "okhttp/3.14.9",
+							"locale":            "en-US",
+							"accept_language":   "en-US;q=1, it-US;q=0.9",
+							"platform":          "android",
+							"os_version":        "16.1",
+							"model_name":        "23127PN0CG",
+							"phone_brand":       "Xiaomi",
+							"source":            "app.petkit-android",
+							"hour_mode":         "24",
+						},
+					},
 					"properties": map[string]any{
 						"accounts": map[string]any{
 							"type":        "array",
 							"description": "Real Petkit accounts with username, password, region, and timezone.",
+						},
+						"compat": map[string]any{
+							"type":        "object",
+							"description": "Optional Petkit cloud compatibility overrides. Defaults are exposed by Core and should be treated as the current upstream app signature.",
+						},
+						"poll_interval_seconds": map[string]any{
+							"type":    "number",
+							"default": 30,
 						},
 					},
 				},
@@ -74,10 +130,26 @@ func BuiltinCatalog() []models.CatalogPlugin {
 				Capabilities: []string{"discover", "state", "command", "events", "real_cloud", "auth", "refresh_token", "washer_capability_matrix"},
 				ConfigSchema: map[string]any{
 					"type": "object",
+					"default": map[string]any{
+						"accounts": []map[string]any{
+							{
+								"name":      "primary",
+								"email":     "<hon-email>",
+								"password":  "<hon-password>",
+								"mobile_id": "celestia-primary",
+								"timezone":  "Asia/Shanghai",
+							},
+						},
+						"poll_interval_seconds": 20,
+					},
 					"properties": map[string]any{
 						"accounts": map[string]any{
 							"type":        "array",
 							"description": "Real hOn accounts with email/password or refresh_token plus optional mobile_id/timezone.",
+						},
+						"poll_interval_seconds": map[string]any{
+							"type":    "number",
+							"default": 20,
 						},
 					},
 				},

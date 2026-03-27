@@ -33,6 +33,7 @@ All work in this repository must preserve the current architecture:
 6. Persistence remains SQLite-backed in the core unless a requirement explicitly calls for another production-grade backing service.
 7. Admin UI remains a Vite + React + shadcn/ui surface over the gateway API, not a side-channel integration path.
 8. Plugin configuration and runtime-derived credential persistence are Core-owned concerns. Plugins must request config changes through a Core-exposed abstraction and must not persist config through event side channels or direct storage access.
+9. Admin configuration defaults and editable plugin config surfaces must be driven by Core-exposed catalog/schema data. Do not maintain a second frontend-owned source of truth for plugin defaults or vendor compatibility knobs.
 
 ## Backend Implementation Rules
 
@@ -48,6 +49,7 @@ All work in this repository must preserve the current architecture:
 ## Frontend Implementation Rules
 
 - Admin must expose the real plugin configuration fields required to authenticate and operate against vendor APIs.
+- If a vendor integration depends on app-signature values or compatibility knobs that may drift over time, model them in the Core-owned plugin config with documented defaults rather than hardcoding them only in frontend or plugin internals.
 - Do not preload fake accounts, fake devices, or fake command presets that imply the backend is already connected.
 - UI examples may illustrate JSON structure, but they must not masquerade as runnable demo sessions.
 

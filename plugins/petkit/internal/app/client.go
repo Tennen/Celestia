@@ -24,11 +24,6 @@ import (
 )
 
 const (
-	petkitPassportBaseURL      = "https://passport.petkt.com/6/"
-	petkitChinaBaseURL         = "https://api.petkit.cn/6/"
-	petkitAPIUserAgent         = "okhttp/3.14.9"
-	petkitAPIVersion           = "13.2.1"
-	petkitClientHeader         = "android(16.1;23127PN0CG)"
 	petkitEndpointFamilyList   = "group/family/list"
 	petkitEndpointDeviceDetail = "device_detail"
 )
@@ -63,6 +58,7 @@ type petkitDeviceInfo struct {
 type Client struct {
 	mu          sync.Mutex
 	cfg         AccountConfig
+	compat      CompatConfig
 	httpClient  *http.Client
 	baseURL     string
 	session     *sessionInfo
@@ -70,9 +66,10 @@ type Client struct {
 	lastSyncErr error
 }
 
-func NewClient(cfg AccountConfig) *Client {
+func NewClient(cfg AccountConfig, compat CompatConfig) *Client {
 	client := &Client{
-		cfg: cfg,
+		cfg:    cfg,
+		compat: compat,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -457,16 +454,16 @@ func (c *Client) doRequest(
 			return nil, err
 		}
 		req.Header.Set("Accept", "*/*")
-		req.Header.Set("Accept-Language", "en-US;q=1, it-US;q=0.9")
+		req.Header.Set("Accept-Language", c.compat.AcceptLanguage)
 		req.Header.Set("Accept-Encoding", "gzip, deflate")
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("User-Agent", petkitAPIUserAgent)
+		req.Header.Set("User-Agent", c.compat.UserAgent)
 		req.Header.Set("X-Img-Version", "1")
-		req.Header.Set("X-Locale", "en-US")
-		req.Header.Set("X-Client", petkitClientHeader)
-		req.Header.Set("X-Hour", "24")
+		req.Header.Set("X-Locale", c.compat.Locale)
+		req.Header.Set("X-Client", c.compatClientHeader())
+		req.Header.Set("X-Hour", c.compat.HourMode)
 		req.Header.Set("X-TimezoneId", c.cfg.Timezone)
-		req.Header.Set("X-Api-Version", petkitAPIVersion)
+		req.Header.Set("X-Api-Version", c.compat.APIVersion)
 		req.Header.Set("X-Timezone", timezoneOffset(c.cfg.Timezone))
 		if useSession && session != nil {
 			req.Header.Set("F-Session", session.ID)
@@ -587,7 +584,7 @@ func (c *Client) snapshotTransport() (string, *sessionInfo, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.baseURL == "" {
-		c.baseURL = petkitBaseURLForRegion(c.cfg.Region)
+		c.baseURL = c.defaultBaseURLForRegion()
 	}
 	return c.baseURL, c.session, nil
 }
@@ -618,8 +615,8 @@ func (c *Client) login(ctx context.Context) error {
 		return err
 	}
 	form := url.Values{}
-	form.Set("oldVersion", petkitAPIVersion)
-	form.Set("client", petkitClientPayload(c.cfg.Timezone))
+	form.Set("oldVersion", c.compat.APIVersion)
+	form.Set("client", c.compatClientPayload(c.cfg.Timezone))
 	form.Set("encrypt", "1")
 	form.Set("region", c.cfg.Region)
 	form.Set("username", c.cfg.Username)
@@ -649,13 +646,13 @@ func (c *Client) login(ctx context.Context) error {
 
 func (c *Client) resolveBaseURL(ctx context.Context) (string, error) {
 	if strings.EqualFold(c.cfg.Region, "cn") || strings.EqualFold(c.cfg.Region, "china") {
-		return petkitChinaBaseURL, nil
+		return c.compat.ChinaBaseURL, nil
 	}
-	resp, err := c.getPublicJSON(ctx, petkitPassportBaseURL+"v1/regionservers", nil)
+	resp, err := c.getPublicJSON(ctx, strings.TrimRight(c.compat.PassportBaseURL, "/")+"/v1/regionservers", nil)
 	if err != nil {
 		return "", err
 	}
-	list, ok := resp.([]any)
+	list, ok := parseRegionServerList(resp)
 	if !ok {
 		return "", errors.New("unexpected Petkit region server response")
 	}
@@ -677,11 +674,17 @@ func (c *Client) resolveBaseURL(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("Petkit region %q not found", c.cfg.Region)
 }
 
-func petkitBaseURLForRegion(region string) string {
-	if strings.EqualFold(region, "cn") || strings.EqualFold(region, "china") {
-		return petkitChinaBaseURL
+func parseRegionServerList(value any) ([]any, bool) {
+	switch typed := value.(type) {
+	case []any:
+		return typed, true
+	case map[string]any:
+		list, ok := typed["list"].([]any)
+		if ok {
+			return list, true
+		}
 	}
-	return petkitPassportBaseURL
+	return nil, false
 }
 
 func parseFamily(value any) (petkitFamily, bool) {
@@ -915,8 +918,32 @@ func md5Hex(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func petkitClientPayload(timezone string) string {
-	return fmt.Sprintf(`{"locale":"en-US","name":"23127PN0CG","osVersion":"16.1","phoneBrand":"Xiaomi","platform":"android","source":"app.petkit-android","version":"%s","timezoneId":"%s"}`, petkitAPIVersion, timezone)
+func (c *Client) compatClientHeader() string {
+	if value := strings.TrimSpace(c.compat.ClientHeader); value != "" {
+		return value
+	}
+	return fmt.Sprintf("%s(%s;%s)", c.compat.Platform, c.compat.OSVersion, c.compat.ModelName)
+}
+
+func (c *Client) compatClientPayload(timezone string) string {
+	return fmt.Sprintf(
+		`{"locale":"%s","name":"%s","osVersion":"%s","phoneBrand":"%s","platform":"%s","source":"%s","version":"%s","timezoneId":"%s"}`,
+		c.compat.Locale,
+		c.compat.ModelName,
+		c.compat.OSVersion,
+		c.compat.PhoneBrand,
+		c.compat.Platform,
+		c.compat.Source,
+		c.compat.APIVersion,
+		timezone,
+	)
+}
+
+func (c *Client) defaultBaseURLForRegion() string {
+	if strings.EqualFold(c.cfg.Region, "cn") || strings.EqualFold(c.cfg.Region, "china") {
+		return strings.TrimRight(c.compat.ChinaBaseURL, "/") + "/"
+	}
+	return strings.TrimRight(c.compat.PassportBaseURL, "/") + "/"
 }
 
 func parseSession(session map[string]any, region string) (*sessionInfo, error) {

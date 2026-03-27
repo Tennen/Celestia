@@ -7,66 +7,6 @@ import type {
   PluginRuntimeView,
 } from './types';
 
-export const DEFAULT_INSTALL_CONFIGS: Record<string, string> = {
-  xiaomi: JSON.stringify(
-    {
-      accounts: [
-        {
-          name: 'primary',
-          region: 'cn',
-          username: '<xiaomi-username>',
-          password: '<xiaomi-password>',
-          device_id: 'CELESTIAXIAOMI01',
-          verify_url: '<optional-xiaomi-verify-url>',
-          verify_ticket: '<optional-sms-or-email-code>',
-          service_token: '<optional-service-token>',
-          ssecurity: '<optional-ssecurity>',
-          user_id: '<optional-user-id>',
-          cuser_id: '<optional-cuser-id>',
-          locale: 'zh_CN',
-          timezone: 'GMT+08:00',
-          home_ids: ['<optional-home-id>'],
-        },
-      ],
-      poll_interval_seconds: 30,
-    },
-    null,
-    2,
-  ),
-  petkit: JSON.stringify(
-    {
-      accounts: [
-        {
-          name: 'primary',
-          username: '<petkit-username>',
-          password: '<petkit-password>',
-          region: 'US',
-          timezone: 'Asia/Shanghai',
-        },
-      ],
-      poll_interval_seconds: 30,
-    },
-    null,
-    2,
-  ),
-  haier: JSON.stringify(
-    {
-      accounts: [
-        {
-          name: 'primary',
-          email: '<hon-email>',
-          password: '<hon-password>',
-          mobile_id: 'celestia-primary',
-          timezone: 'Asia/Shanghai',
-        },
-      ],
-      poll_interval_seconds: 20,
-    },
-    null,
-    2,
-  ),
-};
-
 export const POLL_MS = 10000;
 
 export type StatusBanner = {
@@ -120,6 +60,43 @@ function parseJsonObject(raw: string, errorMessage: string) {
     throw new Error(errorMessage);
   }
   return parsed;
+}
+
+export function getCatalogDefaultConfig(plugin: CatalogPlugin): Record<string, unknown> {
+  const schema = plugin.manifest.config_schema;
+  if (!isRecord(schema)) {
+    return {};
+  }
+  const config = schema.default;
+  if (!isRecord(config)) {
+    return {};
+  }
+  return config;
+}
+
+function mergeDefaultObjects(defaults: Record<string, unknown>, current: Record<string, unknown>) {
+  const merged: Record<string, unknown> = { ...defaults };
+  for (const [key, value] of Object.entries(current)) {
+    const defaultValue = merged[key];
+    if (isRecord(defaultValue) && isRecord(value)) {
+      merged[key] = mergeDefaultObjects(defaultValue, value);
+      continue;
+    }
+    merged[key] = value;
+  }
+  return merged;
+}
+
+export function buildInstallDrafts(catalog: CatalogPlugin[]) {
+  const drafts: Record<string, string> = {};
+  for (const plugin of catalog) {
+    drafts[plugin.id] = JSON.stringify(getCatalogDefaultConfig(plugin), null, 2);
+  }
+  return drafts;
+}
+
+export function mergeCatalogDefaultConfig(plugin: CatalogPlugin, currentConfig: Record<string, unknown>) {
+  return mergeDefaultObjects(getCatalogDefaultConfig(plugin), currentConfig);
 }
 
 export function getXiaomiDraftSeed(raw: string) {

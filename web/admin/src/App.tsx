@@ -19,7 +19,7 @@ import {
   updateDeviceControlPreference,
   updatePluginConfig,
 } from './lib/api';
-import { asArray, canStartXiaomiOAuth, DEFAULT_INSTALL_CONFIGS, getPluginDraftText, mergeXiaomiAccountConfig } from './lib/admin';
+import { asArray, buildInstallDrafts, canStartXiaomiOAuth, getPluginDraftText, mergeCatalogDefaultConfig, mergeXiaomiAccountConfig } from './lib/admin';
 import { prettyJson } from './lib/utils';
 import type { CatalogPlugin } from './lib/types';
 import type { AppSection } from './lib/admin';
@@ -32,7 +32,7 @@ function App() {
   const [commandParams, setCommandParams] = useState('{\n  "portions": 1\n}');
   const [actor, setActor] = useState('admin');
   const [xiaomiVerifyTicket, setXiaomiVerifyTicket] = useState('');
-  const [installDrafts, setInstallDrafts] = useState<Record<string, string>>(DEFAULT_INSTALL_CONFIGS);
+  const [installDrafts, setInstallDrafts] = useState<Record<string, string>>({});
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
   const [commandResult, setCommandResult] = useState<string>('');
   const [busy, setBusy] = useState<string>('');
@@ -64,10 +64,19 @@ function App() {
   useEffect(() => {
     const drafts: Record<string, string> = {};
     for (const plugin of state.plugins) {
-      drafts[plugin.record.plugin_id] = JSON.stringify(plugin.record.config ?? {}, null, 2);
+      const catalogPlugin = state.catalog.find((item) => item.id === plugin.record.plugin_id);
+      const config = catalogPlugin
+        ? mergeCatalogDefaultConfig(catalogPlugin, plugin.record.config ?? {})
+        : (plugin.record.config ?? {});
+      drafts[plugin.record.plugin_id] = JSON.stringify(config, null, 2);
     }
     setConfigDrafts((current) => ({ ...drafts, ...current }));
-  }, [state.plugins]);
+  }, [state.catalog, state.plugins]);
+
+  useEffect(() => {
+    const defaults = buildInstallDrafts(state.catalog);
+    setInstallDrafts((current) => ({ ...defaults, ...current }));
+  }, [state.catalog]);
 
   const commandSuggestions = useMemo(() => {
     if (!selectedDevice) return [];

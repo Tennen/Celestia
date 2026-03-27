@@ -407,6 +407,42 @@ pre {
   line-height: 1.55;
 }
 
+.detail-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail-tabs__button {
+  border: 1px solid rgba(151, 168, 221, 0.14);
+  background: rgba(8, 14, 26, 0.58);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 16px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.detail-tabs__button.is-active {
+  border-color: rgba(123, 220, 255, 0.42);
+  background: rgba(11, 18, 33, 0.88);
+}
+
+.config-field-list {
+  display: grid;
+  gap: 12px;
+}
+
+.config-field-list__item {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(151, 168, 221, 0.14);
+  background: rgba(8, 14, 26, 0.42);
+}
+
+.config-field-list__item p {
+  margin: 6px 0 0;
+}
+
 .kv,
 .kv-grid {
   display: grid;

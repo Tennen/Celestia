@@ -29,9 +29,26 @@ type AccountConfig struct {
 	SessionBaseURL   string `json:"session_base_url,omitempty"`
 }
 
+type CompatConfig struct {
+	PassportBaseURL string `json:"passport_base_url,omitempty"`
+	ChinaBaseURL    string `json:"china_base_url,omitempty"`
+	APIVersion      string `json:"api_version,omitempty"`
+	ClientHeader    string `json:"client_header,omitempty"`
+	UserAgent       string `json:"user_agent,omitempty"`
+	Locale          string `json:"locale,omitempty"`
+	AcceptLanguage  string `json:"accept_language,omitempty"`
+	Platform        string `json:"platform,omitempty"`
+	OSVersion       string `json:"os_version,omitempty"`
+	ModelName       string `json:"model_name,omitempty"`
+	PhoneBrand      string `json:"phone_brand,omitempty"`
+	Source          string `json:"source,omitempty"`
+	HourMode        string `json:"hour_mode,omitempty"`
+}
+
 type Config struct {
 	Accounts            []AccountConfig `json:"accounts"`
 	PollIntervalSeconds int             `json:"poll_interval_seconds"`
+	Compat              CompatConfig    `json:"compat,omitempty"`
 }
 
 type deviceSnapshot struct {
@@ -90,6 +107,33 @@ func (p *Plugin) Manifest() models.PluginManifest {
 		},
 		ConfigSchema: map[string]any{
 			"type": "object",
+			"default": map[string]any{
+				"accounts": []map[string]any{
+					{
+						"name":     "primary",
+						"username": "<petkit-username>",
+						"password": "<petkit-password>",
+						"region":   "US",
+						"timezone": "Asia/Shanghai",
+					},
+				},
+				"poll_interval_seconds": 30,
+				"compat": map[string]any{
+					"passport_base_url": "https://passport.petkt.com/",
+					"china_base_url":    "https://api.petkit.cn/6/",
+					"api_version":       "13.2.1",
+					"client_header":     "android(16.1;23127PN0CG)",
+					"user_agent":        "okhttp/3.14.9",
+					"locale":            "en-US",
+					"accept_language":   "en-US;q=1, it-US;q=0.9",
+					"platform":          "android",
+					"os_version":        "16.1",
+					"model_name":        "23127PN0CG",
+					"phone_brand":       "Xiaomi",
+					"source":            "app.petkit-android",
+					"hour_mode":         "24",
+				},
+			},
 			"properties": map[string]any{
 				"poll_interval_seconds": map[string]any{
 					"type":    "number",
@@ -98,6 +142,10 @@ func (p *Plugin) Manifest() models.PluginManifest {
 				"accounts": map[string]any{
 					"type":        "array",
 					"description": "Petkit cloud accounts with username, password, region and timezone.",
+				},
+				"compat": map[string]any{
+					"type":        "object",
+					"description": "Optional Petkit cloud compatibility overrides. Leave empty to use the built-in defaults that track the current upstream app behavior.",
 				},
 			},
 		},
@@ -123,7 +171,7 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	for _, account := range config.Accounts {
 		runtimes[accountKey(account)] = &accountRuntime{
 			cfg:     account,
-			client:  NewClient(account),
+			client:  NewClient(account, config.Compat),
 			devices: map[string]deviceSnapshot{},
 		}
 	}
@@ -349,7 +397,7 @@ func (p *Plugin) applyAccountSnapshots(cfg AccountConfig, snapshots []deviceSnap
 
 	runtime := p.runtimes[accountKey(cfg)]
 	if runtime == nil {
-		runtime = &accountRuntime{cfg: cfg, client: NewClient(cfg), devices: map[string]deviceSnapshot{}}
+		runtime = &accountRuntime{cfg: cfg, client: NewClient(cfg, p.config.Compat), devices: map[string]deviceSnapshot{}}
 		p.runtimes[accountKey(cfg)] = runtime
 	}
 
@@ -477,9 +525,15 @@ func cloneDeviceViews(devices map[string]models.Device, states map[string]models
 }
 
 func parseConfig(cfg map[string]any) (Config, error) {
-	config := Config{PollIntervalSeconds: 30}
+	config := Config{
+		PollIntervalSeconds: 30,
+		Compat:              defaultCompatConfig(),
+	}
 	if raw, ok := cfg["poll_interval_seconds"].(float64); ok && int(raw) > 0 {
 		config.PollIntervalSeconds = int(raw)
+	}
+	if compat, ok := cfg["compat"].(map[string]any); ok {
+		config.Compat = parseCompatConfig(compat)
 	}
 	rawAccounts, ok := cfg["accounts"].([]any)
 	if !ok || len(rawAccounts) == 0 {
@@ -521,6 +575,68 @@ func parseConfig(cfg map[string]any) (Config, error) {
 		config.Accounts = append(config.Accounts, account)
 	}
 	return config, nil
+}
+
+func defaultCompatConfig() CompatConfig {
+	return CompatConfig{
+		PassportBaseURL: "https://passport.petkt.com/",
+		ChinaBaseURL:    "https://api.petkit.cn/6/",
+		APIVersion:      "13.2.1",
+		ClientHeader:    "android(16.1;23127PN0CG)",
+		UserAgent:       "okhttp/3.14.9",
+		Locale:          "en-US",
+		AcceptLanguage:  "en-US;q=1, it-US;q=0.9",
+		Platform:        "android",
+		OSVersion:       "16.1",
+		ModelName:       "23127PN0CG",
+		PhoneBrand:      "Xiaomi",
+		Source:          "app.petkit-android",
+		HourMode:        "24",
+	}
+}
+
+func parseCompatConfig(raw map[string]any) CompatConfig {
+	compat := defaultCompatConfig()
+	if value := strings.TrimSpace(stringValue(raw["passport_base_url"], "")); value != "" {
+		compat.PassportBaseURL = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["china_base_url"], "")); value != "" {
+		compat.ChinaBaseURL = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["api_version"], "")); value != "" {
+		compat.APIVersion = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["client_header"], "")); value != "" {
+		compat.ClientHeader = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["user_agent"], "")); value != "" {
+		compat.UserAgent = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["locale"], "")); value != "" {
+		compat.Locale = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["accept_language"], "")); value != "" {
+		compat.AcceptLanguage = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["platform"], "")); value != "" {
+		compat.Platform = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["os_version"], "")); value != "" {
+		compat.OSVersion = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["model_name"], "")); value != "" {
+		compat.ModelName = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["phone_brand"], "")); value != "" {
+		compat.PhoneBrand = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["source"], "")); value != "" {
+		compat.Source = value
+	}
+	if value := strings.TrimSpace(stringValue(raw["hour_mode"], "")); value != "" {
+		compat.HourMode = value
+	}
+	return compat
 }
 
 func accountKey(cfg AccountConfig) string {

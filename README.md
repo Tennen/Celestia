@@ -27,9 +27,12 @@ Each vendor plugin now expects real cloud credentials. The admin UI ships JSON t
 - Xiaomi: `region` plus either `username/password`, or `service_token/ssecurity/user_id`
 - Xiaomi: optional OAuth `access_token` / `refresh_token` / `auth_code` remains supported, with explicit `client_id` + `redirect_url` required for refresh-token or auth-code exchange
 - Petkit: `username`, `password`, `region`, `timezone`
+- Petkit: optional `compat` overrides for `passport_base_url`, `china_base_url`, `api_version`, `client_header`, `user_agent`, and related app-signature fields when Petkit changes its mobile app contract
 - Haier: `email`, `password` or `refresh_token`, plus optional `mobile_id` and `timezone`
 
 If credentials are missing or invalid, plugin enablement fails explicitly instead of falling back to demo devices.
+
+Plugin config defaults are now exposed by Core through the catalog schema. The admin `Config` view consumes that Core-owned default draft instead of maintaining a separate frontend-only preset list.
 
 ## Xiaomi Auth
 
@@ -55,7 +58,7 @@ The container exposes the gateway and admin UI on port `8080`.
 ## Admin Surface
 
 - Dashboard summary
-- Plugin catalog, install, config, enable/disable, discover, uninstall, logs
+- Plugin catalog, install, runtime view, Core-owned config view, enable/disable, discover, uninstall, logs
 - Device inventory with live state
 - Command dispatch with actor header support
 - Event feed and audit feed
