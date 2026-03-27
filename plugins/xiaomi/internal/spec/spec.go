@@ -100,6 +100,21 @@ func (p Property) EnumValue(input string) (int, bool) {
 	return 0, false
 }
 
+func (p Property) HasDuplicateEnumDescriptions() bool {
+	seen := map[string]struct{}{}
+	for _, item := range p.ValueList {
+		key := normalize(item.Description)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			return true
+		}
+		seen[key] = struct{}{}
+	}
+	return false
+}
+
 func nameFromURN(urn, fallback string) string {
 	parts := strings.Split(urn, ":")
 	if len(parts) > 3 {

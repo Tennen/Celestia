@@ -8,6 +8,7 @@ import (
 
 type matchProperty struct {
 	names        []string
+	serviceNames []string
 	serviceHints []string
 	format       string
 	boolOnly     bool
@@ -69,6 +70,9 @@ func matchPropertyRef(prop PropertyRef, match matchProperty) bool {
 	}
 	name := spec.PropertyName(prop.Property)
 	if len(match.names) > 0 && !containsNormalized(name, match.names) {
+		return false
+	}
+	if len(match.serviceNames) > 0 && !containsNormalized(prop.ServiceName, match.serviceNames) {
 		return false
 	}
 	if len(match.serviceHints) > 0 && !containsAny(prop.ServiceName, strings.ToLower(prop.Property.Description), match.serviceHints...) {

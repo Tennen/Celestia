@@ -1,6 +1,7 @@
 package mapper
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -54,14 +55,18 @@ func propertyControlMetadata(id, label, description, stateKey, action string, re
 
 func propertyOptions(prop spec.Property) []map[string]any {
 	out := make([]map[string]any, 0, len(prop.ValueList))
+	useNumericValues := prop.HasDuplicateEnumDescriptions()
 	for _, item := range prop.ValueList {
 		label := strings.TrimSpace(item.Description)
-		value := normalizeControlValue(label)
-		if value == "" {
-			value = strconv.Itoa(item.Value)
-		}
 		if label == "" {
-			label = value
+			label = strconv.Itoa(item.Value)
+		}
+		value := normalizeControlValue(label)
+		if useNumericValues {
+			value = strconv.Itoa(item.Value)
+			label = fmt.Sprintf("%s (%d)", label, item.Value)
+		} else if value == "" {
+			value = strconv.Itoa(item.Value)
 		}
 		out = append(out, map[string]any{
 			"value": value,

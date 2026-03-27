@@ -54,6 +54,10 @@ function controlText(control: DeviceControl) {
       return toggleText(control);
     case 'action':
       return 'action';
+    case 'select': {
+      const current = control.options?.find((option) => String(option.value) === String(control.value));
+      return current?.label ?? formatValue(control.value);
+    }
     default:
       return control.unit && typeof control.value === 'number' ? `${formatValue(control.value)} ${control.unit}` : formatValue(control.value);
   }

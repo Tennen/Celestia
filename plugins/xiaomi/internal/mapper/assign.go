@@ -87,23 +87,42 @@ func assignAquarium(mapping *DeviceMapping, services []serviceView) {
 		boolOnly:     true,
 	})
 	mapping.PumpLevel = firstWritableProperty(services, matchProperty{
-		names:        []string{"mode", "mode-a", "fan-level", "fan-speed", "gear", "water-flow", "flow-level", "flow-rate", "pump-level"},
+		names:        []string{"pump-flux", "mode", "mode-a", "fan-level", "fan-speed", "gear", "water-flow", "flow-level", "flow-rate", "pump-level"},
 		serviceHints: []string{"pump", "filter", "circulation", "fish", "water"},
 		excludeKinds: []string{"bool"},
 	})
 	mapping.LightPower = firstWritableProperty(services, matchProperty{
+		serviceNames: []string{"light"},
 		names:        []string{"on", "switch-status"},
-		serviceHints: []string{"light", "lamp"},
 		boolOnly:     true,
 	})
+	if mapping.LightPower == nil {
+		mapping.LightPower = firstWritableProperty(services, matchProperty{
+			names:        []string{"on", "switch-status"},
+			serviceHints: []string{"light", "lamp"},
+			boolOnly:     true,
+		})
+	}
 	mapping.LightBrightness = firstWritableProperty(services, matchProperty{
+		serviceNames: []string{"light"},
 		names:        []string{"brightness"},
-		serviceHints: []string{"light", "lamp"},
 	})
+	if mapping.LightBrightness == nil {
+		mapping.LightBrightness = firstWritableProperty(services, matchProperty{
+			names:        []string{"brightness"},
+			serviceHints: []string{"light", "lamp"},
+		})
+	}
 	mapping.LightMode = firstWritableProperty(services, matchProperty{
+		serviceNames: []string{"light"},
 		names:        []string{"mode", "mode-a"},
-		serviceHints: []string{"light", "lamp"},
 	})
+	if mapping.LightMode == nil {
+		mapping.LightMode = firstWritableProperty(services, matchProperty{
+			names:        []string{"mode", "mode-a"},
+			serviceHints: []string{"light", "lamp"},
+		})
+	}
 	mapping.WaterTemperature = firstReadableProperty(services, matchProperty{
 		names:        []string{"temperature", "water-temperature"},
 		serviceHints: []string{"fish", "water"},

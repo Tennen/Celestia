@@ -48,6 +48,9 @@ func encodePropertyValue(prop spec.Property, raw any) (any, error) {
 
 func decodePropertyValue(prop spec.Property, key string, raw any) any {
 	if len(prop.ValueList) > 0 {
+		if prop.HasDuplicateEnumDescriptions() {
+			return intParam(raw)
+		}
 		if desc, ok := prop.EnumDescription(intParam(raw)); ok {
 			return desc
 		}
