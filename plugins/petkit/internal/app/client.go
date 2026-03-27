@@ -33,6 +33,13 @@ const (
 	petkitEndpointDeviceDetail = "device_detail"
 )
 
+type requestAuthMode int
+
+const (
+	requestAuthPublic requestAuthMode = iota
+	requestAuthSession
+)
+
 type sessionInfo struct {
 	ID        string
 	UserID    string
@@ -212,7 +219,7 @@ func (c *Client) executeFeeder(ctx context.Context, snapshot deviceSnapshot, req
 	form.Set("name", "")
 	form.Set("time", "-1")
 	form.Set("amount", strconv.Itoa(portions))
-	_, err := c.postForm(ctx, snapshot.Info, endpoint, form)
+	_, err := c.postSessionForm(ctx, endpoint, form)
 	return err
 }
 
@@ -233,7 +240,7 @@ func (c *Client) executeLitter(ctx context.Context, snapshot deviceSnapshot, req
 	form.Set("type", actionName)
 	kv, _ := json.Marshal(map[string]any{actionName: 0})
 	form.Set("kv", string(kv))
-	_, err := c.postForm(ctx, snapshot.Info, "controlDevice", form)
+	_, err := c.postSessionForm(ctx, "controlDevice", form)
 	return err
 }
 
@@ -283,13 +290,13 @@ func (c *Client) sendFountainCommand(ctx context.Context, info petkitDeviceInfo,
 	form.Set("mac", info.MAC)
 	form.Set("cmd", strconv.Itoa(cmdCode))
 	form.Set("data", encoded)
-	_, err = c.postForm(ctx, info, "ble/controlDevice", form)
+	_, err = c.postSessionForm(ctx, "ble/controlDevice", form)
 	return err
 }
 
 func (c *Client) openBleConnection(ctx context.Context, info petkitDeviceInfo) (bool, error) {
 	groupID := info.GroupID
-	resp, err := c.postForm(ctx, info, "ble/ownSupportBleDevices", url.Values{
+	resp, err := c.postSessionForm(ctx, "ble/ownSupportBleDevices", url.Values{
 		"groupId": []string{strconv.Itoa(groupID)},
 	})
 	if err != nil {
@@ -298,7 +305,7 @@ func (c *Client) openBleConnection(ctx context.Context, info petkitDeviceInfo) (
 	if relays, ok := resp.([]any); ok && len(relays) == 0 {
 		return false, nil
 	}
-	resp2, err := c.postForm(ctx, info, "ble/connect", url.Values{
+	resp2, err := c.postSessionForm(ctx, "ble/connect", url.Values{
 		"bleId": []string{strconv.Itoa(info.DeviceID)},
 		"type":  []string{strconv.Itoa(info.TypeCode)},
 		"mac":   []string{info.MAC},
@@ -312,7 +319,7 @@ func (c *Client) openBleConnection(ctx context.Context, info petkitDeviceInfo) (
 		}
 	}
 	for attempts := 0; attempts < 12; attempts++ {
-		resp, err := c.postForm(ctx, info, "ble/poll", url.Values{
+		resp, err := c.postSessionForm(ctx, "ble/poll", url.Values{
 			"bleId": []string{strconv.Itoa(info.DeviceID)},
 			"type":  []string{strconv.Itoa(info.TypeCode)},
 			"mac":   []string{info.MAC},
@@ -350,7 +357,7 @@ func (c *Client) openBleConnection(ctx context.Context, info petkitDeviceInfo) (
 }
 
 func (c *Client) closeBleConnection(ctx context.Context, info petkitDeviceInfo) error {
-	_, err := c.postForm(ctx, info, "ble/cancel", url.Values{
+	_, err := c.postSessionForm(ctx, "ble/cancel", url.Values{
 		"bleId": []string{strconv.Itoa(info.DeviceID)},
 		"type":  []string{strconv.Itoa(info.TypeCode)},
 		"mac":   []string{info.MAC},
@@ -370,7 +377,7 @@ func (c *Client) nextBleCounter(deviceID int) int {
 }
 
 func (c *Client) loadFamilies(ctx context.Context) ([]petkitFamily, error) {
-	resp, err := c.getJSON(ctx, petkitEndpointFamilyList, nil, false)
+	resp, err := c.getSessionJSON(ctx, petkitEndpointFamilyList, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -390,9 +397,9 @@ func (c *Client) loadFamilies(ctx context.Context) ([]petkitFamily, error) {
 }
 
 func (c *Client) loadDeviceDetail(ctx context.Context, info petkitDeviceInfo) (map[string]any, error) {
-	resp, err := c.getJSON(ctx, petkitEndpointDeviceDetail, url.Values{
+	resp, err := c.getSessionJSON(ctx, petkitEndpointDeviceDetail, url.Values{
 		"id": []string{strconv.Itoa(info.DeviceID)},
-	}, true, info)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -403,16 +410,16 @@ func (c *Client) loadDeviceDetail(ctx context.Context, info petkitDeviceInfo) (m
 	return detail, nil
 }
 
-func (c *Client) postForm(ctx context.Context, info petkitDeviceInfo, endpoint string, form url.Values) (any, error) {
-	return c.doRequest(ctx, http.MethodPost, endpoint, nil, form, true, info)
+func (c *Client) postSessionForm(ctx context.Context, endpoint string, form url.Values) (any, error) {
+	return c.doRequest(ctx, http.MethodPost, endpoint, nil, form, requestAuthSession)
 }
 
-func (c *Client) getJSON(ctx context.Context, endpoint string, params url.Values, session bool, info ...petkitDeviceInfo) (any, error) {
-	var requestInfo petkitDeviceInfo
-	if len(info) > 0 {
-		requestInfo = info[0]
-	}
-	return c.doRequest(ctx, http.MethodGet, endpoint, params, nil, session, requestInfo)
+func (c *Client) getSessionJSON(ctx context.Context, endpoint string, params url.Values) (any, error) {
+	return c.doRequest(ctx, http.MethodGet, endpoint, params, nil, requestAuthSession)
+}
+
+func (c *Client) getPublicJSON(ctx context.Context, endpoint string, params url.Values) (any, error) {
+	return c.doRequest(ctx, http.MethodGet, endpoint, params, nil, requestAuthPublic)
 }
 
 func (c *Client) doRequest(
@@ -421,9 +428,9 @@ func (c *Client) doRequest(
 	endpoint string,
 	params url.Values,
 	form url.Values,
-	useSession bool,
-	info petkitDeviceInfo,
+	authMode requestAuthMode,
 ) (any, error) {
+	useSession := authMode == requestAuthSession
 	for attempt := 0; attempt < 2; attempt++ {
 		baseURL, session, err := c.snapshotTransport()
 		if err != nil {
@@ -617,7 +624,7 @@ func (c *Client) login(ctx context.Context) error {
 	form.Set("region", c.cfg.Region)
 	form.Set("username", c.cfg.Username)
 	form.Set("password", md5Hex(c.cfg.Password))
-	result, err := c.doRequest(ctx, http.MethodPost, baseURL+"user/login", nil, form, false, petkitDeviceInfo{})
+	result, err := c.doRequest(ctx, http.MethodPost, baseURL+"user/login", nil, form, requestAuthPublic)
 	if err != nil {
 		return err
 	}
@@ -644,7 +651,7 @@ func (c *Client) resolveBaseURL(ctx context.Context) (string, error) {
 	if strings.EqualFold(c.cfg.Region, "cn") || strings.EqualFold(c.cfg.Region, "china") {
 		return petkitChinaBaseURL, nil
 	}
-	resp, err := c.doRequest(ctx, http.MethodGet, petkitPassportBaseURL+"v1/regionservers", nil, nil, false, petkitDeviceInfo{})
+	resp, err := c.getPublicJSON(ctx, petkitPassportBaseURL+"v1/regionservers", nil)
 	if err != nil {
 		return "", err
 	}

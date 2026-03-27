@@ -43,6 +43,7 @@ All work in this repository must preserve the current architecture:
 - Enforce capability checks from real model data before command execution.
 - Store and refresh tokens using the existing plugin config path until a dedicated secure secret mechanism is added. Do not replace this with local fixture files.
 - Do not implement plugin-driven config persistence through generic event streams. If a plugin obtains refreshed tokens, session cookies, or derived runtime credentials, it must hand them to a Core-owned config update capability for validation and persistence.
+- Authentication requirements for vendor requests must be encoded by explicit transport methods or endpoint-specific helpers. Do not route protected vendor calls through generic request functions that rely on ad hoc boolean flags to decide whether auth/session headers are attached.
 
 ## Frontend Implementation Rules
 
