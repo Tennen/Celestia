@@ -75,10 +75,9 @@ func TestSanitizeSessionBaseURLDropsLegacyPassportPath(t *testing.T) {
 	}
 }
 
-func TestLoadDeviceDetailFallsBackToTypedDeviceDataOnCode97(t *testing.T) {
+func TestLoadDeviceDetailUsesTypedDeviceDetailEndpoint(t *testing.T) {
 	var loginCalls atomic.Int32
 	var detailCalls atomic.Int32
-	var deviceDataCalls atomic.Int32
 
 	client := &http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
@@ -100,25 +99,16 @@ func TestLoadDeviceDetailFallsBackToTypedDeviceDataOnCode97(t *testing.T) {
 						},
 					},
 				}
-			case r.URL.Path == "/device_detail":
+			case r.URL.Path == "/ctw3/device_detail":
 				detailCalls.Add(1)
-				status = http.StatusNotFound
-				payload = map[string]any{
-					"error": map[string]any{
-						"code": 97,
-						"msg":  "App is out of date, please upgrade",
-					},
-				}
-			case r.URL.Path == "/ctw3/deviceData":
-				deviceDataCalls.Add(1)
 				if r.Method != http.MethodPost {
-					t.Fatalf("expected typed device data fallback to use POST, got %s", r.Method)
+					t.Fatalf("expected typed device detail request to use POST, got %s", r.Method)
 				}
 				if got := r.URL.Query().Get("id"); got != "118197" {
-					t.Fatalf("expected fallback id query param, got %q", got)
+					t.Fatalf("expected typed device detail id query param, got %q", got)
 				}
-				if got := r.Header.Get("X-Session"); got != "session-new" {
-					t.Fatalf("expected refreshed session on fallback request, got %q", got)
+				if got := r.Header.Get("X-Session"); got != "session-old" {
+					t.Fatalf("expected existing session on detail request, got %q", got)
 				}
 				status = http.StatusOK
 				payload = map[string]any{
@@ -181,14 +171,11 @@ func TestLoadDeviceDetailFallsBackToTypedDeviceDataOnCode97(t *testing.T) {
 	if got := intFromAny(detail["filterPercent"], 0); got != 88 {
 		t.Fatalf("unexpected fallback filter percent: %d", got)
 	}
-	if detailCalls.Load() != 2 {
-		t.Fatalf("expected 2 device_detail attempts (before/after re-login), got %d", detailCalls.Load())
+	if detailCalls.Load() != 1 {
+		t.Fatalf("expected 1 typed device_detail request, got %d", detailCalls.Load())
 	}
-	if loginCalls.Load() != 1 {
-		t.Fatalf("expected 1 login retry, got %d", loginCalls.Load())
-	}
-	if deviceDataCalls.Load() != 1 {
-		t.Fatalf("expected 1 typed deviceData fallback, got %d", deviceDataCalls.Load())
+	if loginCalls.Load() != 0 {
+		t.Fatalf("expected no login retry, got %d", loginCalls.Load())
 	}
 }
 

@@ -148,28 +148,7 @@ func (c *Client) loadFamilies(ctx context.Context) ([]petkitFamily, error) {
 }
 
 func (c *Client) loadDeviceDetail(ctx context.Context, info petkitDeviceInfo) (map[string]any, error) {
-	resp, err := c.getSessionJSON(ctx, petkitEndpointDeviceDetail, url.Values{
-		"id": []string{strconv.Itoa(info.DeviceID)},
-	})
-	if err != nil {
-		if !shouldFallbackDeviceDetail(err) {
-			return nil, err
-		}
-		originalErr := err
-		resp, err = c.loadTypedDeviceData(ctx, info)
-		if err != nil {
-			return nil, fmt.Errorf("%w; fallback to %s/%s failed: %v", originalErr, strings.ToLower(info.DeviceType), petkitEndpointDeviceData, err)
-		}
-	}
-	detail, ok := resp.(map[string]any)
-	if !ok {
-		return nil, errors.New("unexpected Petkit device detail response")
-	}
-	return detail, nil
-}
-
-func (c *Client) loadTypedDeviceData(ctx context.Context, info petkitDeviceInfo) (map[string]any, error) {
-	endpoint := fmt.Sprintf("%s/%s", strings.ToLower(strings.TrimSpace(info.DeviceType)), petkitEndpointDeviceData)
+	endpoint := fmt.Sprintf("%s/%s", strings.ToLower(strings.TrimSpace(info.DeviceType)), petkitEndpointDeviceDetail)
 	resp, err := c.postSessionJSON(ctx, endpoint, url.Values{
 		"id": []string{strconv.Itoa(info.DeviceID)},
 	})
@@ -178,7 +157,7 @@ func (c *Client) loadTypedDeviceData(ctx context.Context, info petkitDeviceInfo)
 	}
 	detail, ok := resp.(map[string]any)
 	if !ok {
-		return nil, errors.New("unexpected Petkit device data response")
+		return nil, errors.New("unexpected Petkit device detail response")
 	}
 	return detail, nil
 }

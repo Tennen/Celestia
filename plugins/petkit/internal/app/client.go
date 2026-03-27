@@ -11,7 +11,6 @@ import (
 const (
 	petkitEndpointFamilyList   = "group/family/list"
 	petkitEndpointDeviceDetail = "device_detail"
-	petkitEndpointDeviceData   = "deviceData"
 )
 
 type requestAuthMode int

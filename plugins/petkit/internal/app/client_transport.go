@@ -137,14 +137,6 @@ func (c *Client) doRequest(
 	return nil, errors.New("petkit request failed after re-authentication")
 }
 
-func shouldFallbackDeviceDetail(err error) bool {
-	var reqErr *petkitRequestError
-	if !errors.As(err, &reqErr) {
-		return false
-	}
-	return reqErr.Status == http.StatusNotFound && reqErr.Code == 97
-}
-
 func newPetkitRequestError(status int, method string, reqURL string, form url.Values, body []byte) error {
 	code, message, ok := petkitErrorFromStatusBody(body)
 	sanitizedURL := sanitizePetkitURL(reqURL)
