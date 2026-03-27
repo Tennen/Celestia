@@ -121,13 +121,13 @@ func (p *Plugin) Manifest() models.PluginManifest {
 				"compat": map[string]any{
 					"passport_base_url": "https://passport.petkt.com/",
 					"china_base_url":    "https://api.petkit.cn/6/",
-					"api_version":       "13.2.1",
-					"client_header":     "android(16.1;23127PN0CG)",
-					"user_agent":        "okhttp/3.14.9",
+					"api_version":       "12.4.9",
+					"client_header":     "android(15.1;23127PN0CG)",
+					"user_agent":        "okhttp/3.14.19",
 					"locale":            "en-US",
 					"accept_language":   "en-US;q=1, it-US;q=0.9",
 					"platform":          "android",
-					"os_version":        "16.1",
+					"os_version":        "15.1",
 					"model_name":        "23127PN0CG",
 					"phone_brand":       "Xiaomi",
 					"source":            "app.petkit-android",
@@ -581,6 +581,24 @@ func defaultCompatConfig() CompatConfig {
 	return CompatConfig{
 		PassportBaseURL: "https://passport.petkt.com/",
 		ChinaBaseURL:    "https://api.petkit.cn/6/",
+		APIVersion:      "12.4.9",
+		ClientHeader:    "android(15.1;23127PN0CG)",
+		UserAgent:       "okhttp/3.14.19",
+		Locale:          "en-US",
+		AcceptLanguage:  "en-US;q=1, it-US;q=0.9",
+		Platform:        "android",
+		OSVersion:       "15.1",
+		ModelName:       "23127PN0CG",
+		PhoneBrand:      "Xiaomi",
+		Source:          "app.petkit-android",
+		HourMode:        "24",
+	}
+}
+
+func legacyCompatConfig() CompatConfig {
+	return CompatConfig{
+		PassportBaseURL: "https://passport.petkt.com/",
+		ChinaBaseURL:    "https://api.petkit.cn/6/",
 		APIVersion:      "13.2.1",
 		ClientHeader:    "android(16.1;23127PN0CG)",
 		UserAgent:       "okhttp/3.14.9",
@@ -635,6 +653,25 @@ func parseCompatConfig(raw map[string]any) CompatConfig {
 	}
 	if value := strings.TrimSpace(stringValue(raw["hour_mode"], "")); value != "" {
 		compat.HourMode = value
+	}
+	compat = upgradeLegacyCompatConfig(raw, compat)
+	return compat
+}
+
+func upgradeLegacyCompatConfig(raw map[string]any, compat CompatConfig) CompatConfig {
+	legacy := legacyCompatConfig()
+	current := defaultCompatConfig()
+	if strings.TrimSpace(stringValue(raw["api_version"], "")) == legacy.APIVersion {
+		compat.APIVersion = current.APIVersion
+	}
+	if strings.TrimSpace(stringValue(raw["client_header"], "")) == legacy.ClientHeader {
+		compat.ClientHeader = current.ClientHeader
+	}
+	if strings.TrimSpace(stringValue(raw["user_agent"], "")) == legacy.UserAgent {
+		compat.UserAgent = current.UserAgent
+	}
+	if strings.TrimSpace(stringValue(raw["os_version"], "")) == legacy.OSVersion {
+		compat.OSVersion = current.OSVersion
 	}
 	return compat
 }

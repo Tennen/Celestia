@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -59,7 +61,7 @@ func TestCompatClientPayloadMatchesUpstreamFormat(t *testing.T) {
 		defaultCompatConfig(),
 	)
 	got := client.compatClientPayload("Asia/Shanghai")
-	want := "{'locale': 'en-US', 'name': '23127PN0CG', 'osVersion': '16.1', 'phoneBrand': 'Xiaomi', 'platform': 'android', 'source': 'app.petkit-android', 'version': '13.2.1', 'timezoneId': 'Asia/Shanghai'}"
+	want := "{'locale': 'en-US', 'name': '23127PN0CG', 'osVersion': '15.1', 'phoneBrand': 'Xiaomi', 'platform': 'android', 'source': 'app.petkit-android', 'version': '12.4.9', 'timezoneId': 'Asia/Shanghai'}"
 	if got != want {
 		t.Fatalf("unexpected client payload:\nwant: %s\ngot:  %s", want, got)
 	}
@@ -187,6 +189,37 @@ func TestLoadDeviceDetailFallsBackToTypedDeviceDataOnCode97(t *testing.T) {
 	}
 	if deviceDataCalls.Load() != 1 {
 		t.Fatalf("expected 1 typed deviceData fallback, got %d", deviceDataCalls.Load())
+	}
+}
+
+func TestNewPetkitRequestErrorIncludesRequestContextAndRedactsSecrets(t *testing.T) {
+	err := newPetkitRequestError(
+		http.StatusNotFound,
+		http.MethodPost,
+		"https://api.petkit.cn/6/user/login?username=user@example.com&region=us",
+		url.Values{
+			"username": {"user@example.com"},
+			"password": {"secret"},
+			"region":   {"us"},
+			"client":   {"client-payload"},
+		},
+		[]byte(`{"error":{"code":97,"msg":"App is out of date, please upgrade"}}`),
+	)
+	message := err.Error()
+	if !strings.Contains(message, "method=POST") {
+		t.Fatalf("expected method in error, got %q", message)
+	}
+	if !strings.Contains(message, "url=https://api.petkit.cn/6/user/login?region=us&username=%5BREDACTED%5D") {
+		t.Fatalf("expected sanitized url in error, got %q", message)
+	}
+	if !strings.Contains(message, "form=client=client-payload&password=%5BREDACTED%5D&region=us&username=%5BREDACTED%5D") {
+		t.Fatalf("expected sanitized form in error, got %q", message)
+	}
+	if !strings.Contains(message, `code=97`) || !strings.Contains(message, `message="App is out of date, please upgrade"`) {
+		t.Fatalf("expected parsed upstream error details, got %q", message)
+	}
+	if strings.Contains(message, "secret") || strings.Contains(message, "user@example.com") {
+		t.Fatalf("expected secrets to be redacted, got %q", message)
 	}
 }
 

@@ -47,20 +47,37 @@ type sessionInfo struct {
 
 type petkitRequestError struct {
 	Status  int
+	Method  string
 	URL     string
 	Code    int
 	Message string
 	Body    string
+	Form    string
 }
 
 func (e *petkitRequestError) Error() string {
 	if e == nil {
 		return ""
 	}
-	if e.Body == "" {
-		return fmt.Sprintf("petkit request failed with status %d for %s", e.Status, e.URL)
+	parts := []string{
+		fmt.Sprintf("petkit request failed"),
+		fmt.Sprintf("method=%s", e.Method),
+		fmt.Sprintf("status=%d", e.Status),
+		fmt.Sprintf("url=%s", e.URL),
 	}
-	return fmt.Sprintf("petkit request failed with status %d for %s: %s", e.Status, e.URL, e.Body)
+	if e.Code != 0 {
+		parts = append(parts, fmt.Sprintf("code=%d", e.Code))
+	}
+	if e.Message != "" {
+		parts = append(parts, fmt.Sprintf("message=%q", e.Message))
+	}
+	if e.Form != "" {
+		parts = append(parts, fmt.Sprintf("form=%s", e.Form))
+	}
+	if e.Body != "" {
+		parts = append(parts, fmt.Sprintf("response=%s", e.Body))
+	}
+	return strings.Join(parts, " ")
 }
 
 type petkitDeviceInfo struct {
@@ -522,7 +539,7 @@ func (c *Client) doRequest(
 				}
 				continue
 			}
-			return nil, newPetkitRequestError(resp.StatusCode, reqURL, bodyBytes)
+			return nil, newPetkitRequestError(resp.StatusCode, method, reqURL, form, bodyBytes)
 		}
 		var payload any
 		if len(bodyBytes) == 0 {
@@ -564,13 +581,17 @@ func shouldFallbackDeviceDetail(err error) bool {
 	return reqErr.Status == http.StatusNotFound && reqErr.Code == 97
 }
 
-func newPetkitRequestError(status int, reqURL string, body []byte) error {
+func newPetkitRequestError(status int, method string, reqURL string, form url.Values, body []byte) error {
 	code, message, ok := petkitErrorFromStatusBody(body)
+	sanitizedURL := sanitizePetkitURL(reqURL)
+	sanitizedForm := sanitizePetkitValues(form)
 	if len(body) == 0 {
 		return &petkitRequestError{
 			Status: status,
-			URL:    reqURL,
+			Method: method,
+			URL:    sanitizedURL,
 			Code:   code,
+			Form:   sanitizedForm,
 			Body:   "",
 		}
 	}
@@ -578,16 +599,61 @@ func newPetkitRequestError(status int, reqURL string, body []byte) error {
 	if ok {
 		return &petkitRequestError{
 			Status:  status,
-			URL:     reqURL,
+			Method:  method,
+			URL:     sanitizedURL,
 			Code:    code,
 			Message: message,
+			Form:    sanitizedForm,
 			Body:    trimmed,
 		}
 	}
 	return &petkitRequestError{
 		Status: status,
-		URL:    reqURL,
+		Method: method,
+		URL:    sanitizedURL,
+		Form:   sanitizedForm,
 		Body:   trimmed,
+	}
+}
+
+func sanitizePetkitURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	if parsed.RawQuery == "" {
+		return rawURL
+	}
+	parsed.RawQuery = sanitizePetkitValues(parsed.Query())
+	return parsed.String()
+}
+
+func sanitizePetkitValues(values url.Values) string {
+	if len(values) == 0 {
+		return ""
+	}
+	sanitized := url.Values{}
+	for key, rawValues := range values {
+		if isSensitivePetkitField(key) {
+			sanitized[key] = []string{"[REDACTED]"}
+			continue
+		}
+		copied := make([]string, 0, len(rawValues))
+		for _, value := range rawValues {
+			copied = append(copied, value)
+		}
+		sanitized[key] = copied
+	}
+	return sanitized.Encode()
+}
+
+func isSensitivePetkitField(key string) bool {
+	key = strings.ToLower(strings.TrimSpace(key))
+	switch key {
+	case "password", "session", "f-session", "x-session", "token", "secret", "username", "validcode":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -1130,8 +1196,11 @@ const (
 )
 
 const (
-	BluetoothStateError     = -1
-	BluetoothStateConnected = 1
+	BluetoothStateNoState      = 0
+	BluetoothStateNotConnected = 1
+	BluetoothStateConnecting   = 2
+	BluetoothStateConnected    = 3
+	BluetoothStateError        = 4
 )
 
 type petkitFamily struct {
