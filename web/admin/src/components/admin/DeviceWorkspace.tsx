@@ -403,19 +403,14 @@ export function DeviceWorkspace({
                       ))}
                     </div>
                   ) : null}
-                  {hiddenControls.length > 0 && hiddenControlsCollapsed ? (
-                    <p className="muted">Hidden quick controls are collapsed.</p>
-                  ) : null}
                   {hiddenControls.length === 0 ? (
                     <p className="muted">No hidden quick controls.</p>
                   ) : null}
                 </div>
 
-                <div className="advanced-command">
-                  <div className="advanced-command__header">
-                    <div>
-                      <label>Advanced Command</label>
-                    </div>
+                <div>
+                  <div className="section-title section-title--inline">
+                    <label>Advanced Command</label>
                     <Button
                       type="button"
                       variant="ghost"
@@ -464,9 +459,7 @@ export function DeviceWorkspace({
                         <Button onClick={onSendCommand}>Send Advanced Command</Button>
                       </div>
                     </div>
-                  ) : (
-                    <p className="muted">Advanced command panel is collapsed.</p>
-                  )}
+                  ) : null}
                 </div>
               </div>
               {commandResult ? <pre className="log-box">{commandResult}</pre> : null}

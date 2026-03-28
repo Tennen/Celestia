@@ -64,8 +64,7 @@
 
 .topbar__sub,
 .card__description,
-.control-card__header p,
-.advanced-command__header p {
+.control-card__header p {
   font-size: 0.94rem;
   line-height: 1.55;
 }
@@ -334,8 +333,7 @@ label {
   gap: 10px;
 }
 
-.control-card,
-.advanced-command {
+.control-card {
   gap: 10px;
   padding: 14px;
   border-radius: 18px;
@@ -344,8 +342,7 @@ label {
     0 10px 20px rgba(145, 166, 199, 0.1);
 }
 
-.control-card__header,
-.advanced-command__header {
+.control-card__header {
   gap: 10px;
 }
 

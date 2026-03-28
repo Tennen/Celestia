@@ -67,8 +67,7 @@
   gap: 14px;
 }
 
-.control-card,
-.advanced-command {
+.control-card {
   display: grid;
   gap: 14px;
   padding: 16px;
@@ -85,8 +84,7 @@
   border-style: dashed;
 }
 
-.control-card__header,
-.advanced-command__header {
+.control-card__header {
   display: flex;
   justify-content: space-between;
   gap: 14px;
@@ -147,8 +145,7 @@
   flex-wrap: wrap;
 }
 
-.control-card__header p,
-.advanced-command__header p {
+.control-card__header p {
   margin: 6px 0 0;
 }
 
