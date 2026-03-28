@@ -339,17 +339,6 @@ export function DeviceControlCard({
 
       {showControlBody ? renderControlBody() : null}
 
-      <div className="control-card__editor">
-        <Input value={aliasValue} onChange={(event) => onAliasChange(event.target.value)} placeholder={defaultLabel} />
-        <div className="button-row">
-          <Button variant="secondary" onClick={onSavePreference} disabled={prefBusy}>
-            Save Label
-          </Button>
-          <Button variant="secondary" onClick={onResetPreference} disabled={prefBusy}>
-            Reset Label
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

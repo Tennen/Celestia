@@ -150,11 +150,6 @@
   margin: 6px 0 0;
 }
 
-.control-card__editor {
-  display: grid;
-  gap: 10px;
-}
-
 .control-card__icon-button {
   width: 34px;
   min-width: 34px;
