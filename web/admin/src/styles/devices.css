@@ -159,11 +159,6 @@
   color: var(--muted-strong);
 }
 
-.control-card__icon-button svg {
-  width: 16px;
-  height: 16px;
-}
-
 .control-card__icon-button:hover:not(:disabled) {
   color: var(--text);
   background: var(--surface-soft);
@@ -189,20 +184,12 @@
   color: var(--accent-ink);
 }
 
-.control-card__icon-button--play svg {
-  width: 14px;
-  height: 14px;
+.control-card__icon-button--play .icon {
   margin-left: 1px;
 }
 
 .control-card__visibility {
   flex-shrink: 0;
-}
-
-.control-card__visibility svg,
-.collapse-toggle__icon {
-  width: 16px;
-  height: 16px;
 }
 
 .toggle-switch {

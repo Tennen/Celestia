@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Icon } from '../ui/icon';
 import { Input } from '../ui/input';
 import { Section } from '../ui/section';
 import { Textarea } from '../ui/textarea';
@@ -47,7 +48,8 @@ type Props = {
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
-    <svg
+    <Icon
+      size="md"
       className={cn('collapse-toggle__icon', expanded && 'is-expanded')}
       viewBox="0 0 24 24"
       fill="none"
@@ -58,7 +60,7 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
       aria-hidden="true"
     >
       <path d="m6 9 6 6 6-6" />
-    </svg>
+    </Icon>
   );
 }
 
