@@ -1,3 +1,4 @@
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -33,15 +34,6 @@ function toggleTone(control: DeviceControl, pending = false) {
   return 'warn';
 }
 
-function toggleText(control: DeviceControl, pending = false) {
-  if (pending && control.state === true) return 'switching on';
-  if (pending && control.state === false) return 'switching off';
-  if (pending) return 'syncing';
-  if (control.state === true) return 'on';
-  if (control.state === false) return 'off';
-  return 'unknown';
-}
-
 function formatValue(value: DeviceControl['value']) {
   if (value === null || value === undefined || value === '') return 'unset';
   if (typeof value === 'string') {
@@ -50,16 +42,10 @@ function formatValue(value: DeviceControl['value']) {
   return String(value);
 }
 
-function controlTone(control: DeviceControl, pending = false) {
-  return control.kind === 'toggle' ? toggleTone(control, pending) : 'accent';
-}
-
-function controlText(control: DeviceControl, pending = false) {
+function controlText(control: DeviceControl) {
   switch (control.kind) {
-    case 'toggle':
-      return toggleText(control, pending);
     case 'action':
-      return 'action';
+      return null;
     case 'select': {
       const current = control.options?.find((option) => String(option.value) === String(control.value));
       return current?.label ?? formatValue(control.value);
@@ -103,6 +89,40 @@ function VisibilityIcon({ visible }: { visible: boolean }) {
   );
 }
 
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="m16.5 3.5 4 4L8 20l-5 1 1-5Z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m5 12 5 5L20 7" />
+    </svg>
+  );
+}
+
+function ResetIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="m8 6 10 6-10 6Z" />
+    </svg>
+  );
+}
+
 export function DeviceControlCard({
   deviceId,
   control,
@@ -131,19 +151,42 @@ export function DeviceControlCard({
   const canApplyNumber = valueDraft.trim() !== '' && !Number.isNaN(parsedNumber);
   const toggleChecked = control.state === true;
   const toggleUnknown = control.state !== true && control.state !== false;
+  const savedAlias = control.alias ?? '';
+  const statusText = controlText(control);
+  const [editingLabel, setEditingLabel] = useState(false);
+
+  useEffect(() => {
+    setEditingLabel(false);
+  }, [deviceId, control.id]);
+
+  const saveLabel = () => {
+    onSavePreference();
+    setEditingLabel(false);
+  };
+
+  const resetLabel = () => {
+    onResetPreference();
+    setEditingLabel(false);
+  };
+
+  const onAliasKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveLabel();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onAliasChange(savedAlias);
+      setEditingLabel(false);
+    }
+  };
 
   const renderControlBody = () => {
     switch (control.kind) {
       case 'toggle':
-        return null;
       case 'action':
-        return (
-          <div className="button-row">
-            <Button variant="secondary" onClick={onAction} disabled={actionBusy}>
-              Run
-            </Button>
-          </div>
-        );
+        return null;
       case 'select':
         return (
           <div className="stack">
@@ -191,8 +234,61 @@ export function DeviceControlCard({
   return (
     <div className={cn('control-card', hidden && 'control-card--hidden')}>
       <div className="control-card__header">
-        <div>
-          <strong>{control.label}</strong>
+        <div className="control-card__title">
+          {editingLabel ? (
+            <div className="control-card__title-edit">
+              <Input
+                className="control-card__title-input"
+                value={aliasValue}
+                onChange={(event) => onAliasChange(event.target.value)}
+                placeholder={defaultLabel}
+                autoFocus
+                onKeyDown={onAliasKeyDown}
+              />
+              <div className="control-card__title-actions">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={cn('control-card__icon-button', 'control-card__icon-button--confirm')}
+                  onClick={saveLabel}
+                  disabled={prefBusy}
+                  aria-label={`Save label for ${control.label}`}
+                  title="Save label"
+                >
+                  <CheckIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={cn('control-card__icon-button', 'control-card__icon-button--reset')}
+                  onClick={resetLabel}
+                  disabled={prefBusy}
+                  aria-label={`Reset label for ${control.label}`}
+                  title="Reset label"
+                >
+                  <ResetIcon />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="control-card__title-row">
+              <strong>{control.label}</strong>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="control-card__icon-button"
+                onClick={() => setEditingLabel(true)}
+                disabled={prefBusy}
+                aria-label={`Edit label for ${control.label}`}
+                title="Edit label"
+              >
+                <EditIcon />
+              </Button>
+            </div>
+          )}
           {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
           {control.description ? <p>{control.description}</p> : null}
         </div>
@@ -208,15 +304,29 @@ export function DeviceControlCard({
                 onChange={onToggle}
               />
             ) : null}
-            <Badge tone={hidden ? 'neutral' : controlTone(control, togglePending)}>
-              {hidden ? 'hidden' : controlText(control, togglePending)}
-            </Badge>
+            {showControlBody && control.kind === 'action' ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="control-card__icon-button control-card__icon-button--play"
+                onClick={onAction}
+                disabled={actionBusy}
+                aria-label={`Run ${control.label}`}
+                title="Run action"
+              >
+                <PlayIcon />
+              </Button>
+            ) : null}
+            {showControlBody && control.kind !== 'toggle' && control.kind !== 'action' && statusText ? (
+              <Badge tone="accent">{statusText}</Badge>
+            ) : null}
           </div>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="control-card__visibility"
+            className="control-card__icon-button control-card__visibility"
             onClick={onToggleVisibility}
             disabled={prefBusy}
             aria-label={isVisible ? `Hide ${control.label}` : `Show ${control.label}`}

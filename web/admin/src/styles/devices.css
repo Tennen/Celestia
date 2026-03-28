@@ -70,6 +70,42 @@
   flex-wrap: wrap;
 }
 
+.control-card__title {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.control-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.control-card__title-row strong {
+  min-width: 0;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.control-card__title-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.control-card__title-input {
+  min-width: 0;
+}
+
+.control-card__title-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .control-card__status {
   display: flex;
   align-items: center;
@@ -88,23 +124,59 @@
   gap: 10px;
 }
 
-.control-card__visibility {
+.control-card__icon-button {
   width: 34px;
   min-width: 34px;
+  height: 34px;
   padding: 0;
   border-radius: 999px;
   color: var(--muted);
+}
+
+.control-card__icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.control-card__icon-button:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(18, 26, 45, 0.92);
+}
+
+.control-card__icon-button--confirm {
+  color: #9fe3ff;
+}
+
+.control-card__icon-button--confirm:hover:not(:disabled) {
+  color: #d9f6ff;
+}
+
+.control-card__icon-button--reset {
+  color: #ffd77c;
+}
+
+.control-card__icon-button--reset:hover:not(:disabled) {
+  color: #ffe8af;
+}
+
+.control-card__icon-button--play {
+  color: #9fe3ff;
+}
+
+.control-card__icon-button--play svg {
+  width: 14px;
+  height: 14px;
+  margin-left: 1px;
+}
+
+.control-card__visibility {
+  flex-shrink: 0;
 }
 
 .control-card__visibility svg,
 .collapse-toggle__icon {
   width: 16px;
   height: 16px;
-}
-
-.control-card__visibility:hover:not(:disabled) {
-  color: var(--text);
-  background: rgba(18, 26, 45, 0.92);
 }
 
 .toggle-switch {
@@ -246,13 +318,4 @@
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
 }

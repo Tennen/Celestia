@@ -321,3 +321,12 @@
   background: rgba(65, 183, 245, 0.12);
   color: #9fe3ff;
 }
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}

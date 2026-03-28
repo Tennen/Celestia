@@ -41,6 +41,62 @@ All work in this repository must preserve the current architecture:
 8. Plugin configuration and runtime-derived credential persistence are Core-owned concerns. Plugins must request config changes through a Core-exposed abstraction and must not persist config through event side channels or direct storage access.
 9. Admin configuration defaults and editable plugin config surfaces must be driven by Core-exposed catalog/schema data. Do not maintain a second frontend-owned source of truth for plugin defaults or vendor compatibility knobs.
 
+## Runtime Flow
+
+Treat the end-to-end runtime as a fixed pipeline unless the user explicitly asks to change it:
+
+1. `cmd/gateway` boots Core runtime and SQLite persistence.
+2. Core plugin manager starts each enabled vendor plugin as its own process.
+3. Core and plugin communicate only through the existing gRPC plugin protocol in `internal/pluginapi`.
+4. Core seeds device inventory by calling plugin discovery/state RPCs and persists unified devices/states into Core-owned storage.
+5. Plugins keep vendor sessions, poll vendor APIs when required, translate vendor payloads into unified models, and emit runtime events back to Core.
+6. HTTP command requests enter through `internal/api/http`, pass policy and audit, then are forwarded by Core to the owning plugin for real vendor execution.
+7. Admin UI in `web/admin` reads and writes only through the gateway HTTP API.
+
+## Directory Responsibilities
+
+Use these boundaries when deciding where code belongs:
+
+- `cmd/gateway`: production gateway bootstrap only. No vendor logic and no admin-only shortcuts.
+- `cmd/celctl`: lightweight CLI for calling the gateway HTTP API.
+- `docs`: repository documentation. Keep API and operational docs in sync with behavior changes.
+- `proto`: plugin protocol definitions. Protocol changes must remain compatible with Core and plugin implementations.
+- `web/admin`: admin UI only. It must not implement vendor-side business logic or maintain duplicate plugin defaults outside Core-owned schemas.
+- `plugins/xiaomi/cmd`, `plugins/petkit/cmd`, `plugins/haier/cmd`: plugin process entrypoints only.
+- `plugins/xiaomi/internal/app`: Xiaomi plugin runtime, RPC surface, refresh orchestration, command execution, and Core config persistence hooks.
+- `plugins/xiaomi/internal/cloud`: Xiaomi cloud auth/session handling and MIoT HTTP transport.
+- `plugins/xiaomi/internal/mapper`: Xiaomi vendor-to-unified model/capability mapping.
+- `plugins/xiaomi/internal/spec`: MIoT spec lookup/parsing support.
+- `plugins/petkit/internal/app`: Petkit auth, sync, device normalization, command dispatch, BLE relay handling, and runtime config persistence.
+- `plugins/haier/internal/app`: Haier auth, appliance discovery, capability derivation, command mapping, refresh, and refresh-token persistence.
+- `internal/api/http`: gateway HTTP handlers, SSE streaming, request validation, and transport-layer concerns.
+- `internal/core/runtime`: top-level Core composition and lifecycle wiring.
+- `internal/core/pluginmgr`: plugin install/update/enable/disable, process supervision, gRPC connection management, discovery sync, event consumption, and health checks.
+- `internal/core/registry`: unified device inventory owned by Core.
+- `internal/core/state`: unified device state store owned by Core.
+- `internal/core/control`: quick-control generation, toggle/action resolution, and control preference application.
+- `internal/core/policy`: command authorization and risk evaluation.
+- `internal/core/audit`: command audit recording.
+- `internal/core/eventbus`: in-process event fanout inside Core.
+- `internal/core/oauth`: Core-owned Xiaomi OAuth session lifecycle and callback completion.
+- `internal/coreapi`: the approved plugin-to-Core backchannel, including persisted config updates.
+- `internal/models`: shared canonical models and payload shapes. Do not leak vendor-specific structs past this layer.
+- `internal/pluginapi`: plugin RPC contract helpers and protobuf/grpc bindings.
+- `internal/pluginruntime`: shared plugin server scaffolding used by plugin binaries.
+- `internal/pluginutil`: shared helper utilities for plugin code only.
+- `internal/storage/sqlite`: production persistence implementation. New persistent Core data should land here unless a different production-grade store is explicitly required.
+- `internal/xiaomi/oauth`: Xiaomi OAuth helper code shared across Core/plugin boundaries.
+- `data`: local runtime databases and smoke-test artifacts, not source-of-truth code.
+- `bin`: compiled artifacts, not handwritten source.
+
+## Module Placement Rules
+
+- Put Core-owned cross-plugin concerns under `internal/core`, not inside a vendor plugin.
+- Put vendor HTTP clients, auth flows, and payload translation inside that vendor's plugin tree.
+- Put shared transport or protocol helpers in `internal/pluginapi`, `internal/pluginruntime`, or `internal/coreapi` only when they are truly vendor-agnostic.
+- Keep admin presentation logic in `web/admin/src/components`, data fetching/hooks in `web/admin/src/lib` or `web/admin/src/hooks`, and styling split by responsibility.
+- Do not add new top-level directories for feature work when an existing module boundary already fits.
+
 ## File Size And Modularization Rule
 
 - Any code file over 500 lines must be split before the task is considered complete.

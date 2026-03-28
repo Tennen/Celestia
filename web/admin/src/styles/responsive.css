@@ -62,6 +62,14 @@
     justify-content: space-between;
   }
 
+  .control-card__title-edit {
+    grid-template-columns: 1fr;
+  }
+
+  .control-card__title-actions {
+    justify-content: flex-start;
+  }
+
   .sidemenu__button,
   .preview-list__item,
   .plugin-list__item {
