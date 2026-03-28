@@ -47,7 +47,6 @@ Response shape:
         "id": "light-mode",
         "kind": "select",
         "label": "Light Mode",
-        "description": "Set the aquarium light mode.",
         "visible": true,
         "value": "daylight",
         "options": [
@@ -63,7 +62,6 @@ Response shape:
         "id": "pump-level",
         "kind": "number",
         "label": "Pump Level",
-        "description": "Adjust the aquarium pump level.",
         "visible": true,
         "value": 2,
         "min": 1,

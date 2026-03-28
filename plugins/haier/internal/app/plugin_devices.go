@@ -19,6 +19,21 @@ func buildDevice(account AccountConfig, appliance map[string]any, commandNames m
 		}
 	}
 	mac := strings.ToLower(stringFromAny(appliance["macAddress"]))
+	metadata := map[string]any{
+		"account":            account.normalizedName(),
+		"mobile_id":          account.normalizedMobileID(),
+		"timezone":           account.normalizedTimezone(),
+		"appliance_type":     appliance["applianceTypeName"],
+		"appliance_model_id": appliance["applianceModelId"],
+		"brand":              appliance["brand"],
+		"code":               appliance["code"],
+		"mac_address":        appliance["macAddress"],
+		"capability_matrix":  capabilitySet,
+		"command_names":      commandNames,
+	}
+	if controls := buildControlSpecs(capabilitySet); len(controls) > 0 {
+		metadata["controls"] = controls
+	}
 	device := models.Device{
 		ID:             fmt.Sprintf("haier:washer:%s:%s", strings.ToLower(account.normalizedName()), sanitizeID(mac)),
 		PluginID:       "haier",
@@ -33,18 +48,7 @@ func buildDevice(account AccountConfig, appliance map[string]any, commandNames m
 		Room:         stringFromAny(appliance["roomName"]),
 		Online:       applianceOnline(appliance),
 		Capabilities: capabilities,
-		Metadata: map[string]any{
-			"account":            account.normalizedName(),
-			"mobile_id":          account.normalizedMobileID(),
-			"timezone":           account.normalizedTimezone(),
-			"appliance_type":     appliance["applianceTypeName"],
-			"appliance_model_id": appliance["applianceModelId"],
-			"brand":              appliance["brand"],
-			"code":               appliance["code"],
-			"mac_address":        appliance["macAddress"],
-			"capability_matrix":  capabilitySet,
-			"command_names":      commandNames,
-		},
+		Metadata:     metadata,
 	}
 	return device
 }

@@ -5,56 +5,64 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/plugins/xiaomi/internal/spec"
 )
 
-func valueControlMetadata(mapping *DeviceMapping) []map[string]any {
-	var out []map[string]any
-	appendControl := func(id, label, description, stateKey, action string, ref *PropertyRef) {
-		if item := propertyControlMetadata(id, label, description, stateKey, action, ref); item != nil {
+func controlSpecs(mapping *DeviceMapping) []models.DeviceControlSpec {
+	specs := toggleControlSpecs(mapping)
+	specs = append(specs, valueControlSpecs(mapping)...)
+	return specs
+}
+
+func valueControlSpecs(mapping *DeviceMapping) []models.DeviceControlSpec {
+	var out []models.DeviceControlSpec
+	appendControl := func(id, label, stateKey, action string, ref *PropertyRef) {
+		if item, ok := propertyControlSpec(id, label, stateKey, action, ref); ok {
 			out = append(out, item)
 		}
 	}
-	appendControl("pump-level", "Pump Level", "Adjust the aquarium pump level.", "pump_level", "set_pump_level", mapping.PumpLevel)
-	appendControl("light-brightness", "Light Brightness", "Adjust the aquarium light brightness.", "light_brightness", "set_light_brightness", mapping.LightBrightness)
-	appendControl("light-mode", "Light Mode", "Set the aquarium light mode.", "light_mode", "set_light_mode", mapping.LightMode)
+	appendControl("pump-level", "Pump Level", "pump_level", "set_pump_level", mapping.PumpLevel)
+	appendControl("light-brightness", "Light Brightness", "light_brightness", "set_light_brightness", mapping.LightBrightness)
+	appendControl("light-mode", "Light Mode", "light_mode", "set_light_mode", mapping.LightMode)
 	return out
 }
 
-func propertyControlMetadata(id, label, description, stateKey, action string, ref *PropertyRef) map[string]any {
+func propertyControlSpec(id, label, stateKey, action string, ref *PropertyRef) (models.DeviceControlSpec, bool) {
 	if ref == nil {
-		return nil
+		return models.DeviceControlSpec{}, false
 	}
-	meta := map[string]any{
-		"id":          id,
-		"label":       label,
-		"description": description,
-		"state_key":   stateKey,
-		"action":      action,
-		"value_param": "value",
+	spec := models.DeviceControlSpec{
+		ID:       id,
+		Label:    label,
+		StateKey: stateKey,
+		Command: &models.DeviceControlCommand{
+			Action:     action,
+			ValueParam: "value",
+		},
 	}
 	if unit := strings.TrimSpace(ref.Property.Unit); unit != "" {
-		meta["unit"] = unit
+		spec.Unit = unit
 	}
 	if len(ref.Property.ValueList) > 0 {
-		meta["kind"] = "select"
-		meta["options"] = propertyOptions(ref.Property)
-		return meta
+		spec.Kind = models.DeviceControlKindSelect
+		spec.Options = propertyOptions(ref.Property)
+		return spec, true
 	}
 	if ref.Property.Format == "string" {
-		return nil
+		return models.DeviceControlSpec{}, false
 	}
-	meta["kind"] = "number"
+	spec.Kind = models.DeviceControlKindNumber
 	if min, max, step, ok := ref.Property.RangeBounds(); ok {
-		meta["min"] = min
-		meta["max"] = max
-		meta["step"] = step
+		spec.Min = &min
+		spec.Max = &max
+		spec.Step = &step
 	}
-	return meta
+	return spec, true
 }
 
-func propertyOptions(prop spec.Property) []map[string]any {
-	out := make([]map[string]any, 0, len(prop.ValueList))
+func propertyOptions(prop spec.Property) []models.DeviceControlOption {
+	out := make([]models.DeviceControlOption, 0, len(prop.ValueList))
 	useNumericValues := prop.HasDuplicateEnumDescriptions()
 	for _, item := range prop.ValueList {
 		label := strings.TrimSpace(item.Description)
@@ -68,10 +76,7 @@ func propertyOptions(prop spec.Property) []map[string]any {
 		} else if value == "" {
 			value = strconv.Itoa(item.Value)
 		}
-		out = append(out, map[string]any{
-			"value": value,
-			"label": label,
-		})
+		out = append(out, models.DeviceControlOption{Value: value, Label: label})
 	}
 	return out
 }

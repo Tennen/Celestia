@@ -293,7 +293,6 @@ export function DeviceControlCard({
             </div>
           )}
           {control.alias && control.default_label ? <p>Default: {control.default_label}</p> : null}
-          {control.description ? <p>{control.description}</p> : null}
         </div>
         <div className="control-card__meta">
           <div className="control-card__status">

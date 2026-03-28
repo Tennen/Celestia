@@ -87,6 +87,18 @@ func buildDevice(info petkitDeviceInfo, kind models.DeviceKind, detail map[strin
 	}
 	state := buildState(info, kind, detail, records)
 	caps := capabilitiesForDevice(info, kind, state)
+	metadata := map[string]any{
+		"account":     accountLabel,
+		"group_id":    info.GroupID,
+		"device_type": info.DeviceType,
+		"type_code":   info.TypeCode,
+		"unique_id":   info.UniqueID,
+		"created_at":  info.CreatedAt,
+		"source":      "petkit-cloud",
+	}
+	if controls := controlSpecsForDevice(info, kind); len(controls) > 0 {
+		metadata["controls"] = controls
+	}
 	return models.Device{
 		ID:             fmt.Sprintf("petkit:%s:%d", info.DeviceType, info.DeviceID),
 		PluginID:       "petkit",
@@ -96,15 +108,7 @@ func buildDevice(info petkitDeviceInfo, kind models.DeviceKind, detail map[strin
 		Room:           "",
 		Online:         boolFromAny(state["online"], true),
 		Capabilities:   caps,
-		Metadata: map[string]any{
-			"account":     accountLabel,
-			"group_id":    info.GroupID,
-			"device_type": info.DeviceType,
-			"type_code":   info.TypeCode,
-			"unique_id":   info.UniqueID,
-			"created_at":  info.CreatedAt,
-			"source":      "petkit-cloud",
-		},
+		Metadata:       metadata,
 	}
 }
 

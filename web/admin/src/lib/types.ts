@@ -114,7 +114,6 @@ export type DeviceControl = {
   label: string;
   default_label?: string;
   alias?: string;
-  description?: string;
   state?: boolean | null;
   value?: string | number | boolean | null;
   min?: number;

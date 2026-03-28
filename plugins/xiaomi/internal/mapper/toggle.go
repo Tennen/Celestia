@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/plugins/xiaomi/internal/spec"
 )
 
@@ -34,28 +35,64 @@ func discoverToggleChannels(services []serviceView) []ToggleChannel {
 			}
 			copy := prop
 			channels = append(channels, ToggleChannel{
-				ID:          fmt.Sprintf("toggle-%d-%d", prop.ServiceIID, prop.Property.IID),
-				Label:       displayLabel,
-				Description: fmt.Sprintf("Control %s.", strings.ToLower(displayLabel)),
-				StateKey:    fmt.Sprintf("toggle_%d_%d", prop.ServiceIID, prop.Property.IID),
-				Ref:         &copy,
+				ID:       fmt.Sprintf("toggle-%d-%d", prop.ServiceIID, prop.Property.IID),
+				Label:    displayLabel,
+				StateKey: fmt.Sprintf("toggle_%d_%d", prop.ServiceIID, prop.Property.IID),
+				Ref:      &copy,
 			})
 		}
 	}
 	return channels
 }
 
-func toggleMetadata(channels []ToggleChannel) []map[string]any {
-	out := make([]map[string]any, 0, len(channels))
-	for _, item := range channels {
-		out = append(out, map[string]any{
-			"id":          item.ID,
-			"label":       item.Label,
-			"description": item.Description,
-			"state_key":   item.StateKey,
+func toggleControlSpecs(mapping *DeviceMapping) []models.DeviceControlSpec {
+	specs := make([]models.DeviceControlSpec, 0, len(mapping.ToggleChannels)+4)
+	for _, item := range mapping.ToggleChannels {
+		specs = append(specs, models.DeviceControlSpec{
+			ID:       item.ID,
+			Kind:     models.DeviceControlKindToggle,
+			Label:    item.Label,
+			StateKey: item.StateKey,
+			OnCommand: &models.DeviceControlCommand{
+				Action: "set_toggle",
+				Params: map[string]any{"toggle_id": item.ID, "on": true},
+			},
+			OffCommand: &models.DeviceControlCommand{
+				Action: "set_toggle",
+				Params: map[string]any{"toggle_id": item.ID, "on": false},
+			},
 		})
 	}
-	return out
+	if mapping.Power != nil && len(mapping.ToggleChannels) == 0 {
+		specs = append(specs, toggleControlSpec("power", "Power", "power", "set_power"))
+	}
+	if mapping.PumpPower != nil {
+		specs = append(specs, toggleControlSpec("pump", "Pump", "pump_power", "set_pump_power"))
+	}
+	if mapping.LightPower != nil {
+		specs = append(specs, toggleControlSpec("light", "Light", "light_power", "set_light_power"))
+	}
+	if mapping.Mute != nil {
+		specs = append(specs, toggleControlSpec("mute", "Mute", "mute", "set_mute"))
+	}
+	return specs
+}
+
+func toggleControlSpec(id, label, stateKey, action string) models.DeviceControlSpec {
+	return models.DeviceControlSpec{
+		ID:       id,
+		Kind:     models.DeviceControlKindToggle,
+		Label:    label,
+		StateKey: stateKey,
+		OnCommand: &models.DeviceControlCommand{
+			Action: action,
+			Params: map[string]any{"on": true},
+		},
+		OffCommand: &models.DeviceControlCommand{
+			Action: action,
+			Params: map[string]any{"on": false},
+		},
+	}
 }
 
 func humanize(value string) string {

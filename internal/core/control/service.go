@@ -4,23 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
 
 type Service struct{}
-
-type controlSpec struct {
-	view      models.DeviceControl
-	onAction  string
-	onParams  map[string]any
-	offAction string
-	offParams map[string]any
-	action    string
-	params    map[string]any
-}
 
 func New() *Service {
 	return &Service{}
@@ -78,19 +67,17 @@ func (s *Service) ResolveToggle(device models.Device, state models.DeviceStateSn
 		if item.view.Kind != models.DeviceControlKindToggle || item.view.ID != controlID {
 			continue
 		}
-		action := item.onAction
-		params := cloneParams(item.onParams)
+		command := item.onCommand
 		if !on {
-			action = item.offAction
-			params = cloneParams(item.offParams)
+			command = item.offCommand
 		}
-		if action == "" {
+		if command == nil || command.Action == "" {
 			return models.CommandRequest{}, fmt.Errorf("toggle %q does not support this state", controlID)
 		}
 		return models.CommandRequest{
 			DeviceID: device.ID,
-			Action:   action,
-			Params:   params,
+			Action:   command.Action,
+			Params:   cloneParams(command.Params),
 		}, nil
 	}
 	return models.CommandRequest{}, fmt.Errorf("toggle %q not found", controlID)
@@ -101,369 +88,16 @@ func (s *Service) ResolveAction(device models.Device, state models.DeviceStateSn
 		if item.view.Kind != models.DeviceControlKindAction || item.view.ID != controlID {
 			continue
 		}
-		if item.action == "" {
+		if item.command == nil || item.command.Action == "" {
 			return models.CommandRequest{}, fmt.Errorf("action %q is not executable", controlID)
 		}
 		return models.CommandRequest{
 			DeviceID: device.ID,
-			Action:   item.action,
-			Params:   cloneParams(item.params),
+			Action:   item.command.Action,
+			Params:   cloneParams(item.command.Params),
 		}, nil
 	}
 	return models.CommandRequest{}, fmt.Errorf("action %q not found", controlID)
-}
-
-func controlSpecs(device models.Device, state models.DeviceStateSnapshot) []controlSpec {
-	specs := make([]controlSpec, 0, 8)
-	added := map[string]bool{}
-	appendSpec := func(item controlSpec) {
-		if item.view.ID == "" || added[item.view.ID] {
-			return
-		}
-		added[item.view.ID] = true
-		specs = append(specs, item)
-	}
-
-	toggleRefs := parseToggleRefs(device, state)
-	for _, item := range toggleRefs {
-		appendSpec(item)
-	}
-	for _, item := range parseValueControls(device, state) {
-		appendSpec(item)
-	}
-
-	if len(toggleRefs) == 0 && hasAnyCapability(device, "power", "set_power", "turn_on", "turn_off") {
-		appendSpec(toggleSpec("power", "Power", "Turn the device on or off.", toggleState(state, "power", "power_status"), "set_power", map[string]any{"on": true}, "set_power", map[string]any{"on": false}))
-	}
-	if hasCapability(device, "pump_power") {
-		appendSpec(toggleSpec("pump", "Pump", "Control the aquarium pump.", toggleState(state, "pump_power"), "set_pump_power", map[string]any{"on": true}, "set_pump_power", map[string]any{"on": false}))
-	}
-	if hasCapability(device, "light_power") {
-		appendSpec(toggleSpec("light", "Light", "Control the aquarium light.", toggleState(state, "light_power"), "set_light_power", map[string]any{"on": true}, "set_light_power", map[string]any{"on": false}))
-	}
-	if hasCapability(device, "mute") {
-		appendSpec(toggleSpec("mute", "Mute", "Mute or unmute the speaker.", toggleState(state, "mute"), "set_mute", map[string]any{"on": true}, "set_mute", map[string]any{"on": false}))
-	}
-	if hasCapability(device, "feed_once") {
-		appendSpec(actionSpec("feed-once", "Feed Once", "Dispense a single feeding portion.", "feed_once", map[string]any{"portions": 1}))
-	}
-	if hasCapability(device, "cancel_manual_feed") {
-		appendSpec(actionSpec("cancel-manual-feed", "Cancel Manual Feed", "Cancel the feeder's active manual dispensing task.", "cancel_manual_feed", nil))
-	}
-	if hasCapability(device, "reset_desiccant") {
-		appendSpec(actionSpec("reset-desiccant", "Reset Desiccant", "Reset the feeder desiccant maintenance counter.", "reset_desiccant", nil))
-	}
-	if hasCapability(device, "food_replenished") {
-		appendSpec(actionSpec("food-replenished", "Food Replenished", "Clear the low-food reminder after refilling the hopper.", "food_replenished", nil))
-	}
-	if hasCapability(device, "call_pet") {
-		appendSpec(actionSpec("call-pet", "Call Pet", "Trigger the feeder's pet call action.", "call_pet", nil))
-	}
-	if hasCapability(device, "clean_now") {
-		appendSpec(actionSpec("clean-now", "Clean Now", "Start an immediate cleaning cycle.", "clean_now", nil))
-	}
-	if hasCapability(device, "start") {
-		appendSpec(actionSpec("start", "Start", "Start the current appliance cycle.", "start", nil))
-	}
-	if hasCapability(device, "pause") {
-		appendSpec(actionSpec("pause", "Pause", "Pause the current appliance cycle.", "pause", nil))
-	}
-	if hasCapability(device, "resume") {
-		appendSpec(actionSpec("resume", "Resume", "Resume the paused appliance cycle.", "resume", nil))
-	}
-	if hasCapability(device, "reset_filter") {
-		appendSpec(actionSpec("reset-filter", "Reset Filter", "Reset the filter maintenance counter.", "reset_filter", nil))
-	}
-
-	return specs
-}
-
-func actionSpec(id, label, description, action string, params map[string]any) controlSpec {
-	return controlSpec{
-		view: models.DeviceControl{
-			ID:          id,
-			Kind:        models.DeviceControlKindAction,
-			Label:       label,
-			Description: description,
-			Visible:     true,
-		},
-		action: action,
-		params: params,
-	}
-}
-
-func toggleSpec(id, label, description string, state *bool, onAction string, onParams map[string]any, offAction string, offParams map[string]any) controlSpec {
-	return controlSpec{
-		view: models.DeviceControl{
-			ID:          id,
-			Kind:        models.DeviceControlKindToggle,
-			Label:       label,
-			Description: description,
-			State:       state,
-			Visible:     true,
-		},
-		onAction:  onAction,
-		onParams:  onParams,
-		offAction: offAction,
-		offParams: offParams,
-	}
-}
-
-func parseValueControls(device models.Device, state models.DeviceStateSnapshot) []controlSpec {
-	items := mapSlice(device.Metadata["value_controls"])
-	if len(items) == 0 {
-		return nil
-	}
-	specs := make([]controlSpec, 0, len(items))
-	for _, valueControl := range items {
-		id := stringValue(valueControl["id"])
-		if id == "" {
-			continue
-		}
-		kind := models.DeviceControlKind(stringValue(valueControl["kind"]))
-		if kind != models.DeviceControlKindSelect && kind != models.DeviceControlKindNumber {
-			continue
-		}
-		action := stringValue(valueControl["action"])
-		valueParam := stringValue(valueControl["value_param"])
-		if action == "" || valueParam == "" {
-			continue
-		}
-		label := firstNonEmpty(stringValue(valueControl["label"]), id)
-		stateKey := stringValue(valueControl["state_key"])
-		view := models.DeviceControl{
-			ID:          id,
-			Kind:        kind,
-			Label:       label,
-			Description: stringValue(valueControl["description"]),
-			Value:       stateValue(state, stateKey),
-			Unit:        stringValue(valueControl["unit"]),
-			Command: &models.DeviceControlCommand{
-				Action:     action,
-				Params:     mapValue(valueControl["params"]),
-				ValueParam: valueParam,
-			},
-			Visible: true,
-		}
-		if kind == models.DeviceControlKindNumber {
-			view.Min = numberPtr(valueControl["min"])
-			view.Max = numberPtr(valueControl["max"])
-			view.Step = numberPtr(valueControl["step"])
-		}
-		if kind == models.DeviceControlKindSelect {
-			view.Options = parseControlOptions(valueControl["options"])
-			if len(view.Options) == 0 {
-				continue
-			}
-		}
-		specs = append(specs, controlSpec{view: view})
-	}
-	return specs
-}
-
-func parseToggleRefs(device models.Device, state models.DeviceStateSnapshot) []controlSpec {
-	items := mapSlice(device.Metadata["toggle_refs"])
-	if len(items) == 0 {
-		return nil
-	}
-	specs := make([]controlSpec, 0, len(items))
-	for _, toggle := range items {
-		id := stringValue(toggle["id"])
-		if id == "" {
-			continue
-		}
-		label := stringValue(toggle["label"])
-		if label == "" {
-			label = id
-		}
-		stateKey := stringValue(toggle["state_key"])
-		description := stringValue(toggle["description"])
-		specs = append(specs, toggleSpec(
-			id,
-			label,
-			firstNonEmpty(description, "Control an individual switch channel."),
-			toggleState(state, stateKey),
-			"set_toggle",
-			map[string]any{"toggle_id": id, "on": true},
-			"set_toggle",
-			map[string]any{"toggle_id": id, "on": false},
-		))
-	}
-	return specs
-}
-
-func stateValue(state models.DeviceStateSnapshot, key string) any {
-	if key == "" || state.State == nil {
-		return nil
-	}
-	value, ok := state.State[key]
-	if !ok {
-		return nil
-	}
-	return value
-}
-
-func toggleState(state models.DeviceStateSnapshot, keys ...string) *bool {
-	for _, key := range keys {
-		if key == "" || state.State == nil {
-			continue
-		}
-		raw, ok := state.State[key]
-		if !ok {
-			continue
-		}
-		if value, ok := boolFromAny(raw); ok {
-			return &value
-		}
-	}
-	return nil
-}
-
-func controlKindOrder(kind models.DeviceControlKind) int {
-	switch kind {
-	case models.DeviceControlKindToggle:
-		return 0
-	case models.DeviceControlKindSelect, models.DeviceControlKindNumber:
-		return 1
-	case models.DeviceControlKindAction:
-		return 2
-	default:
-		return 3
-	}
-}
-
-func boolFromAny(value any) (bool, bool) {
-	switch typed := value.(type) {
-	case bool:
-		return typed, true
-	case int:
-		return typed != 0, true
-	case int64:
-		return typed != 0, true
-	case float64:
-		return typed != 0, true
-	case string:
-		switch strings.ToLower(strings.TrimSpace(typed)) {
-		case "1", "true", "on", "opened", "running":
-			return true, true
-		case "0", "false", "off", "closed", "stopped":
-			return false, true
-		default:
-			if number, err := strconv.Atoi(typed); err == nil {
-				return number != 0, true
-			}
-		}
-	}
-	return false, false
-}
-
-func numberPtr(value any) *float64 {
-	switch typed := value.(type) {
-	case float64:
-		return &typed
-	case int:
-		number := float64(typed)
-		return &number
-	case int64:
-		number := float64(typed)
-		return &number
-	default:
-		return nil
-	}
-}
-
-func parseControlOptions(value any) []models.DeviceControlOption {
-	items, ok := value.([]any)
-	if !ok {
-		return nil
-	}
-	options := make([]models.DeviceControlOption, 0, len(items))
-	for _, item := range items {
-		option, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		optionValue := stringValue(option["value"])
-		if optionValue == "" {
-			continue
-		}
-		options = append(options, models.DeviceControlOption{
-			Value: optionValue,
-			Label: firstNonEmpty(stringValue(option["label"]), optionValue),
-		})
-	}
-	return options
-}
-
-func cloneParams(input map[string]any) map[string]any {
-	if len(input) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
-	return out
-}
-
-func mapValue(value any) map[string]any {
-	item, ok := value.(map[string]any)
-	if !ok {
-		return nil
-	}
-	return cloneParams(item)
-}
-
-func mapSlice(value any) []map[string]any {
-	switch typed := value.(type) {
-	case []map[string]any:
-		return typed
-	case []any:
-		out := make([]map[string]any, 0, len(typed))
-		for _, item := range typed {
-			mapped, ok := item.(map[string]any)
-			if ok {
-				out = append(out, mapped)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
-}
-
-func hasCapability(device models.Device, capability string) bool {
-	for _, item := range device.Capabilities {
-		if item == capability {
-			return true
-		}
-	}
-	return false
-}
-
-func hasAnyCapability(device models.Device, capabilities ...string) bool {
-	for _, capability := range capabilities {
-		if hasCapability(device, capability) {
-			return true
-		}
-	}
-	return false
-}
-
-func stringValue(value any) string {
-	if text, ok := value.(string); ok {
-		return strings.TrimSpace(text)
-	}
-	return ""
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }
 
 func ParseCompoundControlID(value string) (string, string, error) {

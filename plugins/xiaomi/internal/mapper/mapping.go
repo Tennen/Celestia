@@ -48,11 +48,10 @@ type DeviceMapping struct {
 }
 
 type ToggleChannel struct {
-	ID          string
-	Label       string
-	Description string
-	StateKey    string
-	Ref         *PropertyRef
+	ID       string
+	Label    string
+	StateKey string
+	Ref      *PropertyRef
 }
 
 func Build(raw cloud.DeviceRecord, instance spec.Instance, accountName string) (*models.Device, *DeviceMapping, error) {
@@ -141,11 +140,8 @@ func Build(raw cloud.DeviceRecord, instance spec.Instance, accountName string) (
 			"group_id":   raw.GroupID,
 		},
 	}
-	if len(mapping.ToggleChannels) > 0 {
-		device.Metadata["toggle_refs"] = toggleMetadata(mapping.ToggleChannels)
-	}
-	if controls := valueControlMetadata(mapping); len(controls) > 0 {
-		device.Metadata["value_controls"] = controls
+	if controls := controlSpecs(mapping); len(controls) > 0 {
+		device.Metadata["controls"] = controls
 	}
 	return device, mapping, nil
 }
