@@ -6,7 +6,13 @@ import { Input } from '../ui/input';
 import { Section } from '../ui/section';
 import { Textarea } from '../ui/textarea';
 import { asArray } from '../../lib/admin';
-import { applyToggleOverrides, isToggleControlPending, type ToggleControlOverrideMap } from '../../lib/control-state';
+import {
+  applyToggleOverrides,
+  isToggleControlPending,
+  isToggleControlRequestPending,
+  type ToggleControlOverrideMap,
+  type ToggleControlPendingMap,
+} from '../../lib/control-state';
 import type { DeviceView } from '../../lib/types';
 import { cn } from '../../lib/utils';
 import { DeviceControlCard } from './DeviceControlCard';
@@ -20,6 +26,7 @@ type Props = {
   onSelectDevice: (deviceId: string) => void;
   selectedDevice: DeviceView | null;
   toggleOverrides: ToggleControlOverrideMap;
+  togglePending: ToggleControlPendingMap;
   busy: string;
   selectedAction: string;
   onSelectedActionChange: (value: string) => void;
@@ -64,6 +71,7 @@ export function DeviceWorkspace({
   onSelectDevice,
   selectedDevice,
   toggleOverrides,
+  togglePending,
   busy,
   selectedAction,
   onSelectedActionChange,
@@ -193,6 +201,7 @@ export function DeviceWorkspace({
                           aliasValue={aliasDrafts[control.id] ?? ''}
                           valueDraft={controlDrafts[control.id] ?? ''}
                           togglePending={isToggleControlPending(selectedDevice, control.id, toggleOverrides)}
+                          toggleDisabled={isToggleControlRequestPending(selectedDevice, control.id, togglePending)}
                           onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
                           onSavePreference={() =>
                             onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })
@@ -250,6 +259,7 @@ export function DeviceWorkspace({
                           hidden
                           showControlBody={false}
                           togglePending={isToggleControlPending(selectedDevice, control.id, toggleOverrides)}
+                          toggleDisabled={isToggleControlRequestPending(selectedDevice, control.id, togglePending)}
                           onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
                           onSavePreference={() =>
                             onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })

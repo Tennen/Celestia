@@ -17,6 +17,7 @@ type Props = {
   hidden?: boolean;
   showControlBody?: boolean;
   togglePending?: boolean;
+  toggleDisabled?: boolean;
   onAliasChange: (value: string) => void;
   onSavePreference: () => void;
   onResetPreference: () => void;
@@ -132,6 +133,7 @@ export function DeviceControlCard({
   hidden = false,
   showControlBody = true,
   togglePending = false,
+  toggleDisabled = false,
   onAliasChange,
   onSavePreference,
   onResetPreference,
@@ -142,7 +144,7 @@ export function DeviceControlCard({
   onValueControl,
 }: Props) {
   const prefBusy = busy === `control-pref-${deviceId}.${control.id}`;
-  const toggleBusy = busy === `toggle-${deviceId}.${control.id}-on` || busy === `toggle-${deviceId}.${control.id}-off`;
+  const toggleBusy = toggleDisabled;
   const actionBusy = busy === `action-${deviceId}.${control.id}`;
   const valueBusy = busy === `value-${deviceId}.${control.id}`;
   const defaultLabel = control.default_label ?? control.label;
@@ -279,7 +281,7 @@ export function DeviceControlCard({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="control-card__icon-button"
+                className="control-card__icon-button control-card__icon-button--edit"
                 onClick={() => setEditingLabel(true)}
                 disabled={prefBusy}
                 aria-label={`Edit label for ${control.label}`}

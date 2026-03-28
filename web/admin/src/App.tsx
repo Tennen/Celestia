@@ -6,7 +6,6 @@ import { PluginWorkspace } from './components/admin/PluginWorkspace';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
-import { getToggleOverrideKey, pruneToggleOverrides, type ToggleControlOverrideMap } from './lib/control-state';
 import {
   deletePlugin,
   discoverPlugin,
@@ -16,7 +15,6 @@ import {
   installPlugin,
   runActionControl,
   sendCommand,
-  sendToggle,
   updateDeviceControlPreference,
   updatePluginConfig,
 } from './lib/api';
@@ -25,6 +23,7 @@ import { prettyJson } from './lib/utils';
 import type { CatalogPlugin } from './lib/types';
 import type { AppSection } from './lib/admin';
 import { useAdminConsole } from './hooks/useAdminConsole';
+import { useToggleControlActions } from './hooks/useToggleControlActions';
 import { useXiaomiOAuth } from './hooks/useXiaomiOAuth';
 
 function App() {
@@ -37,7 +36,6 @@ function App() {
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
   const [commandResult, setCommandResult] = useState<string>('');
   const [busy, setBusy] = useState<string>('');
-  const [toggleOverrides, setToggleOverrides] = useState<ToggleControlOverrideMap>({});
   const {
     state,
     refreshAll,
@@ -63,26 +61,13 @@ function App() {
     setConfigDrafts,
   });
 
-  useEffect(() => {
-    const drafts: Record<string, string> = {};
-    for (const plugin of state.plugins) {
-      const catalogPlugin = state.catalog.find((item) => item.id === plugin.record.plugin_id);
-      const config = catalogPlugin
-        ? mergeCatalogDefaultConfig(catalogPlugin, plugin.record.config ?? {})
-        : (plugin.record.config ?? {});
-      drafts[plugin.record.plugin_id] = JSON.stringify(config, null, 2);
-    }
-    setConfigDrafts((current) => ({ ...drafts, ...current }));
-  }, [state.catalog, state.plugins]);
-
-  useEffect(() => {
-    const defaults = buildInstallDrafts(state.catalog);
-    setInstallDrafts((current) => ({ ...defaults, ...current }));
-  }, [state.catalog]);
-
-  useEffect(() => {
-    setToggleOverrides((current) => pruneToggleOverrides(current, state.devices));
-  }, [state.devices]);
+  const { toggleOverrides, togglePending, onToggleControl } = useToggleControlActions({
+    actor,
+    devices: state.devices,
+    selectedDevice,
+    refreshAll,
+    reportError,
+  });
 
   const commandSuggestions = useMemo(() => {
     if (!selectedDevice) return [];
@@ -118,56 +103,6 @@ function App() {
   }, [selectedDevice]);
 
   const selectedDeviceDetails = selectedDevice ? JSON.stringify(selectedDevice, null, 2) : '';
-
-  const clearToggleOverride = (overrideKey: string) => {
-    setToggleOverrides((current) => {
-      if (!(overrideKey in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[overrideKey];
-      return next;
-    });
-  };
-
-  const onToggleControl = (controlId: string, on: boolean) => {
-    if (!selectedDevice) {
-      return;
-    }
-
-    const deviceId = selectedDevice.device.id;
-    const compoundId = `${deviceId}.${controlId}`;
-    const overrideKey = getToggleOverrideKey(deviceId, controlId);
-    const busyLabel = `toggle-${compoundId}-${on ? 'on' : 'off'}`;
-
-    setToggleOverrides((current) => ({
-      ...current,
-      [overrideKey]: {
-        state: on,
-        requestedAt: Date.now(),
-      },
-    }));
-    setBusy(busyLabel);
-
-    void (async () => {
-      try {
-        await sendToggle(compoundId, on, actor);
-      } catch (error) {
-        clearToggleOverride(overrideKey);
-        reportError(error instanceof Error ? error.message : 'Operation failed');
-        setBusy('');
-        return;
-      }
-
-      try {
-        await refreshAll();
-      } catch (error) {
-        reportError(error instanceof Error ? error.message : 'Operation failed');
-      } finally {
-        setBusy('');
-      }
-    })();
-  };
 
   const runAction = async (label: string, action: () => Promise<unknown>) => {
     setBusy(label);
@@ -229,6 +164,23 @@ function App() {
     : '{}';
   const xiaomiOAuthAvailable =
     selectedCatalogPlugin?.id === 'xiaomi' && canStartXiaomiOAuth(pluginDraft);
+
+  useEffect(() => {
+    const drafts: Record<string, string> = {};
+    for (const plugin of state.plugins) {
+      const catalogPlugin = state.catalog.find((item) => item.id === plugin.record.plugin_id);
+      const config = catalogPlugin
+        ? mergeCatalogDefaultConfig(catalogPlugin, plugin.record.config ?? {})
+        : (plugin.record.config ?? {});
+      drafts[plugin.record.plugin_id] = JSON.stringify(config, null, 2);
+    }
+    setConfigDrafts((current) => ({ ...drafts, ...current }));
+  }, [state.catalog, state.plugins]);
+
+  useEffect(() => {
+    const defaults = buildInstallDrafts(state.catalog);
+    setInstallDrafts((current) => ({ ...defaults, ...current }));
+  }, [state.catalog]);
 
   return (
     <div className="shell shell--app">
@@ -424,6 +376,7 @@ function App() {
               onSelectDevice={setSelectedDeviceId}
               selectedDevice={selectedDevice}
               toggleOverrides={toggleOverrides}
+              togglePending={togglePending}
               busy={busy}
               selectedAction={selectedAction}
               onSelectedActionChange={setSelectedAction}

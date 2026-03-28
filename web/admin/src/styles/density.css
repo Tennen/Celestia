@@ -374,11 +374,24 @@ label {
   height: 30px;
 }
 
+.control-card__icon-button--edit,
+.control-card__visibility {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+}
+
 .control-card__icon-button svg,
 .control-card__visibility svg,
 .collapse-toggle__icon {
   width: 14px;
   height: 14px;
+}
+
+.control-card__icon-button--edit svg,
+.control-card__visibility svg {
+  width: 16px;
+  height: 16px;
 }
 
 .toggle-switch {

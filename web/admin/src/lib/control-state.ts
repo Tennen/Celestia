@@ -10,6 +10,7 @@ export type ToggleControlOverride = {
 };
 
 export type ToggleControlOverrideMap = Record<string, ToggleControlOverride>;
+export type ToggleControlPendingMap = Record<string, boolean>;
 
 export function getToggleOverrideKey(deviceId: string, controlId: string) {
   return `${deviceId}${TOGGLE_OVERRIDE_SEPARATOR}${controlId}`;
@@ -89,6 +90,43 @@ export function isToggleControlPending(
   }
 
   return control.state !== override.state;
+}
+
+export function getToggleControlStates(
+  device: DeviceView | null,
+  controlId: string,
+  overrides: ToggleControlOverrideMap,
+  now = Date.now(),
+) {
+  if (!device) {
+    return null;
+  }
+
+  const control = device.controls?.find((item) => item.id === controlId && item.kind === 'toggle');
+  if (!control) {
+    return null;
+  }
+
+  const persistedState = control.state ?? null;
+  const override = overrides[getToggleOverrideKey(device.device.id, controlId)];
+  const currentState = override && isFreshOverride(override.requestedAt, now) ? override.state : persistedState;
+
+  return {
+    persistedState,
+    currentState,
+  };
+}
+
+export function isToggleControlRequestPending(
+  device: DeviceView | null,
+  controlId: string,
+  pending: ToggleControlPendingMap,
+) {
+  if (!device) {
+    return false;
+  }
+
+  return pending[getToggleOverrideKey(device.device.id, controlId)] === true;
 }
 
 export function pruneToggleOverrides(
