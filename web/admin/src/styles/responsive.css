@@ -21,6 +21,9 @@
 
   .topbar,
   .module-header,
+  .module-header__meta,
+  .sidemenu__meta,
+  .panel__notice,
   .plugin-card__meta,
   .detail__header,
   .toolbar,
@@ -46,6 +49,10 @@
   .section-title {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .module-header__meta {
+    align-self: stretch;
   }
 
   .section-title--inline {

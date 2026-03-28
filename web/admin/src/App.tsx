@@ -234,6 +234,7 @@ function App() {
     <div className="shell shell--app">
       <div className="ambient ambient--one" />
       <div className="ambient ambient--two" />
+      <div className="ambient ambient--three" />
 
       <div className="app-frame">
         <aside className="sidemenu">
@@ -243,6 +244,12 @@ function App() {
             <p className="topbar__sub">
               Plugin orchestration, device control, and event inspection against <code>{getApiBase()}</code>
             </p>
+            <div className="sidemenu__meta">
+              <Badge tone="accent">Gateway API</Badge>
+              <Badge tone={state.loading ? 'accent' : state.error ? 'bad' : 'good'}>
+                {state.loading ? 'Refreshing' : state.error ? 'Attention' : 'Stable'}
+              </Badge>
+            </div>
           </div>
           <nav className="sidemenu__nav">
             {sectionItems.map((section) => (
@@ -271,6 +278,14 @@ function App() {
               <p className="eyebrow">{sectionMeta[activeSection].label}</p>
               <h2>{sectionMeta[activeSection].label}</h2>
               <p className="topbar__sub">{sectionMeta[activeSection].description}</p>
+            </div>
+            <div className="module-header__meta">
+              <Badge tone={state.loading ? 'accent' : state.error ? 'bad' : 'good'}>
+                {state.loading ? 'Refreshing' : state.error ? 'Needs Attention' : 'Runtime Stable'}
+              </Badge>
+              <span>
+                Endpoint <code>{getApiBase()}</code>
+              </span>
             </div>
           </header>
 
