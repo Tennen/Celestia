@@ -6,6 +6,7 @@ import { Input } from '../ui/input';
 import { Section } from '../ui/section';
 import { Textarea } from '../ui/textarea';
 import { asArray } from '../../lib/admin';
+import { applyToggleOverrides, isToggleControlPending, type ToggleControlOverrideMap } from '../../lib/control-state';
 import type { DeviceView } from '../../lib/types';
 import { cn } from '../../lib/utils';
 import { DeviceControlCard } from './DeviceControlCard';
@@ -18,6 +19,7 @@ type Props = {
   selectedDeviceId: string;
   onSelectDevice: (deviceId: string) => void;
   selectedDevice: DeviceView | null;
+  toggleOverrides: ToggleControlOverrideMap;
   busy: string;
   selectedAction: string;
   onSelectedActionChange: (value: string) => void;
@@ -61,6 +63,7 @@ export function DeviceWorkspace({
   selectedDeviceId,
   onSelectDevice,
   selectedDevice,
+  toggleOverrides,
   busy,
   selectedAction,
   onSelectedActionChange,
@@ -81,6 +84,8 @@ export function DeviceWorkspace({
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
   const [controlDrafts, setControlDrafts] = useState<Record<string, string>>({});
   const [hiddenControlsCollapsed, setHiddenControlsCollapsed] = useState(true);
+  const displayDevice = useMemo(() => applyToggleOverrides(selectedDevice, toggleOverrides), [selectedDevice, toggleOverrides]);
+  const deviceView = displayDevice ?? selectedDevice;
 
   useEffect(() => {
     if (!selectedDevice) {
@@ -103,12 +108,12 @@ export function DeviceWorkspace({
   }, [selectedDevice]);
 
   const visibleControls = useMemo(
-    () => (selectedDevice?.controls ?? []).filter((control) => control.visible !== false),
-    [selectedDevice],
+    () => (deviceView?.controls ?? []).filter((control) => control.visible !== false),
+    [deviceView],
   );
   const hiddenControls = useMemo(
-    () => (selectedDevice?.controls ?? []).filter((control) => control.visible === false),
-    [selectedDevice],
+    () => (deviceView?.controls ?? []).filter((control) => control.visible === false),
+    [deviceView],
   );
 
   return (
@@ -156,19 +161,19 @@ export function DeviceWorkspace({
           <CardDescription>Selected device state, direct controls, and an advanced command panel for vendor-specific operations.</CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          {selectedDevice ? (
+          {deviceView ? (
             <div className="detail">
               <div className="detail__header">
                 <div>
-                  <h3>{selectedDevice.device.name}</h3>
-                  <p>{selectedDevice.device.id}</p>
+                  <h3>{deviceView.device.name}</h3>
+                  <p>{deviceView.device.id}</p>
                 </div>
-                <Badge tone={selectedDevice.device.online ? 'good' : 'bad'}>
-                  {selectedDevice.device.online ? 'online' : 'offline'}
+                <Badge tone={deviceView.device.online ? 'good' : 'bad'}>
+                  {deviceView.device.online ? 'online' : 'offline'}
                 </Badge>
               </div>
               <div className="chip-list">
-                {asArray(selectedDevice.device.capabilities).map((capability) => (
+                {asArray(deviceView.device.capabilities).map((capability) => (
                   <Badge key={capability} tone="neutral">
                     {capability}
                   </Badge>
@@ -182,11 +187,12 @@ export function DeviceWorkspace({
                       {visibleControls.map((control) => (
                         <DeviceControlCard
                           key={control.id}
-                          deviceId={selectedDevice.device.id}
+                          deviceId={deviceView.device.id}
                           control={control}
                           busy={busy}
                           aliasValue={aliasDrafts[control.id] ?? ''}
                           valueDraft={controlDrafts[control.id] ?? ''}
+                          togglePending={isToggleControlPending(selectedDevice, control.id, toggleOverrides)}
                           onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
                           onSavePreference={() =>
                             onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })
@@ -236,13 +242,14 @@ export function DeviceWorkspace({
                       {hiddenControls.map((control) => (
                         <DeviceControlCard
                           key={control.id}
-                          deviceId={selectedDevice.device.id}
+                          deviceId={deviceView.device.id}
                           control={control}
                           busy={busy}
                           aliasValue={aliasDrafts[control.id] ?? ''}
                           valueDraft={controlDrafts[control.id] ?? ''}
                           hidden
                           showControlBody={false}
+                          togglePending={isToggleControlPending(selectedDevice, control.id, toggleOverrides)}
                           onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
                           onSavePreference={() =>
                             onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })

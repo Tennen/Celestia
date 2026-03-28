@@ -1,0 +1,239 @@
+:root {
+  color-scheme: dark;
+  --bg: #070b14;
+  --panel: rgba(14, 19, 34, 0.82);
+  --panel-strong: rgba(19, 27, 47, 0.94);
+  --text: #ecf1ff;
+  --muted: #95a0bd;
+  --border: rgba(160, 180, 255, 0.16);
+  --accent: #7bdcff;
+  --accent-strong: #41b7f5;
+  --success: #4ade80;
+  --warn: #fbbf24;
+  --danger: #fb7185;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+  font-family: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(68, 167, 255, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(123, 220, 255, 0.08), transparent 24%),
+    linear-gradient(160deg, #050914 0%, #09111e 48%, #070b14 100%);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+code,
+pre {
+  font-family: "SFMono-Regular", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.shell {
+  position: relative;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px;
+  overflow: hidden;
+}
+
+.shell--app {
+  max-width: 1720px;
+}
+
+.app-frame {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.ambient {
+  position: fixed;
+  inset: auto;
+  border-radius: 999px;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.ambient--one {
+  top: 6%;
+  left: 3%;
+  width: 320px;
+  height: 320px;
+  background: rgba(65, 183, 245, 0.26);
+}
+
+.ambient--two {
+  right: 4%;
+  top: 18%;
+  width: 380px;
+  height: 380px;
+  background: rgba(123, 220, 255, 0.14);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.topbar h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(2.4rem, 5vw, 4.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.sidemenu__brand h1,
+.module-header h2 {
+  margin: 6px 0 8px;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.sidemenu__brand h1 {
+  font-size: clamp(2rem, 3vw, 3rem);
+}
+
+.module-header h2 {
+  font-size: clamp(2rem, 3vw, 2.8rem);
+}
+
+.topbar__sub,
+.eyebrow,
+.muted,
+.card__description,
+.plugin-card__meta p,
+.detail p,
+.kv span,
+.feed__meta span,
+.table__row p {
+  color: var(--muted);
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.26em;
+  font-size: 0.72rem;
+}
+
+.topbar__actions,
+.button-row,
+.toolbar,
+.section-title,
+.feed__meta,
+.detail__header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.workspace {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.module-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+}
+
+.sidemenu {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.sidemenu__brand,
+.sidemenu__footer {
+  display: grid;
+  gap: 12px;
+}
+
+.sidemenu__nav,
+.preview-list,
+.plugin-list,
+.detail-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.sidemenu__button,
+.preview-list__item,
+.plugin-list__item {
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  border-radius: 18px;
+  border: 1px solid rgba(151, 168, 221, 0.14);
+  background: rgba(8, 14, 26, 0.58);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.sidemenu__button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.preview-list__item,
+.plugin-list__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.sidemenu__button:hover,
+.preview-list__item:hover,
+.plugin-list__item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(123, 220, 255, 0.32);
+}
+
+.sidemenu__button.is-active,
+.plugin-list__item.is-selected {
+  border-color: rgba(123, 220, 255, 0.42);
+  background: rgba(11, 18, 33, 0.88);
+}

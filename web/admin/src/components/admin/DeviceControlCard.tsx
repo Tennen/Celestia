@@ -1,6 +1,7 @@
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { ToggleSwitch } from '../ui/toggle-switch';
 import type { DeviceControl } from '../../lib/types';
 import { cn } from '../../lib/utils';
 
@@ -14,6 +15,7 @@ type Props = {
   valueDraft: string;
   hidden?: boolean;
   showControlBody?: boolean;
+  togglePending?: boolean;
   onAliasChange: (value: string) => void;
   onSavePreference: () => void;
   onResetPreference: () => void;
@@ -24,13 +26,17 @@ type Props = {
   onValueControl: (value: ControlValue) => void;
 };
 
-function toggleTone(control: DeviceControl) {
+function toggleTone(control: DeviceControl, pending = false) {
+  if (pending) return 'accent';
   if (control.state === true) return 'good';
   if (control.state === false) return 'neutral';
   return 'warn';
 }
 
-function toggleText(control: DeviceControl) {
+function toggleText(control: DeviceControl, pending = false) {
+  if (pending && control.state === true) return 'switching on';
+  if (pending && control.state === false) return 'switching off';
+  if (pending) return 'syncing';
   if (control.state === true) return 'on';
   if (control.state === false) return 'off';
   return 'unknown';
@@ -44,14 +50,14 @@ function formatValue(value: DeviceControl['value']) {
   return String(value);
 }
 
-function controlTone(control: DeviceControl) {
-  return control.kind === 'toggle' ? toggleTone(control) : 'accent';
+function controlTone(control: DeviceControl, pending = false) {
+  return control.kind === 'toggle' ? toggleTone(control, pending) : 'accent';
 }
 
-function controlText(control: DeviceControl) {
+function controlText(control: DeviceControl, pending = false) {
   switch (control.kind) {
     case 'toggle':
-      return toggleText(control);
+      return toggleText(control, pending);
     case 'action':
       return 'action';
     case 'select': {
@@ -105,6 +111,7 @@ export function DeviceControlCard({
   valueDraft,
   hidden = false,
   showControlBody = true,
+  togglePending = false,
   onAliasChange,
   onSavePreference,
   onResetPreference,
@@ -122,34 +129,13 @@ export function DeviceControlCard({
   const isVisible = control.visible !== false;
   const parsedNumber = Number(valueDraft);
   const canApplyNumber = valueDraft.trim() !== '' && !Number.isNaN(parsedNumber);
+  const toggleChecked = control.state === true;
+  const toggleUnknown = control.state !== true && control.state !== false;
 
   const renderControlBody = () => {
     switch (control.kind) {
       case 'toggle':
-        return (
-          <div className="control-toggle" role="group" aria-label={`${control.label} toggle`}>
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn('control-toggle__option', control.state === true && 'is-active', 'control-toggle__option--on')}
-              onClick={() => onToggle(true)}
-              disabled={toggleBusy}
-              aria-pressed={control.state === true}
-            >
-              On
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn('control-toggle__option', control.state === false && 'is-active', 'control-toggle__option--off')}
-              onClick={() => onToggle(false)}
-              disabled={toggleBusy}
-              aria-pressed={control.state === false}
-            >
-              Off
-            </Button>
-          </div>
-        );
+        return null;
       case 'action':
         return (
           <div className="button-row">
@@ -211,7 +197,21 @@ export function DeviceControlCard({
           {control.description ? <p>{control.description}</p> : null}
         </div>
         <div className="control-card__meta">
-          <Badge tone={hidden ? 'neutral' : controlTone(control)}>{hidden ? 'hidden' : controlText(control)}</Badge>
+          <div className="control-card__status">
+            {showControlBody && control.kind === 'toggle' ? (
+              <ToggleSwitch
+                checked={toggleChecked}
+                pending={togglePending}
+                unknown={toggleUnknown && !togglePending}
+                disabled={toggleBusy}
+                label={control.label}
+                onChange={onToggle}
+              />
+            ) : null}
+            <Badge tone={hidden ? 'neutral' : controlTone(control, togglePending)}>
+              {hidden ? 'hidden' : controlText(control, togglePending)}
+            </Badge>
+          </div>
           <Button
             type="button"
             variant="ghost"

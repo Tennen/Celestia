@@ -6,6 +6,7 @@ import { PluginWorkspace } from './components/admin/PluginWorkspace';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
+import { getToggleOverrideKey, pruneToggleOverrides, type ToggleControlOverrideMap } from './lib/control-state';
 import {
   deletePlugin,
   discoverPlugin,
@@ -36,6 +37,7 @@ function App() {
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
   const [commandResult, setCommandResult] = useState<string>('');
   const [busy, setBusy] = useState<string>('');
+  const [toggleOverrides, setToggleOverrides] = useState<ToggleControlOverrideMap>({});
   const {
     state,
     refreshAll,
@@ -78,6 +80,10 @@ function App() {
     setInstallDrafts((current) => ({ ...defaults, ...current }));
   }, [state.catalog]);
 
+  useEffect(() => {
+    setToggleOverrides((current) => pruneToggleOverrides(current, state.devices));
+  }, [state.devices]);
+
   const commandSuggestions = useMemo(() => {
     if (!selectedDevice) return [];
     const capabilities = asArray(selectedDevice.device.capabilities);
@@ -112,6 +118,56 @@ function App() {
   }, [selectedDevice]);
 
   const selectedDeviceDetails = selectedDevice ? JSON.stringify(selectedDevice, null, 2) : '';
+
+  const clearToggleOverride = (overrideKey: string) => {
+    setToggleOverrides((current) => {
+      if (!(overrideKey in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[overrideKey];
+      return next;
+    });
+  };
+
+  const onToggleControl = (controlId: string, on: boolean) => {
+    if (!selectedDevice) {
+      return;
+    }
+
+    const deviceId = selectedDevice.device.id;
+    const compoundId = `${deviceId}.${controlId}`;
+    const overrideKey = getToggleOverrideKey(deviceId, controlId);
+    const busyLabel = `toggle-${compoundId}-${on ? 'on' : 'off'}`;
+
+    setToggleOverrides((current) => ({
+      ...current,
+      [overrideKey]: {
+        state: on,
+        requestedAt: Date.now(),
+      },
+    }));
+    setBusy(busyLabel);
+
+    void (async () => {
+      try {
+        await sendToggle(compoundId, on, actor);
+      } catch (error) {
+        clearToggleOverride(overrideKey);
+        reportError(error instanceof Error ? error.message : 'Operation failed');
+        setBusy('');
+        return;
+      }
+
+      try {
+        await refreshAll();
+      } catch (error) {
+        reportError(error instanceof Error ? error.message : 'Operation failed');
+      } finally {
+        setBusy('');
+      }
+    })();
+  };
 
   const runAction = async (label: string, action: () => Promise<unknown>) => {
     setBusy(label);
@@ -352,6 +408,7 @@ function App() {
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={setSelectedDeviceId}
               selectedDevice={selectedDevice}
+              toggleOverrides={toggleOverrides}
               busy={busy}
               selectedAction={selectedAction}
               onSelectedActionChange={setSelectedAction}
@@ -367,13 +424,7 @@ function App() {
               onSendCommand={() => {
                 void runAction('send-command', onSendCommand);
               }}
-              onToggleControl={(controlId, on) => {
-                if (!selectedDevice) {
-                  return;
-                }
-                const compoundId = `${selectedDevice.device.id}.${controlId}`;
-                void runAction(`toggle-${compoundId}-${on ? 'on' : 'off'}`, () => sendToggle(compoundId, on, actor));
-              }}
+              onToggleControl={onToggleControl}
               onActionControl={(controlId) => {
                 if (!selectedDevice) {
                   return;

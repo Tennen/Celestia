@@ -1,0 +1,75 @@
+@media (max-width: 1200px) {
+  .app-frame,
+  .plugin-workspace,
+  .grid--stats,
+  .grid--two,
+  .plugin-card__grid,
+  .grid--detail,
+  .kv-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .shell {
+    padding: 18px;
+  }
+
+  .sidemenu {
+    position: static;
+  }
+
+  .topbar,
+  .module-header,
+  .plugin-card__meta,
+  .detail__header,
+  .toolbar,
+  .topbar__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .grid--stats,
+  .app-frame,
+  .plugin-workspace,
+  .grid--two,
+  .plugin-card__grid,
+  .grid--detail,
+  .kv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table__row {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-title--inline {
+    align-items: stretch;
+  }
+
+  .control-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .control-card__meta,
+  .control-card__status {
+    justify-content: space-between;
+  }
+
+  .sidemenu__button,
+  .preview-list__item,
+  .plugin-list__item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .plugin-list__badges {
+    justify-content: flex-start;
+  }
+}
