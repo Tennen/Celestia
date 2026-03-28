@@ -114,7 +114,9 @@
   min-width: 0;
 }
 
-.control-card__title-row strong {
+.control-card__title-row strong,
+.control-card__title-row h3 {
+  margin: 0;
   min-width: 0;
   line-height: 1.25;
   word-break: break-word;

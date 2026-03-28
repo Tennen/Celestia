@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -65,6 +65,32 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
+function EditIcon() {
+  return (
+    <Icon size="lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="m16.5 3.5 4 4L8 20l-5 1 1-5Z" />
+    </Icon>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <Icon viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m5 12 5 5L20 7" />
+    </Icon>
+  );
+}
+
+function ResetIcon() {
+  return (
+    <Icon viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+    </Icon>
+  );
+}
+
 export function DeviceWorkspace({
   deviceSearch,
   onDeviceSearchChange,
@@ -94,6 +120,7 @@ export function DeviceWorkspace({
   selectedDeviceDetails,
 }: Props) {
   const [deviceAliasDraft, setDeviceAliasDraft] = useState('');
+  const [editingDeviceAlias, setEditingDeviceAlias] = useState(false);
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
   const [controlDrafts, setControlDrafts] = useState<Record<string, string>>({});
   const [hiddenControlsCollapsed, setHiddenControlsCollapsed] = useState(true);
@@ -104,6 +131,7 @@ export function DeviceWorkspace({
   useEffect(() => {
     if (!selectedDevice) {
       setDeviceAliasDraft('');
+      setEditingDeviceAlias(false);
       setAliasDrafts({});
       setControlDrafts({});
       setHiddenControlsCollapsed(true);
@@ -113,6 +141,7 @@ export function DeviceWorkspace({
     const nextAliasDrafts: Record<string, string> = {};
     const nextControlDrafts: Record<string, string> = {};
     setDeviceAliasDraft(selectedDevice.device.alias ?? '');
+    setEditingDeviceAlias(false);
     for (const control of selectedDevice.controls ?? []) {
       nextAliasDrafts[control.id] = control.alias ?? '';
       if (control.kind === 'select' || control.kind === 'number') {
@@ -133,8 +162,34 @@ export function DeviceWorkspace({
     () => (deviceView?.controls ?? []).filter((control) => control.visible === false),
     [deviceView],
   );
+  const savedDeviceAlias = deviceView?.device.alias ?? '';
   const defaultDeviceName = deviceView?.device.default_name ?? deviceView?.device.name ?? '';
   const hasSavedDeviceAlias = Boolean((deviceView?.device.alias ?? '').trim());
+  const devicePrefBusy = Boolean(deviceView && busy === `device-pref-${deviceView.device.id}`);
+
+  const saveDeviceAlias = () => {
+    onUpdateDevicePreference({ alias: deviceAliasDraft.trim() });
+    setEditingDeviceAlias(false);
+  };
+
+  const resetDeviceAlias = () => {
+    setDeviceAliasDraft('');
+    onUpdateDevicePreference({ alias: '' });
+    setEditingDeviceAlias(false);
+  };
+
+  const onDeviceAliasKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveDeviceAlias();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setDeviceAliasDraft(savedDeviceAlias);
+      setEditingDeviceAlias(false);
+    }
+  };
 
   return (
     <Section className="grid grid--two">
@@ -184,9 +239,63 @@ export function DeviceWorkspace({
           {deviceView ? (
             <div className="detail">
               <div className="detail__header">
-                <div>
-                  <h3>{deviceView.device.name}</h3>
+                <div className="control-card__title">
+                  {editingDeviceAlias ? (
+                    <div className="control-card__title-edit">
+                      <Input
+                        className="control-card__title-input"
+                        value={deviceAliasDraft}
+                        onChange={(event) => setDeviceAliasDraft(event.target.value)}
+                        placeholder={defaultDeviceName}
+                        autoFocus
+                        onKeyDown={onDeviceAliasKeyDown}
+                      />
+                      <div className="control-card__title-actions">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="control-card__icon-button control-card__icon-button--confirm"
+                          onClick={saveDeviceAlias}
+                          disabled={devicePrefBusy}
+                          aria-label={`Save label for ${deviceView.device.name}`}
+                          title="Save label"
+                        >
+                          <CheckIcon />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="control-card__icon-button control-card__icon-button--reset"
+                          onClick={resetDeviceAlias}
+                          disabled={devicePrefBusy || (!hasSavedDeviceAlias && deviceAliasDraft.trim() === '')}
+                          aria-label={`Reset label for ${deviceView.device.name}`}
+                          title="Reset label"
+                        >
+                          <ResetIcon />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="control-card__title-row">
+                      <h3>{deviceView.device.name}</h3>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="control-card__icon-button control-card__icon-button--edit"
+                        onClick={() => setEditingDeviceAlias(true)}
+                        disabled={devicePrefBusy}
+                        aria-label={`Edit label for ${deviceView.device.name}`}
+                        title="Edit label"
+                      >
+                        <EditIcon />
+                      </Button>
+                    </div>
+                  )}
                   <p>{deviceView.device.id}</p>
+                  {hasSavedDeviceAlias ? <p>Default: {defaultDeviceName}</p> : null}
                 </div>
                 <Badge tone={deviceView.device.online ? 'good' : 'bad'}>
                   {deviceView.device.online ? 'online' : 'offline'}
@@ -198,37 +307,6 @@ export function DeviceWorkspace({
                     {capability}
                   </Badge>
                 ))}
-              </div>
-              <div className="stack">
-                <div>
-                  <label>Device Alias</label>
-                  <p className="muted">Set a custom display name for this device without changing the upstream vendor record.</p>
-                </div>
-                <div className="grid grid--detail">
-                  <div className="grid__full">
-                    <Input
-                      value={deviceAliasDraft}
-                      onChange={(event) => setDeviceAliasDraft(event.target.value)}
-                      placeholder={defaultDeviceName}
-                    />
-                  </div>
-                </div>
-                <div className="button-row">
-                  <Button variant="secondary" onClick={() => onUpdateDevicePreference({ alias: deviceAliasDraft.trim() })}>
-                    Save Alias
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setDeviceAliasDraft('');
-                      onUpdateDevicePreference({ alias: '' });
-                    }}
-                    disabled={!hasSavedDeviceAlias && deviceAliasDraft.trim() === ''}
-                  >
-                    Reset Alias
-                  </Button>
-                </div>
-                {hasSavedDeviceAlias ? <p className="muted">Default: {defaultDeviceName}</p> : null}
               </div>
               <div className="stack">
                 <div>
