@@ -193,17 +193,17 @@ export function DeviceControlCard({
       case 'select':
         return (
           <div className="stack">
-            <select className="input" value={valueDraft} onChange={(event) => onValueChange(event.target.value)} disabled={valueBusy}>
-              <option value="" disabled>
-                Select a mode
-              </option>
-              {(control.options ?? []).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+            <div className="toolbar control-card__value-row">
+              <select className="input" value={valueDraft} onChange={(event) => onValueChange(event.target.value)} disabled={valueBusy}>
+                <option value="" disabled>
+                  Select a mode
                 </option>
-              ))}
-            </select>
-            <div className="button-row">
+                {(control.options ?? []).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
               <Button variant="secondary" onClick={() => onValueControl(valueDraft)} disabled={valueBusy || valueDraft.trim() === ''}>
                 Apply
               </Button>
@@ -213,7 +213,7 @@ export function DeviceControlCard({
       case 'number':
         return (
           <div className="stack">
-            <div className="toolbar">
+            <div className="toolbar control-card__value-row">
               <Input
                 type="number"
                 value={valueDraft}
@@ -277,7 +277,9 @@ export function DeviceControlCard({
             </div>
           ) : (
             <div className="control-card__title-row">
-              <strong>{control.label}</strong>
+              <strong className="control-card__title-label" title={control.label}>
+                {control.label}
+              </strong>
               <Button
                 type="button"
                 variant="ghost"

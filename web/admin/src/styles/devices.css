@@ -120,6 +120,17 @@
   word-break: break-word;
 }
 
+.control-card__title-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
 .control-card__title-edit {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -147,6 +158,16 @@
 
 .control-card__header p {
   margin: 6px 0 0;
+}
+
+.control-card__value-row {
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.control-card__value-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .control-card__icon-button {
