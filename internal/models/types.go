@@ -96,6 +96,8 @@ type Device struct {
 	VendorDeviceID string         `json:"vendor_device_id"`
 	Kind           DeviceKind     `json:"kind"`
 	Name           string         `json:"name"`
+	DefaultName    string         `json:"default_name,omitempty"`
+	Alias          string         `json:"alias,omitempty"`
 	Room           string         `json:"room,omitempty"`
 	Online         bool           `json:"online"`
 	Capabilities   []string       `json:"capabilities"`

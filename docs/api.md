@@ -23,7 +23,9 @@ Response shape:
       "id": "xiaomi:cn:123456",
       "plugin_id": "xiaomi",
       "kind": "switch",
-      "name": "Living Room Switch"
+      "name": "Living Room Switch",
+      "default_name": "Mi Smart Switch",
+      "alias": "Living Room Switch"
     },
     "state": {
       "device_id": "xiaomi:cn:123456",
@@ -150,6 +152,25 @@ Notes:
 ## Admin Control Preference API
 
 These endpoints stay under `/api/v1` and are used by the admin UI to customize quick controls per device.
+
+### Update Device Alias
+
+`PUT /api/v1/devices/{device_id}/preference`
+
+Request body:
+
+```json
+{
+  "alias": "Kitchen Feeder"
+}
+```
+
+Behavior:
+
+- `alias` sets a per-device display alias while preserving the vendor-reported name as `device.default_name`
+- sending `alias: ""` resets the device back to the vendor-reported `device.name`
+- subsequent `GET /api/v1/devices`, `GET /api/v1/devices/{id}`, `GET /api/external/v1/devices`, and `GET /api/external/v1/devices/{id}` responses reflect the alias
+- device list search `q` also matches saved aliases
 
 ### Update Control Alias / Visibility
 

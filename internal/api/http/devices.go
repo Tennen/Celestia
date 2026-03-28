@@ -68,6 +68,37 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, view)
 }
 
+func (s *Server) handleUpdateDevicePreference(w http.ResponseWriter, r *http.Request) {
+	device, ok, err := s.runtime.Registry.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, errors.New("device not found"))
+		return
+	}
+
+	var payload struct {
+		Alias string `json:"alias"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	pref := models.DevicePreference{
+		DeviceID:  device.ID,
+		Alias:     strings.TrimSpace(payload.Alias),
+		UpdatedAt: time.Now().UTC(),
+	}
+	if err := s.runtime.Store.UpsertDevicePreference(r.Context(), pref); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, pref)
+}
+
 func (s *Server) handleUpdateControlPreference(w http.ResponseWriter, r *http.Request) {
 	device, ok, err := s.runtime.Registry.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -247,11 +278,27 @@ func (s *Server) executeDeviceCommand(w http.ResponseWriter, r *http.Request, de
 
 func (s *Server) deviceView(ctx context.Context, device models.Device, state models.DeviceStateSnapshot) (models.DeviceView, error) {
 	view := s.runtime.Controls.BuildView(device, state)
+	devicePref, _, err := s.runtime.Store.GetDevicePreference(ctx, device.ID)
+	if err != nil {
+		return models.DeviceView{}, err
+	}
+	view.Device = applyDevicePreference(view.Device, devicePref)
 	prefs, err := s.runtime.Store.ListDeviceControlPreferences(ctx, device.ID)
 	if err != nil {
 		return models.DeviceView{}, err
 	}
 	return s.runtime.Controls.ApplyPreferences(view, prefs), nil
+}
+
+func applyDevicePreference(device models.Device, pref models.DevicePreference) models.Device {
+	alias := strings.TrimSpace(pref.Alias)
+	if alias == "" {
+		return device
+	}
+	device.DefaultName = device.Name
+	device.Alias = alias
+	device.Name = alias
+	return device
 }
 
 func hasControl(controls []models.DeviceControl, controlID string) bool {

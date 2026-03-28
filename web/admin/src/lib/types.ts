@@ -82,6 +82,8 @@ export type Device = {
   vendor_device_id: string;
   kind: DeviceKind;
   name: string;
+  default_name?: string;
+  alias?: string;
   room?: string;
   online: boolean;
   capabilities: string[];

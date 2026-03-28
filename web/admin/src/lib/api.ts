@@ -119,6 +119,18 @@ export async function fetchDevice(deviceId: string) {
   return request<DeviceView>(`/devices/${deviceId}`);
 }
 
+export async function updateDevicePreference(
+  deviceId: string,
+  payload: {
+    alias?: string;
+  },
+) {
+  return request<{ device_id: string; alias?: string; updated_at: string }>(`/devices/${deviceId}/preference`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function sendCommand(deviceId: string, action: string, params: Record<string, unknown>, actor = 'admin') {
   return request<CommandResult>(`/devices/${deviceId}/commands`, {
     method: 'POST',

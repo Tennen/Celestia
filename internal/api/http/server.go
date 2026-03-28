@@ -32,6 +32,7 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("GET /api/v1/plugins/{id}/logs", s.handlePluginLogs)
 	mux.HandleFunc("GET /api/v1/devices", s.handleDevices)
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleDevice)
+	mux.HandleFunc("PUT /api/v1/devices/{id}/preference", s.handleUpdateDevicePreference)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/controls/{controlId}", s.handleUpdateControlPreference)
 	mux.HandleFunc("POST /api/v1/devices/{id}/commands", s.handleCommand)
 	mux.HandleFunc("POST /api/v1/toggle/{id}/on", s.handleToggleOn)

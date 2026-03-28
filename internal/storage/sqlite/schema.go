@@ -34,6 +34,11 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			ts text not null,
 			state_json text not null
 		)`,
+		`create table if not exists device_preferences (
+			device_id text primary key,
+			alias text not null default '',
+			updated_at text not null
+		)`,
 		`create table if not exists device_control_preferences (
 			device_id text not null,
 			control_id text not null,
@@ -82,6 +87,7 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			token_expires_at text
 		)`,
 		`create index if not exists idx_devices_plugin on devices(plugin_id)`,
+		`create index if not exists idx_device_preferences_alias on device_preferences(alias)`,
 		`create index if not exists idx_device_control_preferences_device on device_control_preferences(device_id)`,
 		`create index if not exists idx_events_plugin_ts on events(plugin_id, ts desc)`,
 		`create index if not exists idx_audits_created_at on audits(created_at desc)`,

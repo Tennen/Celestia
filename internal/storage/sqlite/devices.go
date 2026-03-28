@@ -56,26 +56,27 @@ func (s *Store) ListDevices(ctx context.Context, filter storage.DeviceFilter) ([
 		args    []any
 	)
 	if filter.PluginID != "" {
-		clauses = append(clauses, "plugin_id = ?")
+		clauses = append(clauses, "devices.plugin_id = ?")
 		args = append(args, filter.PluginID)
 	}
 	if filter.Kind != "" {
-		clauses = append(clauses, "kind = ?")
+		clauses = append(clauses, "devices.kind = ?")
 		args = append(args, filter.Kind)
 	}
 	if filter.Query != "" {
-		clauses = append(clauses, "(device_id like ? or name like ? or room like ?)")
+		clauses = append(clauses, "(devices.device_id like ? or devices.name like ? or devices.room like ? or device_preferences.alias like ?)")
 		pattern := "%" + filter.Query + "%"
-		args = append(args, pattern, pattern, pattern)
+		args = append(args, pattern, pattern, pattern, pattern)
 	}
 	query := `
-		select device_id, plugin_id, vendor_device_id, kind, name, room, online, capabilities_json, metadata_json
+		select devices.device_id, devices.plugin_id, devices.vendor_device_id, devices.kind, devices.name, devices.room, devices.online, devices.capabilities_json, devices.metadata_json
 		from devices
+		left join device_preferences on device_preferences.device_id = devices.device_id
 	`
 	if len(clauses) > 0 {
 		query += " where " + strings.Join(clauses, " and ")
 	}
-	query += " order by plugin_id, name"
+	query += " order by devices.plugin_id, coalesce(nullif(trim(device_preferences.alias), ''), devices.name), devices.device_id"
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -98,6 +99,52 @@ func (s *Store) DeleteDevicesByPlugin(ctx context.Context, pluginID string) erro
 	}
 	_, err := s.db.ExecContext(ctx, `delete from devices where plugin_id = ?`, pluginID)
 	return err
+}
+
+func (s *Store) UpsertDevicePreference(ctx context.Context, pref models.DevicePreference) error {
+	alias := strings.TrimSpace(pref.Alias)
+	if alias == "" {
+		_, err := s.db.ExecContext(ctx, `delete from device_preferences where device_id = ?`, pref.DeviceID)
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, `
+		insert into device_preferences(device_id, alias, updated_at)
+		values (?, ?, ?)
+		on conflict(device_id) do update set
+			alias=excluded.alias,
+			updated_at=excluded.updated_at
+	`, pref.DeviceID, alias, pref.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	return err
+}
+
+func (s *Store) GetDevicePreference(ctx context.Context, deviceID string) (models.DevicePreference, bool, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select device_id, alias, updated_at
+		from device_preferences
+		where device_id = ?
+	`, deviceID)
+	if err != nil {
+		return models.DevicePreference{}, false, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return models.DevicePreference{}, false, nil
+	}
+	var (
+		pref      models.DevicePreference
+		updatedAt string
+	)
+	if err := rows.Scan(&pref.DeviceID, &pref.Alias, &updatedAt); err != nil {
+		return models.DevicePreference{}, false, err
+	}
+	if updatedAt != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, updatedAt)
+		if err != nil {
+			return models.DevicePreference{}, false, err
+		}
+		pref.UpdatedAt = parsed.UTC()
+	}
+	return pref, true, nil
 }
 
 func (s *Store) UpsertDeviceState(ctx context.Context, snapshot models.DeviceStateSnapshot) error {

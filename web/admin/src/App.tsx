@@ -15,6 +15,7 @@ import {
   installPlugin,
   runActionControl,
   sendCommand,
+  updateDevicePreference,
   updateDeviceControlPreference,
   updatePluginConfig,
 } from './lib/api';
@@ -423,6 +424,12 @@ function App() {
                 void runAction(`control-pref-${selectedDevice.device.id}.${controlId}`, () =>
                   updateDeviceControlPreference(selectedDevice.device.id, controlId, payload),
                 );
+              }}
+              onUpdateDevicePreference={(payload) => {
+                if (!selectedDevice) {
+                  return;
+                }
+                void runAction(`device-pref-${selectedDevice.device.id}`, () => updateDevicePreference(selectedDevice.device.id, payload));
               }}
               commandResult={commandResult}
               selectedDeviceDetails={selectedDeviceDetails}

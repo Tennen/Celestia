@@ -18,6 +18,8 @@ type Store interface {
 	GetDevice(context.Context, string) (models.Device, bool, error)
 	ListDevices(context.Context, DeviceFilter) ([]models.Device, error)
 	DeleteDevicesByPlugin(context.Context, string) error
+	UpsertDevicePreference(context.Context, models.DevicePreference) error
+	GetDevicePreference(context.Context, string) (models.DevicePreference, bool, error)
 
 	UpsertDeviceState(context.Context, models.DeviceStateSnapshot) error
 	GetDeviceState(context.Context, string) (models.DeviceStateSnapshot, bool, error)

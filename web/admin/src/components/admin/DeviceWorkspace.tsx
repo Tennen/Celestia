@@ -41,6 +41,7 @@ type Props = {
   onToggleControl: (controlId: string, on: boolean) => void;
   onActionControl: (controlId: string) => void;
   onValueControl: (controlId: string, value: string | number) => void;
+  onUpdateDevicePreference: (payload: { alias?: string }) => void;
   onUpdateControlPreference: (controlId: string, payload: { alias?: string; visible: boolean }) => void;
   commandResult: string;
   selectedDeviceDetails: string;
@@ -87,25 +88,31 @@ export function DeviceWorkspace({
   onToggleControl,
   onActionControl,
   onValueControl,
+  onUpdateDevicePreference,
   onUpdateControlPreference,
   commandResult,
   selectedDeviceDetails,
 }: Props) {
+  const [deviceAliasDraft, setDeviceAliasDraft] = useState('');
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
   const [controlDrafts, setControlDrafts] = useState<Record<string, string>>({});
   const [hiddenControlsCollapsed, setHiddenControlsCollapsed] = useState(true);
+  const [advancedCommandCollapsed, setAdvancedCommandCollapsed] = useState(true);
   const displayDevice = useMemo(() => applyToggleOverrides(selectedDevice, toggleOverrides), [selectedDevice, toggleOverrides]);
   const deviceView = displayDevice ?? selectedDevice;
 
   useEffect(() => {
     if (!selectedDevice) {
+      setDeviceAliasDraft('');
       setAliasDrafts({});
       setControlDrafts({});
       setHiddenControlsCollapsed(true);
+      setAdvancedCommandCollapsed(true);
       return;
     }
     const nextAliasDrafts: Record<string, string> = {};
     const nextControlDrafts: Record<string, string> = {};
+    setDeviceAliasDraft(selectedDevice.device.alias ?? '');
     for (const control of selectedDevice.controls ?? []) {
       nextAliasDrafts[control.id] = control.alias ?? '';
       if (control.kind === 'select' || control.kind === 'number') {
@@ -115,6 +122,7 @@ export function DeviceWorkspace({
     setAliasDrafts(nextAliasDrafts);
     setControlDrafts(nextControlDrafts);
     setHiddenControlsCollapsed(true);
+    setAdvancedCommandCollapsed(true);
   }, [selectedDevice]);
 
   const visibleControls = useMemo(
@@ -125,6 +133,8 @@ export function DeviceWorkspace({
     () => (deviceView?.controls ?? []).filter((control) => control.visible === false),
     [deviceView],
   );
+  const defaultDeviceName = deviceView?.device.default_name ?? deviceView?.device.name ?? '';
+  const hasSavedDeviceAlias = Boolean((deviceView?.device.alias ?? '').trim());
 
   return (
     <Section className="grid grid--two">
@@ -188,6 +198,37 @@ export function DeviceWorkspace({
                     {capability}
                   </Badge>
                 ))}
+              </div>
+              <div className="stack">
+                <div>
+                  <label>Device Alias</label>
+                  <p className="muted">Set a custom display name for this device without changing the upstream vendor record.</p>
+                </div>
+                <div className="grid grid--detail">
+                  <div className="grid__full">
+                    <Input
+                      value={deviceAliasDraft}
+                      onChange={(event) => setDeviceAliasDraft(event.target.value)}
+                      placeholder={defaultDeviceName}
+                    />
+                  </div>
+                </div>
+                <div className="button-row">
+                  <Button variant="secondary" onClick={() => onUpdateDevicePreference({ alias: deviceAliasDraft.trim() })}>
+                    Save Alias
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setDeviceAliasDraft('');
+                      onUpdateDevicePreference({ alias: '' });
+                    }}
+                    disabled={!hasSavedDeviceAlias && deviceAliasDraft.trim() === ''}
+                  >
+                    Reset Alias
+                  </Button>
+                </div>
+                {hasSavedDeviceAlias ? <p className="muted">Default: {defaultDeviceName}</p> : null}
               </div>
               <div className="stack">
                 <div>
@@ -296,40 +337,58 @@ export function DeviceWorkspace({
                   <div className="advanced-command__header">
                     <div>
                       <label>Advanced Command</label>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="collapse-toggle"
+                      onClick={() => setAdvancedCommandCollapsed((current) => !current)}
+                      aria-expanded={!advancedCommandCollapsed}
+                      aria-controls="advanced-command-panel"
+                    >
+                      <span>{advancedCommandCollapsed ? 'Show' : 'Hide'}</span>
+                      <ChevronIcon expanded={!advancedCommandCollapsed} />
+                    </Button>
+                  </div>
+                  {!advancedCommandCollapsed ? (
+                    <div id="advanced-command-panel" className="stack">
                       <p className="muted">
                         Use this only for vendor-specific operations or parameter tuning. Most day-to-day controls are wrapped
                         above. Click a preset below to prefill a known command shape before editing.
                       </p>
+                      <div className="button-row">
+                        {commandSuggestions.map((suggestion) => (
+                          <Button
+                            key={suggestion.label}
+                            variant="secondary"
+                            onClick={() => onApplySuggestion(suggestion.action, suggestion.params)}
+                          >
+                            Prefill {suggestion.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="grid grid--detail">
+                        <div>
+                          <label>Action</label>
+                          <Input value={selectedAction} onChange={(event) => onSelectedActionChange(event.target.value)} />
+                        </div>
+                        <div>
+                          <label>Actor</label>
+                          <Input value={actor} onChange={(event) => onActorChange(event.target.value)} />
+                        </div>
+                        <div className="grid__full">
+                          <label>Params JSON</label>
+                          <Textarea rows={6} value={commandParams} onChange={(event) => onCommandParamsChange(event.target.value)} />
+                        </div>
+                      </div>
+                      <div className="button-row">
+                        <Button onClick={onSendCommand}>Send Advanced Command</Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="button-row">
-                    {commandSuggestions.map((suggestion) => (
-                      <Button
-                        key={suggestion.label}
-                        variant="secondary"
-                        onClick={() => onApplySuggestion(suggestion.action, suggestion.params)}
-                      >
-                        Prefill {suggestion.label}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="grid grid--detail">
-                    <div>
-                      <label>Action</label>
-                      <Input value={selectedAction} onChange={(event) => onSelectedActionChange(event.target.value)} />
-                    </div>
-                    <div>
-                      <label>Actor</label>
-                      <Input value={actor} onChange={(event) => onActorChange(event.target.value)} />
-                    </div>
-                    <div className="grid__full">
-                      <label>Params JSON</label>
-                      <Textarea rows={6} value={commandParams} onChange={(event) => onCommandParamsChange(event.target.value)} />
-                    </div>
-                  </div>
-                  <div className="button-row">
-                    <Button onClick={onSendCommand}>Send Advanced Command</Button>
-                  </div>
+                  ) : (
+                    <p className="muted">Advanced command panel is collapsed.</p>
+                  )}
                 </div>
               </div>
               {commandResult ? <pre className="log-box">{commandResult}</pre> : null}
