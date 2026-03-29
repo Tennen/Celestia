@@ -5,18 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Icon } from '../ui/icon';
 import { Input } from '../ui/input';
 import { Section } from '../ui/section';
-import { Textarea } from '../ui/textarea';
 import { asArray } from '../../lib/admin';
 import {
   applyToggleOverrides,
-  isToggleControlPending,
-  isToggleControlRequestPending,
   type ToggleControlOverrideMap,
   type ToggleControlPendingMap,
 } from '../../lib/control-state';
 import type { DeviceView } from '../../lib/types';
-import { cn } from '../../lib/utils';
-import { DeviceControlCard } from './DeviceControlCard';
+import { DeviceAdvancedCommandSection } from './DeviceAdvancedCommandSection';
+import { DeviceQuickControlsPanel } from './DeviceQuickControlsPanel';
 
 type Props = {
   deviceSearch: string;
@@ -46,24 +43,6 @@ type Props = {
   commandResult: string;
   selectedDeviceDetails: string;
 };
-
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <Icon
-      size="md"
-      className={cn('collapse-toggle__icon', expanded && 'is-expanded')}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </Icon>
-  );
-}
 
 function EditIcon() {
   return (
@@ -123,8 +102,6 @@ export function DeviceWorkspace({
   const [editingDeviceAlias, setEditingDeviceAlias] = useState(false);
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
   const [controlDrafts, setControlDrafts] = useState<Record<string, string>>({});
-  const [hiddenControlsCollapsed, setHiddenControlsCollapsed] = useState(true);
-  const [advancedCommandCollapsed, setAdvancedCommandCollapsed] = useState(true);
   const displayDevice = useMemo(() => applyToggleOverrides(selectedDevice, toggleOverrides), [selectedDevice, toggleOverrides]);
   const deviceView = displayDevice ?? selectedDevice;
 
@@ -134,8 +111,6 @@ export function DeviceWorkspace({
       setEditingDeviceAlias(false);
       setAliasDrafts({});
       setControlDrafts({});
-      setHiddenControlsCollapsed(true);
-      setAdvancedCommandCollapsed(true);
       return;
     }
     const nextAliasDrafts: Record<string, string> = {};
@@ -150,18 +125,7 @@ export function DeviceWorkspace({
     }
     setAliasDrafts(nextAliasDrafts);
     setControlDrafts(nextControlDrafts);
-    setHiddenControlsCollapsed(true);
-    setAdvancedCommandCollapsed(true);
   }, [selectedDevice]);
-
-  const visibleControls = useMemo(
-    () => (deviceView?.controls ?? []).filter((control) => control.visible !== false),
-    [deviceView],
-  );
-  const hiddenControls = useMemo(
-    () => (deviceView?.controls ?? []).filter((control) => control.visible === false),
-    [deviceView],
-  );
   const savedDeviceAlias = deviceView?.device.alias ?? '';
   const defaultDeviceName = deviceView?.device.default_name ?? deviceView?.device.name ?? '';
   const hasSavedDeviceAlias = Boolean((deviceView?.device.alias ?? '').trim());
@@ -309,158 +273,46 @@ export function DeviceWorkspace({
                 ))}
               </div>
               <div className="stack">
-                <div>
-                  <label>Quick Controls</label>
-                  {visibleControls.length > 0 ? (
-                    <div className="control-grid">
-                      {visibleControls.map((control) => (
-                        <DeviceControlCard
-                          key={control.id}
-                          deviceId={deviceView.device.id}
-                          control={control}
-                          busy={busy}
-                          aliasValue={aliasDrafts[control.id] ?? ''}
-                          valueDraft={controlDrafts[control.id] ?? ''}
-                          togglePending={isToggleControlPending(selectedDevice, control.id, toggleOverrides)}
-                          toggleDisabled={isToggleControlRequestPending(selectedDevice, control.id, togglePending)}
-                          onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
-                          onSavePreference={() =>
-                            onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })
-                          }
-                          onResetPreference={() => {
-                            setAliasDrafts((current) => ({ ...current, [control.id]: '' }));
-                            onUpdateControlPreference(control.id, { alias: '', visible: control.visible !== false });
-                          }}
-                          onToggleVisibility={() =>
-                            onUpdateControlPreference(control.id, {
-                              alias: (aliasDrafts[control.id] ?? '').trim(),
-                              visible: control.visible === false,
-                            })
-                          }
-                          onToggle={(on) => onToggleControl(control.id, on)}
-                          onAction={() => onActionControl(control.id)}
-                          onValueChange={(value) => setControlDrafts((current) => ({ ...current, [control.id]: value }))}
-                          onValueControl={(value) => onValueControl(control.id, value)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="muted">No visible quick controls are configured for this device.</p>
-                  )}
-                </div>
-
-                <div>
-                  <div className="section-title section-title--inline">
-                    <label>Hidden Controls</label>
-                    {hiddenControls.length > 0 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="collapse-toggle"
-                        onClick={() => setHiddenControlsCollapsed((current) => !current)}
-                        aria-expanded={!hiddenControlsCollapsed}
-                        aria-controls="hidden-controls-panel"
-                      >
-                        <span>{hiddenControlsCollapsed ? `Show ${hiddenControls.length}` : `Hide ${hiddenControls.length}`}</span>
-                        <ChevronIcon expanded={!hiddenControlsCollapsed} />
-                      </Button>
-                    ) : null}
-                  </div>
-                  {hiddenControls.length > 0 && !hiddenControlsCollapsed ? (
-                    <div id="hidden-controls-panel" className="control-grid">
-                      {hiddenControls.map((control) => (
-                        <DeviceControlCard
-                          key={control.id}
-                          deviceId={deviceView.device.id}
-                          control={control}
-                          busy={busy}
-                          aliasValue={aliasDrafts[control.id] ?? ''}
-                          valueDraft={controlDrafts[control.id] ?? ''}
-                          hidden
-                          showControlBody={false}
-                          togglePending={isToggleControlPending(selectedDevice, control.id, toggleOverrides)}
-                          toggleDisabled={isToggleControlRequestPending(selectedDevice, control.id, togglePending)}
-                          onAliasChange={(value) => setAliasDrafts((current) => ({ ...current, [control.id]: value }))}
-                          onSavePreference={() =>
-                            onUpdateControlPreference(control.id, { alias: (aliasDrafts[control.id] ?? '').trim(), visible: control.visible !== false })
-                          }
-                          onResetPreference={() => {
-                            setAliasDrafts((current) => ({ ...current, [control.id]: '' }));
-                            onUpdateControlPreference(control.id, { alias: '', visible: control.visible !== false });
-                          }}
-                          onToggleVisibility={() =>
-                            onUpdateControlPreference(control.id, {
-                              alias: (aliasDrafts[control.id] ?? '').trim(),
-                              visible: control.visible === false,
-                            })
-                          }
-                          onToggle={(on) => onToggleControl(control.id, on)}
-                          onAction={() => onActionControl(control.id)}
-                          onValueChange={(value) => setControlDrafts((current) => ({ ...current, [control.id]: value }))}
-                          onValueControl={(value) => onValueControl(control.id, value)}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                  {hiddenControls.length === 0 ? (
-                    <p className="muted">No hidden quick controls.</p>
-                  ) : null}
-                </div>
-
-                <div>
-                  <div className="section-title section-title--inline">
-                    <label>Advanced Command</label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="collapse-toggle"
-                      onClick={() => setAdvancedCommandCollapsed((current) => !current)}
-                      aria-expanded={!advancedCommandCollapsed}
-                      aria-controls="advanced-command-panel"
-                    >
-                      <span>{advancedCommandCollapsed ? 'Show' : 'Hide'}</span>
-                      <ChevronIcon expanded={!advancedCommandCollapsed} />
-                    </Button>
-                  </div>
-                  {!advancedCommandCollapsed ? (
-                    <div id="advanced-command-panel" className="stack">
-                      <p className="muted">
-                        Use this only for vendor-specific operations or parameter tuning. Most day-to-day controls are wrapped
-                        above. Click a preset below to prefill a known command shape before editing.
-                      </p>
-                      <div className="button-row">
-                        {commandSuggestions.map((suggestion) => (
-                          <Button
-                            key={suggestion.label}
-                            variant="secondary"
-                            onClick={() => onApplySuggestion(suggestion.action, suggestion.params)}
-                          >
-                            Prefill {suggestion.label}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="grid grid--detail">
-                        <div>
-                          <label>Action</label>
-                          <Input value={selectedAction} onChange={(event) => onSelectedActionChange(event.target.value)} />
-                        </div>
-                        <div>
-                          <label>Actor</label>
-                          <Input value={actor} onChange={(event) => onActorChange(event.target.value)} />
-                        </div>
-                        <div className="grid__full">
-                          <label>Params JSON</label>
-                          <Textarea rows={6} value={commandParams} onChange={(event) => onCommandParamsChange(event.target.value)} />
-                        </div>
-                      </div>
-                      <div className="button-row">
-                        <Button onClick={onSendCommand}>Send Advanced Command</Button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                <DeviceQuickControlsPanel
+                  device={deviceView}
+                  selectedDevice={selectedDevice}
+                  toggleOverrides={toggleOverrides}
+                  togglePending={togglePending}
+                  busy={busy}
+                  aliasDrafts={aliasDrafts}
+                  controlDrafts={controlDrafts}
+                  onAliasChange={(controlId, value) => setAliasDrafts((current) => ({ ...current, [controlId]: value }))}
+                  onSavePreference={(controlId, visible) =>
+                    onUpdateControlPreference(controlId, { alias: (aliasDrafts[controlId] ?? '').trim(), visible })
+                  }
+                  onResetPreference={(controlId) => {
+                    setAliasDrafts((current) => ({ ...current, [controlId]: '' }));
+                    const control = deviceView.controls?.find((item) => item.id === controlId);
+                    onUpdateControlPreference(controlId, { alias: '', visible: control?.visible !== false });
+                  }}
+                  onToggleVisibility={(controlId, visible) =>
+                    onUpdateControlPreference(controlId, {
+                      alias: (aliasDrafts[controlId] ?? '').trim(),
+                      visible,
+                    })
+                  }
+                  onToggle={(controlId, on) => onToggleControl(controlId, on)}
+                  onAction={(controlId) => onActionControl(controlId)}
+                  onValueChange={(controlId, value) => setControlDrafts((current) => ({ ...current, [controlId]: value }))}
+                  onValueControl={(controlId, value) => onValueControl(controlId, value)}
+                />
+                <DeviceAdvancedCommandSection
+                  deviceId={deviceView.device.id}
+                  selectedAction={selectedAction}
+                  onSelectedActionChange={onSelectedActionChange}
+                  actor={actor}
+                  onActorChange={onActorChange}
+                  commandParams={commandParams}
+                  onCommandParamsChange={onCommandParamsChange}
+                  commandSuggestions={commandSuggestions}
+                  onApplySuggestion={onApplySuggestion}
+                  onSendCommand={onSendCommand}
+                />
               </div>
               {commandResult ? <pre className="log-box">{commandResult}</pre> : null}
               <pre className="log-box">{selectedDeviceDetails}</pre>
