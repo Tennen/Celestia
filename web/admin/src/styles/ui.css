@@ -60,7 +60,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 76px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent);
+  background: linear-gradient(180deg, var(--backdrop-wash), transparent);
   opacity: 0.72;
   pointer-events: none;
 }
@@ -72,14 +72,14 @@
 }
 
 .panel--error {
-  border-color: rgba(199, 124, 136, 0.28);
-  background: linear-gradient(180deg, rgba(255, 249, 250, 0.94), var(--surface));
+  border-color: var(--danger-border);
+  background: linear-gradient(180deg, var(--surface-danger), var(--surface));
 }
 
 .panel--notice {
   background:
     linear-gradient(180deg, var(--surface-strong), var(--surface)),
-    radial-gradient(circle at top right, rgba(168, 199, 255, 0.16), transparent 42%);
+    radial-gradient(circle at top right, var(--surface-accent), transparent 42%);
 }
 
 .card__header,
@@ -112,8 +112,8 @@
   justify-content: space-between;
   padding: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 255, 0.86)),
-    radial-gradient(circle at top right, rgba(168, 199, 255, 0.18), transparent 48%);
+    linear-gradient(180deg, var(--surface-strong), var(--highlight)),
+    radial-gradient(circle at top right, var(--surface-accent), transparent 48%);
 }
 
 .stat .card__description {
@@ -139,11 +139,11 @@
 .feed__item {
   padding: 18px;
   border-radius: 22px;
-  border: 1px solid rgba(177, 192, 220, 0.28);
-  background: linear-gradient(180deg, var(--surface-soft), var(--surface-muted));
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(180deg, var(--surface-soft), var(--surface-glass));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 14px 28px rgba(145, 166, 199, 0.14);
+    inset 0 1px 0 var(--inset-sheen-soft),
+    0 14px 28px var(--shadow-color-soft);
 }
 
 .plugin-card {
@@ -183,23 +183,23 @@
   gap: 10px;
   padding: 16px;
   border-radius: 20px;
-  border: 1px solid rgba(177, 192, 220, 0.28);
+  border: 1px solid var(--border-strong);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 12px 24px rgba(145, 166, 199, 0.12);
+    inset 0 1px 0 var(--inset-sheen-soft),
+    0 12px 24px var(--shadow-color-tight);
 }
 
 .plugin-auth-guide {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(241, 247, 255, 0.84)),
-    radial-gradient(circle at top right, rgba(168, 199, 255, 0.18), transparent 46%);
+    linear-gradient(180deg, var(--surface-strong), var(--surface-glass)),
+    radial-gradient(circle at top right, var(--surface-accent), transparent 46%);
 }
 
 .plugin-auth-warning {
   background:
-    linear-gradient(180deg, rgba(255, 251, 244, 0.92), rgba(248, 242, 228, 0.86)),
-    radial-gradient(circle at top right, rgba(230, 211, 163, 0.18), transparent 44%);
-  border-color: rgba(230, 211, 163, 0.36);
+    linear-gradient(180deg, var(--surface-warn), var(--surface-warn-soft)),
+    radial-gradient(circle at top right, var(--surface-gold), transparent 44%);
+  border-color: var(--gold-border);
 }
 
 .plugin-auth-guide__header {
@@ -223,10 +223,10 @@
 .detail-tabs__button {
   padding: 10px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(178, 194, 222, 0.26);
-  background: linear-gradient(180deg, var(--surface-soft), var(--surface-muted));
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(180deg, var(--surface-soft), var(--surface-glass));
   color: var(--muted-strong);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 var(--inset-sheen);
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -236,22 +236,22 @@
 
 .detail-tabs__button:hover {
   transform: translateY(-1px);
-  border-color: rgba(127, 174, 255, 0.3);
+  border-color: var(--accent-border);
 }
 
 .detail-tabs__button:focus-visible {
-  box-shadow: var(--focus-ring), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: var(--focus-ring), inset 0 1px 0 var(--inset-sheen);
 }
 
 .detail-tabs__button.is-active {
   color: var(--accent-ink);
-  border-color: rgba(127, 174, 255, 0.34);
+  border-color: var(--accent-border-strong);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(235, 243, 255, 0.92)),
-    linear-gradient(135deg, rgba(168, 199, 255, 0.18), transparent 72%);
+    linear-gradient(180deg, var(--surface-strong), var(--highlight)),
+    linear-gradient(135deg, var(--surface-accent), transparent 72%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 14px 24px rgba(127, 174, 255, 0.16);
+    inset 0 1px 0 var(--backdrop-sheen),
+    0 14px 24px var(--shadow-color-soft);
 }
 
 .config-field-list {
@@ -298,7 +298,7 @@
 .textarea,
 .select {
   border-radius: 16px;
-  border: 1px solid rgba(177, 192, 220, 0.3);
+  border: 1px solid var(--border-strong);
   color: var(--text);
 }
 
@@ -315,8 +315,8 @@
   text-decoration: none;
   cursor: pointer;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 12px 24px rgba(145, 166, 199, 0.14);
+    inset 0 1px 0 var(--inset-sheen),
+    0 12px 24px var(--shadow-color-soft);
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -350,13 +350,13 @@
 }
 
 .button--default {
-  border-color: rgba(127, 174, 255, 0.28);
+  border-color: var(--accent-border);
   background: linear-gradient(135deg, var(--accent-strong), var(--accent));
   color: var(--accent-ink);
 }
 
 .button--secondary {
-  background: linear-gradient(180deg, var(--surface-soft), var(--surface-muted));
+  background: linear-gradient(180deg, var(--surface-soft), var(--surface-glass));
 }
 
 .button--ghost {
@@ -368,13 +368,13 @@
 
 .button--ghost:hover:not(:disabled) {
   background: var(--surface-soft);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  box-shadow: inset 0 1px 0 var(--inset-sheen-soft);
 }
 
 .button--danger {
-  border-color: rgba(199, 124, 136, 0.26);
-  background: linear-gradient(180deg, rgba(255, 248, 250, 0.92), rgba(251, 235, 239, 0.9));
-  color: #8c4451;
+  border-color: var(--danger-border);
+  background: linear-gradient(180deg, var(--surface-danger), var(--surface-danger-soft));
+  color: var(--danger-ink);
 }
 
 .input,
@@ -382,10 +382,10 @@
 .select {
   width: 100%;
   padding: 12px 14px;
-  background: linear-gradient(180deg, var(--surface-input), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(180deg, var(--surface-input), var(--surface-strong));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 10px 18px rgba(145, 166, 199, 0.1);
+    inset 0 1px 0 var(--inset-sheen),
+    0 10px 18px var(--shadow-color-tight);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -395,12 +395,12 @@
 .input:hover,
 .textarea:hover,
 .select:hover {
-  border-color: rgba(127, 174, 255, 0.28);
+  border-color: var(--accent-border);
 }
 
 .input::placeholder,
 .textarea::placeholder {
-  color: rgba(91, 107, 127, 0.84);
+  color: var(--text-soft);
 }
 
 .textarea {
@@ -414,9 +414,9 @@
   gap: 6px;
   padding: 7px 11px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.76);
-  background: linear-gradient(180deg, var(--surface-soft), var(--surface-muted));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface-soft), var(--surface-glass));
+  box-shadow: inset 0 1px 0 var(--inset-sheen);
   color: var(--muted-strong);
   font-size: 0.74rem;
   letter-spacing: 0.08em;
@@ -424,26 +424,26 @@
 }
 
 .badge--neutral {
-  background: linear-gradient(180deg, var(--surface-soft), var(--surface-muted));
+  background: linear-gradient(180deg, var(--surface-soft), var(--surface-glass));
 }
 
 .badge--good {
-  background: linear-gradient(180deg, rgba(237, 249, 245, 0.96), rgba(226, 243, 237, 0.92));
-  color: #446f66;
+  background: linear-gradient(180deg, var(--surface-good), var(--surface-good-soft));
+  color: var(--success-ink);
 }
 
 .badge--warn {
-  background: linear-gradient(180deg, rgba(255, 251, 240, 0.96), rgba(247, 238, 219, 0.92));
-  color: #8b6b34;
+  background: linear-gradient(180deg, var(--surface-warn), var(--surface-warn-soft));
+  color: var(--gold-ink);
 }
 
 .badge--bad {
-  background: linear-gradient(180deg, rgba(255, 247, 249, 0.96), rgba(250, 232, 237, 0.92));
-  color: #934c59;
+  background: linear-gradient(180deg, var(--surface-danger), var(--surface-danger-soft));
+  color: var(--danger-ink-strong);
 }
 
 .badge--accent {
-  background: linear-gradient(180deg, rgba(243, 248, 255, 0.98), rgba(231, 240, 255, 0.94));
+  background: linear-gradient(180deg, var(--surface-badge-accent), var(--surface-badge-accent-soft));
   color: var(--accent-ink);
 }
 
@@ -477,6 +477,6 @@ dialog,
 }
 
 dialog::backdrop {
-  background: rgba(228, 237, 248, 0.42);
+  background: var(--surface-accent);
   backdrop-filter: blur(8px);
 }

@@ -1,25 +1,25 @@
 :root {
-  --shadow-soft: 0 12px 24px rgba(145, 166, 199, 0.12);
+  --shadow-soft: 0 12px 24px var(--shadow-color-soft);
   --shadow-panel:
-    0 18px 40px rgba(130, 149, 182, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+    0 18px 40px var(--shadow-color-panel),
+    inset 0 1px 0 var(--backdrop-sheen);
   --shadow-floating:
-    0 22px 56px rgba(118, 138, 174, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  --shadow-hover: 0 18px 34px rgba(120, 142, 180, 0.18);
-  --focus-ring: 0 0 0 3px rgba(127, 174, 255, 0.16);
+    0 22px 56px var(--shadow-color-floating),
+    inset 0 1px 0 var(--backdrop-sheen);
+  --shadow-hover: 0 18px 34px var(--shadow-color-hover);
+  --focus-ring: 0 0 0 3px var(--accent-glow-soft);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --shadow-soft: 0 14px 28px rgba(0, 0, 0, 0.2);
+    --shadow-soft: 0 14px 28px var(--shadow-color-soft);
     --shadow-panel:
-      0 22px 48px rgba(0, 0, 0, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      0 22px 48px var(--shadow-color-panel),
+      inset 0 1px 0 var(--backdrop-sheen);
     --shadow-floating:
-      0 24px 60px rgba(0, 0, 0, 0.34),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    --shadow-hover: 0 20px 44px rgba(0, 0, 0, 0.3);
+      0 24px 60px var(--shadow-color-floating),
+      inset 0 1px 0 var(--backdrop-sheen);
+    --shadow-hover: 0 20px 44px var(--shadow-color-hover);
   }
 }
 
@@ -215,8 +215,8 @@
   padding: 14px;
   border-radius: 18px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 10px 20px rgba(145, 166, 199, 0.1);
+    inset 0 1px 0 var(--inset-sheen-soft),
+    0 10px 20px var(--shadow-color-tight);
 }
 
 .plugin-card__meta,
@@ -241,8 +241,8 @@
   padding: 14px;
   border-radius: 16px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 10px 20px rgba(145, 166, 199, 0.1);
+    inset 0 1px 0 var(--inset-sheen-soft),
+    0 10px 20px var(--shadow-color-tight);
 }
 
 .plugin-auth-guide__header,
@@ -292,8 +292,8 @@
 .select {
   padding: 10px 12px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 8px 14px rgba(145, 166, 199, 0.08);
+    inset 0 1px 0 var(--inset-sheen),
+    0 8px 14px var(--shadow-color-tight);
 }
 
 .textarea {
@@ -324,8 +324,8 @@ label {
   padding: 12px 14px;
   border-radius: 16px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 8px 16px rgba(145, 166, 199, 0.1);
+    inset 0 1px 0 var(--inset-sheen),
+    0 8px 16px var(--shadow-color-tight);
 }
 
 .control-grid {
@@ -338,8 +338,8 @@ label {
   padding: 14px;
   border-radius: 18px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 10px 20px rgba(145, 166, 199, 0.1);
+    inset 0 1px 0 var(--inset-sheen-soft),
+    0 10px 20px var(--shadow-color-tight);
 }
 
 .control-card__header {
@@ -392,7 +392,7 @@ label {
 .toggle-switch__thumb {
   width: 20px;
   height: 20px;
-  box-shadow: 0 6px 14px rgba(123, 140, 174, 0.18);
+  box-shadow: 0 6px 14px var(--shadow-color-thumb);
 }
 
 .toggle-switch.is-checked .toggle-switch__thumb {

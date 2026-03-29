@@ -121,6 +121,14 @@ Use these boundaries when deciding where code belongs:
 - Do not preload fake accounts, fake devices, or fake command presets that imply the backend is already connected.
 - UI examples may illustrate JSON structure, but they must not masquerade as runnable demo sessions.
 
+### Admin Theme Rules
+
+- The shared admin color system must be defined in `web/admin/src/styles/theme.css`. Reuse those CSS variables from other admin stylesheets instead of introducing new palette hex values or new tinted `rgba(...)` colors directly in component styles.
+- The Celestia admin light theme must stay in the sky-island range: `--bg-primary #F2F7FF`, `--bg-secondary #E6F0FA`, `--bg-accent #DCEFFF`, `--primary #6FA9E6`, `--primary-soft #A9D0F5`, `--text-primary #24324A`, `--glow #BFE6FF`, and restrained `--gold #E6D3A3`.
+- Do not use dark navy as the default admin background. The primary admin mood is bright, airy, luminous, and architectural.
+- Borders and separators in the admin must come from the light sky palette (`--border-light`, `--border-soft`) rather than generic gray UI borders.
+- Gold is a premium accent only. Do not use it as a large surface color or a dominant interaction color.
+
 ## Git Workflow Rules
 
 - Never create or switch branches unless the user explicitly asks for it.
