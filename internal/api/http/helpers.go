@@ -2,11 +2,14 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
 )
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -19,6 +22,22 @@ func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]any{
 		"error": err.Error(),
 	})
+}
+
+func writeServiceError(w http.ResponseWriter, err error) {
+	var denied *gatewayapi.PolicyDeniedError
+	if errors.As(err, &denied) {
+		writeJSON(w, http.StatusForbidden, map[string]any{
+			"allowed": false,
+			"reason":  denied.Decision.Reason,
+		})
+		return
+	}
+	status := gatewayapi.StatusCode(err)
+	if status == 0 {
+		status = http.StatusInternalServerError
+	}
+	writeError(w, status, err)
 }
 
 func parseLimit(raw string, defaultValue int) int {

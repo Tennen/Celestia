@@ -3,33 +3,37 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
-	"github.com/chentianyu/celestia/internal/core/pluginmgr"
+	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
 )
 
-func (s *Server) handleCatalogPlugins(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, s.runtime.PluginMgr.Catalog())
+func (s *Server) handleCatalogPlugins(w http.ResponseWriter, r *http.Request) {
+	views, err := s.gateway.ListCatalogPlugins(r.Context())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, views)
 }
 
 func (s *Server) handlePlugins(w http.ResponseWriter, r *http.Request) {
-	views, err := s.runtime.PluginMgr.ListRuntimeViews(r.Context())
+	views, err := s.gateway.ListPlugins(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, views)
 }
 
 func (s *Server) handleInstallPlugin(w http.ResponseWriter, r *http.Request) {
-	var req pluginmgr.InstallRequest
+	var req gatewayapi.InstallPluginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	record, err := s.runtime.PluginMgr.Install(r.Context(), req)
+	record, err := s.gateway.InstallPlugin(r.Context(), req)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, record)
@@ -43,53 +47,54 @@ func (s *Server) handleUpdatePluginConfig(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	record, err := s.runtime.PluginMgr.UpdateConfig(r.Context(), r.PathValue("id"), payload.Config)
+	record, err := s.gateway.UpdatePluginConfig(r.Context(), gatewayapi.UpdatePluginConfigRequest{
+		PluginID: r.PathValue("id"),
+		Config:   payload.Config,
+	})
 	if err != nil {
-		status := http.StatusBadRequest
-		if strings.Contains(err.Error(), "not installed") {
-			status = http.StatusNotFound
-		}
-		writeError(w, status, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, record)
 }
 
 func (s *Server) handleEnablePlugin(w http.ResponseWriter, r *http.Request) {
-	if err := s.runtime.PluginMgr.Enable(r.Context(), r.PathValue("id")); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if err := s.gateway.EnablePlugin(r.Context(), r.PathValue("id")); err != nil {
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleDisablePlugin(w http.ResponseWriter, r *http.Request) {
-	if err := s.runtime.PluginMgr.Disable(r.Context(), r.PathValue("id")); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if err := s.gateway.DisablePlugin(r.Context(), r.PathValue("id")); err != nil {
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleDiscoverPlugin(w http.ResponseWriter, r *http.Request) {
-	if err := s.runtime.PluginMgr.Discover(r.Context(), r.PathValue("id")); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if err := s.gateway.DiscoverPlugin(r.Context(), r.PathValue("id")); err != nil {
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleDeletePlugin(w http.ResponseWriter, r *http.Request) {
-	if err := s.runtime.PluginMgr.Uninstall(r.Context(), r.PathValue("id")); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if err := s.gateway.DeletePlugin(r.Context(), r.PathValue("id")); err != nil {
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handlePluginLogs(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"plugin_id": r.PathValue("id"),
-		"logs":      s.runtime.PluginMgr.GetLogs(r.PathValue("id")),
-	})
+	view, err := s.gateway.GetPluginLogs(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
 }

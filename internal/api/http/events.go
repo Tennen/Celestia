@@ -7,21 +7,20 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/chentianyu/celestia/internal/storage"
+	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
 )
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
-	limit := parseLimit(r.URL.Query().Get("limit"), 100)
-	events, err := s.runtime.Store.ListEvents(r.Context(), storage.EventFilter{
+	items, err := s.gateway.ListEvents(r.Context(), gatewayapi.EventFilter{
 		PluginID: r.URL.Query().Get("plugin_id"),
 		DeviceID: r.URL.Query().Get("device_id"),
-		Limit:    limit,
+		Limit:    parseLimit(r.URL.Query().Get("limit"), 100),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, events)
+	writeJSON(w, http.StatusOK, items)
 }
 
 func (s *Server) handleEventStream(w http.ResponseWriter, r *http.Request) {
@@ -54,13 +53,12 @@ func (s *Server) handleEventStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAudits(w http.ResponseWriter, r *http.Request) {
-	limit := parseLimit(r.URL.Query().Get("limit"), 100)
-	items, err := s.runtime.Audit.List(r.Context(), storage.AuditFilter{
+	items, err := s.gateway.ListAudits(r.Context(), gatewayapi.AuditFilter{
 		DeviceID: r.URL.Query().Get("device_id"),
-		Limit:    limit,
+		Limit:    parseLimit(r.URL.Query().Get("limit"), 100),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, items)

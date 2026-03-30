@@ -6,17 +6,20 @@ import (
 	"net/http"
 	"time"
 
+	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
 	runtimepkg "github.com/chentianyu/celestia/internal/core/runtime"
 )
 
 type Server struct {
 	runtime *runtimepkg.Runtime
+	gateway gatewayapi.Service
 	server  *http.Server
 }
 
 func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	s := &Server{
 		runtime: runtime,
+		gateway: gatewayapi.NewRuntimeService(runtime),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
@@ -68,17 +71,19 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "ok",
-		"time":   time.Now().UTC(),
-	})
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	payload, err := s.gateway.Health(r.Context())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, payload)
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	summary, err := s.runtime.Dashboard(r.Context())
+	summary, err := s.gateway.Dashboard(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, summary)

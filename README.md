@@ -16,6 +16,7 @@ go test ./...
 make build
 npm run build --workspace web/admin
 CELESTIA_ADDR=127.0.0.1:8080 ./bin/gateway
+go run ./cmd/celctl dashboard
 ```
 
 The gateway serves the admin build from `web/admin/dist` and persists runtime data to SQLite.
@@ -92,7 +93,7 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
 ## Repository Layout
 
 - `cmd/gateway`: gateway entrypoint that wires SQLite storage, runtime reconciliation, HTTP API, and graceful shutdown.
-- `cmd/celctl`: minimal HTTP-based CLI for quick inspection of dashboard, plugin, device, and event endpoints.
+- `cmd/celctl`: agent-oriented CLI built on Cobra with a structured subcommand surface for plugins/devices/events/audits and normalized command dispatch.
 - `internal/api/http`: the only supported admin and external control surface. It serves device, plugin, audit, event, and OAuth endpoints.
 - `internal/core`: Core runtime services for plugin management, registry, state, audit, policy, event bus, quick-control modeling, and Xiaomi OAuth orchestration.
 - `internal/coreapi`: Core-owned gRPC helpers that plugins use for approved back-calls such as config persistence.
@@ -108,6 +109,7 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
 - `proto`: plugin protocol definition.
 - `web/admin`: Vite/React admin console that consumes only the gateway HTTP API.
 - `docs`: repository Markdown docs, including API references.
+- `docs/cli.md`: CLI tooling decision and shared API/CLI service architecture.
 - `data`: local runtime SQLite databases and smoke-test data paths.
 - `bin`: built gateway/plugin binaries.
 
