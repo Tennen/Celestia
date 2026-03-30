@@ -9,14 +9,14 @@ import (
 
 func buildDevice(cfg CameraConfig) models.Device {
 	metadata := map[string]any{
-		"host":             cfg.Host,
-		"port":             cfg.Port,
-		"channel":          cfg.Channel,
-		"rtsp_port":        cfg.RTSPPort,
-		"rtsp_path":        cfg.RTSPPath,
-		"backend_base_url": cfg.BackendBaseURL,
-		"entry_id":         cfg.EntryID,
-		"controls":         buildControlSpecs(),
+		"host":        cfg.Host,
+		"port":        cfg.Port,
+		"channel":     cfg.Channel,
+		"rtsp_port":   cfg.RTSPPort,
+		"rtsp_path":   cfg.RTSPPath,
+		"sdk_lib_dir": cfg.SDKLibDir,
+		"entry_id":    cfg.EntryID,
+		"controls":    buildControlSpecs(),
 	}
 	return models.Device{
 		ID:             cfg.DeviceID,
@@ -53,14 +53,14 @@ func actionControl(id, label, direction string) models.DeviceControlSpec {
 	}
 }
 
-func buildState(cfg CameraConfig, status backendStatus, lastError string) models.DeviceStateSnapshot {
+func buildState(cfg CameraConfig, status cameraStatus, lastError string) models.DeviceStateSnapshot {
 	state := map[string]any{
-		"connected":        status.Connected,
-		"host":             cfg.Host,
-		"port":             cfg.Port,
-		"channel":          cfg.Channel,
-		"rtsp_url":         status.RTSPURL,
-		"backend_base_url": cfg.BackendBaseURL,
+		"connected":   status.Connected,
+		"host":        cfg.Host,
+		"port":        cfg.Port,
+		"channel":     cfg.Channel,
+		"rtsp_url":    status.RTSPURL,
+		"sdk_lib_dir": cfg.SDKLibDir,
 	}
 	if status.Playback != nil {
 		state["playback"] = cloneMap(status.Playback)

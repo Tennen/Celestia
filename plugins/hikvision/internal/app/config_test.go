@@ -35,8 +35,8 @@ func TestParseConfig_AssignsStableIDsAndDefaults(t *testing.T) {
 	if cfg.Entries[0].DeviceID == cfg.Entries[1].DeviceID {
 		t.Fatalf("device ids should be unique: %q", cfg.Entries[0].DeviceID)
 	}
-	if cfg.Entries[0].BackendBaseURL == "" {
-		t.Fatal("backend base url should have default")
+	if cfg.Entries[0].SDKLibDir == "" {
+		t.Fatal("sdk lib dir should have default")
 	}
 }
 

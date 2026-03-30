@@ -164,12 +164,13 @@ func BuiltinCatalog() []models.CatalogPlugin {
 			Manifest: models.PluginManifest{
 				ID:           "hikvision",
 				Name:         "Hikvision EZVIZ Plugin",
-				Version:      "0.1.0",
+				Version:      "0.2.0",
 				Vendor:       "hikvision",
 				Capabilities: []string{"discover", "state", "command", "events", "real_lan_sdk", "ptz", "playback", "recordings"},
 				ConfigSchema: map[string]any{
 					"type": "object",
 					"default": map[string]any{
+						"sdk_lib_dir": "/opt/celestia/sdk/lib/arm64",
 						"entries": []map[string]any{
 							{
 								"name":                 "front-door",
@@ -182,16 +183,20 @@ func BuiltinCatalog() []models.CatalogPlugin {
 								"rtsp_path":            "/Streaming/Channels/{channel}01",
 								"ptz_default_speed":    4,
 								"ptz_step_ms":          400,
-								"backend_base_url":     "http://127.0.0.1:8099",
 								"sdk_lib_dir_override": "<optional-sdk-lib-dir-override>",
 							},
 						},
 						"poll_interval_seconds": 30,
 					},
 					"properties": map[string]any{
+						"sdk_lib_dir": map[string]any{
+							"type":        "string",
+							"description": "Default HCNetSDK library directory in the plugin runtime container.",
+							"default":     "/opt/celestia/sdk/lib/arm64",
+						},
 						"entries": map[string]any{
 							"type":        "array",
-							"description": "Real Hikvision/EZVIZ LAN camera entries. The plugin requires host, port, username, password, and channel for each camera.",
+							"description": "Real Hikvision/EZVIZ LAN camera entries. Each entry requires host, port, username, password, and channel.",
 						},
 						"poll_interval_seconds": map[string]any{
 							"type":    "number",

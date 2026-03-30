@@ -82,14 +82,8 @@ func buildDockerArgs(pluginPort, containerName, image string) []string {
 	if coreAddr := strings.TrimSpace(os.Getenv(coreapi.EnvCoreAddr)); coreAddr != "" {
 		args = append(args, "-e", coreapi.EnvCoreAddr+"="+remapCoreAddr(coreAddr))
 	}
-	if backendPort := strings.TrimSpace(os.Getenv("CELESTIA_HIKVISION_BACKEND_PORT")); backendPort != "" {
-		args = append(args, "-e", "EZVIZ_BACKEND_PORT="+backendPort)
-	}
-	if backendBaseURL := strings.TrimSpace(os.Getenv("CELESTIA_HIKVISION_BACKEND_BASE_URL")); backendBaseURL != "" {
-		args = append(args, "-e", "CELESTIA_HIKVISION_BACKEND_BASE_URL="+backendBaseURL)
-	}
-	if sdkLibDir := strings.TrimSpace(os.Getenv("EZVIZ_SDK_LIB_DIR")); sdkLibDir != "" {
-		args = append(args, "-e", "EZVIZ_SDK_LIB_DIR="+sdkLibDir)
+	if sdkLibDir := strings.TrimSpace(os.Getenv("CELESTIA_HIKVISION_SDK_LIB_DIR")); sdkLibDir != "" {
+		args = append(args, "-e", "CELESTIA_HIKVISION_SDK_LIB_DIR="+sdkLibDir)
 	}
 
 	args = append(args, image)

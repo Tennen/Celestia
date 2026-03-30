@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -19,7 +20,7 @@ func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req 
 		}
 		speed := intParam(params, "speed", runtime.Config.PTZDefaultSpeed)
 		duration := intParam(params, "duration_ms", runtime.Config.PTZStepMS)
-		if err := runtime.Client.PTZMove(ctx, runtime.Config.EntryID, direction, speed, duration); err != nil {
+		if err := runtime.Client.PTZMove(ctx, direction, speed, duration); err != nil {
 			return nil, "", err
 		}
 		return nil, "ptz move accepted", nil
@@ -29,7 +30,7 @@ func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req 
 			return nil, "", errors.New("direction is required")
 		}
 		speed := intParam(params, "speed", runtime.Config.PTZDefaultSpeed)
-		if err := runtime.Client.PTZStop(ctx, runtime.Config.EntryID, direction, speed); err != nil {
+		if err := runtime.Client.PTZStop(ctx, direction, speed); err != nil {
 			return nil, "", err
 		}
 		return nil, "ptz stop accepted", nil
@@ -51,13 +52,15 @@ func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req 
 		if start == "" || end == "" {
 			return nil, "", errors.New("start and end are required")
 		}
-		if _, err := parseISOTime(start); err != nil {
+		startAt, err := parseISOTime(start)
+		if err != nil {
 			return nil, "", fmt.Errorf("invalid start: %w", err)
 		}
-		if _, err := parseISOTime(end); err != nil {
+		endAt, err := parseISOTime(end)
+		if err != nil {
 			return nil, "", fmt.Errorf("invalid end: %w", err)
 		}
-		result, err := runtime.Client.PlaybackOpen(ctx, runtime.Config.EntryID, start, end)
+		result, err := runtime.Client.PlaybackOpen(ctx, startAt, endAt)
 		if err != nil {
 			return nil, "", err
 		}
@@ -99,7 +102,7 @@ func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req 
 		if sessionID == "" {
 			return nil, "", errors.New("session_id is required")
 		}
-		result, err := runtime.Client.PlaybackClose(ctx, runtime.Config.EntryID, sessionID)
+		result, err := runtime.Client.PlaybackClose(ctx, sessionID)
 		if err != nil {
 			return nil, "", err
 		}
@@ -113,24 +116,28 @@ func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req 
 		if slotMinutes < 5 || slotMinutes > 60 {
 			slotMinutes = 60
 		}
-		result, err := runtime.Client.ListRecordings(ctx, runtime.Config.EntryID, dateValue, slotMinutes)
+		day, err := time.Parse("2006-01-02", dateValue)
+		if err != nil {
+			return nil, "", errors.New("date format must be YYYY-MM-DD")
+		}
+		recordings, err := runtime.Client.ListRecordings(ctx, day, slotMinutes)
 		if err != nil {
 			return nil, "", err
 		}
 		payload := map[string]any{
-			"entry_id":   result.EntryID,
-			"date":       result.Date,
-			"count":      result.Count,
-			"recordings": result.Recordings,
+			"entry_id":   runtime.Config.EntryID,
+			"date":       day.Format("2006-01-02"),
+			"count":      len(recordings),
+			"recordings": recordings,
 		}
-		return payload, fmt.Sprintf("recordings listed: %d", result.Count), nil
+		return payload, fmt.Sprintf("recordings listed: %d", len(recordings)), nil
 	default:
 		return nil, "", fmt.Errorf("unsupported action %q", req.Action)
 	}
 }
 
 func (p *Plugin) shortPTZ(ctx context.Context, runtime *entryRuntime, direction string) (map[string]any, string, error) {
-	if err := runtime.Client.PTZMove(ctx, runtime.Config.EntryID, direction, runtime.Config.PTZDefaultSpeed, runtime.Config.PTZStepMS); err != nil {
+	if err := runtime.Client.PTZMove(ctx, direction, runtime.Config.PTZDefaultSpeed, runtime.Config.PTZStepMS); err != nil {
 		return nil, "", err
 	}
 	return nil, "ptz move accepted", nil
@@ -155,7 +162,7 @@ func (p *Plugin) playbackControl(
 		}
 		seekPercent = &value
 	}
-	result, err := runtime.Client.PlaybackControl(ctx, runtime.Config.EntryID, sessionID, action, seekPercent)
+	result, err := runtime.Client.PlaybackControl(ctx, sessionID, action, seekPercent)
 	if err != nil {
 		return nil, "", err
 	}

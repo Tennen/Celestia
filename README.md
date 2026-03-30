@@ -32,7 +32,7 @@ Each vendor plugin now expects real cloud credentials. The admin UI ships JSON t
 - Petkit: `username`, `password`, `region`, `timezone`
 - Petkit: optional `compat` overrides for `passport_base_url`, `china_base_url`, `api_version`, `client_header`, `user_agent`, and related app-signature fields when Petkit changes its mobile app contract
 - Haier: `email`, `password` or `refresh_token`, plus optional `mobile_id` and `timezone`
-- Hikvision: `entries[]` with `host`, `port`, `username`, `password`, `channel`, and optional `rtsp_*` / `ptz_*` / `backend_base_url`
+- Hikvision: `sdk_lib_dir` plus `entries[]` with `host`, `port`, `username`, `password`, `channel`, and optional `rtsp_*` / `ptz_*` / `sdk_lib_dir_override`
 
 If credentials are missing or invalid, plugin enablement fails explicitly instead of falling back to demo devices.
 
@@ -107,10 +107,12 @@ docker build -f plugins/hikvision/Dockerfile -t celestia-hikvision-plugin:latest
   - `CELESTIA_HIKVISION_DOCKER_IMAGE` (default `celestia-hikvision-plugin:latest`)
   - `CELESTIA_HIKVISION_DOCKER_PLATFORM` (for example `linux/arm64`)
   - `CELESTIA_HIKVISION_DOCKER_NETWORK` (for example `bridge` or `host`)
+  - `CELESTIA_HIKVISION_SDK_LIB_DIR` (optional override for SDK library directory inside container)
 - Plugin config draft example:
 
 ```json
 {
+  "sdk_lib_dir": "/opt/celestia/sdk/lib/arm64",
   "entries": [
     {
       "name": "front-door",
@@ -124,7 +126,7 @@ docker build -f plugins/hikvision/Dockerfile -t celestia-hikvision-plugin:latest
   "poll_interval_seconds": 30
 }
 ```
-- The plugin polls backend status, maps each configured camera entry to `camera_like`, supports PTZ movement and playback commands, and emits state/command events back to Core.
+- The plugin directly uses HCNetSDK in-process, maps each configured camera entry to `camera_like`, supports PTZ movement and playback commands, and emits state/command events back to Core.
 
 ## Repository Layout
 
@@ -143,7 +145,7 @@ docker build -f plugins/hikvision/Dockerfile -t celestia-hikvision-plugin:latest
 - `plugins/xiaomi`: Xiaomi MIoT plugin process. `internal/app` owns plugin RPC behavior, `internal/cloud` owns cloud auth and MIoT requests, `internal/mapper` turns MIoT models into unified capabilities, and `internal/spec` caches MIoT spec data.
 - `plugins/petkit`: Petkit plugin process. `internal/app` contains auth, sync, mapping, command dispatch, BLE relay handling, and runtime config persistence.
 - `plugins/haier`: Haier hOn plugin process. `internal/app` contains auth, appliance discovery, capability derivation, command mapping, refresh, and token persistence.
-- `plugins/hikvision`: Hikvision/EZVIZ plugin process. `internal/app` hosts config validation, LAN backend orchestration, state polling, PTZ/playback command mapping, and runtime events. `plugins/hikvision/Dockerfile` packages the HCNetSDK backend runtime.
+- `plugins/hikvision`: Hikvision/EZVIZ plugin process. `internal/app` hosts config validation, direct HCNetSDK lifecycle/login/command handling, state polling, PTZ/playback command mapping, and runtime events. `plugins/hikvision/Dockerfile` packages the HCNetSDK runtime.
 - `proto`: plugin protocol definition.
 - `web/admin`: Vite/React admin console that consumes only the gateway HTTP API.
 - `docs`: repository Markdown docs, including API references.

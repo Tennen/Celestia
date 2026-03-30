@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -14,7 +15,6 @@ import (
 const (
 	defaultPollIntervalSeconds = 30
 	minPollIntervalSeconds     = 5
-	defaultBackendBaseURL      = "http://127.0.0.1:8099"
 	defaultSDKPort             = 8000
 	defaultChannel             = 1
 	defaultRTSPPort            = 554
@@ -29,20 +29,19 @@ type Config struct {
 }
 
 type CameraConfig struct {
-	Name              string
-	EntryID           string
-	DeviceID          string
-	Host              string
-	Port              int
-	Username          string
-	Password          string
-	Channel           int
-	RTSPPort          int
-	RTSPPath          string
-	PTZDefaultSpeed   int
-	PTZStepMS         int
-	BackendBaseURL    string
-	SDKLibDirOverride string
+	Name            string
+	EntryID         string
+	DeviceID        string
+	Host            string
+	Port            int
+	Username        string
+	Password        string
+	Channel         int
+	RTSPPort        int
+	RTSPPath        string
+	PTZDefaultSpeed int
+	PTZStepMS       int
+	SDKLibDir       string
 }
 
 func parseConfig(cfg map[string]any) (Config, error) {
@@ -54,12 +53,9 @@ func parseConfig(cfg map[string]any) (Config, error) {
 		poll = minPollIntervalSeconds
 	}
 
-	backendDefault := strings.TrimSpace(pluginutil.String(cfg["backend_base_url"], ""))
-	if backendDefault == "" {
-		backendDefault = strings.TrimSpace(os.Getenv("CELESTIA_HIKVISION_BACKEND_BASE_URL"))
-	}
-	if backendDefault == "" {
-		backendDefault = defaultBackendBaseURL
+	sdkLibDefault := strings.TrimSpace(pluginutil.String(cfg["sdk_lib_dir"], ""))
+	if sdkLibDefault == "" {
+		sdkLibDefault = defaultSDKLibDir()
 	}
 
 	entryMaps, err := readEntryMaps(cfg)
@@ -72,7 +68,7 @@ func parseConfig(cfg map[string]any) (Config, error) {
 
 	entries := make([]CameraConfig, 0, len(entryMaps))
 	for idx, entryMap := range entryMaps {
-		entry, err := parseEntryConfig(entryMap, idx, backendDefault)
+		entry, err := parseEntryConfig(entryMap, idx, sdkLibDefault)
 		if err != nil {
 			return Config{}, err
 		}
@@ -85,6 +81,23 @@ func parseConfig(cfg map[string]any) (Config, error) {
 	})
 
 	return Config{PollIntervalSeconds: poll, Entries: entries}, nil
+}
+
+func defaultSDKLibDir() string {
+	if value := strings.TrimSpace(os.Getenv("CELESTIA_HIKVISION_SDK_LIB_DIR")); value != "" {
+		return value
+	}
+	candidates := []string{
+		"/opt/celestia/sdk/lib/arm64",
+		filepath.Join("plugins", "hikvision", "sdk", "lib", "arm64"),
+		filepath.Join("sdk", "lib", "arm64"),
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
+		}
+	}
+	return "/opt/celestia/sdk/lib/arm64"
 }
 
 func readEntryMaps(cfg map[string]any) ([]map[string]any, error) {
@@ -102,7 +115,7 @@ func readEntryMaps(cfg map[string]any) ([]map[string]any, error) {
 	return []map[string]any{cfg}, nil
 }
 
-func parseEntryConfig(raw map[string]any, idx int, backendDefault string) (CameraConfig, error) {
+func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (CameraConfig, error) {
 	host := strings.TrimSpace(pluginutil.String(raw["host"], ""))
 	username := strings.TrimSpace(pluginutil.String(raw["username"], ""))
 	password := pluginutil.String(raw["password"], "")
@@ -140,12 +153,16 @@ func parseEntryConfig(raw map[string]any, idx int, backendDefault string) (Camer
 		ptzStepMS = defaultPTZStepMS
 	}
 
-	backendBaseURL := strings.TrimSpace(pluginutil.String(raw["backend_base_url"], ""))
-	if backendBaseURL == "" {
-		backendBaseURL = backendDefault
+	sdkLibDir := strings.TrimSpace(pluginutil.String(raw["sdk_lib_dir"], ""))
+	sdkLibDirOverride := strings.TrimSpace(pluginutil.String(raw["sdk_lib_dir_override"], ""))
+	switch {
+	case sdkLibDirOverride != "":
+		sdkLibDir = sdkLibDirOverride
+	case sdkLibDir == "":
+		sdkLibDir = sdkLibDefault
 	}
-	if backendBaseURL == "" {
-		return CameraConfig{}, fmt.Errorf("entries[%d].backend_base_url is required", idx)
+	if strings.TrimSpace(sdkLibDir) == "" {
+		return CameraConfig{}, fmt.Errorf("entries[%d].sdk_lib_dir is required", idx)
 	}
 
 	name := strings.TrimSpace(pluginutil.String(raw["name"], ""))
@@ -154,18 +171,17 @@ func parseEntryConfig(raw map[string]any, idx int, backendDefault string) (Camer
 	}
 
 	entry := CameraConfig{
-		Name:              name,
-		Host:              host,
-		Port:              port,
-		Username:          username,
-		Password:          password,
-		Channel:           channel,
-		RTSPPort:          rtspPort,
-		RTSPPath:          rtspPath,
-		PTZDefaultSpeed:   ptzSpeed,
-		PTZStepMS:         ptzStepMS,
-		BackendBaseURL:    backendBaseURL,
-		SDKLibDirOverride: strings.TrimSpace(pluginutil.String(raw["sdk_lib_dir_override"], "")),
+		Name:            name,
+		Host:            host,
+		Port:            port,
+		Username:        username,
+		Password:        password,
+		Channel:         channel,
+		RTSPPort:        rtspPort,
+		RTSPPath:        rtspPath,
+		PTZDefaultSpeed: ptzSpeed,
+		PTZStepMS:       ptzStepMS,
+		SDKLibDir:       sdkLibDir,
 	}
 	return entry, nil
 }

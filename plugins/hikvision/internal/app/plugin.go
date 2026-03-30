@@ -16,7 +16,7 @@ import (
 
 const (
 	pluginID      = "hikvision"
-	pluginVersion = "0.1.0"
+	pluginVersion = "0.2.0"
 )
 
 type Plugin struct {
@@ -34,7 +34,7 @@ type Plugin struct {
 type entryRuntime struct {
 	Config    CameraConfig
 	Device    models.Device
-	Client    *backendClient
+	Client    cameraClient
 	LastState models.DeviceStateSnapshot
 	Connected bool
 	LastError string
@@ -62,6 +62,7 @@ func (p *Plugin) Manifest() models.PluginManifest {
 			"real_lan_sdk",
 			"ptz",
 			"playback",
+			"recordings",
 		},
 		DeviceKinds: []models.DeviceKind{models.DeviceKindCameraLike},
 	}
@@ -82,11 +83,11 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	deviceIndex := make(map[string]string, len(parsed.Entries))
 	for _, item := range parsed.Entries {
 		device := buildDevice(item)
-		snapshot := buildState(item, backendStatus{Connected: false}, "not connected")
+		snapshot := buildState(item, cameraStatus{Connected: false}, "not connected")
 		entry := &entryRuntime{
 			Config:    item,
 			Device:    device,
-			Client:    newBackendClient(item.BackendBaseURL),
+			Client:    newCameraClient(),
 			LastState: snapshot,
 			Connected: false,
 			LastError: "not connected",
@@ -106,7 +107,7 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 
 	for _, runtime := range previous {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		_ = runtime.Client.Disconnect(ctx, runtime.Config.EntryID)
+		_ = runtime.Client.Disconnect(ctx)
 		cancel()
 	}
 	return nil
@@ -159,9 +160,9 @@ func (p *Plugin) Stop(_ context.Context) error {
 	runtimes := p.entryRuntimes()
 	for _, runtime := range runtimes {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = runtime.Client.Disconnect(ctx, runtime.Config.EntryID)
+		_ = runtime.Client.Disconnect(ctx)
 		cancel()
-		state := buildState(runtime.Config, backendStatus{Connected: false}, "plugin stopped")
+		state := buildState(runtime.Config, cameraStatus{Connected: false}, "plugin stopped")
 		p.applyState(runtime.Config.EntryID, state, true)
 	}
 	p.setLastError("")
@@ -313,14 +314,14 @@ func (p *Plugin) refreshEntry(ctx context.Context, entryID string) error {
 
 	if !connected {
 		if _, err := client.Connect(ctx, cfg); err != nil {
-			state := buildState(cfg, backendStatus{Connected: false}, err.Error())
+			state := buildState(cfg, cameraStatus{Connected: false}, err.Error())
 			p.applyState(entryID, state, true)
 			return err
 		}
 	}
-	status, err := client.Status(ctx, cfg.EntryID)
+	status, err := client.Status(ctx)
 	if err != nil {
-		state := buildState(cfg, backendStatus{Connected: false}, err.Error())
+		state := buildState(cfg, cameraStatus{Connected: false}, err.Error())
 		p.applyState(entryID, state, true)
 		return err
 	}
