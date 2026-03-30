@@ -9,11 +9,10 @@ test:
 build:
 	mkdir -p bin
 	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/gateway ./cmd/gateway
-	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/xiaomi-plugin ./plugins/xiaomi/cmd/xiaomi-plugin
-	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/petkit-plugin ./plugins/petkit/cmd/petkit-plugin
-	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/haier-plugin ./plugins/haier/cmd/haier-plugin
-	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/hikvision-plugin ./plugins/hikvision/cmd/hikvision-plugin
-	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/hikvision-plugin-docker ./cmd/hikvision-plugin-docker
+	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/xiaomi-plugin ./plugins/xiaomi/cmd
+	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/petkit-plugin ./plugins/petkit/cmd
+	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/haier-plugin ./plugins/haier/cmd
+	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/hikvision-plugin ./plugins/hikvision/cmd
 
 build-web:
 	npm run build --workspace web/admin

@@ -160,7 +160,7 @@ func BuiltinCatalog() []models.CatalogPlugin {
 			ID:          "hikvision",
 			Name:        "Hikvision EZVIZ Plugin",
 			Description: "Hikvision/EZVIZ local-LAN HCNetSDK integration with PTZ, playback, and recording timeline support through a containerized plugin runtime.",
-			BinaryName:  "hikvision-plugin-docker",
+			BinaryName:  "hikvision-plugin",
 			Manifest: models.PluginManifest{
 				ID:           "hikvision",
 				Name:         "Hikvision EZVIZ Plugin",

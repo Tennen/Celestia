@@ -23,11 +23,10 @@ COPY proto ./proto
 RUN target_os="${TARGETOS:-$(go env GOOS)}"; \
     target_arch="${TARGETARCH:-$(go env GOARCH)}"; \
     CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/gateway ./cmd/gateway && \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/xiaomi-plugin ./plugins/xiaomi/cmd/xiaomi-plugin && \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/petkit-plugin ./plugins/petkit/cmd/petkit-plugin && \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/haier-plugin ./plugins/haier/cmd/haier-plugin && \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/hikvision-plugin ./plugins/hikvision/cmd/hikvision-plugin && \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/hikvision-plugin-docker ./cmd/hikvision-plugin-docker
+    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/xiaomi-plugin ./plugins/xiaomi/cmd && \
+    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/petkit-plugin ./plugins/petkit/cmd && \
+    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/haier-plugin ./plugins/haier/cmd && \
+    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/hikvision-plugin ./plugins/hikvision/cmd
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libstdc++6 libgcc-s1 && rm -rf /var/lib/apt/lists/*

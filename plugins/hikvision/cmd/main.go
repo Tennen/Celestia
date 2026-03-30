@@ -13,9 +13,15 @@ import (
 	"syscall"
 
 	"github.com/chentianyu/celestia/internal/coreapi"
+	"github.com/chentianyu/celestia/internal/pluginruntime"
+	"github.com/chentianyu/celestia/plugins/hikvision/internal/app"
 )
 
-const defaultImage = "celestia-hikvision-plugin:latest"
+const (
+	defaultImage = "celestia-hikvision-plugin:latest"
+	modeEnv      = "CELESTIA_HIKVISION_PLUGIN_MODE"
+	modeServer   = "server"
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -24,6 +30,14 @@ func main() {
 }
 
 func run() error {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv(modeEnv)))
+	if mode == modeServer {
+		return pluginruntime.Serve(app.New())
+	}
+	return runLauncher()
+}
+
+func runLauncher() error {
 	pluginPort := strings.TrimSpace(os.Getenv("CELESTIA_PLUGIN_PORT"))
 	if pluginPort == "" {
 		return errors.New("CELESTIA_PLUGIN_PORT is required")
@@ -78,6 +92,7 @@ func buildDockerArgs(pluginPort, containerName, image string) []string {
 	args = append(args,
 		"-e", "CELESTIA_PLUGIN_PORT="+pluginPort,
 		"-e", "CELESTIA_PLUGIN_BIND_HOST=0.0.0.0",
+		"-e", modeEnv+"="+modeServer,
 	)
 	if coreAddr := strings.TrimSpace(os.Getenv(coreapi.EnvCoreAddr)); coreAddr != "" {
 		args = append(args, "-e", coreapi.EnvCoreAddr+"="+remapCoreAddr(coreAddr))

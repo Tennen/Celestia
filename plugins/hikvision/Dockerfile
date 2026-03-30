@@ -14,7 +14,7 @@ COPY plugins ./plugins
 COPY proto ./proto
 RUN target_os="${TARGETOS:-$(go env GOOS)}"; \
     target_arch="${TARGETARCH:-$(go env GOARCH)}"; \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -tags hikvision_sdk -o /out/hikvision-plugin ./plugins/hikvision/cmd/hikvision-plugin
+    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -tags hikvision_sdk -o /out/hikvision-plugin ./plugins/hikvision/cmd
 
 FROM debian:bookworm-slim
 
@@ -31,5 +31,6 @@ COPY plugins/hikvision/sdk/lib/arm64 /opt/celestia/sdk/lib/arm64
 
 ENV CELESTIA_HIKVISION_SDK_LIB_DIR=/opt/celestia/sdk/lib/arm64
 ENV LD_LIBRARY_PATH=/opt/celestia/sdk/lib/arm64:/opt/celestia/sdk/lib/arm64/HCNetSDKCom
+ENV CELESTIA_HIKVISION_PLUGIN_MODE=server
 
 ENTRYPOINT ["/opt/celestia/bin/hikvision-plugin"]
