@@ -150,7 +150,11 @@ func Serve(adapter Adapter) error {
 	if port == "" {
 		return errors.New("CELESTIA_PLUGIN_PORT is required")
 	}
-	addr := "127.0.0.1:" + port
+	bindHost := os.Getenv("CELESTIA_PLUGIN_BIND_HOST")
+	if bindHost == "" {
+		bindHost = "127.0.0.1"
+	}
+	addr := net.JoinHostPort(bindHost, port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", addr, err)
@@ -170,4 +174,3 @@ func NewHealth(pluginID, version string, status models.HealthState, message stri
 		Manifest:  version,
 	}
 }
-

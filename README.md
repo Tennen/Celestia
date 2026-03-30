@@ -8,12 +8,14 @@ Celestia is a monorepo for a process-isolated home gateway written in Go with a 
 - Phase 1: Xiaomi MIoT cloud integration with multi-account, multi-region, aquarium control, and speaker text push
 - Phase 2: Petkit cloud integration with feeder/litter/fountain support
 - Phase 3: Haier hOn washer integration with model capability matrices
+- Phase 4: Hikvision/EZVIZ local LAN integration with HCNetSDK PTZ and playback
 
 ## Local Commands
 
 ```bash
 go test ./...
 make build
+make docker-build-hikvision
 npm run build --workspace web/admin
 CELESTIA_ADDR=127.0.0.1:8080 ./bin/gateway
 go run ./cmd/celctl dashboard
@@ -30,6 +32,7 @@ Each vendor plugin now expects real cloud credentials. The admin UI ships JSON t
 - Petkit: `username`, `password`, `region`, `timezone`
 - Petkit: optional `compat` overrides for `passport_base_url`, `china_base_url`, `api_version`, `client_header`, `user_agent`, and related app-signature fields when Petkit changes its mobile app contract
 - Haier: `email`, `password` or `refresh_token`, plus optional `mobile_id` and `timezone`
+- Hikvision: `entries[]` with `host`, `port`, `username`, `password`, `channel`, and optional `rtsp_*` / `ptz_*` / `backend_base_url`
 
 If credentials are missing or invalid, plugin enablement fails explicitly instead of falling back to demo devices.
 
@@ -90,10 +93,44 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
   - then a single-device refresh reloads attributes/statistics/maintenance for the targeted washer
 - State-change events are emitted on explicit single-device refresh paths, such as post-command refreshes. The background poll keeps the plugin's internal cache fresh but does not currently emit per-device change events for every polling diff.
 
+### Hikvision EZVIZ (Containerized)
+
+- The Hikvision plugin uses HCNetSDK arm64 shared libraries and runs as a dedicated Docker container launched by Core through `hikvision-plugin-docker`.
+- Gateway still interacts with it through the same gRPC plugin protocol; the docker launcher only wraps process startup.
+- Build plugin image from repository root:
+
+```bash
+docker build -f plugins/hikvision/Dockerfile -t celestia-hikvision-plugin:latest .
+```
+
+- Optional gateway-side environment variables:
+  - `CELESTIA_HIKVISION_DOCKER_IMAGE` (default `celestia-hikvision-plugin:latest`)
+  - `CELESTIA_HIKVISION_DOCKER_PLATFORM` (for example `linux/arm64`)
+  - `CELESTIA_HIKVISION_DOCKER_NETWORK` (for example `bridge` or `host`)
+- Plugin config draft example:
+
+```json
+{
+  "entries": [
+    {
+      "name": "front-door",
+      "host": "192.168.1.100",
+      "port": 8000,
+      "username": "admin",
+      "password": "<hikvision-password>",
+      "channel": 1
+    }
+  ],
+  "poll_interval_seconds": 30
+}
+```
+- The plugin polls backend status, maps each configured camera entry to `camera_like`, supports PTZ movement and playback commands, and emits state/command events back to Core.
+
 ## Repository Layout
 
 - `cmd/gateway`: gateway entrypoint that wires SQLite storage, runtime reconciliation, HTTP API, and graceful shutdown.
 - `cmd/celctl`: agent-oriented CLI built on Cobra with a structured subcommand surface for plugins/devices/events/audits and normalized command dispatch.
+- `cmd/hikvision-plugin-docker`: host-side launcher that starts the Hikvision plugin container while preserving the standard Core plugin process contract.
 - `internal/api/http`: the only supported admin and external control surface. It serves device, plugin, audit, event, and OAuth endpoints.
 - `internal/core`: Core runtime services for plugin management, registry, state, audit, policy, event bus, quick-control modeling, and Xiaomi OAuth orchestration.
 - `internal/coreapi`: Core-owned gRPC helpers that plugins use for approved back-calls such as config persistence.
@@ -106,6 +143,7 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
 - `plugins/xiaomi`: Xiaomi MIoT plugin process. `internal/app` owns plugin RPC behavior, `internal/cloud` owns cloud auth and MIoT requests, `internal/mapper` turns MIoT models into unified capabilities, and `internal/spec` caches MIoT spec data.
 - `plugins/petkit`: Petkit plugin process. `internal/app` contains auth, sync, mapping, command dispatch, BLE relay handling, and runtime config persistence.
 - `plugins/haier`: Haier hOn plugin process. `internal/app` contains auth, appliance discovery, capability derivation, command mapping, refresh, and token persistence.
+- `plugins/hikvision`: Hikvision/EZVIZ plugin process. `internal/app` hosts config validation, LAN backend orchestration, state polling, PTZ/playback command mapping, and runtime events. `plugins/hikvision/Dockerfile` packages the HCNetSDK backend runtime.
 - `proto`: plugin protocol definition.
 - `web/admin`: Vite/React admin console that consumes only the gateway HTTP API.
 - `docs`: repository Markdown docs, including API references.

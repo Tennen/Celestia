@@ -156,5 +156,51 @@ func BuiltinCatalog() []models.CatalogPlugin {
 				DeviceKinds: []models.DeviceKind{models.DeviceKindWasher},
 			},
 		},
+		{
+			ID:          "hikvision",
+			Name:        "Hikvision EZVIZ Plugin",
+			Description: "Hikvision/EZVIZ local-LAN HCNetSDK integration with PTZ, playback, and recording timeline support through a containerized plugin runtime.",
+			BinaryName:  "hikvision-plugin-docker",
+			Manifest: models.PluginManifest{
+				ID:           "hikvision",
+				Name:         "Hikvision EZVIZ Plugin",
+				Version:      "0.1.0",
+				Vendor:       "hikvision",
+				Capabilities: []string{"discover", "state", "command", "events", "real_lan_sdk", "ptz", "playback", "recordings"},
+				ConfigSchema: map[string]any{
+					"type": "object",
+					"default": map[string]any{
+						"entries": []map[string]any{
+							{
+								"name":                 "front-door",
+								"host":                 "192.168.1.100",
+								"port":                 8000,
+								"username":             "admin",
+								"password":             "<hikvision-password>",
+								"channel":              1,
+								"rtsp_port":            554,
+								"rtsp_path":            "/Streaming/Channels/{channel}01",
+								"ptz_default_speed":    4,
+								"ptz_step_ms":          400,
+								"backend_base_url":     "http://127.0.0.1:8099",
+								"sdk_lib_dir_override": "<optional-sdk-lib-dir-override>",
+							},
+						},
+						"poll_interval_seconds": 30,
+					},
+					"properties": map[string]any{
+						"entries": map[string]any{
+							"type":        "array",
+							"description": "Real Hikvision/EZVIZ LAN camera entries. The plugin requires host, port, username, password, and channel for each camera.",
+						},
+						"poll_interval_seconds": map[string]any{
+							"type":    "number",
+							"default": 30,
+						},
+					},
+				},
+				DeviceKinds: []models.DeviceKind{models.DeviceKindCameraLike},
+			},
+		},
 	}
 }
