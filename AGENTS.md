@@ -26,6 +26,7 @@ Do not optimize for demos, placeholders, transitional adapters, or "temporary" p
 - No code file may exceed 500 lines.
 - When an existing file grows near this limit, split it by responsibility before adding more logic.
 - New code must be organized into reasonably scoped modules instead of extending large catch-all files.
+- For large-scope changes, use module-scoped incremental commits by default; only skip this when the change cannot be reasonably covered by small-step commits.
 
 ## Repository Architecture Pattern
 
