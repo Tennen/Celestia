@@ -101,7 +101,7 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
 - Build plugin image from repository root:
 
 ```bash
-docker build -f plugins/hikvision/Dockerfile -t celestia-hikvision-plugin:latest .
+docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t celestia-hikvision-plugin:latest .
 ```
 
 - Optional gateway-side environment variables:

@@ -1,9 +1,4 @@
-ARG TARGETOS
-ARG TARGETARCH
-
-FROM golang:1.23-bookworm AS go-builder
-ARG TARGETOS
-ARG TARGETARCH
+FROM --platform=linux/arm64 golang:1.23-bookworm AS go-builder
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -12,11 +7,9 @@ COPY cmd ./cmd
 COPY internal ./internal
 COPY plugins ./plugins
 COPY proto ./proto
-RUN target_os="${TARGETOS:-$(go env GOOS)}"; \
-    target_arch="${TARGETARCH:-$(go env GOARCH)}"; \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -tags hikvision_sdk -o /out/hikvision-plugin ./plugins/hikvision/cmd
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -tags hikvision_sdk -o /out/hikvision-plugin ./plugins/hikvision/cmd
 
-FROM debian:bookworm-slim
+FROM --platform=linux/arm64 debian:bookworm-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

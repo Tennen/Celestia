@@ -3,7 +3,7 @@
 package app
 
 /*
-#cgo CFLAGS: -std=c11 -D_GNU_SOURCE -I${SRCDIR}/../../sdk/include
+#cgo CFLAGS: -std=c11 -D_GNU_SOURCE
 #cgo LDFLAGS: -ldl
 
 #include <dlfcn.h>
@@ -12,7 +12,7 @@ package app
 #include <stdlib.h>
 #include <string.h>
 
-#include "HCNetSDK.h"
+#include "hcnet_types_compat.h"
 
 typedef BOOL (*fn_NET_DVR_Init)(void);
 typedef BOOL (*fn_NET_DVR_Cleanup)(void);
