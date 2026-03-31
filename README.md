@@ -98,6 +98,7 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
 - The Hikvision plugin uses HCNetSDK arm64 shared libraries.
 - On `linux/arm64`, Celestia now installs and runs `hikvision-plugin` like the other plugins. The root `make build` target and root `Dockerfile` build an SDK-enabled binary for that platform and expose the bundled SDK under `/opt/celestia/sdk/lib/arm64` in the gateway image.
 - On non-`linux/arm64` environments, the same install flow still works, but `hikvision-plugin` falls back to launcher mode and starts the dedicated Hikvision Docker runtime.
+- Hikvision device identity is now derived from `host` + `port` + `channel`, so renaming an entry updates the existing device instead of leaving the old name behind as a stale row.
 - The standalone Docker runtime remains available. `plugins/hikvision/Dockerfile` still builds the server-mode image for independent container execution, and `CELESTIA_HIKVISION_PLUGIN_MODE=launcher` can be used to force the Docker path even on `linux/arm64`.
 - Build the standalone plugin image from repository root:
 

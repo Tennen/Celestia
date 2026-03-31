@@ -10,6 +10,7 @@ import (
 
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginapi"
+	"github.com/chentianyu/celestia/internal/storage"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -23,8 +24,17 @@ func (m *Manager) syncDevices(ctx context.Context, runtime *managedPlugin) error
 	if err := pluginapi.DecodeList(list, &devices); err != nil {
 		return err
 	}
+	existing, err := m.registry.List(ctx, storage.DeviceFilter{PluginID: runtime.record.PluginID})
+	if err != nil {
+		return err
+	}
 	if err := m.registry.Upsert(ctx, devices); err != nil {
 		return err
+	}
+	if removedIDs := missingDeviceIDs(existing, devices); len(removedIDs) > 0 {
+		if err := m.registry.DeleteIDs(ctx, removedIDs); err != nil {
+			return err
+		}
 	}
 	for _, device := range devices {
 		event := models.Event{
@@ -62,6 +72,20 @@ func (m *Manager) syncDevices(ctx context.Context, runtime *managedPlugin) error
 		}
 	}
 	return nil
+}
+
+func missingDeviceIDs(existing, discovered []models.Device) []string {
+	seen := make(map[string]struct{}, len(discovered))
+	for _, device := range discovered {
+		seen[device.ID] = struct{}{}
+	}
+	out := make([]string, 0, len(existing))
+	for _, device := range existing {
+		if _, ok := seen[device.ID]; !ok {
+			out = append(out, device.ID)
+		}
+	}
+	return out
 }
 
 func (m *Manager) consumeEvents(ctx context.Context, runtime *managedPlugin) {

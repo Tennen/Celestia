@@ -36,3 +36,6 @@ func (s *Service) DeleteByPlugin(ctx context.Context, pluginID string) error {
 	return s.store.DeleteDevicesByPlugin(ctx, pluginID)
 }
 
+func (s *Service) DeleteIDs(ctx context.Context, deviceIDs []string) error {
+	return s.store.DeleteDevices(ctx, deviceIDs)
+}

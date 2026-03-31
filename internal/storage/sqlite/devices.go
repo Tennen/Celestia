@@ -101,6 +101,24 @@ func (s *Store) DeleteDevicesByPlugin(ctx context.Context, pluginID string) erro
 	return err
 }
 
+func (s *Store) DeleteDevices(ctx context.Context, deviceIDs []string) error {
+	for _, deviceID := range deviceIDs {
+		if _, err := s.db.ExecContext(ctx, `delete from device_control_preferences where device_id = ?`, deviceID); err != nil {
+			return err
+		}
+		if _, err := s.db.ExecContext(ctx, `delete from device_preferences where device_id = ?`, deviceID); err != nil {
+			return err
+		}
+		if _, err := s.db.ExecContext(ctx, `delete from device_states where device_id = ?`, deviceID); err != nil {
+			return err
+		}
+		if _, err := s.db.ExecContext(ctx, `delete from devices where device_id = ?`, deviceID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Store) UpsertDevicePreference(ctx context.Context, pref models.DevicePreference) error {
 	alias := strings.TrimSpace(pref.Alias)
 	if alias == "" {

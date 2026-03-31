@@ -54,3 +54,44 @@ func TestParseConfig_RequiresCredentials(t *testing.T) {
 		t.Fatal("expected parseConfig to fail without credentials")
 	}
 }
+
+func TestParseConfig_RenameKeepsStableIdentity(t *testing.T) {
+	first, err := parseConfig(map[string]any{
+		"entries": []any{
+			map[string]any{
+				"name":     "Front Door",
+				"host":     "192.168.1.10",
+				"port":     8000,
+				"channel":  1,
+				"username": "admin",
+				"password": "secret",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("first parseConfig() error = %v", err)
+	}
+
+	second, err := parseConfig(map[string]any{
+		"entries": []any{
+			map[string]any{
+				"name":     "Driveway",
+				"host":     "192.168.1.10",
+				"port":     8000,
+				"channel":  1,
+				"username": "admin",
+				"password": "secret",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("second parseConfig() error = %v", err)
+	}
+
+	if first.Entries[0].EntryID != second.Entries[0].EntryID {
+		t.Fatalf("entry id changed after rename: %q -> %q", first.Entries[0].EntryID, second.Entries[0].EntryID)
+	}
+	if first.Entries[0].DeviceID != second.Entries[0].DeviceID {
+		t.Fatalf("device id changed after rename: %q -> %q", first.Entries[0].DeviceID, second.Entries[0].DeviceID)
+	}
+}

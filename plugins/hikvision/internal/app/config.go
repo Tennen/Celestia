@@ -190,7 +190,10 @@ func assignEntryIDs(entries []CameraConfig) {
 	usedEntries := map[string]int{}
 	usedDevices := map[string]int{}
 	for idx := range entries {
-		base := sanitizeID(entries[idx].Name)
+		base := sanitizeID(fmt.Sprintf("%s-%d-ch%d", entries[idx].Host, entries[idx].Port, entries[idx].Channel))
+		if base == "" {
+			base = sanitizeID(entries[idx].Name)
+		}
 		if base == "" {
 			base = fmt.Sprintf("camera-%d", idx+1)
 		}
