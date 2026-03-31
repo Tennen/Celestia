@@ -137,6 +137,9 @@ func (p *Plugin) Start(ctx context.Context) error {
 		p.mu.Unlock()
 	}
 
+	// Start WebSocket listeners after initial device discovery.
+	p.startWSSListeners(runCtx)
+
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
@@ -150,6 +153,12 @@ func (p *Plugin) Start(ctx context.Context) error {
 					p.lastError = err.Error()
 					p.mu.Unlock()
 				}
+				// Slow down polling when WSS is delivering real-time updates.
+				next := interval
+				if p.allWSSConnected() {
+					next = 5 * time.Minute
+				}
+				ticker.Reset(next)
 			}
 		}
 	}()
@@ -164,6 +173,7 @@ func (p *Plugin) Stop(_ context.Context) error {
 	}
 	p.started = false
 	p.polling = false
+	// WSS listeners are stopped via context cancellation (runCtx.Done).
 	return nil
 }
 

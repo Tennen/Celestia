@@ -82,6 +82,15 @@ func generateNonce() string {
 	return strings.ReplaceAll(raw, "--", "-")
 }
 
+func randomHex(n int) string {
+	const chars = "abcdef0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = chars[time.Now().UnixNano()%int64(len(chars))]
+	}
+	return string(b)
+}
+
 func timezoneOffset(timezone string) string {
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {

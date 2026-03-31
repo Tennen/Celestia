@@ -73,6 +73,7 @@ type accountRuntime struct {
 	LastError   string
 	LoggedIn    bool
 	LastRefresh time.Time
+	WSS         *wssListener
 }
 
 type applianceRuntime struct {

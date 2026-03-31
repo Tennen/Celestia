@@ -60,6 +60,7 @@ type accountRuntime struct {
 	devices  map[string]deviceSnapshot
 	lastErr  error
 	lastSync time.Time
+	mqtt     *mqttListener
 }
 
 type Plugin struct {

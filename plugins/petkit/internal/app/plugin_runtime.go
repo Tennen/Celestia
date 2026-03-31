@@ -22,6 +22,9 @@ func (p *Plugin) Start(ctx context.Context) error {
 	p.started = true
 	p.mu.Unlock()
 
+	// Start MQTT listeners for each account (best-effort; polling is the fallback).
+	p.startMQTTListeners(runCtx)
+
 	go p.pollLoop(runCtx, interval)
 	return nil
 }
@@ -33,6 +36,13 @@ func (p *Plugin) Stop(_ context.Context) error {
 		p.cancel()
 	}
 	p.started = false
+	// Stop all MQTT listeners.
+	for _, runtime := range p.runtimes {
+		if runtime.mqtt != nil {
+			runtime.mqtt.stop()
+			runtime.mqtt = nil
+		}
+	}
 	return nil
 }
 
@@ -145,6 +155,13 @@ func (p *Plugin) pollLoop(ctx context.Context, interval time.Duration) {
 		if err := p.refreshAll(ctx); err != nil {
 			p.setLastGlobalError(err)
 		}
+		// Adjust next tick based on MQTT connectivity.
+		next := interval
+		if p.allMQTTConnected() {
+			// MQTT is pushing updates; poll infrequently as a fallback.
+			next = 5 * time.Minute
+		}
+		ticker.Reset(next)
 		select {
 		case <-ctx.Done():
 			return
