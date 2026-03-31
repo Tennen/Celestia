@@ -107,9 +107,7 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 	}
 
 	// Create WebRTC PeerConnection with default codecs registered.
-	// webrtc.NewPeerConnection uses a shared default MediaEngine that has no
-	// codecs registered; we must build our own API with RegisterDefaultCodecs
-	// so that SetRemoteDescription can match the browser's offered codecs.
+	// Each session gets its own MediaEngine so codec state is isolated.
 	me := &webrtc.MediaEngine{}
 	if err := me.RegisterDefaultCodecs(); err != nil {
 		client.Close()
@@ -122,24 +120,8 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 		return "", "", fmt.Errorf("failed to create PeerConnection: %w", err)
 	}
 
-	// Add video track
-	videoTrack, err := addWebRTCVideoTrack(pc, videoFmt)
-	if err != nil {
-		_ = pc.Close()
-		client.Close()
-		return "", "", fmt.Errorf("failed to add video track: %w", err)
-	}
-
-	// Add audio track if present
-	var audioTrack *webrtc.TrackLocalStaticRTP
-	if audioMedia != nil && audioFmt != nil {
-		audioTrack, _ = addWebRTCAudioTrack(pc, audioFmt)
-		// Audio failure is non-fatal
-	}
-
-	// Set remote description from SDP offer first (required before CreateAnswer).
-	// Normalize line endings: some transport layers may strip \r, leaving bare \n.
-	// RFC 4566 requires \r\n but pion's SDP parser accepts both.
+	// Set remote description FIRST so pion knows what codecs the browser supports.
+	// Normalize line endings in case \r was lost during transport.
 	normalizedOffer := strings.ReplaceAll(sdpOffer, "\r\n", "\n")
 	normalizedOffer = strings.ReplaceAll(normalizedOffer, "\r", "\n")
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{
@@ -149,6 +131,21 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 		_ = pc.Close()
 		client.Close()
 		return "", "", fmt.Errorf("failed to set remote description: %w", err)
+	}
+
+	// Add tracks AFTER SetRemoteDescription so pion can match them against the
+	// negotiated codecs from the offer. The MimeType must match what the browser
+	// offered; H.264 and H.265 are both in the browser's offer above.
+	videoTrack, err := addWebRTCVideoTrack(pc, videoFmt)
+	if err != nil {
+		_ = pc.Close()
+		client.Close()
+		return "", "", fmt.Errorf("failed to add video track: %w", err)
+	}
+
+	var audioTrack *webrtc.TrackLocalStaticRTP
+	if audioMedia != nil && audioFmt != nil {
+		audioTrack, _ = addWebRTCAudioTrack(pc, audioFmt)
 	}
 
 	// Produce SDP answer with 10s timeout.
