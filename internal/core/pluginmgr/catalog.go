@@ -159,7 +159,7 @@ func BuiltinCatalog() []models.CatalogPlugin {
 		{
 			ID:          "hikvision",
 			Name:        "Hikvision EZVIZ Plugin",
-			Description: "Hikvision/EZVIZ local-LAN HCNetSDK integration with PTZ, playback, and recording timeline support through a containerized plugin runtime.",
+			Description: "Hikvision/EZVIZ local-LAN HCNetSDK integration with PTZ, playback, and recording timeline support. Celestia runs it natively on linux/arm64 and falls back to a Dockerized runtime on other platforms.",
 			BinaryName:  "hikvision-plugin",
 			Manifest: models.PluginManifest{
 				ID:           "hikvision",
@@ -167,10 +167,11 @@ func BuiltinCatalog() []models.CatalogPlugin {
 				Version:      "0.2.0",
 				Vendor:       "hikvision",
 				Capabilities: []string{"discover", "state", "command", "events", "real_lan_sdk", "ptz", "playback", "recordings"},
+				Metadata:     hikvisionCatalogMetadata(),
 				ConfigSchema: map[string]any{
 					"type": "object",
 					"default": map[string]any{
-						"sdk_lib_dir": "/opt/celestia/sdk/lib/arm64",
+						"sdk_lib_dir": hikvisionSDKLibDirDefault(),
 						"entries": []map[string]any{
 							{
 								"name":                 "front-door",
@@ -191,8 +192,8 @@ func BuiltinCatalog() []models.CatalogPlugin {
 					"properties": map[string]any{
 						"sdk_lib_dir": map[string]any{
 							"type":        "string",
-							"description": "Default HCNetSDK library directory in the plugin runtime container.",
-							"default":     "/opt/celestia/sdk/lib/arm64",
+							"description": "Default HCNetSDK library directory for the current gateway runtime. Native linux/arm64 installs use a local SDK path; Docker fallback uses the in-container path.",
+							"default":     hikvisionSDKLibDirDefault(),
 						},
 						"entries": map[string]any{
 							"type":        "array",

@@ -49,6 +49,30 @@ function extractXiaomiVerificationHint(errorText?: string | null) {
   };
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function extractHikvisionRuntimeHint(plugin: CatalogPlugin | null) {
+  if (plugin?.id !== 'hikvision' || !isObjectRecord(plugin.manifest.metadata)) {
+    return null;
+  }
+  const metadata = plugin.manifest.metadata;
+  const runtimeMode = typeof metadata.runtime_mode === 'string' ? metadata.runtime_mode : '';
+  const runtimePlatform = typeof metadata.runtime_platform === 'string' ? metadata.runtime_platform : '';
+  const nativePlatform = typeof metadata.native_platform === 'string' ? metadata.native_platform : 'linux/arm64';
+  const sdkLibDir = typeof metadata.sdk_lib_dir_default === 'string' ? metadata.sdk_lib_dir_default : '';
+  if (!runtimeMode || !runtimePlatform) {
+    return null;
+  }
+  return {
+    runtimeMode,
+    runtimePlatform,
+    nativePlatform,
+    sdkLibDir,
+  };
+}
+
 export function PluginWorkspace({
   catalog,
   plugins,
@@ -84,6 +108,7 @@ export function PluginWorkspace({
     selectedCatalogPlugin?.id === 'xiaomi'
       ? extractXiaomiVerificationHint(selectedPlugin?.last_error ?? selectedPlugin?.health.message)
       : null;
+  const hikvisionRuntimeHint = extractHikvisionRuntimeHint(selectedCatalogPlugin);
 
   return (
     <Section className="plugin-workspace">
@@ -172,6 +197,29 @@ export function PluginWorkspace({
                     <span>Devices</span>
                     <strong>{asArray(selectedCatalogPlugin.manifest.device_kinds).join(', ')}</strong>
                   </div>
+                  {hikvisionRuntimeHint ? (
+                    <div className="plugin-auth-guide">
+                      <div className="plugin-auth-guide__header">
+                        <Badge tone={hikvisionRuntimeHint.runtimeMode === 'native' ? 'good' : 'accent'}>
+                          {hikvisionRuntimeHint.runtimeMode === 'native' ? 'Native Runtime' : 'Docker Fallback'}
+                        </Badge>
+                        <strong>
+                          {hikvisionRuntimeHint.runtimeMode === 'native'
+                            ? 'This gateway installs Hikvision like the other plugins.'
+                            : 'This gateway keeps the normal install flow but runs Hikvision through Docker.'}
+                        </strong>
+                      </div>
+                      <p className="muted">
+                        Current platform <code>{hikvisionRuntimeHint.runtimePlatform}</code>. Native HCNetSDK runtime
+                        is enabled only on <code>{hikvisionRuntimeHint.nativePlatform}</code>.
+                      </p>
+                      {hikvisionRuntimeHint.sdkLibDir ? (
+                        <p className="muted">
+                          Default <code>sdk_lib_dir</code>: <code>{hikvisionRuntimeHint.sdkLibDir}</code>
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {selectedCatalogPlugin.id === 'xiaomi' ? (
                     <div className="plugin-auth-guide">
                       <div className="plugin-auth-guide__header">

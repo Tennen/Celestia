@@ -5,6 +5,57 @@ import (
 	"testing"
 )
 
+func TestResolvePluginMode(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		goos      string
+		goarch    string
+		sdk       bool
+		want      string
+	}{
+		{
+			name:   "native linux arm64 uses server mode",
+			goos:   "linux",
+			goarch: "arm64",
+			sdk:    true,
+			want:   modeServer,
+		},
+		{
+			name:   "non native falls back to launcher",
+			goos:   "darwin",
+			goarch: "arm64",
+			sdk:    false,
+			want:   modeLauncher,
+		},
+		{
+			name:      "explicit launcher override wins",
+			requested: modeLauncher,
+			goos:      "linux",
+			goarch:    "arm64",
+			sdk:       true,
+			want:      modeLauncher,
+		},
+		{
+			name:      "explicit server override wins",
+			requested: modeServer,
+			goos:      "darwin",
+			goarch:    "amd64",
+			sdk:       true,
+			want:      modeServer,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolvePluginMode(tt.requested, tt.goos, tt.goarch, tt.sdk)
+			if got != tt.want {
+				t.Fatalf("resolvePluginMode() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRemapCoreAddr(t *testing.T) {
 	got := remapCoreAddr("127.0.0.1:18080")
 	want := "host.docker.internal:18080"

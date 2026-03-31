@@ -12,7 +12,13 @@ build:
 	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/xiaomi-plugin ./plugins/xiaomi/cmd
 	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/petkit-plugin ./plugins/petkit/cmd
 	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/haier-plugin ./plugins/haier/cmd
-	GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/hikvision-plugin ./plugins/hikvision/cmd
+	target_os="$$(go env GOOS)"; \
+	target_arch="$$(go env GOARCH)"; \
+	if [ "$$target_os" = "linux" ] && [ "$$target_arch" = "arm64" ]; then \
+		GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -tags hikvision_sdk -o ./bin/hikvision-plugin ./plugins/hikvision/cmd; \
+	else \
+		GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE) go build -o ./bin/hikvision-plugin ./plugins/hikvision/cmd; \
+	fi
 
 build-web:
 	npm run build --workspace web/admin

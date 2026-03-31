@@ -26,12 +26,17 @@ RUN target_os="${TARGETOS:-$(go env GOOS)}"; \
     CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/xiaomi-plugin ./plugins/xiaomi/cmd && \
     CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/petkit-plugin ./plugins/petkit/cmd && \
     CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/haier-plugin ./plugins/haier/cmd && \
-    CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/hikvision-plugin ./plugins/hikvision/cmd
+    if [ "$target_os" = "linux" ] && [ "$target_arch" = "arm64" ]; then \
+        CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -tags hikvision_sdk -o /out/bin/hikvision-plugin ./plugins/hikvision/cmd; \
+    else \
+        CGO_ENABLED=1 GOOS="$target_os" GOARCH="$target_arch" go build -o /out/bin/hikvision-plugin ./plugins/hikvision/cmd; \
+    fi
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libstdc++6 libgcc-s1 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=go-builder /out/bin ./bin
+COPY plugins/hikvision/sdk/lib/arm64 /opt/celestia/sdk/lib/arm64
 COPY --from=web-builder /src/web/admin/dist ./web/admin/dist
 RUN mkdir -p /app/data
 ENV CELESTIA_ADDR=:8080

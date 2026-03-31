@@ -93,12 +93,13 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
   - then a single-device refresh reloads attributes/statistics/maintenance for the targeted washer
 - State-change events are emitted on explicit single-device refresh paths, such as post-command refreshes. The background poll keeps the plugin's internal cache fresh but does not currently emit per-device change events for every polling diff.
 
-### Hikvision EZVIZ (Containerized)
+### Hikvision EZVIZ (Native on linux/arm64, Docker fallback elsewhere)
 
-- The Hikvision plugin uses HCNetSDK arm64 shared libraries and runs as a dedicated Docker container launched by Core through `hikvision-plugin`.
-- Gateway still interacts with it through the same gRPC plugin protocol; `hikvision-plugin` runs in launcher mode on host and server mode in the container.
-- Root `make build` / root `Dockerfile` build `hikvision-plugin` in launcher mode, while `plugins/hikvision/Dockerfile` builds the same binary with SDK support for in-container server mode.
-- Build plugin image from repository root:
+- The Hikvision plugin uses HCNetSDK arm64 shared libraries.
+- On `linux/arm64`, Celestia now installs and runs `hikvision-plugin` like the other plugins. The root `make build` target and root `Dockerfile` build an SDK-enabled binary for that platform and expose the bundled SDK under `/opt/celestia/sdk/lib/arm64` in the gateway image.
+- On non-`linux/arm64` environments, the same install flow still works, but `hikvision-plugin` falls back to launcher mode and starts the dedicated Hikvision Docker runtime.
+- The standalone Docker runtime remains available. `plugins/hikvision/Dockerfile` still builds the server-mode image for independent container execution, and `CELESTIA_HIKVISION_PLUGIN_MODE=launcher` can be used to force the Docker path even on `linux/arm64`.
+- Build the standalone plugin image from repository root:
 
 ```bash
 docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t celestia-hikvision-plugin:latest .
@@ -108,7 +109,8 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
   - `CELESTIA_HIKVISION_DOCKER_IMAGE` (default `celestia-hikvision-plugin:latest`)
   - `CELESTIA_HIKVISION_DOCKER_PLATFORM` (for example `linux/arm64`)
   - `CELESTIA_HIKVISION_DOCKER_NETWORK` (for example `bridge` or `host`)
-  - `CELESTIA_HIKVISION_SDK_LIB_DIR` (optional override for SDK library directory inside container)
+  - `CELESTIA_HIKVISION_SDK_LIB_DIR` (optional override for the HCNetSDK library directory used by the current runtime)
+  - `CELESTIA_HIKVISION_PLUGIN_MODE` (`launcher` to force Docker fallback, `server` only for native linux/arm64 SDK builds or the standalone plugin container)
 - Plugin config draft example:
 
 ```json
@@ -145,7 +147,7 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
 - `plugins/xiaomi`: Xiaomi MIoT plugin process. `internal/app` owns plugin RPC behavior, `internal/cloud` owns cloud auth and MIoT requests, `internal/mapper` turns MIoT models into unified capabilities, and `internal/spec` caches MIoT spec data.
 - `plugins/petkit`: Petkit plugin process. `internal/app` contains auth, sync, mapping, command dispatch, BLE relay handling, and runtime config persistence.
 - `plugins/haier`: Haier hOn plugin process. `internal/app` contains auth, appliance discovery, capability derivation, command mapping, refresh, and token persistence.
-- `plugins/hikvision`: Hikvision/EZVIZ plugin process. `cmd/main.go` is the single plugin entrypoint and switches between launcher mode (host) and RPC server mode (container) by environment. `internal/app` hosts config validation, direct HCNetSDK lifecycle/login/command handling, state polling, PTZ/playback command mapping, and runtime events. `plugins/hikvision/Dockerfile` packages the HCNetSDK runtime.
+- `plugins/hikvision`: Hikvision/EZVIZ plugin process. `cmd/main.go` is the single plugin entrypoint and auto-selects native server mode on linux/arm64 SDK builds, with launcher mode plus Docker fallback elsewhere unless explicitly overridden. `internal/app` hosts config validation, direct HCNetSDK lifecycle/login/command handling, state polling, PTZ/playback command mapping, and runtime events. `plugins/hikvision/Dockerfile` packages the HCNetSDK runtime.
 - `proto`: plugin protocol definition.
 - `web/admin`: Vite/React admin console that consumes only the gateway HTTP API.
 - `docs`: repository Markdown docs, including API references.

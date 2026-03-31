@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -20,6 +21,7 @@ import (
 const (
 	defaultImage = "celestia-hikvision-plugin:latest"
 	modeEnv      = "CELESTIA_HIKVISION_PLUGIN_MODE"
+	modeLauncher = "launcher"
 	modeServer   = "server"
 )
 
@@ -30,11 +32,35 @@ func main() {
 }
 
 func run() error {
-	mode := strings.ToLower(strings.TrimSpace(os.Getenv(modeEnv)))
+	mode := resolvePluginMode(os.Getenv(modeEnv), runtime.GOOS, runtime.GOARCH, sdkRuntimeEnabled)
 	if mode == modeServer {
+		if !nativeServerCapable(runtime.GOOS, runtime.GOARCH, sdkRuntimeEnabled) {
+			return fmt.Errorf(
+				"hikvision server mode requires linux/arm64 with a binary built using -tags hikvision_sdk, current platform is %s/%s",
+				runtime.GOOS,
+				runtime.GOARCH,
+			)
+		}
 		return pluginruntime.Serve(app.New())
 	}
 	return runLauncher()
+}
+
+func resolvePluginMode(requested, goos, goarch string, sdkEnabled bool) string {
+	switch strings.ToLower(strings.TrimSpace(requested)) {
+	case modeLauncher:
+		return modeLauncher
+	case modeServer:
+		return modeServer
+	}
+	if nativeServerCapable(goos, goarch, sdkEnabled) {
+		return modeServer
+	}
+	return modeLauncher
+}
+
+func nativeServerCapable(goos, goarch string, sdkEnabled bool) bool {
+	return sdkEnabled && goos == "linux" && goarch == "arm64"
 }
 
 func runLauncher() error {
