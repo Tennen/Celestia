@@ -4,9 +4,13 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
+	corestream "github.com/chentianyu/celestia/internal/core/stream"
 	runtimepkg "github.com/chentianyu/celestia/internal/core/runtime"
 )
 
@@ -17,17 +21,22 @@ type pluginChecker interface {
 }
 
 type Server struct {
-	runtime   *runtimepkg.Runtime
-	gateway   gatewayapi.Service
-	plugins   pluginChecker
-	server    *http.Server
+	runtime     *runtimepkg.Runtime
+	gateway     gatewayapi.Service
+	plugins     pluginChecker
+	streamRelay *corestream.Relay
+	server      *http.Server
 }
 
 func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	s := &Server{
-		runtime: runtime,
-		gateway: gatewayapi.NewRuntimeService(runtime),
-		plugins: runtime.PluginMgr,
+		runtime:     runtime,
+		gateway:     gatewayapi.NewRuntimeService(runtime),
+		plugins:     runtime.PluginMgr,
+		streamRelay: corestream.New(4, 60*time.Second,
+			strings.TrimSpace(os.Getenv("CELESTIA_WEBRTC_NAT_IP")),
+			webrtcTCPPort(),
+		),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
@@ -79,6 +88,9 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	if s.streamRelay != nil {
+		s.streamRelay.CloseAll()
+	}
 	return s.server.Shutdown(ctx)
 }
 
@@ -98,4 +110,18 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, summary)
+}
+
+// webrtcTCPPort reads CELESTIA_WEBRTC_TCP_PORT from the environment.
+// Returns 0 if unset or invalid (falls back to UDP mode).
+func webrtcTCPPort() int {
+	v := strings.TrimSpace(os.Getenv("CELESTIA_WEBRTC_TCP_PORT"))
+	if v == "" {
+		return 0
+	}
+	port, err := strconv.Atoi(v)
+	if err != nil || port <= 0 || port > 65535 {
+		return 0
+	}
+	return port
 }

@@ -29,7 +29,6 @@ type Plugin struct {
 	started     bool
 	lastError   string
 	lastSyncAt  time.Time
-	relay       *RTSPRelay
 }
 
 type entryRuntime struct {
@@ -98,17 +97,6 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 		deviceIndex[item.DeviceID] = item.EntryID
 	}
 
-	maxSessions := defaultMaxStreamSessions
-	idleTimeout := time.Duration(defaultStreamIdleTimeoutSeconds) * time.Second
-	if len(parsed.Entries) > 0 {
-		maxSessions = parsed.Entries[0].MaxStreamSessions
-		idleTimeout = time.Duration(parsed.Entries[0].StreamIdleTimeoutSeconds) * time.Second
-	}
-	if p.relay != nil {
-		p.relay.CloseAll()
-	}
-	p.relay = NewRTSPRelay(maxSessions, idleTimeout, p.emitEvent)
-
 	previous := p.entryRuntimes()
 	p.mu.Lock()
 	p.config = parsed
@@ -169,10 +157,6 @@ func (p *Plugin) Stop(_ context.Context) error {
 	p.cancel = nil
 	p.started = false
 	p.mu.Unlock()
-
-	if p.relay != nil {
-		p.relay.CloseAll()
-	}
 
 	runtimes := p.entryRuntimes()
 	for _, runtime := range runtimes {

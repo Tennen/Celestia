@@ -17,15 +17,12 @@ export function useStreamSession(deviceId: string): UseStreamSessionResult {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const sseRef = useRef<EventSource | null>(null);
+  // Holds the MediaStream if ontrack fires before the video element is mounted
+  const pendingStreamRef = useRef<MediaStream | null>(null);
 
   const cleanup = useCallback(
     async (sessionId: string | null, pc: RTCPeerConnection | null) => {
-      // Close SSE listener
-      if (sseRef.current) {
-        sseRef.current.close();
-        sseRef.current = null;
-      }
+      pendingStreamRef.current = null;
 
       // Send DELETE to close the server-side session
       if (sessionId) {
@@ -65,32 +62,63 @@ export function useStreamSession(deviceId: string): UseStreamSessionResult {
     setState('connecting');
     setErrorMessage(null);
 
-    const pc = new RTCPeerConnection({});
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
     pcRef.current = pc;
 
     // Add recvonly transceivers so the browser generates a proper SDP offer
     // with m=video (and m=audio) sections. Without these, createOffer() produces
     // an empty SDP that pion cannot parse.
-    pc.addTransceiver('video', { direction: 'recvonly' });
-    pc.addTransceiver('audio', { direction: 'recvonly' });
+    //
+    // Bind receiver tracks to a MediaStream immediately (go2rtc style) so the
+    // video element gets the stream as soon as the connection is established,
+    // without relying on the ontrack event timing.
+    const stream = new MediaStream([
+      pc.addTransceiver('video', { direction: 'recvonly' }).receiver.track,
+      pc.addTransceiver('audio', { direction: 'recvonly' }).receiver.track,
+    ]);
 
-    // When a remote track arrives, attach it to the video element
-    pc.ontrack = (event) => {
-      if (videoRef.current && event.streams[0]) {
-        videoRef.current.srcObject = event.streams[0];
+    // Attach stream to video as soon as ICE connects — don't wait for ontrack
+    // which may not fire in all browser/pion configurations.
+    const attachStream = () => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        void videoRef.current.play().catch(() => {
+          // Autoplay blocked; user interaction required — state still goes active
+          // so the video element is visible and the user can click to play.
+        });
+      } else {
+        pendingStreamRef.current = stream;
       }
       setState('active');
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        attachStream();
+      }
+    };
+
+    pc.ontrack = () => {
+      attachStream();
     };
 
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      // Wait for ICE gathering to complete (or 3s timeout) before sending the
+      // offer. This means the offer already contains all local candidates, so
+      // the server can return a complete answer in one round-trip with no
+      // separate trickle-ICE exchange needed.
+      const fullOfferSDP = await waitForGathering(pc, 3000);
+
       // POST offer to server
       const offerRes = await fetch(`${getApiBase()}/devices/${deviceId}/stream/offer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sdp: offer.sdp }),
+        body: JSON.stringify({ sdp: fullOfferSDP }),
       });
 
       if (!offerRes.ok) {
@@ -113,42 +141,6 @@ export function useStreamSession(deviceId: string): UseStreamSessionResult {
 
       await pc.setRemoteDescription({ type: 'answer', sdp: answer.sdp });
 
-      // Send local ICE candidates to the server
-      pc.onicecandidate = (event) => {
-        if (!event.candidate) return;
-        const sid = sessionIdRef.current;
-        if (!sid) return;
-        void fetch(`${getApiBase()}/devices/${deviceId}/stream/ice`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sid, candidate: event.candidate.candidate }),
-        });
-      };
-
-      // Listen for remote ICE candidates via SSE
-      const source = new EventSource(`${getApiBase()}/events/stream`);
-      sseRef.current = source;
-      source.addEventListener('device.event.occurred', (e: MessageEvent) => {
-        try {
-          const payload = JSON.parse(e.data as string) as {
-            event_type?: string;
-            session_id?: string;
-            candidate?: string;
-          };
-          if (
-            payload.event_type === 'ice_candidate' &&
-            payload.session_id === sessionIdRef.current &&
-            payload.candidate
-          ) {
-            void pc.addIceCandidate({ candidate: payload.candidate });
-          }
-        } catch {
-          // ignore malformed events
-        }
-      });
-      source.onerror = () => {
-        source.close();
-      };
     } catch (err) {
       pc.close();
       pcRef.current = null;
@@ -156,6 +148,16 @@ export function useStreamSession(deviceId: string): UseStreamSessionResult {
       setErrorMessage(err instanceof Error ? err.message : 'Stream error');
     }
   }, [deviceId, stopStream]);
+
+  // After state becomes 'active' the video element is mounted.
+  // Attach any stream that arrived before the element existed.
+  useEffect(() => {
+    if (state === 'active' && videoRef.current && pendingStreamRef.current) {
+      videoRef.current.srcObject = pendingStreamRef.current;
+      void videoRef.current.play().catch(() => {});
+      pendingStreamRef.current = null;
+    }
+  }, [state]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -169,4 +171,29 @@ export function useStreamSession(deviceId: string): UseStreamSessionResult {
   }, [cleanup]);
 
   return { state, errorMessage, videoRef, startStream, stopStream };
+}
+
+/**
+ * Wait for ICE gathering to complete or fall back after `timeoutMs`.
+ * Returns the full SDP with all local candidates embedded, matching the
+ * go2rtc vanilla-ICE approach: one round-trip, no trickle exchange needed.
+ */
+function waitForGathering(pc: RTCPeerConnection, timeoutMs: number): Promise<string> {
+  return new Promise((resolve) => {
+    if (pc.iceGatheringState === 'complete') {
+      resolve(pc.localDescription!.sdp);
+      return;
+    }
+    const onStateChange = () => {
+      if (pc.iceGatheringState === 'complete') {
+        pc.removeEventListener('icegatheringstatechange', onStateChange);
+        resolve(pc.localDescription!.sdp);
+      }
+    };
+    pc.addEventListener('icegatheringstatechange', onStateChange);
+    setTimeout(() => {
+      pc.removeEventListener('icegatheringstatechange', onStateChange);
+      resolve(pc.localDescription!.sdp);
+    }, timeoutMs);
+  });
 }

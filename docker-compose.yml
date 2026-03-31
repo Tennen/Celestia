@@ -7,9 +7,19 @@ services:
     container_name: celestia
     ports:
       - "8080:8080"
+      # TCP port for WebRTC ICE-TCP. Required when UDP port mapping is
+      # unavailable (e.g. Colima on macOS). Set CELESTIA_WEBRTC_TCP_PORT
+      # to the same value in the environment.
+      - "8081:8081"
     environment:
       CELESTIA_ADDR: ":8080"
       CELESTIA_DB_PATH: "/app/data/celestia.db"
+      # LAN IP of the machine running Docker/Colima.
+      # See .env.example for setup instructions.
+      CELESTIA_WEBRTC_NAT_IP: ${CELESTIA_WEBRTC_NAT_IP:-}
+      # TCP port for ICE-TCP (must match the port mapping above).
+      # Set to 0 or leave empty to use UDP instead.
+      CELESTIA_WEBRTC_TCP_PORT: ${CELESTIA_WEBRTC_TCP_PORT:-8081}
     volumes:
       - celestia-data:/app/data
     restart: unless-stopped

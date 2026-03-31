@@ -2,13 +2,15 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 
 	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
 )
 
 func (s *Server) handleStreamOffer(w http.ResponseWriter, r *http.Request) {
-	device, ok := s.resolveStreamDevice(w, r)
+	deviceID, ok := s.resolveStreamDevice(w, r)
 	if !ok {
 		return
 	}
@@ -20,39 +22,50 @@ func (s *Server) handleStreamOffer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	result, err := s.gateway.SendDeviceCommand(r.Context(), gatewayapi.DeviceCommandRequest{
-		DeviceID: device,
-		Actor:    actorFromRequest(r),
-		Action:   "stream_offer",
-		Params:   map[string]any{"sdp": body.SDP},
-	})
-	if err != nil {
-		writeServiceError(w, err)
+	if body.SDP == "" {
+		writeError(w, http.StatusBadRequest, errors.New("sdp is required"))
 		return
 	}
 
-	payload := result.Result.Payload
+	// Ask the plugin for the RTSP URL (credentials stay server-side).
+	urlResult, err := s.gateway.SendDeviceCommand(r.Context(), gatewayapi.DeviceCommandRequest{
+		DeviceID: deviceID,
+		Actor:    actorFromRequest(r),
+		Action:   "stream_rtsp_url",
+	})
+	if err != nil {
+		log.Printf("[stream] stream_rtsp_url command failed for device=%s: %v", deviceID, err)
+		writeServiceError(w, err)
+		return
+	}
+	rtspURL, _ := urlResult.Result.Payload["rtsp_url"].(string)
+	if rtspURL == "" {
+		log.Printf("[stream] plugin returned empty rtsp_url for device=%s payload=%v", deviceID, urlResult.Result.Payload)
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "plugin did not return rtsp_url"})
+		return
+	}
+	log.Printf("[stream] device=%s calling relay.Offer nat_ip=%q", deviceID, s.streamRelay.NatIP())
+
+	sessionID, sdpAnswer, err := s.streamRelay.Offer(r.Context(), deviceID, rtspURL, body.SDP)
+	if err != nil {
+		log.Printf("[stream] relay.Offer failed for device=%s: %v", deviceID, err)
+		writeServiceError(w, err)
+		return
+	}
+	log.Printf("[stream] session=%s opened for device=%s", sessionID[:8], deviceID)
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"session_id": payload["session_id"],
-		"sdp":        payload["sdp"],
+		"session_id": sessionID,
+		"sdp":        sdpAnswer,
 	})
 }
 
 func (s *Server) handleStreamClose(w http.ResponseWriter, r *http.Request) {
-	device, ok := s.resolveStreamDevice(w, r)
-	if !ok {
+	if _, ok := s.resolveStreamDevice(w, r); !ok {
 		return
 	}
-
 	sessionID := r.PathValue("session_id")
-	_, err := s.gateway.SendDeviceCommand(r.Context(), gatewayapi.DeviceCommandRequest{
-		DeviceID: device,
-		Actor:    actorFromRequest(r),
-		Action:   "stream_close",
-		Params:   map[string]any{"session_id": sessionID},
-	})
-	if err != nil {
+	if err := s.streamRelay.Close(sessionID); err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -60,30 +73,8 @@ func (s *Server) handleStreamClose(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStreamICE(w http.ResponseWriter, r *http.Request) {
-	device, ok := s.resolveStreamDevice(w, r)
-	if !ok {
-		return
-	}
-
-	var body struct {
-		SessionID string `json:"session_id"`
-		Candidate string `json:"candidate"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	_, err := s.gateway.SendDeviceCommand(r.Context(), gatewayapi.DeviceCommandRequest{
-		DeviceID: device,
-		Actor:    actorFromRequest(r),
-		Action:   "stream_ice",
-		Params:   map[string]any{"session_id": body.SessionID, "candidate": body.Candidate},
-	})
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
+	// Vanilla ICE: all candidates are embedded in the SDP answer.
+	// This endpoint is kept for compatibility but is not called in normal flow.
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -48,6 +48,14 @@ type CameraConfig struct {
 	SDKLibDir                string
 	MaxStreamSessions        int
 	StreamIdleTimeoutSeconds int
+	// WebRTCNATIP is the public/LAN IP announced in ICE candidates.
+	// Leave empty to let pion enumerate local interfaces automatically.
+	WebRTCNATIP string
+	// WebRTCInterface restricts ICE gathering to a specific network interface
+	// (e.g. "eth0"). Useful when the host has Docker bridge interfaces that
+	// should not be advertised as WebRTC candidates.
+	// Leave empty to use all interfaces.
+	WebRTCInterface string
 }
 
 func parseConfig(cfg map[string]any) (Config, error) {
@@ -192,6 +200,9 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (Camera
 		streamIdleTimeout = minStreamIdleTimeoutSeconds
 	}
 
+	webrtcNATIP := strings.TrimSpace(pluginutil.String(raw["webrtc_nat_ip"], ""))
+	webrtcInterface := strings.TrimSpace(pluginutil.String(raw["webrtc_interface"], ""))
+
 	entry := CameraConfig{
 		Name:                     name,
 		Host:                     host,
@@ -206,6 +217,8 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (Camera
 		SDKLibDir:                sdkLibDir,
 		MaxStreamSessions:        maxStreamSessions,
 		StreamIdleTimeoutSeconds: streamIdleTimeout,
+		WebRTCNATIP:              webrtcNATIP,
+		WebRTCInterface:          webrtcInterface,
 	}
 	return entry, nil
 }

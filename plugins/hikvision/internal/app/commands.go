@@ -131,12 +131,8 @@ func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req 
 			"recordings": recordings,
 		}
 		return payload, fmt.Sprintf("recordings listed: %d", len(recordings)), nil
-	case "stream_offer":
-		return p.handleStreamOffer(ctx, runtime, params)
-	case "stream_close":
-		return p.handleStreamClose(params)
-	case "stream_ice":
-		return p.handleStreamICE(params)
+	case "stream_rtsp_url":
+		return p.handleStreamRTSPURL(runtime)
 	default:
 		return nil, "", fmt.Errorf("unsupported action %q", req.Action)
 	}
