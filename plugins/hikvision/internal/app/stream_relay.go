@@ -106,8 +106,17 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 		}
 	}
 
-	// Create WebRTC PeerConnection
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	// Create WebRTC PeerConnection with default codecs registered.
+	// webrtc.NewPeerConnection uses a shared default MediaEngine that has no
+	// codecs registered; we must build our own API with RegisterDefaultCodecs
+	// so that SetRemoteDescription can match the browser's offered codecs.
+	me := &webrtc.MediaEngine{}
+	if err := me.RegisterDefaultCodecs(); err != nil {
+		client.Close()
+		return "", "", fmt.Errorf("failed to register default codecs: %w", err)
+	}
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(me))
+	pc, err := api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		client.Close()
 		return "", "", fmt.Errorf("failed to create PeerConnection: %w", err)
