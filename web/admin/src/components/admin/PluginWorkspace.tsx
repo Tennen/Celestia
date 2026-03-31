@@ -6,103 +6,74 @@ import { Input } from '../ui/input';
 import { Section } from '../ui/section';
 import { asArray } from '../../lib/admin';
 import { formatTime, prettyJson } from '../../lib/utils';
-import type { CatalogPlugin, PluginRuntimeView } from '../../lib/types';
+import { getPluginDraftText, canStartXiaomiOAuth } from '../../lib/admin';
+import { useAdminStore } from '../../stores/adminStore';
+import { usePluginStore } from '../../stores/pluginStore';
 import { PluginConfigPanel } from './PluginConfigPanel';
 
 type Props = {
-  catalog: CatalogPlugin[];
-  plugins: PluginRuntimeView[];
-  selectedPluginId: string;
-  selectedCatalogPlugin: CatalogPlugin | null;
-  selectedPlugin: PluginRuntimeView | null;
-  pluginDraft: string;
-  pluginLogs: string[];
-  busy: string;
-  xiaomiOAuthActive: boolean;
-  xiaomiOAuthAvailable: boolean;
-  xiaomiVerifyTicket: string;
-  onSelectPlugin: (pluginId: string) => void;
-  onDraftChange: (value: string) => void;
-  onXiaomiVerifyTicketChange: (value: string) => void;
+  oauthActive: boolean;
   onConnectXiaomiOAuth: () => void;
-  onRetryXiaomiVerification: (verifyURL: string) => void;
-  onInstall: () => void;
-  onEnable: () => void;
-  onDisable: () => void;
-  onDiscover: () => void;
-  onDelete: () => void;
-  onSaveConfig: () => void;
-  onReloadLogs: () => void;
 };
 
 function extractXiaomiVerificationHint(errorText?: string | null) {
-  if (!errorText) {
-    return null;
-  }
+  if (!errorText) return null;
   const match = errorText.match(/requires (secondary verification|captcha) at (\S+)/i);
-  if (!match) {
-    return null;
-  }
-  return {
-    kind: match[1].toLowerCase(),
-    url: match[2],
-  };
+  if (!match) return null;
+  return { kind: match[1].toLowerCase(), url: match[2] };
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function extractHikvisionRuntimeHint(plugin: CatalogPlugin | null) {
-  if (plugin?.id !== 'hikvision' || !isObjectRecord(plugin.manifest.metadata)) {
-    return null;
-  }
+function extractHikvisionRuntimeHint(plugin: import('../../lib/types').CatalogPlugin | null) {
+  if (plugin?.id !== 'hikvision' || !isObjectRecord(plugin.manifest.metadata)) return null;
   const metadata = plugin.manifest.metadata;
   const runtimeMode = typeof metadata.runtime_mode === 'string' ? metadata.runtime_mode : '';
   const runtimePlatform = typeof metadata.runtime_platform === 'string' ? metadata.runtime_platform : '';
   const nativePlatform = typeof metadata.native_platform === 'string' ? metadata.native_platform : 'linux/arm64';
   const sdkLibDir = typeof metadata.sdk_lib_dir_default === 'string' ? metadata.sdk_lib_dir_default : '';
-  if (!runtimeMode || !runtimePlatform) {
-    return null;
-  }
-  return {
-    runtimeMode,
-    runtimePlatform,
-    nativePlatform,
-    sdkLibDir,
-  };
+  if (!runtimeMode || !runtimePlatform) return null;
+  return { runtimeMode, runtimePlatform, nativePlatform, sdkLibDir };
 }
 
-export function PluginWorkspace({
-  catalog,
-  plugins,
-  selectedPluginId,
-  selectedCatalogPlugin,
-  selectedPlugin,
-  pluginDraft,
-  pluginLogs,
-  busy,
-  xiaomiOAuthActive,
-  xiaomiOAuthAvailable,
-  xiaomiVerifyTicket,
-  onSelectPlugin,
-  onDraftChange,
-  onXiaomiVerifyTicketChange,
-  onConnectXiaomiOAuth,
-  onRetryXiaomiVerification,
-  onInstall,
-  onEnable,
-  onDisable,
-  onDiscover,
-  onDelete,
-  onSaveConfig,
-  onReloadLogs,
-}: Props) {
+export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
+  const { catalog, plugins } = useAdminStore();
+  const {
+    selectedPluginId,
+    installDrafts,
+    configDrafts,
+    pluginLogs,
+    busy,
+    xiaomiVerifyTicket,
+    setSelectedPluginId,
+    setDraft,
+    setXiaomiVerifyTicket,
+    installPlugin,
+    enablePlugin,
+    disablePlugin,
+    discoverPlugin,
+    deletePlugin,
+    saveConfig,
+    reloadPluginLogs,
+    retryXiaomiVerification,
+  } = usePluginStore();
+
   const [detailMode, setDetailMode] = useState<'runtime' | 'config' | 'logs'>('runtime');
 
   useEffect(() => {
     setDetailMode('runtime');
   }, [selectedPluginId]);
+
+  const selectedCatalogPlugin = catalog.find((p) => p.id === selectedPluginId) ?? null;
+  const selectedPlugin = plugins.find((p) => p.record.plugin_id === selectedPluginId) ?? null;
+  const isInstalled = Boolean(selectedPlugin);
+
+  const pluginDraft = selectedCatalogPlugin
+    ? getPluginDraftText(selectedCatalogPlugin.id, isInstalled, installDrafts, configDrafts)
+    : '{}';
+  const xiaomiOAuthAvailable = selectedCatalogPlugin?.id === 'xiaomi' && canStartXiaomiOAuth(pluginDraft);
 
   const xiaomiVerificationHint =
     selectedCatalogPlugin?.id === 'xiaomi'
@@ -126,7 +97,7 @@ export function PluginWorkspace({
                   key={plugin.id}
                   type="button"
                   className={`plugin-list__item ${selectedPluginId === plugin.id ? 'is-selected' : ''}`}
-                  onClick={() => onSelectPlugin(plugin.id)}
+                  onClick={() => setSelectedPluginId(plugin.id)}
                 >
                   <div className="plugin-list__meta">
                     <strong>{plugin.name}</strong>
@@ -254,7 +225,7 @@ export function PluginWorkspace({
                         <label>Verification Code</label>
                         <Input
                           value={xiaomiVerifyTicket}
-                          onChange={(event) => onXiaomiVerifyTicketChange(event.target.value)}
+                          onChange={(e) => setXiaomiVerifyTicket(e.target.value)}
                           placeholder="Enter SMS or email code from Xiaomi"
                         />
                       </div>
@@ -270,7 +241,7 @@ export function PluginWorkspace({
                         {selectedPlugin ? (
                           <Button
                             variant="secondary"
-                            onClick={() => onRetryXiaomiVerification(xiaomiVerificationHint.url)}
+                            onClick={() => void retryXiaomiVerification(selectedCatalogPlugin, xiaomiVerificationHint.url)}
                             disabled={!xiaomiVerifyTicket.trim()}
                           >
                             Submit Code And Retry
@@ -287,30 +258,33 @@ export function PluginWorkspace({
                       <Button
                         variant="secondary"
                         onClick={onConnectXiaomiOAuth}
-                        disabled={!xiaomiOAuthAvailable || busy === `xiaomi-oauth-${selectedCatalogPlugin.id}` || xiaomiOAuthActive}
+                        disabled={!xiaomiOAuthAvailable || busy === `xiaomi-oauth-${selectedCatalogPlugin.id}` || oauthActive}
                       >
                         Connect OAuth
                       </Button>
                     ) : null}
-                    <Button onClick={onInstall} disabled={busy === `install-${selectedCatalogPlugin.id}`}>
+                    <Button
+                      onClick={() => void installPlugin(selectedCatalogPlugin)}
+                      disabled={busy === `install-${selectedCatalogPlugin.id}`}
+                    >
                       Install
                     </Button>
-                    <Button variant="secondary" onClick={onEnable}>
+                    <Button variant="secondary" onClick={() => void enablePlugin(selectedCatalogPlugin.id)}>
                       Enable
                     </Button>
-                    <Button variant="secondary" onClick={onDisable}>
+                    <Button variant="secondary" onClick={() => void disablePlugin(selectedCatalogPlugin.id)}>
                       Disable
                     </Button>
                   </div>
                   <div className="button-row">
-                    <Button variant="secondary" onClick={onDiscover}>
+                    <Button variant="secondary" onClick={() => void discoverPlugin(selectedCatalogPlugin.id)}>
                       Discover
                     </Button>
-                    <Button variant="danger" onClick={onDelete}>
+                    <Button variant="danger" onClick={() => void deletePlugin(selectedCatalogPlugin.id)}>
                       Uninstall
                     </Button>
                     {selectedPlugin ? (
-                      <Button variant="secondary" onClick={onSaveConfig}>
+                      <Button variant="secondary" onClick={() => void saveConfig(selectedCatalogPlugin.id)}>
                         Save Config
                       </Button>
                     ) : null}
@@ -331,27 +305,16 @@ export function PluginWorkspace({
             </Card>
 
             <div className="detail-tabs">
-              <button
-                type="button"
-                className={`detail-tabs__button ${detailMode === 'runtime' ? 'is-active' : ''}`}
-                onClick={() => setDetailMode('runtime')}
-              >
-                Runtime
-              </button>
-              <button
-                type="button"
-                className={`detail-tabs__button ${detailMode === 'config' ? 'is-active' : ''}`}
-                onClick={() => setDetailMode('config')}
-              >
-                Config
-              </button>
-              <button
-                type="button"
-                className={`detail-tabs__button ${detailMode === 'logs' ? 'is-active' : ''}`}
-                onClick={() => setDetailMode('logs')}
-              >
-                Logs
-              </button>
+              {(['runtime', 'config', 'logs'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`detail-tabs__button ${detailMode === mode ? 'is-active' : ''}`}
+                  onClick={() => setDetailMode(mode)}
+                >
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </button>
+              ))}
             </div>
 
             {detailMode === 'runtime' ? (
@@ -369,7 +332,6 @@ export function PluginWorkspace({
                     )}
                   </CardContent>
                 </Card>
-
                 <Card>
                   <CardHeader>
                     <CardTitle>Current Config Snapshot</CardTitle>
@@ -389,12 +351,12 @@ export function PluginWorkspace({
             {detailMode === 'config' ? (
               <PluginConfigPanel
                 plugin={selectedCatalogPlugin}
-                runtimeInstalled={Boolean(selectedPlugin)}
+                runtimeInstalled={isInstalled}
                 pluginDraft={pluginDraft}
                 busy={busy}
-                onDraftChange={onDraftChange}
-                onInstall={onInstall}
-                onSaveConfig={onSaveConfig}
+                onDraftChange={(value) => setDraft(selectedCatalogPlugin.id, isInstalled, value)}
+                onInstall={() => void installPlugin(selectedCatalogPlugin)}
+                onSaveConfig={() => void saveConfig(selectedCatalogPlugin.id)}
               />
             ) : null}
 
@@ -411,7 +373,7 @@ export function PluginWorkspace({
                 </CardHeader>
                 <CardContent className="stack">
                   <div className="button-row">
-                    <Button variant="secondary" onClick={onReloadLogs}>
+                    <Button variant="secondary" onClick={() => void reloadPluginLogs(selectedCatalogPlugin.id)}>
                       Reload
                     </Button>
                   </div>
