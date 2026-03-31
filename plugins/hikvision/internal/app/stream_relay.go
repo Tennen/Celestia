@@ -137,10 +137,14 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 		// Audio failure is non-fatal
 	}
 
-	// Set remote description from SDP offer first (required before CreateAnswer)
+	// Set remote description from SDP offer first (required before CreateAnswer).
+	// Normalize line endings: some transport layers may strip \r, leaving bare \n.
+	// RFC 4566 requires \r\n but pion's SDP parser accepts both.
+	normalizedOffer := strings.ReplaceAll(sdpOffer, "\r\n", "\n")
+	normalizedOffer = strings.ReplaceAll(normalizedOffer, "\r", "\n")
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
-		SDP:  sdpOffer,
+		SDP:  normalizedOffer,
 	}); err != nil {
 		_ = pc.Close()
 		client.Close()

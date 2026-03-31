@@ -8,12 +8,13 @@ import (
 // handleStreamOffer extracts the SDP offer from params, calls the relay Offer method,
 // and returns the session_id and SDP answer.
 func (p *Plugin) handleStreamOffer(ctx context.Context, runtime *entryRuntime, params map[string]any) (map[string]any, string, error) {
-	sdp := stringParam(params, "sdp")
-	if sdp == "" {
+	// Use raw type assertion instead of stringParam to avoid TrimSpace mangling the SDP.
+	sdpRaw, _ := params["sdp"].(string)
+	if sdpRaw == "" {
 		return nil, "", errors.New("sdp is required")
 	}
 
-	sessionID, sdpAnswer, err := p.relay.Offer(ctx, runtime.Config.EntryID, runtime.Device.ID, runtime.Config, sdp)
+	sessionID, sdpAnswer, err := p.relay.Offer(ctx, runtime.Config.EntryID, runtime.Device.ID, runtime.Config, sdpRaw)
 	if err != nil {
 		return nil, "", err
 	}
