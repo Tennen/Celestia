@@ -3,9 +3,11 @@ module github.com/chentianyu/celestia
 go 1.23.2
 
 require (
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/spf13/cobra v1.10.2
+	nhooyr.io/websocket v1.8.17
 	google.golang.org/grpc v1.68.1
 	google.golang.org/protobuf v1.35.2
 )

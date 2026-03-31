@@ -68,6 +68,12 @@ export function useStreamSession(deviceId: string): UseStreamSessionResult {
     const pc = new RTCPeerConnection({});
     pcRef.current = pc;
 
+    // Add recvonly transceivers so the browser generates a proper SDP offer
+    // with m=video (and m=audio) sections. Without these, createOffer() produces
+    // an empty SDP that pion cannot parse.
+    pc.addTransceiver('video', { direction: 'recvonly' });
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+
     // When a remote track arrives, attach it to the video element
     pc.ontrack = (event) => {
       if (videoRef.current && event.streams[0]) {
