@@ -13,14 +13,18 @@ import (
 )
 
 const (
-	defaultPollIntervalSeconds = 30
-	minPollIntervalSeconds     = 5
-	defaultSDKPort             = 8000
-	defaultChannel             = 1
-	defaultRTSPPort            = 554
-	defaultRTSPPath            = "/Streaming/Channels/{channel}01"
-	defaultPTZSpeed            = 4
-	defaultPTZStepMS           = 400
+	defaultPollIntervalSeconds      = 30
+	minPollIntervalSeconds          = 5
+	defaultSDKPort                  = 8000
+	defaultChannel                  = 1
+	defaultRTSPPort                 = 554
+	defaultRTSPPath                 = "/Streaming/Channels/{channel}01"
+	defaultPTZSpeed                 = 4
+	defaultPTZStepMS                = 400
+	defaultMaxStreamSessions        = 4
+	minMaxStreamSessions            = 1
+	defaultStreamIdleTimeoutSeconds = 60
+	minStreamIdleTimeoutSeconds     = 10
 )
 
 type Config struct {
@@ -29,19 +33,21 @@ type Config struct {
 }
 
 type CameraConfig struct {
-	Name            string
-	EntryID         string
-	DeviceID        string
-	Host            string
-	Port            int
-	Username        string
-	Password        string
-	Channel         int
-	RTSPPort        int
-	RTSPPath        string
-	PTZDefaultSpeed int
-	PTZStepMS       int
-	SDKLibDir       string
+	Name                     string
+	EntryID                  string
+	DeviceID                 string
+	Host                     string
+	Port                     int
+	Username                 string
+	Password                 string
+	Channel                  int
+	RTSPPort                 int
+	RTSPPath                 string
+	PTZDefaultSpeed          int
+	PTZStepMS                int
+	SDKLibDir                string
+	MaxStreamSessions        int
+	StreamIdleTimeoutSeconds int
 }
 
 func parseConfig(cfg map[string]any) (Config, error) {
@@ -170,18 +176,36 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (Camera
 		name = fmt.Sprintf("%s-ch%d", host, channel)
 	}
 
+	maxStreamSessions := pluginutil.Int(raw["max_stream_sessions"], defaultMaxStreamSessions)
+	if maxStreamSessions == 0 {
+		maxStreamSessions = defaultMaxStreamSessions
+	}
+	if maxStreamSessions < minMaxStreamSessions {
+		maxStreamSessions = minMaxStreamSessions
+	}
+
+	streamIdleTimeout := pluginutil.Int(raw["stream_idle_timeout_seconds"], defaultStreamIdleTimeoutSeconds)
+	if streamIdleTimeout == 0 {
+		streamIdleTimeout = defaultStreamIdleTimeoutSeconds
+	}
+	if streamIdleTimeout < minStreamIdleTimeoutSeconds {
+		streamIdleTimeout = minStreamIdleTimeoutSeconds
+	}
+
 	entry := CameraConfig{
-		Name:            name,
-		Host:            host,
-		Port:            port,
-		Username:        username,
-		Password:        password,
-		Channel:         channel,
-		RTSPPort:        rtspPort,
-		RTSPPath:        rtspPath,
-		PTZDefaultSpeed: ptzSpeed,
-		PTZStepMS:       ptzStepMS,
-		SDKLibDir:       sdkLibDir,
+		Name:                     name,
+		Host:                     host,
+		Port:                     port,
+		Username:                 username,
+		Password:                 password,
+		Channel:                  channel,
+		RTSPPort:                 rtspPort,
+		RTSPPath:                 rtspPath,
+		PTZDefaultSpeed:          ptzSpeed,
+		PTZStepMS:                ptzStepMS,
+		SDKLibDir:                sdkLibDir,
+		MaxStreamSessions:        maxStreamSessions,
+		StreamIdleTimeoutSeconds: streamIdleTimeout,
 	}
 	return entry, nil
 }

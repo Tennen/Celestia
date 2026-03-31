@@ -211,6 +211,13 @@ func (m *Manager) Uninstall(ctx context.Context, pluginID string) error {
 	return nil
 }
 
+func (m *Manager) IsRunning(pluginID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	runtime := m.runtimes[pluginID]
+	return runtime != nil && runtime.running
+}
+
 func (m *Manager) Discover(ctx context.Context, pluginID string) error {
 	m.mu.RLock()
 	runtime := m.runtimes[pluginID]

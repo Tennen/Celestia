@@ -29,6 +29,7 @@ type Plugin struct {
 	started     bool
 	lastError   string
 	lastSyncAt  time.Time
+	relay       *RTSPRelay
 }
 
 type entryRuntime struct {
@@ -63,6 +64,7 @@ func (p *Plugin) Manifest() models.PluginManifest {
 			"ptz",
 			"playback",
 			"recordings",
+			"stream",
 		},
 		DeviceKinds: []models.DeviceKind{models.DeviceKindCameraLike},
 	}
@@ -95,6 +97,17 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 		entries[item.EntryID] = entry
 		deviceIndex[item.DeviceID] = item.EntryID
 	}
+
+	maxSessions := defaultMaxStreamSessions
+	idleTimeout := time.Duration(defaultStreamIdleTimeoutSeconds) * time.Second
+	if len(parsed.Entries) > 0 {
+		maxSessions = parsed.Entries[0].MaxStreamSessions
+		idleTimeout = time.Duration(parsed.Entries[0].StreamIdleTimeoutSeconds) * time.Second
+	}
+	if p.relay != nil {
+		p.relay.CloseAll()
+	}
+	p.relay = NewRTSPRelay(maxSessions, idleTimeout, p.emitEvent)
 
 	previous := p.entryRuntimes()
 	p.mu.Lock()
@@ -156,6 +169,10 @@ func (p *Plugin) Stop(_ context.Context) error {
 	p.cancel = nil
 	p.started = false
 	p.mu.Unlock()
+
+	if p.relay != nil {
+		p.relay.CloseAll()
+	}
 
 	runtimes := p.entryRuntimes()
 	for _, runtime := range runtimes {
@@ -272,11 +289,15 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 		Payload:  eventPayload,
 	})
 
-	return models.CommandResponse{
+	resp := models.CommandResponse{
 		Accepted: true,
 		JobID:    uuid.NewString(),
 		Message:  message,
-	}, nil
+	}
+	if len(resultPayload) > 0 {
+		resp.Payload = resultPayload
+	}
+	return resp, nil
 }
 
 func (p *Plugin) Events() <-chan models.Event {

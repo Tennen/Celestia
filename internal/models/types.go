@@ -134,9 +134,10 @@ type CommandRequest struct {
 }
 
 type CommandResponse struct {
-	Accepted bool   `json:"accepted"`
-	JobID    string `json:"job_id,omitempty"`
-	Message  string `json:"message,omitempty"`
+	Accepted bool           `json:"accepted"`
+	JobID    string         `json:"job_id,omitempty"`
+	Message  string         `json:"message,omitempty"`
+	Payload  map[string]any `json:"payload,omitempty"`
 }
 
 type AuditRecord struct {

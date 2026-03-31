@@ -14,6 +14,7 @@ import {
 import type { DeviceView } from '../../lib/types';
 import { DeviceAdvancedCommandSection } from './DeviceAdvancedCommandSection';
 import { DeviceQuickControlsPanel } from './DeviceQuickControlsPanel';
+import { StreamViewerPanel } from './StreamViewerPanel';
 
 type Props = {
   deviceSearch: string;
@@ -272,6 +273,9 @@ export function DeviceWorkspace({
                   </Badge>
                 ))}
               </div>
+              {deviceView.device.capabilities.includes('stream') && (
+                <StreamViewerPanel deviceId={deviceView.device.id} />
+              )}
               <div className="stack">
                 <DeviceQuickControlsPanel
                   device={deviceView}

@@ -95,3 +95,95 @@ func TestParseConfig_RenameKeepsStableIdentity(t *testing.T) {
 		t.Fatalf("device id changed after rename: %q -> %q", first.Entries[0].DeviceID, second.Entries[0].DeviceID)
 	}
 }
+
+func TestParseConfig_StreamSessionDefaults(t *testing.T) {
+	cfg, err := parseConfig(map[string]any{
+		"entries": []any{
+			map[string]any{
+				"host":     "192.168.1.10",
+				"username": "admin",
+				"password": "secret",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseConfig() error = %v", err)
+	}
+	entry := cfg.Entries[0]
+	if entry.MaxStreamSessions != defaultMaxStreamSessions {
+		t.Errorf("MaxStreamSessions = %d, want %d", entry.MaxStreamSessions, defaultMaxStreamSessions)
+	}
+	if entry.StreamIdleTimeoutSeconds != defaultStreamIdleTimeoutSeconds {
+		t.Errorf("StreamIdleTimeoutSeconds = %d, want %d", entry.StreamIdleTimeoutSeconds, defaultStreamIdleTimeoutSeconds)
+	}
+}
+
+func TestParseConfig_StreamSessionMinEnforcement(t *testing.T) {
+	cfg, err := parseConfig(map[string]any{
+		"entries": []any{
+			map[string]any{
+				"host":                          "192.168.1.10",
+				"username":                      "admin",
+				"password":                      "secret",
+				"max_stream_sessions":           0,
+				"stream_idle_timeout_seconds":   5,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseConfig() error = %v", err)
+	}
+	entry := cfg.Entries[0]
+	// zero max_stream_sessions should fall back to default (4)
+	if entry.MaxStreamSessions != defaultMaxStreamSessions {
+		t.Errorf("MaxStreamSessions = %d, want %d (default)", entry.MaxStreamSessions, defaultMaxStreamSessions)
+	}
+	// stream_idle_timeout_seconds below min (10) should be clamped to min
+	if entry.StreamIdleTimeoutSeconds != minStreamIdleTimeoutSeconds {
+		t.Errorf("StreamIdleTimeoutSeconds = %d, want %d (min)", entry.StreamIdleTimeoutSeconds, minStreamIdleTimeoutSeconds)
+	}
+}
+
+func TestParseConfig_StreamSessionBelowMinSessions(t *testing.T) {
+	cfg, err := parseConfig(map[string]any{
+		"entries": []any{
+			map[string]any{
+				"host":                "192.168.1.10",
+				"username":            "admin",
+				"password":            "secret",
+				"max_stream_sessions": -3,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseConfig() error = %v", err)
+	}
+	entry := cfg.Entries[0]
+	if entry.MaxStreamSessions != minMaxStreamSessions {
+		t.Errorf("MaxStreamSessions = %d, want %d (min)", entry.MaxStreamSessions, minMaxStreamSessions)
+	}
+}
+
+func TestParseConfig_StreamSessionExplicitValues(t *testing.T) {
+	cfg, err := parseConfig(map[string]any{
+		"entries": []any{
+			map[string]any{
+				"host":                        "192.168.1.10",
+				"username":                    "admin",
+				"password":                    "secret",
+				"max_stream_sessions":         8,
+				"stream_idle_timeout_seconds": 120,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseConfig() error = %v", err)
+	}
+	entry := cfg.Entries[0]
+	if entry.MaxStreamSessions != 8 {
+		t.Errorf("MaxStreamSessions = %d, want 8", entry.MaxStreamSessions)
+	}
+	if entry.StreamIdleTimeoutSeconds != 120 {
+		t.Errorf("StreamIdleTimeoutSeconds = %d, want 120", entry.StreamIdleTimeoutSeconds)
+	}
+}

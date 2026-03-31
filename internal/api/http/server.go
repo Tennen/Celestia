@@ -10,16 +10,24 @@ import (
 	runtimepkg "github.com/chentianyu/celestia/internal/core/runtime"
 )
 
+// pluginChecker allows checking whether a plugin process is running.
+// Implemented by *pluginmgr.Manager in production; can be stubbed in tests.
+type pluginChecker interface {
+	IsRunning(pluginID string) bool
+}
+
 type Server struct {
-	runtime *runtimepkg.Runtime
-	gateway gatewayapi.Service
-	server  *http.Server
+	runtime   *runtimepkg.Runtime
+	gateway   gatewayapi.Service
+	plugins   pluginChecker
+	server    *http.Server
 }
 
 func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	s := &Server{
 		runtime: runtime,
 		gateway: gatewayapi.NewRuntimeService(runtime),
+		plugins: runtime.PluginMgr,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
@@ -38,6 +46,9 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("PUT /api/v1/devices/{id}/preference", s.handleUpdateDevicePreference)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/controls/{controlId}", s.handleUpdateControlPreference)
 	mux.HandleFunc("POST /api/v1/devices/{id}/commands", s.handleCommand)
+	mux.HandleFunc("POST /api/v1/devices/{id}/stream/offer", s.handleStreamOffer)
+	mux.HandleFunc("DELETE /api/v1/devices/{id}/stream/{session_id}", s.handleStreamClose)
+	mux.HandleFunc("POST /api/v1/devices/{id}/stream/ice", s.handleStreamICE)
 	mux.HandleFunc("POST /api/v1/toggle/{id}/on", s.handleToggleOn)
 	mux.HandleFunc("POST /api/v1/toggle/{id}/off", s.handleToggleOff)
 	mux.HandleFunc("POST /api/v1/action/{id}", s.handleActionControl)
