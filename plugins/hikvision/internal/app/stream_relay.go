@@ -128,7 +128,7 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 		// Audio failure is non-fatal
 	}
 
-	// Set remote description from SDP offer
+	// Set remote description from SDP offer first (required before CreateAnswer)
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
 		SDP:  sdpOffer,
@@ -138,7 +138,8 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 		return "", "", fmt.Errorf("failed to set remote description: %w", err)
 	}
 
-	// Produce SDP answer with 10s timeout
+	// Produce SDP answer with 10s timeout.
+	// GatheringCompletePromise must be called before SetLocalDescription.
 	answerCtx, answerCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer answerCancel()
 
@@ -162,7 +163,8 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 		cancel:       sessCancel,
 	}
 
-	// Register ICE candidate and connection state callbacks
+	// Register ICE candidate and connection state callbacks before PLAY
+	// so no candidates are missed during the RTSP handshake.
 	r.registerICECallbacks(session)
 
 	// Start RTSP PLAY and RTP forwarding
@@ -183,13 +185,17 @@ func (r *RTSPRelay) Offer(ctx context.Context, entryID string, deviceID string, 
 }
 
 // produceSDP creates an SDP answer and waits for ICE gathering to complete or times out.
+// GatheringCompletePromise must be called before SetLocalDescription.
 func produceSDP(ctx context.Context, pc *webrtc.PeerConnection) (webrtc.SessionDescription, error) {
 	answer, err := pc.CreateAnswer(nil)
 	if err != nil {
 		return webrtc.SessionDescription{}, err
 	}
 
+	// Register the gathering-complete channel BEFORE setting local description,
+	// otherwise the signal may fire before we start listening.
 	gatherDone := webrtc.GatheringCompletePromise(pc)
+
 	if err := pc.SetLocalDescription(answer); err != nil {
 		return webrtc.SessionDescription{}, err
 	}

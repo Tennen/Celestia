@@ -1,3 +1,4 @@
+import { Button } from '../ui/button';
 import { useStreamSession } from '../../hooks/useStreamSession';
 
 interface Props {
@@ -10,9 +11,9 @@ export function StreamViewerPanel({ deviceId }: Props) {
   if (state === 'idle') {
     return (
       <div className="stream-viewer">
-        <button type="button" onClick={() => void startStream()}>
+        <Button variant="secondary" size="sm" onClick={() => void startStream()}>
           Live View
-        </button>
+        </Button>
       </div>
     );
   }
@@ -20,7 +21,9 @@ export function StreamViewerPanel({ deviceId }: Props) {
   if (state === 'connecting') {
     return (
       <div className="stream-viewer">
-        <p>Connecting...</p>
+        <Button variant="secondary" size="sm" disabled>
+          Connecting…
+        </Button>
       </div>
     );
   }
@@ -28,21 +31,21 @@ export function StreamViewerPanel({ deviceId }: Props) {
   if (state === 'error') {
     return (
       <div className="stream-viewer stream-viewer--error">
-        <p>{errorMessage ?? 'Stream error'}</p>
-        <button type="button" onClick={() => void startStream()}>
+        <p className="muted">{errorMessage ?? 'Stream error'}</p>
+        <Button variant="secondary" size="sm" onClick={() => void startStream()}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
 
-  // active state
+  // active
   return (
     <div className="stream-viewer stream-viewer--active">
       <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%' }} />
-      <button type="button" onClick={() => void stopStream()}>
+      <Button variant="ghost" size="sm" onClick={() => void stopStream()}>
         Stop
-      </button>
+      </Button>
     </div>
   );
 }
