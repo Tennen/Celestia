@@ -3,22 +3,9 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 )
-
-func applianceOptions(appliance map[string]any) map[string]any {
-	if options, ok := appliance["options"].(map[string]any); ok {
-		return options
-	}
-	if model, ok := appliance["applianceModel"].(map[string]any); ok {
-		if options, ok := model["options"].(map[string]any); ok {
-			return options
-		}
-	}
-	return map[string]any{}
-}
 
 // StringFromAny converts any value to its string representation.
 func StringFromAny(v any) string {
@@ -41,46 +28,12 @@ func StringFromAny(v any) string {
 	}
 }
 
-func resultCodeFrom(payload map[string]any) string {
-	if payload == nil {
-		return ""
-	}
-	if code := StringFromAny(payload["resultCode"]); code != "" {
-		return code
-	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		return StringFromAny(nested["resultCode"])
-	}
-	return ""
-}
-
 func trimForError(text string) string {
 	text = strings.TrimSpace(text)
 	if len(text) > 240 {
 		return text[:240] + "..."
 	}
 	return text
-}
-
-func mustJSONString(v any) string {
-	raw, _ := json.Marshal(v)
-	return string(raw)
-}
-
-func mustJSONRawMessage(s string) json.RawMessage {
-	return json.RawMessage([]byte(s))
-}
-
-func urlSafeUnescape(value string) string {
-	if decoded, err := url.QueryUnescape(value); err == nil {
-		return decoded
-	}
-	return value
-}
-
-func generateNonce() string {
-	raw := fmt.Sprintf("%d-%d", time.Now().UnixNano(), time.Now().UnixNano()/97)
-	return strings.ReplaceAll(raw, "--", "-")
 }
 
 func randomHex(n int) string {

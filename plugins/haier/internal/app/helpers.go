@@ -12,11 +12,8 @@ import (
 func parseAccountConfig(entry map[string]any) client.AccountConfig {
 	return client.AccountConfig{
 		Name:         pluginutil.String(entry["name"], ""),
-		Email:        firstNonEmpty(pluginutil.String(entry["email"], ""), pluginutil.String(entry["username"], "")),
-		Password:     pluginutil.String(entry["password"], ""),
+		ClientID:     firstNonEmpty(pluginutil.String(entry["clientId"], ""), pluginutil.String(entry["client_id"], "")),
 		RefreshToken: firstNonEmpty(pluginutil.String(entry["refresh_token"], ""), pluginutil.String(entry["refreshToken"], "")),
-		MobileID:     firstNonEmpty(pluginutil.String(entry["mobile_id"], ""), pluginutil.String(entry["mobileId"], "")),
-		Timezone:     pluginutil.String(entry["timezone"], ""),
 	}
 }
 

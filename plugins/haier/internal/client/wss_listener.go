@@ -3,10 +3,12 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -17,19 +19,20 @@ const (
 	wssConnectTimeout    = 15 * time.Second
 )
 
-// WssListener manages the Haier WebSocket connection for one account.
+// WssListener manages the Haier UWS WebSocket connection for one account.
 type WssListener struct {
 	mu        sync.Mutex
-	client    *HaierClient
+	client    *UWSClient
 	deviceIDs []string
 	onUpdate  func(deviceID string, attributes map[string]string)
 	started   bool
 	connected bool
+	conn      *websocket.Conn
 	stopCh    chan struct{}
 }
 
 func NewWssListener(
-	client *HaierClient,
+	client *UWSClient,
 	deviceIDs []string,
 	onUpdate func(deviceID string, attributes map[string]string),
 ) *WssListener {
@@ -79,6 +82,42 @@ func (l *WssListener) UpdateDevices(deviceIDs []string) {
 	l.deviceIDs = deviceIDs
 }
 
+// SendCommand sends a device control command over the WSS connection.
+// Returns an error if the connection is not available.
+func (l *WssListener) SendCommand(ctx context.Context, deviceID string, params map[string]any) error {
+	l.mu.Lock()
+	connected := l.connected
+	conn := l.conn
+	clientID := l.client.cfg.ClientID
+	l.mu.Unlock()
+
+	if !connected || conn == nil {
+		return errors.New("uws wss: connection not available, cannot send command")
+	}
+
+	cmdList := make([]map[string]any, 0, len(params))
+	for name, value := range params {
+		cmdList = append(cmdList, map[string]any{
+			"name":  name,
+			"value": value,
+		})
+	}
+
+	msg := wssMessage{
+		AgClientID: clientID,
+		Topic:      "BatchCmdReq",
+		Content: map[string]any{
+			"deviceId": deviceID,
+			"sn":       uuid.NewString(),
+			"cmdList":  cmdList,
+		},
+	}
+	if err := wsjson.Write(ctx, conn, msg); err != nil {
+		return fmt.Errorf("uws wss send command: %w", err)
+	}
+	return nil
+}
+
 func (l *WssListener) runLoop(ctx context.Context) {
 	for {
 		select {
@@ -92,6 +131,7 @@ func (l *WssListener) runLoop(ctx context.Context) {
 		if err := l.connect(ctx); err != nil {
 			l.mu.Lock()
 			l.connected = false
+			l.conn = nil
 			l.mu.Unlock()
 			select {
 			case <-l.stopCh:
@@ -105,9 +145,9 @@ func (l *WssListener) runLoop(ctx context.Context) {
 }
 
 func (l *WssListener) connect(ctx context.Context) error {
-	// Re-authenticate if needed before fetching the gateway URL.
+	// Refresh token before connecting.
 	if err := l.client.Authenticate(ctx); err != nil {
-		return fmt.Errorf("haier wss auth: %w", err)
+		return fmt.Errorf("uws wss auth: %w", err)
 	}
 
 	gatewayURL, err := l.client.getWSSGatewayURL(ctx)
@@ -115,41 +155,41 @@ func (l *WssListener) connect(ctx context.Context) error {
 		return err
 	}
 
-	agClientID := l.client.auth.CognitoToken
-	wsURL := fmt.Sprintf("%s/userag?token=%s&agClientId=%s", gatewayURL, l.client.auth.CognitoToken, agClientID)
+	accessToken := l.client.auth.AccessToken
+	clientID := l.client.cfg.ClientID
+	wsURL := fmt.Sprintf("%s/userag?token=%s&agClientId=%s", gatewayURL, accessToken, clientID)
 
 	connCtx, cancel := context.WithTimeout(ctx, wssConnectTimeout)
 	conn, _, err := websocket.Dial(connCtx, wsURL, nil)
 	cancel()
 	if err != nil {
-		return fmt.Errorf("haier wss dial: %w", err)
+		return fmt.Errorf("uws wss dial: %w", err)
 	}
 	defer conn.CloseNow()
 
 	l.mu.Lock()
 	l.connected = true
+	l.conn = conn
 	deviceIDs := make([]string, len(l.deviceIDs))
 	copy(deviceIDs, l.deviceIDs)
 	l.mu.Unlock()
 
 	// Subscribe to bound device updates.
 	subMsg := wssMessage{
-		AgClientID: agClientID,
+		AgClientID: clientID,
 		Topic:      "BoundDevs",
 		Content: map[string]any{
 			"devs": deviceIDs,
 		},
 	}
 	if err := wsjson.Write(ctx, conn, subMsg); err != nil {
-		return fmt.Errorf("haier wss subscribe: %w", err)
+		return fmt.Errorf("uws wss subscribe: %w", err)
 	}
 
-	// Start heartbeat goroutine.
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 	defer cancelHeartbeat()
-	go l.sendHeartbeats(heartbeatCtx, conn, agClientID)
+	go l.sendHeartbeats(heartbeatCtx, conn, clientID)
 
-	// Read loop.
 	for {
 		select {
 		case <-l.stopCh:
@@ -165,15 +205,15 @@ func (l *WssListener) connect(ctx context.Context) error {
 		if err := wsjson.Read(ctx, conn, &raw); err != nil {
 			l.mu.Lock()
 			l.connected = false
+			l.conn = nil
 			l.mu.Unlock()
-			return fmt.Errorf("haier wss read: %w", err)
+			return fmt.Errorf("uws wss read: %w", err)
 		}
-
 		l.handleRawMessage(raw)
 	}
 }
 
-func (l *WssListener) sendHeartbeats(ctx context.Context, conn *websocket.Conn, agClientID string) {
+func (l *WssListener) sendHeartbeats(ctx context.Context, conn *websocket.Conn, clientID string) {
 	ticker := time.NewTicker(wssHeartbeatInterval)
 	defer ticker.Stop()
 	for {
@@ -182,7 +222,7 @@ func (l *WssListener) sendHeartbeats(ctx context.Context, conn *websocket.Conn, 
 			return
 		case <-ticker.C:
 			hb := wssMessage{
-				AgClientID: agClientID,
+				AgClientID: clientID,
 				Topic:      "HeartBeat",
 				Content: map[string]any{
 					"sn":       randomHex(32),

@@ -14,11 +14,10 @@ type Config struct {
 
 type accountRuntime struct {
 	Config      client.AccountConfig
-	Client      *client.HaierClient
+	Client      *client.UWSClient
 	Appliances  map[string]*applianceRuntime
 	LastSync    time.Time
 	LastError   string
-	LoggedIn    bool
 	LastRefresh time.Time
 	WSS         *client.WssListener
 }

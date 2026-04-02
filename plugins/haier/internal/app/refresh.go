@@ -10,6 +10,7 @@ import (
 
 	"github.com/chentianyu/celestia/internal/coreapi"
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/chentianyu/celestia/plugins/haier/internal/client"
 	"github.com/google/uuid"
 )
 
@@ -79,37 +80,38 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 	if err != nil {
 		return err
 	}
+
+	// Collect device IDs for batch digital model fetch.
+	deviceIDs := make([]string, 0, len(appliances))
+	for _, appliance := range appliances {
+		if id := client.StringFromAny(appliance["deviceId"]); id != "" {
+			deviceIDs = append(deviceIDs, id)
+		}
+	}
+
+	digitalModels := map[string]map[string]string{}
+	if len(deviceIDs) > 0 {
+		if models, err := account.Client.LoadDigitalModels(ctx, deviceIDs); err == nil {
+			digitalModels = models
+		}
+	}
+
 	current := map[string]*applianceRuntime{}
 	for _, appliance := range appliances {
-		commands, err := account.Client.LoadCommands(ctx, appliance)
-		if err != nil {
+		deviceID := client.StringFromAny(appliance["deviceId"])
+		if deviceID == "" {
 			continue
 		}
-		commandNames, capabilitySet := buildCapabilities(commands)
-		if len(commandNames) == 0 {
-			continue
+		attrs := digitalModels[deviceID]
+		if attrs == nil {
+			attrs = map[string]string{}
 		}
-		if !capabilitySet["start"] && !capabilitySet["pause"] && !capabilitySet["resume"] && !capabilitySet["stop"] {
-			continue
-		}
+		commandNames, capabilitySet := buildCapabilitiesFromDigitalModel(attrs)
 		device := buildDevice(account.Config, appliance, commandNames, capabilitySet)
-		state, err := account.Client.LoadAttributes(ctx, appliance)
-		if err != nil {
-			continue
-		}
-		if stats, err := account.Client.LoadStatistics(ctx, appliance); err == nil && len(stats) > 0 {
-			mergeMap(state, stats)
-			state["statistics"] = stats
-		}
-		if maintenance, err := account.Client.LoadMaintenance(ctx, appliance); err == nil && len(maintenance) > 0 {
-			mergeMap(state, maintenance)
-			state["maintenance"] = maintenance
-		}
-		snapshot := buildStateSnapshot(device, appliance, state)
+		snapshot := buildStateSnapshot(device, appliance, attrs)
 		runtime := &applianceRuntime{
 			Device:         device,
 			ApplianceInfo:  appliance,
-			CommandData:    commands,
 			CapabilitySet:  capabilitySet,
 			CommandNames:   commandNames,
 			CurrentState:   snapshot.State,
@@ -126,29 +128,25 @@ func (p *Plugin) syncDevice(ctx context.Context, account *accountRuntime, device
 	if account == nil || account.Client == nil {
 		return errors.New("account client missing")
 	}
-	state, err := account.Client.LoadAttributes(ctx, device.ApplianceInfo)
+	deviceID := client.StringFromAny(device.ApplianceInfo["deviceId"])
+	if deviceID == "" {
+		return errors.New("device has no deviceId")
+	}
+	digitalModels, err := account.Client.LoadDigitalModels(ctx, []string{deviceID})
 	if err != nil {
 		return err
 	}
-	if stats, err := account.Client.LoadStatistics(ctx, device.ApplianceInfo); err == nil && len(stats) > 0 {
-		mergeMap(state, stats)
-		state["statistics"] = stats
+	attrs := digitalModels[deviceID]
+	if attrs == nil {
+		attrs = map[string]string{}
 	}
-	if maintenance, err := account.Client.LoadMaintenance(ctx, device.ApplianceInfo); err == nil && len(maintenance) > 0 {
-		mergeMap(state, maintenance)
-		state["maintenance"] = maintenance
-	}
-	snapshot := buildStateSnapshot(device.Device, device.ApplianceInfo, state)
+	snapshot := buildStateSnapshot(device.Device, device.ApplianceInfo, attrs)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if existing, ok := p.devices[device.Device.ID]; ok {
 		if !reflect.DeepEqual(existing.CurrentState, snapshot.State) {
 			existing.CurrentState = snapshot.State
 			existing.LastSnapshotTS = snapshot.TS
-			existing.ApplianceInfo = device.ApplianceInfo
-			existing.CommandData = device.CommandData
-			existing.CapabilitySet = device.CapabilitySet
-			existing.CommandNames = device.CommandNames
 			p.emitLocked(models.Event{
 				ID:       uuid.NewString(),
 				Type:     models.EventDeviceStateChanged,

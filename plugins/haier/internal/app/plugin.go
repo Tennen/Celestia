@@ -63,7 +63,7 @@ func (p *Plugin) ValidateConfig(_ context.Context, cfg map[string]any) error {
 		entry, _ := raw.(map[string]any)
 		acct := parseAccountConfig(entry)
 		if !acct.HasCredentials() {
-			return fmt.Errorf("account %d requires email/password or refresh_token", i)
+			return fmt.Errorf("account %d requires clientId and refresh_token", i)
 		}
 	}
 	return nil
@@ -86,18 +86,12 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 		entry, _ := raw.(map[string]any)
 		acct := parseAccountConfig(entry)
 		if !acct.HasCredentials() {
-			return fmt.Errorf("account %d requires email/password or refresh_token", i)
+			return fmt.Errorf("account %d requires clientId and refresh_token", i)
 		}
 		if acct.Name == "" {
 			acct.Name = acct.NormalizedName()
 		}
-		if acct.MobileID == "" {
-			acct.MobileID = acct.NormalizedMobileID()
-		}
-		if acct.Timezone == "" {
-			acct.Timezone = acct.NormalizedTimezone()
-		}
-		haierCli, err := client.NewHaierClient(acct)
+		haierCli, err := client.NewUWSClient(acct)
 		if err != nil {
 			return err
 		}
@@ -182,7 +176,7 @@ func (p *Plugin) HealthCheck(_ context.Context) models.PluginHealth {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	status := models.HealthStateHealthy
-	message := "hOn sessions active"
+	message := "UWS sessions active"
 	if !p.started {
 		status = models.HealthStateStopped
 		message = "plugin idle"
@@ -238,7 +232,7 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 	if !ok {
 		return models.CommandResponse{}, errors.New("device not found")
 	}
-	commandName, params, ancillary, programName, err := commandForRequest(device, req)
+	params, err := commandForRequest(device, req)
 	if err != nil {
 		return models.CommandResponse{}, err
 	}
@@ -255,8 +249,12 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 	if account == nil {
 		return models.CommandResponse{}, errors.New("device account not found")
 	}
+	if account.WSS == nil {
+		return models.CommandResponse{}, errors.New("uws wss: no active connection for account")
+	}
 
-	if _, err := account.Client.SendCommand(ctx, device.ApplianceInfo, commandName, params, ancillary, programName); err != nil {
+	deviceID := client.StringFromAny(device.ApplianceInfo["deviceId"])
+	if err := account.WSS.SendCommand(ctx, deviceID, params); err != nil {
 		return models.CommandResponse{}, err
 	}
 	if err := p.refreshSingle(ctx, req.DeviceID); err != nil {
@@ -282,9 +280,7 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 		TS:       time.Now().UTC(),
 		Payload: map[string]any{
 			"action":   req.Action,
-			"command":  commandName,
 			"params":   params,
-			"program":  programName,
 			"snapshot": cloneMap(updated.CurrentState),
 		},
 	})

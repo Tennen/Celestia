@@ -9,6 +9,72 @@ import (
 	"github.com/chentianyu/celestia/plugins/haier/internal/client"
 )
 
+// buildCapabilitiesFromDigitalModel infers the capability set from the digital model
+// attribute keys. Returns commandNames (action → attribute key) and capabilitySet.
+func buildCapabilitiesFromDigitalModel(attrs map[string]string) (map[string]string, map[string]bool) {
+	commandNames := map[string]string{}
+	capabilitySet := map[string]bool{}
+
+	has := func(key string) bool {
+		_, ok := attrs[key]
+		return ok
+	}
+
+	// Writable control attributes imply command capabilities.
+	if has("machMode") {
+		commandNames["start"] = "machMode"
+		commandNames["stop"] = "machMode"
+		commandNames["pause"] = "machMode"
+		commandNames["resume"] = "machMode"
+		capabilitySet["start"] = true
+		capabilitySet["stop"] = true
+		capabilitySet["pause"] = true
+		capabilitySet["resume"] = true
+		capabilitySet["machine_status"] = true
+	}
+	if has("prCode") {
+		commandNames["program"] = "prCode"
+		capabilitySet["program"] = true
+	}
+	if has("prPhase") {
+		capabilitySet["phase"] = true
+	}
+	if has("remainingTimeMM") {
+		capabilitySet["remaining_time"] = true
+	}
+	if has("tempLevel") {
+		commandNames["temp_level"] = "tempLevel"
+		capabilitySet["temp_level"] = true
+	}
+	if has("spinSpeed") {
+		commandNames["spin_speed"] = "spinSpeed"
+		capabilitySet["spin_speed"] = true
+	}
+	if has("delayTime") {
+		commandNames["delay_time"] = "delayTime"
+		capabilitySet["delay_time"] = true
+	}
+	if has("prewash") {
+		commandNames["prewash"] = "prewash"
+		capabilitySet["prewash"] = true
+	}
+	if has("extraRinse") {
+		commandNames["extra_rinse"] = "extraRinse"
+		capabilitySet["extra_rinse"] = true
+	}
+	if has("goodNight") {
+		commandNames["good_night"] = "goodNight"
+		capabilitySet["good_night"] = true
+	}
+	if has("totalElectricityUsed") {
+		capabilitySet["energy_usage"] = true
+	}
+	if has("totalWaterUsed") {
+		capabilitySet["water_usage"] = true
+	}
+	return commandNames, capabilitySet
+}
+
 func buildDevice(account client.AccountConfig, appliance map[string]any, commandNames map[string]string, capabilitySet map[string]bool) models.Device {
 	capabilities := []string{}
 	for _, name := range []string{
@@ -19,112 +85,94 @@ func buildDevice(account client.AccountConfig, appliance map[string]any, command
 			capabilities = append(capabilities, name)
 		}
 	}
-	mac := strings.ToLower(client.StringFromAny(appliance["macAddress"]))
+	deviceID := client.StringFromAny(appliance["deviceId"])
 	metadata := map[string]any{
-		"account":            account.NormalizedName(),
-		"mobile_id":          account.NormalizedMobileID(),
-		"timezone":           account.NormalizedTimezone(),
-		"appliance_type":     appliance["applianceTypeName"],
-		"appliance_model_id": appliance["applianceModelId"],
-		"brand":              appliance["brand"],
-		"code":               appliance["code"],
-		"mac_address":        appliance["macAddress"],
-		"capability_matrix":  capabilitySet,
-		"command_names":      commandNames,
+		"account":        account.NormalizedName(),
+		"device_type":    appliance["deviceType"],
+		"capability_matrix": capabilitySet,
+		"command_names":  commandNames,
 	}
 	if controls := buildControlSpecs(capabilitySet); len(controls) > 0 {
 		metadata["controls"] = controls
 	}
-	device := models.Device{
-		ID:             fmt.Sprintf("haier:washer:%s:%s", strings.ToLower(account.NormalizedName()), sanitizeID(mac)),
+	return models.Device{
+		ID:             fmt.Sprintf("haier:washer:%s:%s", strings.ToLower(account.NormalizedName()), sanitizeID(deviceID)),
 		PluginID:       "haier",
-		VendorDeviceID: client.StringFromAny(appliance["macAddress"]),
+		VendorDeviceID: deviceID,
 		Kind:           models.DeviceKindWasher,
 		Name: firstNonEmpty(
-			client.StringFromAny(appliance["nickName"]),
-			client.StringFromAny(appliance["modelName"]),
-			client.StringFromAny(appliance["brand"]),
-			client.StringFromAny(appliance["applianceTypeName"]),
+			client.StringFromAny(appliance["deviceName"]),
+			client.StringFromAny(appliance["deviceType"]),
 		),
-		Room:         client.StringFromAny(appliance["roomName"]),
 		Online:       applianceOnline(appliance),
 		Capabilities: capabilities,
 		Metadata:     metadata,
 	}
-	return device
 }
 
-func buildStateSnapshot(device models.Device, appliance map[string]any, raw map[string]any) models.DeviceStateSnapshot {
+// buildStateSnapshot builds a unified state snapshot from UWS digital model attributes.
+// attrs is a map[string]string of attribute name → value from LoadDigitalModels.
+func buildStateSnapshot(device models.Device, appliance map[string]any, attrs map[string]string) models.DeviceStateSnapshot {
 	normalized := map[string]any{}
-	parameters := extractParameters(raw)
-	for k, v := range parameters {
+
+	// Copy all raw attributes.
+	for k, v := range attrs {
 		normalized[k] = v
 	}
-	normalized["parameters"] = parameters
-	if len(raw) > 0 {
-		normalized["raw"] = raw
+
+	// machMode → machine_status
+	switch attrs["machMode"] {
+	case "3":
+		normalized["machine_status"] = "paused"
+	case "0":
+		normalized["machine_status"] = "idle"
+	case "":
+		normalized["machine_status"] = "idle"
+	default:
+		normalized["machine_status"] = "running"
 	}
-	if stats, ok := raw["statistics"].(map[string]any); ok {
-		normalized["statistics"] = stats
-	}
-	if maintenance, ok := raw["maintenance"].(map[string]any); ok {
-		normalized["maintenance"] = maintenance
-	}
-	if status := client.StringFromAny(parameters["machMode"]); status != "" {
-		switch status {
-		case "3":
-			normalized["machine_status"] = "paused"
-		case "0":
-			normalized["machine_status"] = "idle"
-		default:
-			normalized["machine_status"] = "running"
-		}
-	}
-	if normalized["machine_status"] == nil {
-		if active, ok := raw["active"].(bool); ok && active {
-			normalized["machine_status"] = "running"
-		} else {
-			normalized["machine_status"] = "idle"
-		}
-	}
-	if program := client.StringFromAny(raw["programName"]); program != "" {
-		normalized["program"] = program
-	} else if v := client.StringFromAny(parameters["prCode"]); v != "" {
+
+	if v, ok := attrs["prCode"]; ok && v != "" {
 		normalized["program"] = v
 	}
-	if phase := client.StringFromAny(parameters["prPhase"]); phase != "" {
-		normalized["phase"] = phase
+	if v, ok := attrs["prPhase"]; ok && v != "" {
+		normalized["phase"] = v
 	}
-	if remaining := intFromAny(parameters["remainingTimeMM"]); remaining >= 0 {
-		normalized["remaining_minutes"] = remaining
+	if v, ok := attrs["remainingTimeMM"]; ok {
+		normalized["remaining_minutes"] = intFromAny(v)
 	}
-	if temp := intFromAny(parameters["tempLevel"]); temp > 0 {
-		normalized["temperature"] = temp
+	if v, ok := attrs["tempLevel"]; ok {
+		if i := intFromAny(v); i > 0 {
+			normalized["temperature"] = i
+		}
 	}
-	if spin := intFromAny(parameters["spinSpeed"]); spin > 0 {
-		normalized["spin_speed"] = spin
+	if v, ok := attrs["spinSpeed"]; ok {
+		if i := intFromAny(v); i > 0 {
+			normalized["spin_speed"] = i
+		}
 	}
-	if delay := intFromAny(parameters["delayTime"]); delay >= 0 {
-		normalized["delay_time"] = delay
+	if v, ok := attrs["delayTime"]; ok {
+		normalized["delay_time"] = intFromAny(v)
 	}
-	if prewash, ok := parameters["prewash"].(bool); ok {
-		normalized["prewash"] = prewash
+	if v, ok := attrs["prewash"]; ok {
+		normalized["prewash"] = v == "1" || v == "true"
 	}
-	if rinse := intFromAny(parameters["extraRinse"]); rinse >= 0 {
-		normalized["extra_rinse"] = rinse
+	if v, ok := attrs["extraRinse"]; ok {
+		normalized["extra_rinse"] = intFromAny(v)
 	}
-	if gn := intFromAny(parameters["goodNight"]); gn >= 0 {
-		normalized["good_night"] = gn
+	if v, ok := attrs["goodNight"]; ok {
+		normalized["good_night"] = intFromAny(v)
 	}
-	if electricity := floatFromAny(parameters["totalElectricityUsed"]); electricity >= 0 {
-		normalized["total_electricity_used"] = electricity
+	if v, ok := attrs["totalElectricityUsed"]; ok {
+		normalized["total_electricity_used"] = floatFromAny(v)
 	}
-	if water := floatFromAny(parameters["totalWaterUsed"]); water >= 0 {
-		normalized["total_water_used"] = water
+	if v, ok := attrs["totalWaterUsed"]; ok {
+		normalized["total_water_used"] = floatFromAny(v)
 	}
-	if cycles := intFromAny(parameters["totalWashCycle"]); cycles >= 0 {
-		normalized["total_wash_cycle"] = cycles
+	if v, ok := attrs["totalWashCycle"]; ok {
+		normalized["total_wash_cycle"] = intFromAny(v)
 	}
+
 	return models.DeviceStateSnapshot{
 		DeviceID: device.ID,
 		PluginID: device.PluginID,

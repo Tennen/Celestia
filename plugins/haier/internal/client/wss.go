@@ -2,7 +2,7 @@ package client
 
 import (
 	"bytes"
-	"compress/zlib"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -12,23 +12,46 @@ import (
 	"strings"
 )
 
-const haierWSSGatewayAPI = "https://uws.haier.net/gmsWS/wsag/assign"
+const uwsWSSGatewayURL = "https://uws.haier.net/gmsWS/wsag/assign"
 
 // getWSSGatewayURL fetches the WebSocket gateway address for this account.
-func (c *HaierClient) getWSSGatewayURL(ctx context.Context) (string, error) {
+// POST body: {"clientId": "<clientId>", "accessToken": "<accessToken>"}
+// WSS URL format: {agAddr}/userag?token={accessToken}&agClientId={clientId}
+func (c *UWSClient) getWSSGatewayURL(ctx context.Context) (string, error) {
 	body := map[string]any{
-		"clientId": c.cfg.NormalizedMobileID(),
-		"token":    c.auth.CognitoToken,
+		"clientId":    c.cfg.ClientID,
+		"accessToken": c.auth.AccessToken,
 	}
-	var payload map[string]any
-	if err := c.requestJSON(ctx, http.MethodPost, haierWSSGatewayAPI, body, nil, &payload); err != nil {
-		return "", fmt.Errorf("haier wss gateway: %w", err)
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return "", err
 	}
-	addr := StringFromAny(payload["agAddr"])
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uwsWSSGatewayURL, bytes.NewReader(payload))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("accessToken", c.auth.AccessToken)
+	req.Header.Set("clientId", c.cfg.ClientID)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("uws wss gateway: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("uws wss gateway failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return "", fmt.Errorf("uws wss gateway decode: %w", err)
+	}
+	addr := StringFromAny(result["agAddr"])
 	if addr == "" {
-		return "", fmt.Errorf("haier wss gateway: missing agAddr in response")
+		return "", fmt.Errorf("uws wss gateway: missing agAddr in response")
 	}
-	// The API returns http:// but the connection must use wss://.
 	addr = strings.Replace(addr, "http://", "wss://", 1)
 	addr = strings.Replace(addr, "https://", "wss://", 1)
 	return addr, nil
@@ -43,6 +66,7 @@ type wssMessage struct {
 
 // parseWSSDeviceUpdate decodes a GenMsgDown/DigitalModel WebSocket message and
 // returns the deviceId and its attribute map.
+// Encoding: base64 → JSON → base64 → gzip → JSON
 func parseWSSDeviceUpdate(msg wssMessage) (deviceID string, attributes map[string]string, err error) {
 	if msg.Topic != "GenMsgDown" {
 		return "", nil, fmt.Errorf("not a GenMsgDown message (topic=%s)", msg.Topic)
@@ -76,8 +100,7 @@ func parseWSSDeviceUpdate(msg wssMessage) (deviceID string, attributes map[strin
 	if err != nil {
 		return "", nil, fmt.Errorf("base64 decode args: %w", err)
 	}
-	// The Python code uses zlib.decompress with wbits=16+MAX_WBITS which is gzip.
-	gzReader, err := zlib.NewReader(bytes.NewReader(argsRaw))
+	gzReader, err := gzip.NewReader(bytes.NewReader(argsRaw))
 	if err != nil {
 		return "", nil, fmt.Errorf("gzip open args: %w", err)
 	}
@@ -87,7 +110,7 @@ func parseWSSDeviceUpdate(msg wssMessage) (deviceID string, attributes map[strin
 		return "", nil, fmt.Errorf("gzip decompress args: %w", err)
 	}
 
-	// Layer 2 JSON: {"attributes": [{"name": "...", "value": "..."}, ...], ...}
+	// Layer 2 JSON: {"attributes": [{"name": "...", "value": "..."}, ...]}
 	var layer2JSON struct {
 		Attributes []struct {
 			Name  string `json:"name"`

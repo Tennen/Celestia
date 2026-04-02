@@ -1,0 +1,136 @@
+package client
+
+import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
+	"encoding/json"
+	"testing"
+
+	"pgregory.net/rapid"
+)
+
+// encodeWSSDeviceUpdate encodes a deviceID + attributes into the GenMsgDown/DigitalModel
+// wire format: base64(JSON{dev, args: base64(gzip(JSON{attributes}))})
+func encodeWSSDeviceUpdate(deviceID string, attrs map[string]string) (string, error) {
+	// Build attributes array.
+	type attrEntry struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}
+	attrList := make([]attrEntry, 0, len(attrs))
+	for k, v := range attrs {
+		attrList = append(attrList, attrEntry{Name: k, Value: v})
+	}
+	layer2, err := json.Marshal(map[string]any{"attributes": attrList})
+	if err != nil {
+		return "", err
+	}
+
+	// gzip compress layer2.
+	var gzBuf bytes.Buffer
+	gz := gzip.NewWriter(&gzBuf)
+	if _, err := gz.Write(layer2); err != nil {
+		return "", err
+	}
+	if err := gz.Close(); err != nil {
+		return "", err
+	}
+
+	// base64 encode the gzip bytes.
+	argsB64 := base64.StdEncoding.EncodeToString(gzBuf.Bytes())
+
+	// Build layer1 JSON.
+	layer1, err := json.Marshal(map[string]any{
+		"dev":  deviceID,
+		"args": argsB64,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// base64 encode layer1.
+	return base64.StdEncoding.EncodeToString(layer1), nil
+}
+
+func TestParseWSSDeviceUpdate_RoundTrip(t *testing.T) {
+	attrs := map[string]string{"machMode": "0", "prCode": "3"}
+	data, err := encodeWSSDeviceUpdate("device-123", attrs)
+	if err != nil {
+		t.Fatalf("encode failed: %v", err)
+	}
+
+	msg := wssMessage{
+		Topic: "GenMsgDown",
+		Content: map[string]any{
+			"businType": "DigitalModel",
+			"data":      data,
+		},
+	}
+	deviceID, parsed, err := parseWSSDeviceUpdate(msg)
+	if err != nil {
+		t.Fatalf("parseWSSDeviceUpdate failed: %v", err)
+	}
+	if deviceID != "device-123" {
+		t.Errorf("expected deviceID=device-123, got %q", deviceID)
+	}
+	if parsed["machMode"] != "0" {
+		t.Errorf("expected machMode=0, got %q", parsed["machMode"])
+	}
+	if parsed["prCode"] != "3" {
+		t.Errorf("expected prCode=3, got %q", parsed["prCode"])
+	}
+}
+
+func TestParseWSSDeviceUpdate_WrongTopic(t *testing.T) {
+	msg := wssMessage{Topic: "HeartBeat", Content: map[string]any{}}
+	_, _, err := parseWSSDeviceUpdate(msg)
+	if err == nil {
+		t.Fatal("expected error for wrong topic")
+	}
+}
+
+// TestParseWSSDeviceUpdate_Property7_RoundTrip is Property 7:
+// For any valid GenMsgDown/DigitalModel message, parseWSSDeviceUpdate returns
+// a non-empty deviceId and attribute map consistent with the original.
+// Feature: haier-uws-platform-migration, Property 7: WSS 消息解码往返
+func TestParseWSSDeviceUpdate_Property7_RoundTrip(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		deviceID := rapid.StringMatching(`[a-zA-Z0-9]{4,20}`).Draw(t, "deviceID")
+		n := rapid.IntRange(1, 10).Draw(t, "n")
+		attrs := make(map[string]string, n)
+		for i := 0; i < n; i++ {
+			key := rapid.StringMatching(`[a-zA-Z][a-zA-Z0-9]{2,10}`).Draw(t, "key")
+			val := rapid.StringMatching(`[a-zA-Z0-9]{0,10}`).Draw(t, "val")
+			attrs[key] = val
+		}
+
+		data, err := encodeWSSDeviceUpdate(deviceID, attrs)
+		if err != nil {
+			t.Fatalf("encode failed: %v", err)
+		}
+
+		msg := wssMessage{
+			Topic: "GenMsgDown",
+			Content: map[string]any{
+				"businType": "DigitalModel",
+				"data":      data,
+			},
+		}
+		gotDeviceID, gotAttrs, err := parseWSSDeviceUpdate(msg)
+		if err != nil {
+			t.Fatalf("parseWSSDeviceUpdate failed: %v", err)
+		}
+		if gotDeviceID != deviceID {
+			t.Fatalf("deviceID mismatch: want %q got %q", deviceID, gotDeviceID)
+		}
+		if len(gotAttrs) != len(attrs) {
+			t.Fatalf("attribute count mismatch: want %d got %d", len(attrs), len(gotAttrs))
+		}
+		for k, v := range attrs {
+			if gotAttrs[k] != v {
+				t.Fatalf("attr %q: want %q got %q", k, v, gotAttrs[k])
+			}
+		}
+	})
+}

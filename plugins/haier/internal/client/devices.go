@@ -4,149 +4,71 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
-	"time"
 )
 
-func (c *HaierClient) LoadAppliances(ctx context.Context) ([]map[string]any, error) {
-	var payload map[string]any
-	if err := c.requestJSON(ctx, http.MethodGet, haierAPIBase+"/commands/v1/appliance", nil, nil, &payload); err != nil {
+// LoadAppliances fetches the device list from the UWS platform.
+// GET https://uws.haier.net/uds/v1/protected/deviceinfos
+func (c *UWSClient) LoadAppliances(ctx context.Context) ([]map[string]any, error) {
+	var resp struct {
+		RetCode        string           `json:"retCode"`
+		RetInfo        string           `json:"retInfo"`
+		DeviceInfoList []map[string]any `json:"deviceInfoList"`
+	}
+	if err := c.requestJSON(ctx, http.MethodGet, "/uds/v1/protected/deviceinfos", nil, &resp); err != nil {
 		return nil, err
 	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		payload = nested
+	if resp.RetCode != "00000" {
+		return nil, fmt.Errorf("LoadAppliances failed: retCode=%s retInfo=%s", resp.RetCode, resp.RetInfo)
 	}
-	result := []map[string]any{}
-	if appliances, ok := payload["appliances"].([]any); ok {
-		for _, raw := range appliances {
-			if item, ok := raw.(map[string]any); ok {
-				result = append(result, item)
-			}
-		}
-		return result, nil
+	if resp.DeviceInfoList == nil {
+		return []map[string]any{}, nil
 	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		if appliances, ok := nested["appliances"].([]any); ok {
-			for _, raw := range appliances {
-				if item, ok := raw.(map[string]any); ok {
-					result = append(result, item)
-				}
-			}
+	return resp.DeviceInfoList, nil
+}
+
+// LoadDigitalModels fetches the digital model state for one or more devices.
+// POST https://uws.haier.net/shadow/v1/devdigitalmodels
+// Returns a map of deviceId → attribute key/value pairs.
+func (c *UWSClient) LoadDigitalModels(ctx context.Context, deviceIDs []string) (map[string]map[string]string, error) {
+	type deviceRef struct {
+		DeviceID string `json:"deviceId"`
+	}
+	items := make([]deviceRef, 0, len(deviceIDs))
+	for _, id := range deviceIDs {
+		items = append(items, deviceRef{DeviceID: id})
+	}
+	body := map[string]any{
+		"deviceInfoList": items,
+	}
+
+	var resp struct {
+		RetCode              string `json:"retCode"`
+		RetInfo              string `json:"retInfo"`
+		DeviceDigitalModelList []struct {
+			DeviceID   string `json:"deviceId"`
+			Attributes []struct {
+				Name  string `json:"name"`
+				Value any    `json:"value"`
+			} `json:"attributes"`
+		} `json:"deviceDigitalModelList"`
+	}
+	if err := c.requestJSON(ctx, http.MethodPost, "/shadow/v1/devdigitalmodels", body, &resp); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]map[string]string, len(resp.DeviceDigitalModelList))
+	for _, entry := range resp.DeviceDigitalModelList {
+		if entry.DeviceID == "" {
+			continue
 		}
+		attrs := make(map[string]string, len(entry.Attributes))
+		for _, attr := range entry.Attributes {
+			if attr.Name == "" {
+				continue
+			}
+			attrs[attr.Name] = StringFromAny(attr.Value)
+		}
+		result[entry.DeviceID] = attrs
 	}
 	return result, nil
-}
-
-func (c *HaierClient) LoadCommands(ctx context.Context, appliance map[string]any) (map[string]any, error) {
-	params := url.Values{}
-	params.Set("applianceType", StringFromAny(appliance["applianceTypeName"]))
-	params.Set("applianceModelId", StringFromAny(appliance["applianceModelId"]))
-	params.Set("macAddress", StringFromAny(appliance["macAddress"]))
-	params.Set("os", haierOS)
-	params.Set("appVersion", haierAppVersion)
-	params.Set("code", StringFromAny(appliance["code"]))
-	if firmwareID := StringFromAny(appliance["eepromId"]); firmwareID != "" {
-		params.Set("firmwareId", firmwareID)
-	}
-	if firmwareVersion := StringFromAny(appliance["fwVersion"]); firmwareVersion != "" {
-		params.Set("fwVersion", firmwareVersion)
-	}
-	if series := StringFromAny(appliance["series"]); series != "" {
-		params.Set("series", series)
-	}
-
-	var payload map[string]any
-	if err := c.requestJSON(ctx, http.MethodGet, haierAPIBase+"/commands/v1/retrieve?"+params.Encode(), nil, nil, &payload); err != nil {
-		return nil, err
-	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		payload = nested
-	}
-	if resultCode := StringFromAny(payload["resultCode"]); resultCode != "" && resultCode != "0" {
-		return nil, fmt.Errorf("command metadata request failed: resultCode=%s", resultCode)
-	}
-	return payload, nil
-}
-
-func (c *HaierClient) LoadAttributes(ctx context.Context, appliance map[string]any) (map[string]any, error) {
-	params := url.Values{}
-	params.Set("macAddress", StringFromAny(appliance["macAddress"]))
-	params.Set("applianceType", StringFromAny(appliance["applianceTypeName"]))
-	params.Set("category", "CYCLE")
-	var payload map[string]any
-	if err := c.requestJSON(ctx, http.MethodGet, haierAPIBase+"/commands/v1/context?"+params.Encode(), nil, nil, &payload); err != nil {
-		return nil, err
-	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		payload = nested
-	}
-	return payload, nil
-}
-
-func (c *HaierClient) LoadStatistics(ctx context.Context, appliance map[string]any) (map[string]any, error) {
-	params := url.Values{}
-	params.Set("macAddress", StringFromAny(appliance["macAddress"]))
-	params.Set("applianceType", StringFromAny(appliance["applianceTypeName"]))
-	var payload map[string]any
-	if err := c.requestJSON(ctx, http.MethodGet, haierAPIBase+"/commands/v1/statistics?"+params.Encode(), nil, nil, &payload); err != nil {
-		return nil, err
-	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		payload = nested
-	}
-	return payload, nil
-}
-
-func (c *HaierClient) LoadMaintenance(ctx context.Context, appliance map[string]any) (map[string]any, error) {
-	params := url.Values{}
-	params.Set("macAddress", StringFromAny(appliance["macAddress"]))
-	var payload map[string]any
-	if err := c.requestJSON(ctx, http.MethodGet, haierAPIBase+"/commands/v1/maintenance-cycle?"+params.Encode(), nil, nil, &payload); err != nil {
-		return nil, err
-	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		payload = nested
-	}
-	return payload, nil
-}
-
-func (c *HaierClient) SendCommand(ctx context.Context, appliance map[string]any, command string, parameters map[string]any, ancillaryParameters map[string]any, programName string) (map[string]any, error) {
-	now := time.Now().UTC()
-	body := map[string]any{
-		"macAddress":       StringFromAny(appliance["macAddress"]),
-		"timestamp":        now.Format("2006-01-02T15:04:05.000Z"),
-		"commandName":      command,
-		"transactionId":    fmt.Sprintf("%s_%s", StringFromAny(appliance["macAddress"]), now.Format("2006-01-02T15:04:05.000Z")),
-		"applianceOptions": applianceOptions(appliance),
-		"device": map[string]any{
-			"appVersion":  haierAppVersion,
-			"mobileId":    c.cfg.NormalizedMobileID(),
-			"mobileOs":    haierOS,
-			"osVersion":   haierOSVersion,
-			"deviceModel": haierDeviceModel,
-		},
-		"attributes": map[string]any{
-			"channel":     "mobileApp",
-			"origin":      "standardProgram",
-			"energyLabel": "0",
-		},
-		"ancillaryParameters": ancillaryParameters,
-		"parameters":          parameters,
-		"applianceType":       StringFromAny(appliance["applianceTypeName"]),
-	}
-	if programName != "" && command == "startProgram" {
-		body["programName"] = strings.ToUpper(programName)
-	}
-	var payload map[string]any
-	if err := c.requestJSON(ctx, http.MethodPost, haierAPIBase+"/commands/v1/send", body, nil, &payload); err != nil {
-		return nil, err
-	}
-	if nested, ok := payload["payload"].(map[string]any); ok {
-		payload = nested
-	}
-	if resultCode := resultCodeFrom(payload); resultCode != "" && resultCode != "0" {
-		return payload, fmt.Errorf("command failed: resultCode=%s", resultCode)
-	}
-	return payload, nil
 }
