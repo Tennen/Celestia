@@ -11,6 +11,7 @@ import (
 
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
+	"github.com/chentianyu/celestia/plugins/hikvision/internal/client"
 	"github.com/google/uuid"
 )
 
@@ -32,9 +33,9 @@ type Plugin struct {
 }
 
 type entryRuntime struct {
-	Config    CameraConfig
+	Config    client.CameraConfig
 	Device    models.Device
-	Client    cameraClient
+	Client    client.CameraClient
 	LastState models.DeviceStateSnapshot
 	Connected bool
 	LastError string
@@ -84,11 +85,11 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	deviceIndex := make(map[string]string, len(parsed.Entries))
 	for _, item := range parsed.Entries {
 		device := buildDevice(item)
-		snapshot := buildState(item, cameraStatus{Connected: false}, "not connected")
+		snapshot := buildState(item, client.CameraStatus{Connected: false}, "not connected")
 		entry := &entryRuntime{
 			Config:    item,
 			Device:    device,
-			Client:    newCameraClient(),
+			Client:    client.NewCameraClient(),
 			LastState: snapshot,
 			Connected: false,
 			LastError: "not connected",
@@ -163,7 +164,7 @@ func (p *Plugin) Stop(_ context.Context) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		_ = runtime.Client.Disconnect(ctx)
 		cancel()
-		state := buildState(runtime.Config, cameraStatus{Connected: false}, "plugin stopped")
+		state := buildState(runtime.Config, client.CameraStatus{Connected: false}, "plugin stopped")
 		p.applyState(runtime.Config.EntryID, state, true)
 	}
 	p.setLastError("")
@@ -313,20 +314,20 @@ func (p *Plugin) refreshEntry(ctx context.Context, entryID string) error {
 		return errors.New("entry not found")
 	}
 	cfg := runtime.Config
-	client := runtime.Client
+	cam := runtime.Client
 	connected := runtime.Connected
 	p.mu.RUnlock()
 
 	if !connected {
-		if _, err := client.Connect(ctx, cfg); err != nil {
-			state := buildState(cfg, cameraStatus{Connected: false}, err.Error())
+		if _, err := cam.Connect(ctx, cfg); err != nil {
+			state := buildState(cfg, client.CameraStatus{Connected: false}, err.Error())
 			p.applyState(entryID, state, true)
 			return err
 		}
 	}
-	status, err := client.Status(ctx)
+	status, err := cam.Status(ctx)
 	if err != nil {
-		state := buildState(cfg, cameraStatus{Connected: false}, err.Error())
+		state := buildState(cfg, client.CameraStatus{Connected: false}, err.Error())
 		p.applyState(entryID, state, true)
 		return err
 	}

@@ -10,17 +10,12 @@ import (
 	"unicode"
 
 	"github.com/chentianyu/celestia/internal/pluginutil"
+	"github.com/chentianyu/celestia/plugins/hikvision/internal/client"
 )
 
 const (
 	defaultPollIntervalSeconds      = 30
 	minPollIntervalSeconds          = 5
-	defaultSDKPort                  = 8000
-	defaultChannel                  = 1
-	defaultRTSPPort                 = 554
-	defaultRTSPPath                 = "/Streaming/Channels/{channel}01"
-	defaultPTZSpeed                 = 4
-	defaultPTZStepMS                = 400
 	defaultMaxStreamSessions        = 4
 	minMaxStreamSessions            = 1
 	defaultStreamIdleTimeoutSeconds = 60
@@ -29,33 +24,7 @@ const (
 
 type Config struct {
 	PollIntervalSeconds int
-	Entries             []CameraConfig
-}
-
-type CameraConfig struct {
-	Name                     string
-	EntryID                  string
-	DeviceID                 string
-	Host                     string
-	Port                     int
-	Username                 string
-	Password                 string
-	Channel                  int
-	RTSPPort                 int
-	RTSPPath                 string
-	PTZDefaultSpeed          int
-	PTZStepMS                int
-	SDKLibDir                string
-	MaxStreamSessions        int
-	StreamIdleTimeoutSeconds int
-	// WebRTCNATIP is the public/LAN IP announced in ICE candidates.
-	// Leave empty to let pion enumerate local interfaces automatically.
-	WebRTCNATIP string
-	// WebRTCInterface restricts ICE gathering to a specific network interface
-	// (e.g. "eth0"). Useful when the host has Docker bridge interfaces that
-	// should not be advertised as WebRTC candidates.
-	// Leave empty to use all interfaces.
-	WebRTCInterface string
+	Entries             []client.CameraConfig
 }
 
 func parseConfig(cfg map[string]any) (Config, error) {
@@ -80,7 +49,7 @@ func parseConfig(cfg map[string]any) (Config, error) {
 		return Config{}, errors.New("entries is required")
 	}
 
-	entries := make([]CameraConfig, 0, len(entryMaps))
+	entries := make([]client.CameraConfig, 0, len(entryMaps))
 	for idx, entryMap := range entryMaps {
 		entry, err := parseEntryConfig(entryMap, idx, sdkLibDefault)
 		if err != nil {
@@ -129,42 +98,42 @@ func readEntryMaps(cfg map[string]any) ([]map[string]any, error) {
 	return []map[string]any{cfg}, nil
 }
 
-func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (CameraConfig, error) {
+func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (client.CameraConfig, error) {
 	host := strings.TrimSpace(pluginutil.String(raw["host"], ""))
 	username := strings.TrimSpace(pluginutil.String(raw["username"], ""))
 	password := pluginutil.String(raw["password"], "")
 	if host == "" {
-		return CameraConfig{}, fmt.Errorf("entries[%d].host is required", idx)
+		return client.CameraConfig{}, fmt.Errorf("entries[%d].host is required", idx)
 	}
 	if username == "" {
-		return CameraConfig{}, fmt.Errorf("entries[%d].username is required", idx)
+		return client.CameraConfig{}, fmt.Errorf("entries[%d].username is required", idx)
 	}
 	if password == "" {
-		return CameraConfig{}, fmt.Errorf("entries[%d].password is required", idx)
+		return client.CameraConfig{}, fmt.Errorf("entries[%d].password is required", idx)
 	}
-	port := pluginutil.Int(raw["port"], defaultSDKPort)
+	port := pluginutil.Int(raw["port"], client.DefaultSDKPort)
 	if port <= 0 {
-		port = defaultSDKPort
+		port = client.DefaultSDKPort
 	}
-	channel := pluginutil.Int(raw["channel"], defaultChannel)
+	channel := pluginutil.Int(raw["channel"], client.DefaultChannel)
 	if channel <= 0 {
-		channel = defaultChannel
+		channel = client.DefaultChannel
 	}
-	rtspPort := pluginutil.Int(raw["rtsp_port"], defaultRTSPPort)
+	rtspPort := pluginutil.Int(raw["rtsp_port"], client.DefaultRTSPPort)
 	if rtspPort <= 0 {
-		rtspPort = defaultRTSPPort
+		rtspPort = client.DefaultRTSPPort
 	}
-	rtspPath := strings.TrimSpace(pluginutil.String(raw["rtsp_path"], defaultRTSPPath))
+	rtspPath := strings.TrimSpace(pluginutil.String(raw["rtsp_path"], client.DefaultRTSPPath))
 	if rtspPath == "" {
-		rtspPath = defaultRTSPPath
+		rtspPath = client.DefaultRTSPPath
 	}
-	ptzSpeed := pluginutil.Int(raw["ptz_default_speed"], defaultPTZSpeed)
+	ptzSpeed := pluginutil.Int(raw["ptz_default_speed"], client.DefaultPTZSpeed)
 	if ptzSpeed < 1 || ptzSpeed > 7 {
-		ptzSpeed = defaultPTZSpeed
+		ptzSpeed = client.DefaultPTZSpeed
 	}
-	ptzStepMS := pluginutil.Int(raw["ptz_step_ms"], defaultPTZStepMS)
+	ptzStepMS := pluginutil.Int(raw["ptz_step_ms"], client.DefaultPTZStepMS)
 	if ptzStepMS < 50 {
-		ptzStepMS = defaultPTZStepMS
+		ptzStepMS = client.DefaultPTZStepMS
 	}
 
 	sdkLibDir := strings.TrimSpace(pluginutil.String(raw["sdk_lib_dir"], ""))
@@ -176,7 +145,7 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (Camera
 		sdkLibDir = sdkLibDefault
 	}
 	if strings.TrimSpace(sdkLibDir) == "" {
-		return CameraConfig{}, fmt.Errorf("entries[%d].sdk_lib_dir is required", idx)
+		return client.CameraConfig{}, fmt.Errorf("entries[%d].sdk_lib_dir is required", idx)
 	}
 
 	name := strings.TrimSpace(pluginutil.String(raw["name"], ""))
@@ -203,7 +172,7 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (Camera
 	webrtcNATIP := strings.TrimSpace(pluginutil.String(raw["webrtc_nat_ip"], ""))
 	webrtcInterface := strings.TrimSpace(pluginutil.String(raw["webrtc_interface"], ""))
 
-	entry := CameraConfig{
+	entry := client.CameraConfig{
 		Name:                     name,
 		Host:                     host,
 		Port:                     port,
@@ -223,7 +192,7 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (Camera
 	return entry, nil
 }
 
-func assignEntryIDs(entries []CameraConfig) {
+func assignEntryIDs(entries []client.CameraConfig) {
 	usedEntries := map[string]int{}
 	usedDevices := map[string]int{}
 	for idx := range entries {

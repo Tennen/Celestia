@@ -6,63 +6,32 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/chentianyu/celestia/plugins/petkit/internal/client"
 )
 
-type AccountConfig struct {
-	Name             string `json:"name,omitempty"`
-	Username         string `json:"username"`
-	Password         string `json:"password"`
-	Region           string `json:"region"`
-	Timezone         string `json:"timezone,omitempty"`
-	SessionID        string `json:"session_id,omitempty"`
-	SessionUserID    string `json:"session_user_id,omitempty"`
-	SessionCreatedAt string `json:"session_created_at,omitempty"`
-	SessionExpiresAt string `json:"session_expires_at,omitempty"`
-	SessionBaseURL   string `json:"session_base_url,omitempty"`
-}
+// AccountConfig is re-exported from the client package for plugin-level use.
+type AccountConfig = client.AccountConfig
 
-type CompatConfig struct {
-	PassportBaseURL string `json:"passport_base_url,omitempty"`
-	ChinaBaseURL    string `json:"china_base_url,omitempty"`
-	APIVersion      string `json:"api_version,omitempty"`
-	ClientHeader    string `json:"client_header,omitempty"`
-	UserAgent       string `json:"user_agent,omitempty"`
-	Locale          string `json:"locale,omitempty"`
-	AcceptLanguage  string `json:"accept_language,omitempty"`
-	Platform        string `json:"platform,omitempty"`
-	OSVersion       string `json:"os_version,omitempty"`
-	ModelName       string `json:"model_name,omitempty"`
-	PhoneBrand      string `json:"phone_brand,omitempty"`
-	Source          string `json:"source,omitempty"`
-	HourMode        string `json:"hour_mode,omitempty"`
-}
+// CompatConfig is re-exported from the client package for plugin-level use.
+type CompatConfig = client.CompatConfig
 
+// Config holds the full plugin configuration.
 type Config struct {
 	Accounts            []AccountConfig `json:"accounts"`
 	PollIntervalSeconds int             `json:"poll_interval_seconds"`
 	Compat              CompatConfig    `json:"compat,omitempty"`
 }
 
-type deviceSnapshot struct {
-	AccountName string
-	Client      *Client
-	Info        petkitDeviceInfo
-	Device      models.Device
-	State       models.DeviceStateSnapshot
-	Detail      map[string]any
-	Records     map[string]any
-	LatestEvent *deviceOccurredEvent
-}
-
 type accountRuntime struct {
 	cfg      AccountConfig
-	client   *Client
-	devices  map[string]deviceSnapshot
+	client   *client.Client
+	devices  map[string]client.DeviceSnapshot
 	lastErr  error
 	lastSync time.Time
-	mqtt     *mqttListener
+	mqtt     *client.MqttListener
 }
 
+// Plugin is the Petkit plugin runtime.
 type Plugin struct {
 	mu        sync.RWMutex
 	config    Config
@@ -75,12 +44,7 @@ type Plugin struct {
 	started   bool
 }
 
-type deviceOccurredEvent struct {
-	Key     string
-	TS      time.Time
-	Payload map[string]any
-}
-
+// New creates a new Petkit plugin instance.
 func New() *Plugin {
 	return &Plugin{
 		runtimes:  map[string]*accountRuntime{},
@@ -172,10 +136,10 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	}
 	runtimes := make(map[string]*accountRuntime, len(config.Accounts))
 	for _, account := range config.Accounts {
-		runtimes[accountKey(account)] = &accountRuntime{
+		runtimes[client.AccountKey(account)] = &accountRuntime{
 			cfg:     account,
-			client:  NewClient(account, config.Compat),
-			devices: map[string]deviceSnapshot{},
+			client:  client.NewClient(account, config.Compat),
+			devices: map[string]client.DeviceSnapshot{},
 		}
 	}
 

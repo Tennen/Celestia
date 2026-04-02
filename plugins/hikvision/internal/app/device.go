@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/chentianyu/celestia/plugins/hikvision/internal/client"
 )
 
-func buildDevice(cfg CameraConfig) models.Device {
+func buildDevice(cfg client.CameraConfig) models.Device {
 	metadata := map[string]any{
 		"host":        cfg.Host,
 		"port":        cfg.Port,
@@ -53,7 +54,7 @@ func actionControl(id, label, direction string) models.DeviceControlSpec {
 	}
 }
 
-func buildState(cfg CameraConfig, status cameraStatus, lastError string) models.DeviceStateSnapshot {
+func buildState(cfg client.CameraConfig, status client.CameraStatus, lastError string) models.DeviceStateSnapshot {
 	state := map[string]any{
 		"connected":   status.Connected,
 		"host":        cfg.Host,

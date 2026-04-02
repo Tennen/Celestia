@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/chentianyu/celestia/plugins/hikvision/internal/client"
 )
 
 func newTestPlugin(_ int) *Plugin {
@@ -16,7 +17,7 @@ func newTestPlugin(_ int) *Plugin {
 
 func newTestRuntime() *entryRuntime {
 	return &entryRuntime{
-		Config: CameraConfig{
+		Config: client.CameraConfig{
 			EntryID:  "test-entry",
 			DeviceID: "hikvision:camera:test-entry",
 			Host:     "192.0.2.1",

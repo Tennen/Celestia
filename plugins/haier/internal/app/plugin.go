@@ -9,6 +9,7 @@ import (
 
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
+	"github.com/chentianyu/celestia/plugins/haier/internal/client"
 	"github.com/google/uuid"
 )
 
@@ -61,7 +62,7 @@ func (p *Plugin) ValidateConfig(_ context.Context, cfg map[string]any) error {
 	for i, raw := range accountsRaw {
 		entry, _ := raw.(map[string]any)
 		acct := parseAccountConfig(entry)
-		if !acct.hasCredentials() {
+		if !acct.HasCredentials() {
 			return fmt.Errorf("account %d requires email/password or refresh_token", i)
 		}
 	}
@@ -79,31 +80,31 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	if !ok || len(accountsRaw) == 0 {
 		return errors.New("accounts is required")
 	}
-	config.Accounts = make([]AccountConfig, 0, len(accountsRaw))
+	config.Accounts = make([]client.AccountConfig, 0, len(accountsRaw))
 	accountRuntimes := make(map[string]*accountRuntime, len(accountsRaw))
 	for i, raw := range accountsRaw {
 		entry, _ := raw.(map[string]any)
 		acct := parseAccountConfig(entry)
-		if !acct.hasCredentials() {
+		if !acct.HasCredentials() {
 			return fmt.Errorf("account %d requires email/password or refresh_token", i)
 		}
 		if acct.Name == "" {
-			acct.Name = acct.normalizedName()
+			acct.Name = acct.NormalizedName()
 		}
 		if acct.MobileID == "" {
-			acct.MobileID = acct.normalizedMobileID()
+			acct.MobileID = acct.NormalizedMobileID()
 		}
 		if acct.Timezone == "" {
-			acct.Timezone = acct.normalizedTimezone()
+			acct.Timezone = acct.NormalizedTimezone()
 		}
-		client, err := newHaierClient(acct)
+		haierCli, err := client.NewHaierClient(acct)
 		if err != nil {
 			return err
 		}
 		config.Accounts = append(config.Accounts, acct)
-		accountRuntimes[acct.normalizedName()] = &accountRuntime{
+		accountRuntimes[acct.NormalizedName()] = &accountRuntime{
 			Config:     acct,
-			Client:     client,
+			Client:     haierCli,
 			Appliances: map[string]*applianceRuntime{},
 		}
 	}
@@ -255,7 +256,7 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 		return models.CommandResponse{}, errors.New("device account not found")
 	}
 
-	if _, err := account.Client.sendCommand(ctx, device.ApplianceInfo, commandName, params, ancillary, programName); err != nil {
+	if _, err := account.Client.SendCommand(ctx, device.ApplianceInfo, commandName, params, ancillary, programName); err != nil {
 		return models.CommandResponse{}, err
 	}
 	if err := p.refreshSingle(ctx, req.DeviceID); err != nil {
