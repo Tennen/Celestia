@@ -137,37 +137,7 @@ func (m *Manager) Disable(ctx context.Context, pluginID string) error {
 	if !ok {
 		return errors.New("plugin not installed")
 	}
-	m.mu.RLock()
-	runtime := m.runtimes[pluginID]
-	m.mu.RUnlock()
-	if runtime != nil {
-		runtime.stoppedByManager = true
-		if runtime.streamCancel != nil {
-			runtime.streamCancel()
-		}
-		if runtime.client != nil {
-			stopCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			_, _ = runtime.client.Stop(stopCtx, &emptypb.Empty{})
-			cancel()
-		}
-		if runtime.cancel != nil {
-			runtime.cancel()
-		}
-		if runtime.conn != nil {
-			_ = runtime.conn.Close()
-		}
-		if runtime.cmd != nil && runtime.cmd.Process != nil {
-			_ = runtime.cmd.Process.Signal(syscall.SIGTERM)
-		}
-		runtime.running = false
-		runtime.health = models.PluginHealth{
-			PluginID:   pluginID,
-			Status:     models.HealthStateStopped,
-			Message:    "plugin stopped",
-			CheckedAt:  time.Now().UTC(),
-			ProcessPID: runtime.pid,
-		}
-	}
+	m.stopProcess(pluginID)
 	record.Status = models.PluginStatusDisabled
 	record.UpdatedAt = time.Now().UTC()
 	record.LastHealthStatus = models.HealthStateStopped
@@ -185,13 +155,50 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 	}
 	for _, record := range records {
 		if record.Status == models.PluginStatusEnabled {
-			if err := m.Disable(ctx, record.PluginID); err != nil {
-				return err
-			}
+			// Stop the process only — do NOT persist a disabled status so that
+			// the next startup's Reconcile will re-enable the plugin correctly.
+			m.stopProcess(record.PluginID)
 		}
 	}
 	m.stopCoreAPI()
 	return nil
+}
+
+// stopProcess tears down the in-memory runtime for a plugin (stream, gRPC
+// connection, OS process) without touching the persisted status record.
+func (m *Manager) stopProcess(pluginID string) {
+	m.mu.RLock()
+	runtime := m.runtimes[pluginID]
+	m.mu.RUnlock()
+	if runtime == nil {
+		return
+	}
+	runtime.stoppedByManager = true
+	if runtime.streamCancel != nil {
+		runtime.streamCancel()
+	}
+	if runtime.client != nil {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_, _ = runtime.client.Stop(stopCtx, &emptypb.Empty{})
+		cancel()
+	}
+	if runtime.cancel != nil {
+		runtime.cancel()
+	}
+	if runtime.conn != nil {
+		_ = runtime.conn.Close()
+	}
+	if runtime.cmd != nil && runtime.cmd.Process != nil {
+		_ = runtime.cmd.Process.Signal(syscall.SIGTERM)
+	}
+	runtime.running = false
+	runtime.health = models.PluginHealth{
+		PluginID:   pluginID,
+		Status:     models.HealthStateStopped,
+		Message:    "plugin stopped",
+		CheckedAt:  time.Now().UTC(),
+		ProcessPID: runtime.pid,
+	}
 }
 
 func (m *Manager) Uninstall(ctx context.Context, pluginID string) error {
