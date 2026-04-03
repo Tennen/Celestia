@@ -30,7 +30,7 @@ export function ActivitySection({ events, audits }: Props) {
                     <span>{formatTime(event.ts)}</span>
                   </div>
                   <strong>{event.device_id || event.plugin_id || 'system'}</strong>
-                  <pre className="log-box">{prettyJson(event.payload ?? {})}</pre>
+                  <pre className="log-box log-box--wrap">{prettyJson(event.payload ?? {})}</pre>
                 </article>
               ))}
             </div>
@@ -70,7 +70,7 @@ export function ActivitySection({ events, audits }: Props) {
                     {audit.actor} · {audit.action}
                   </strong>
                   <p>{audit.device_id}</p>
-                  <pre className="log-box">{prettyJson(audit.params ?? {})}</pre>
+                  <pre className="log-box log-box--wrap">{prettyJson(audit.params ?? {})}</pre>
                 </article>
               ))}
             </div>

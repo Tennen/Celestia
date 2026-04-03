@@ -197,42 +197,43 @@ export function AutomationWorkspace() {
         </CardContent>
       </Card>
 
-      <div className="detail-stack">
-        <Card>
-          <CardHeader>
-            <CardHeading
-              title={selectedId ? 'Automation Editor' : 'New Automation'}
-              description="Trigger on one device state transition, optionally gate it with other conditions and a time window, then execute actions on existing devices."
-              aside={
-                draft ? (
-                  <div className="automation-editor__meta">
-                    <Badge
-                      size="xs"
-                      tone={
-                        draft.last_run_status === 'failed'
-                          ? 'bad'
-                          : draft.last_run_status === 'succeeded'
-                            ? 'good'
-                            : 'neutral'
-                      }
-                    >
-                      {draft.last_run_status ?? 'idle'}
-                    </Badge>
-                    <Switch
-                      checked={draft.enabled}
-                      onCheckedChange={(checked) =>
-                        updateDraft((current) => ({ ...current, enabled: checked }))
-                      }
-                      aria-label="Toggle automation enabled"
-                    />
-                  </div>
-                ) : null
-              }
-            />
-          </CardHeader>
-          <CardContent className="stack">
-            {draft ? (
-              <div className="automation-editor">
+      <ScrollArea className="detail-scroll">
+        <div className="detail-stack">
+          <Card>
+            <CardHeader>
+              <CardHeading
+                title={selectedId ? 'Automation Editor' : 'New Automation'}
+                description="Trigger on one device state transition, optionally gate it with other conditions and a time window, then execute actions on existing devices."
+                aside={
+                  draft ? (
+                    <div className="automation-editor__meta">
+                      <Badge
+                        size="xs"
+                        tone={
+                          draft.last_run_status === 'failed'
+                            ? 'bad'
+                            : draft.last_run_status === 'succeeded'
+                              ? 'good'
+                              : 'neutral'
+                        }
+                      >
+                        {draft.last_run_status ?? 'idle'}
+                      </Badge>
+                      <Switch
+                        checked={draft.enabled}
+                        onCheckedChange={(checked) =>
+                          updateDraft((current) => ({ ...current, enabled: checked }))
+                        }
+                        aria-label="Toggle automation enabled"
+                      />
+                    </div>
+                  ) : null
+                }
+              />
+            </CardHeader>
+            <CardContent className="stack">
+              {draft ? (
+                <div className="automation-editor">
                 <div className="automation-summary">
                   <div className="automation-field">
                     <label>Name</label>
@@ -283,13 +284,14 @@ export function AutomationWorkspace() {
                   {draft.last_triggered_at ? <p>Last triggered {formatTime(draft.last_triggered_at)}</p> : <p>No executions yet.</p>}
                   {draft.last_error ? <p className="muted">Last error: {draft.last_error}</p> : null}
                 </div>
-              </div>
-            ) : (
-              <p className="muted">Loading automation editor…</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              ) : (
+                <p className="muted">Loading automation editor…</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </ScrollArea>
     </Section>
   );
 }

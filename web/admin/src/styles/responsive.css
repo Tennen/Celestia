@@ -9,9 +9,13 @@
   .workspace__body,
   .workspace__panel,
   .plugin-workspace,
+  .overview-panel,
+  .overview-panel__main,
   .explorer-card,
   .explorer-card__content,
   .explorer-scroll,
+  .overview-panel__scroll,
+  .detail-scroll,
   .detail-stack,
   .sidemenu {
     @apply h-auto;
@@ -20,6 +24,8 @@
   .workspace__panel--fixed,
   .workspace__panel--scroll,
   .explorer-scroll,
+  .overview-panel__scroll,
+  .detail-scroll,
   .detail-stack {
     @apply overflow-visible pr-0;
   }

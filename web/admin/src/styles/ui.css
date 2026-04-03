@@ -58,12 +58,36 @@
     @apply min-h-0 min-w-0 self-stretch;
   }
 
+  .overview-panel {
+    @apply flex min-h-full flex-col gap-3;
+  }
+
+  .overview-panel__main {
+    @apply grid min-h-0 flex-1 gap-3 xl:grid-cols-2;
+  }
+
+  .overview-panel__card {
+    @apply flex min-h-0 flex-col;
+  }
+
+  .overview-panel__card-content {
+    @apply flex min-h-0 flex-1 flex-col gap-3;
+  }
+
+  .overview-panel__scroll {
+    @apply min-h-0 flex-1 pr-3;
+  }
+
   .plugin-explorer {
     @apply flex h-full min-h-0 flex-col;
   }
 
   .detail-stack {
-    @apply flex min-w-0 min-h-0 flex-col gap-3 overflow-y-auto pr-1;
+    @apply flex min-w-0 flex-col gap-3 pr-3;
+  }
+
+  .detail-scroll {
+    @apply h-full min-h-0;
   }
 
   .explorer-card {
@@ -142,7 +166,7 @@
   }
 
   .feed__item {
-    @apply rounded-2xl border bg-card/80 p-4 shadow-sm;
+    @apply min-w-0 overflow-hidden rounded-2xl border bg-card/80 p-4 shadow-sm;
   }
 
   .feed__meta {
@@ -171,6 +195,10 @@
 
   .log-box {
     @apply overflow-x-auto rounded-2xl border border-slate-900/70 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100 shadow-inner;
+  }
+
+  .log-box--wrap {
+    @apply w-full max-w-full overflow-x-hidden whitespace-pre-wrap break-words;
   }
 
   .runtime-metadata {

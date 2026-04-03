@@ -29,7 +29,7 @@ export function OverviewSection({
   const overviewEvents = events.slice(0, 5);
 
   return (
-    <Section className="detail">
+    <Section className="overview-panel">
       <Section stack={false} className="grid grid--stats">
         {[
           ['Plugins', dashboard?.plugins ?? 0],
@@ -48,14 +48,14 @@ export function OverviewSection({
         ))}
       </Section>
 
-      <Section stack={false} className="grid grid--two">
-        <Card>
+      <Section stack={false} className="overview-panel__main">
+        <Card className="overview-panel__card">
           <CardHeader>
             <CardTitle>Runtime Snapshot</CardTitle>
             <CardDescription>Installed plugins in stable order. Open any item to inspect or reconfigure it.</CardDescription>
           </CardHeader>
-          <CardContent className="stack">
-            <ScrollArea className="h-[360px] pr-4">
+          <CardContent className="overview-panel__card-content">
+            <ScrollArea className="overview-panel__scroll">
               <div className="preview-list">
                 {catalog.map((plugin) => {
                   const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
@@ -83,13 +83,13 @@ export function OverviewSection({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overview-panel__card">
           <CardHeader>
             <CardTitle>Recent Events</CardTitle>
             <CardDescription>Latest event bus activity with one-click jump into the activity module.</CardDescription>
           </CardHeader>
-          <CardContent className="stack">
-            <ScrollArea className="h-[320px] pr-4">
+          <CardContent className="overview-panel__card-content">
+            <ScrollArea className="overview-panel__scroll">
               <div className="feed">
                 {overviewEvents.length > 0 ? (
                   overviewEvents.map((event) => (

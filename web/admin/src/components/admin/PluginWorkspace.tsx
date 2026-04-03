@@ -116,9 +116,10 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
         </CardContent>
       </Card>
 
-      <div className="detail-stack">
-        {selectedCatalogPlugin ? (
-          <>
+      <ScrollArea className="detail-scroll">
+        <div className="detail-stack">
+          {selectedCatalogPlugin ? (
+            <>
             <Card>
               <CardHeader>
                 <CardHeading
@@ -392,15 +393,16 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                 </Card>
               </TabsContent>
             </Tabs>
-          </>
-        ) : (
-          <Card>
-            <CardContent>
-              <p className="muted">No plugin selected.</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </>
+          ) : (
+            <Card>
+              <CardContent>
+                <p className="muted">No plugin selected.</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </ScrollArea>
     </Section>
   );
 }

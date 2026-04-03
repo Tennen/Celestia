@@ -153,9 +153,10 @@ export function DeviceWorkspace() {
         </CardContent>
       </Card>
 
-      <div className="detail-stack">
-        {deviceView ? (
-          <>
+      <ScrollArea className="detail-scroll">
+        <div className="detail-stack">
+          {deviceView ? (
+            <>
             <Card>
               <Collapsible.Root
                 open={!summaryCollapsed}
@@ -370,21 +371,22 @@ export function DeviceWorkspace() {
                 <ScrollArea className="max-h-[360px]">
                   <pre className="log-box">{selectedDeviceDetails}</pre>
                 </ScrollArea>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Device Detail</CardTitle>
+                <CardDescription>Select a device from the list to inspect controls and runtime state.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="muted">No device selected.</p>
               </CardContent>
             </Card>
-          </>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Device Detail</CardTitle>
-              <CardDescription>Select a device from the list to inspect controls and runtime state.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="muted">No device selected.</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+          )}
+        </div>
+      </ScrollArea>
     </Section>
   );
 }
