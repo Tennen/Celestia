@@ -24,15 +24,16 @@
   }
 
   .app-frame {
-    @apply mx-auto grid max-w-[1600px] gap-6 xl:grid-cols-[280px_minmax(0,1fr)];
+    @apply mx-auto grid max-w-[1600px] items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)];
   }
 
   .workspace {
-    @apply space-y-6;
+    @apply min-w-0 space-y-6;
   }
 
   .sidemenu {
-    @apply rounded-[calc(var(--radius)+0.45rem)] border border-slate-800/80 bg-slate-950/90 p-5 text-slate-50 shadow-soft backdrop-blur xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)];
+    @apply self-start rounded-[calc(var(--radius)+0.45rem)] border border-slate-800/80 bg-slate-950/90 p-5 text-slate-50 shadow-soft backdrop-blur xl:sticky xl:top-5;
+    @apply flex flex-col gap-6 xl:max-h-[calc(100vh-2.5rem)];
   }
 
   .sidemenu__brand {
@@ -45,7 +46,7 @@
   }
 
   .sidemenu__nav {
-    @apply mt-6 flex flex-col gap-2;
+    @apply flex flex-col gap-2;
   }
 
   .sidemenu__button {
@@ -57,19 +58,20 @@
   }
 
   .sidemenu__footer {
-    @apply mt-6 justify-between border-t border-slate-800 pt-4;
+    @apply mt-auto justify-between border-t border-slate-800 pt-4;
   }
 
   .module-header {
-    @apply flex flex-col gap-4 rounded-[calc(var(--radius)+0.35rem)] border bg-card/90 px-6 py-5 shadow-sm backdrop-blur md:flex-row md:items-start md:justify-between;
+    @apply rounded-[calc(var(--radius)+0.35rem)] border bg-card/95 px-6 py-5 shadow-sm backdrop-blur;
+    @apply flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start;
   }
 
   .module-header__meta {
-    @apply flex flex-col gap-2 text-sm text-muted-foreground md:items-end;
+    @apply flex flex-wrap items-center gap-2 text-sm text-muted-foreground lg:justify-end;
   }
 
   .module-header__meta span {
-    @apply rounded-full border bg-secondary/60 px-3 py-1;
+    @apply inline-flex items-center rounded-full border bg-secondary/60 px-3 py-1;
   }
 
   .panel {

@@ -121,20 +121,20 @@ function App() {
             {sectionItems.map((section) => {
               const Icon = section.icon;
               return (
-              <button
-                key={section.id}
-                type="button"
-                className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
-                onClick={() => setActiveSection(section.id)}
-              >
-                <span className="flex items-center gap-3">
-                  <Icon className="h-4 w-4" />
-                  {section.label}
-                </span>
-                <Badge tone={activeSection === section.id ? 'accent' : 'neutral'}>
-                  {section.count}
-                </Badge>
-              </button>
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
+                  onClick={() => setActiveSection(section.id)}
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon className="h-4 w-4" />
+                    {section.label}
+                  </span>
+                  <Badge tone={activeSection === section.id ? 'accent' : 'neutral'}>
+                    {section.count}
+                  </Badge>
+                </button>
               );
             })}
           </nav>

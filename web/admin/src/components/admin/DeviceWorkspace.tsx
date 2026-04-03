@@ -14,6 +14,8 @@ import { useDeviceStore } from '../../stores/deviceStore';
 import { DeviceAdvancedCommandSection } from './DeviceAdvancedCommandSection';
 import { DeviceQuickControlsPanel } from './DeviceQuickControlsPanel';
 import { StreamViewerPanel } from './StreamViewerPanel';
+import { CardHeading } from './shared/CardHeading';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 export function DeviceWorkspace() {
   const { devices, refreshAll } = useAdminStore();
@@ -107,115 +109,150 @@ export function DeviceWorkspace() {
   };
 
   return (
-    <Section className="grid grid--two">
+    <Section className="grid items-start gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
       <Card>
         <CardHeader>
           <CardTitle>Device List</CardTitle>
           <CardDescription>Stable device list with command shortcuts and search.</CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <div className="toolbar">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <Input
               value={deviceSearch}
               onChange={(e) => setDeviceSearch(e.target.value)}
               placeholder="Search devices"
             />
-            <Button variant="secondary" onClick={() => void refreshAll()}>
+            <Button variant="secondary" onClick={() => void refreshAll()} className="sm:w-fit">
               Refresh
             </Button>
           </div>
-          <ScrollArea className="max-h-[70vh] pr-4">
+          <ScrollArea className="max-h-[calc(100vh-15rem)] pr-3">
             <div className="table">
               {devices.map((item) => (
-                <button
+                <SelectableListItem
                   key={item.device.id}
-                  type="button"
                   className={`table__row ${selectedDeviceId === item.device.id ? 'is-selected' : ''}`}
                   onClick={() => setSelectedDeviceId(item.device.id)}
-                >
-                  <div>
-                    <strong>{item.device.name}</strong>
-                    <p>{item.device.id}</p>
-                  </div>
-                  <div>
+                  selected={selectedDeviceId === item.device.id}
+                  title={item.device.name}
+                  description={item.device.id}
+                  badges={
                     <Badge tone={item.device.online ? 'good' : 'bad'}>
                       {item.device.online ? 'online' : 'offline'}
                     </Badge>
-                  </div>
-                  <div>
-                    <span>{item.device.kind}</span>
-                    <p>{item.device.room || 'no room'}</p>
-                  </div>
-                </button>
+                  }
+                  support={
+                    <>
+                      <span>{item.device.kind}</span>
+                      <span>{item.device.room || 'no room'}</span>
+                    </>
+                  }
+                />
               ))}
             </div>
           </ScrollArea>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Device Detail</CardTitle>
-          <CardDescription>Selected device state, direct controls, and an advanced command panel for vendor-specific operations.</CardDescription>
-        </CardHeader>
-        <CardContent className="stack">
-          {deviceView ? (
-            <div className="detail">
-              <div className="detail__header">
-                <div className="control-card__title">
-                  {editingDeviceAlias ? (
-                    <div className="control-card__title-edit">
-                      <Input
-                        className="control-card__title-input"
-                        value={deviceAliasDraft}
-                        onChange={(e) => setDeviceAliasDraft(e.target.value)}
-                        placeholder={defaultDeviceName}
-                        autoFocus
-                        onKeyDown={onDeviceAliasKeyDown}
-                      />
-                      <div className="control-card__title-actions">
-                        <Button type="button" variant="ghost" size="sm"
-                          className="control-card__icon-button control-card__icon-button--confirm"
-                          onClick={saveDeviceAlias} disabled={devicePrefBusy}
-                          aria-label={`Save label for ${deviceView.device.name}`} title="Save label">
-                          <Check />
-                        </Button>
-                        <Button type="button" variant="ghost" size="sm"
-                          className="control-card__icon-button control-card__icon-button--reset"
-                          onClick={resetDeviceAlias}
-                          disabled={devicePrefBusy || (!hasSavedDeviceAlias && deviceAliasDraft.trim() === '')}
-                          aria-label={`Reset label for ${deviceView.device.name}`} title="Reset label">
-                          <RotateCcw />
+      <div className="detail-stack">
+        {deviceView ? (
+          <>
+            <Card>
+              <CardHeader>
+                <CardHeading
+                  title="Device Summary"
+                  description="Selected device identity, presence, stream capability, and unified labels."
+                  aside={
+                    <Badge tone={deviceView.device.online ? 'good' : 'bad'}>
+                      {deviceView.device.online ? 'online' : 'offline'}
+                    </Badge>
+                  }
+                />
+              </CardHeader>
+              <CardContent className="stack">
+                <div className="detail__header">
+                  <div className="control-card__title">
+                    {editingDeviceAlias ? (
+                      <div className="control-card__title-edit">
+                        <Input
+                          className="control-card__title-input"
+                          value={deviceAliasDraft}
+                          onChange={(e) => setDeviceAliasDraft(e.target.value)}
+                          placeholder={defaultDeviceName}
+                          autoFocus
+                          onKeyDown={onDeviceAliasKeyDown}
+                        />
+                        <div className="control-card__title-actions">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="control-card__icon-button control-card__icon-button--confirm"
+                            onClick={saveDeviceAlias}
+                            disabled={devicePrefBusy}
+                            aria-label={`Save label for ${deviceView.device.name}`}
+                            title="Save label"
+                          >
+                            <Check />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="control-card__icon-button control-card__icon-button--reset"
+                            onClick={resetDeviceAlias}
+                            disabled={
+                              devicePrefBusy || (!hasSavedDeviceAlias && deviceAliasDraft.trim() === '')
+                            }
+                            aria-label={`Reset label for ${deviceView.device.name}`}
+                            title="Reset label"
+                          >
+                            <RotateCcw />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="control-card__title-row">
+                        <h3>{deviceView.device.name}</h3>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="control-card__icon-button control-card__icon-button--edit"
+                          onClick={() => setEditingDeviceAlias(true)}
+                          disabled={devicePrefBusy}
+                          aria-label={`Edit label for ${deviceView.device.name}`}
+                          title="Edit label"
+                        >
+                          <PencilLine />
                         </Button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="control-card__title-row">
-                      <h3>{deviceView.device.name}</h3>
-                      <Button type="button" variant="ghost" size="sm"
-                        className="control-card__icon-button control-card__icon-button--edit"
-                        onClick={() => setEditingDeviceAlias(true)} disabled={devicePrefBusy}
-                        aria-label={`Edit label for ${deviceView.device.name}`} title="Edit label">
-                        <PencilLine />
-                      </Button>
-                    </div>
-                  )}
-                  <p>{deviceView.device.id}</p>
-                  {hasSavedDeviceAlias ? <p>Default: {defaultDeviceName}</p> : null}
+                    )}
+                    <p>{deviceView.device.id}</p>
+                    {hasSavedDeviceAlias ? <p>Default: {defaultDeviceName}</p> : null}
+                  </div>
                 </div>
-                <Badge tone={deviceView.device.online ? 'good' : 'bad'}>
-                  {deviceView.device.online ? 'online' : 'offline'}
-                </Badge>
-              </div>
-              <div className="chip-list">
-                {asArray(deviceView.device.capabilities).map((capability) => (
-                  <Badge key={capability} tone="neutral">{capability}</Badge>
-                ))}
-              </div>
-              {deviceView.device.capabilities.includes('stream') && (
-                <StreamViewerPanel deviceId={deviceView.device.id} />
-              )}
-              <div className="stack">
+                <div className="chip-list">
+                  {asArray(deviceView.device.capabilities).map((capability) => (
+                    <Badge key={capability} tone="neutral">
+                      {capability}
+                    </Badge>
+                  ))}
+                </div>
+                {deviceView.device.capabilities.includes('stream') ? (
+                  <StreamViewerPanel deviceId={deviceView.device.id} />
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardHeading
+                  title="Controls"
+                  description="Quick controls and vendor-specific advanced commands for the selected device."
+                />
+              </CardHeader>
+              <CardContent className="stack">
                 <DeviceQuickControlsPanel
                   device={deviceView}
                   selectedDevice={selectedDevice}
@@ -225,7 +262,7 @@ export function DeviceWorkspace() {
                   aliasDrafts={aliasDrafts}
                   controlDrafts={controlDrafts}
                   onAliasChange={(controlId, value) =>
-                    setAliasDrafts((c) => ({ ...c, [controlId]: value }))
+                    setAliasDrafts((current) => ({ ...current, [controlId]: value }))
                   }
                   onSavePreference={(controlId, visible) => {
                     if (!selectedDevice) return;
@@ -236,7 +273,7 @@ export function DeviceWorkspace() {
                   }}
                   onResetPreference={(controlId) => {
                     if (!selectedDevice) return;
-                    setAliasDrafts((c) => ({ ...c, [controlId]: '' }));
+                    setAliasDrafts((current) => ({ ...current, [controlId]: '' }));
                     const control = deviceView.controls?.find((item) => item.id === controlId);
                     void updateControlPreference(selectedDevice, controlId, {
                       alias: '',
@@ -259,7 +296,7 @@ export function DeviceWorkspace() {
                     void onActionControl(selectedDevice, controlId);
                   }}
                   onValueChange={(controlId, value) =>
-                    setControlDrafts((c) => ({ ...c, [controlId]: value }))
+                    setControlDrafts((current) => ({ ...current, [controlId]: value }))
                   }
                   onValueControl={(controlId, value) => {
                     if (!selectedDevice) return;
@@ -281,21 +318,51 @@ export function DeviceWorkspace() {
                     void sendCommand(selectedDevice);
                   }}
                 />
-              </div>
-              {commandResult ? (
-                <ScrollArea className="max-h-[220px]">
-                  <pre className="log-box">{commandResult}</pre>
+              </CardContent>
+            </Card>
+
+            {commandResult ? (
+              <Card>
+                <CardHeader>
+                  <CardHeading
+                    title="Last Command Result"
+                    description="Latest response payload from the advanced command or quick control execution."
+                  />
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="max-h-[220px]">
+                    <pre className="log-box">{commandResult}</pre>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <Card>
+              <CardHeader>
+                <CardHeading
+                  title="Unified Device Payload"
+                  description="Current unified device model and control payload as exposed to the admin UI."
+                />
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[360px]">
+                  <pre className="log-box">{selectedDeviceDetails}</pre>
                 </ScrollArea>
-              ) : null}
-              <ScrollArea className="max-h-[360px]">
-                <pre className="log-box">{selectedDeviceDetails}</pre>
-              </ScrollArea>
-            </div>
-          ) : (
-            <p className="muted">No device selected.</p>
-          )}
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Device Detail</CardTitle>
+              <CardDescription>Select a device from the list to inspect controls and runtime state.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="muted">No device selected.</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </Section>
   );
 }

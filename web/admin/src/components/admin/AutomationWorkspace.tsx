@@ -15,6 +15,8 @@ import { ActionsEditor } from './automation/ActionsEditor';
 import { ConditionsEditor } from './automation/ConditionsEditor';
 import { TimeWindowEditor } from './automation/TimeWindowEditor';
 import { TriggerEditor } from './automation/TriggerEditor';
+import { CardHeading } from './shared/CardHeading';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 function buildActionParamDrafts(actions: Automation['actions']) {
   return Object.fromEntries(actions.map((action, index) => [index, prettyActionParams(action.params)]));
@@ -133,34 +135,35 @@ export function AutomationWorkspace() {
           <div className="button-row">
             <Button onClick={startNewAutomation}>New Automation</Button>
           </div>
-          <ScrollArea className="max-h-[70vh] pr-4">
+          <ScrollArea className="max-h-[calc(100vh-15rem)] pr-3">
             <div className="table">
               {automations.map((automation) => (
-                <button
+                <SelectableListItem
                   key={automation.id}
-                  type="button"
                   className={`table__row ${selectedId === automation.id ? 'is-selected' : ''}`}
                   onClick={() => loadDraft(automation)}
-                >
-                  <div>
-                    <strong>{automation.name || automation.id}</strong>
-                    <p>{automation.trigger.device_id || 'No trigger device'}</p>
-                  </div>
-                  <Badge tone={automation.enabled ? 'good' : 'neutral'}>
-                    {automation.enabled ? 'enabled' : 'disabled'}
-                  </Badge>
-                  <Badge
-                    tone={
-                      automation.last_run_status === 'failed'
-                        ? 'bad'
-                        : automation.last_run_status === 'succeeded'
-                          ? 'good'
-                          : 'neutral'
-                    }
-                  >
-                    {automation.last_run_status ?? 'idle'}
-                  </Badge>
-                </button>
+                  selected={selectedId === automation.id}
+                  title={automation.name || automation.id}
+                  description={automation.trigger.device_id || 'No trigger device'}
+                  badges={
+                    <>
+                      <Badge tone={automation.enabled ? 'good' : 'neutral'}>
+                        {automation.enabled ? 'enabled' : 'disabled'}
+                      </Badge>
+                      <Badge
+                        tone={
+                          automation.last_run_status === 'failed'
+                            ? 'bad'
+                            : automation.last_run_status === 'succeeded'
+                              ? 'good'
+                              : 'neutral'
+                        }
+                      >
+                        {automation.last_run_status ?? 'idle'}
+                      </Badge>
+                    </>
+                  }
+                />
               ))}
               {automations.length === 0 ? <div className="detail">No automations configured yet.</div> : null}
             </div>
@@ -171,31 +174,30 @@ export function AutomationWorkspace() {
       <div className="detail-stack">
         <Card>
           <CardHeader>
-            <div className="section-title">
-              <div>
-                <CardTitle>{selectedId ? 'Automation Editor' : 'New Automation'}</CardTitle>
-                <CardDescription>
-                  Trigger on one device state transition, optionally gate it with other conditions and a time window,
-                  then execute actions on existing devices.
-                </CardDescription>
-              </div>
-              {draft ? (
-                <div className="plugin-card__badges">
-                  <Badge tone={draft.enabled ? 'good' : 'neutral'}>{draft.enabled ? 'enabled' : 'disabled'}</Badge>
-                  <Badge
-                    tone={
-                      draft.last_run_status === 'failed'
-                        ? 'bad'
-                        : draft.last_run_status === 'succeeded'
-                          ? 'good'
-                          : 'neutral'
-                    }
-                  >
-                    {draft.last_run_status ?? 'idle'}
-                  </Badge>
-                </div>
-              ) : null}
-            </div>
+            <CardHeading
+              title={selectedId ? 'Automation Editor' : 'New Automation'}
+              description="Trigger on one device state transition, optionally gate it with other conditions and a time window, then execute actions on existing devices."
+              aside={
+                draft ? (
+                  <div className="plugin-card__badges">
+                    <Badge tone={draft.enabled ? 'good' : 'neutral'}>
+                      {draft.enabled ? 'enabled' : 'disabled'}
+                    </Badge>
+                    <Badge
+                      tone={
+                        draft.last_run_status === 'failed'
+                          ? 'bad'
+                          : draft.last_run_status === 'succeeded'
+                            ? 'good'
+                            : 'neutral'
+                      }
+                    >
+                      {draft.last_run_status ?? 'idle'}
+                    </Badge>
+                  </div>
+                ) : null
+              }
+            />
           </CardHeader>
           <CardContent className="stack">
             {draft ? (

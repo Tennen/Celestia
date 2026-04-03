@@ -12,6 +12,8 @@ import { getPluginDraftText, canStartXiaomiOAuth } from '../../lib/admin';
 import { useAdminStore } from '../../stores/adminStore';
 import { usePluginStore } from '../../stores/pluginStore';
 import { PluginConfigPanel } from './PluginConfigPanel';
+import { CardHeading } from './shared/CardHeading';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   oauthActive: boolean;
@@ -91,38 +93,37 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
           <CardDescription>Stable ordering by plugin id. Select an item to open its full management panel.</CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <ScrollArea className="max-h-[70vh] pr-4 xl:max-h-[calc(100vh-14rem)]">
+          <ScrollArea className="max-h-[calc(100vh-15rem)] pr-3">
             <div className="plugin-list">
               {catalog.map((plugin) => {
                 const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
                 return (
-                  <button
+                  <SelectableListItem
                     key={plugin.id}
-                    type="button"
                     className={`plugin-list__item ${selectedPluginId === plugin.id ? 'is-selected' : ''}`}
                     onClick={() => setSelectedPluginId(plugin.id)}
-                  >
-                    <div className="plugin-list__meta">
-                      <strong>{plugin.name}</strong>
-                      <p>{plugin.id}</p>
-                    </div>
-                    <div className="plugin-list__badges">
-                      <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
-                        {runtime?.record.status ?? 'uninstalled'}
-                      </Badge>
-                      <Badge
-                        tone={
-                          runtime?.health.status === 'healthy'
-                            ? 'good'
-                            : runtime?.health.status === 'unhealthy'
-                              ? 'bad'
-                              : 'warn'
-                        }
-                      >
-                        {runtime?.health.status ?? 'unknown'}
-                      </Badge>
-                    </div>
-                  </button>
+                    selected={selectedPluginId === plugin.id}
+                    title={plugin.name}
+                    description={plugin.id}
+                    badges={
+                      <>
+                        <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
+                          {runtime?.record.status ?? 'uninstalled'}
+                        </Badge>
+                        <Badge
+                          tone={
+                            runtime?.health.status === 'healthy'
+                              ? 'good'
+                              : runtime?.health.status === 'unhealthy'
+                                ? 'bad'
+                                : 'warn'
+                          }
+                        >
+                          {runtime?.health.status ?? 'unknown'}
+                        </Badge>
+                      </>
+                    }
+                  />
                 );
               })}
             </div>
@@ -135,31 +136,31 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
           <>
             <Card>
               <CardHeader>
-                <div className="section-title">
-                  <div>
-                    <CardTitle>{selectedCatalogPlugin.name}</CardTitle>
-                    <CardDescription>{selectedCatalogPlugin.description}</CardDescription>
-                  </div>
-                  <div className="plugin-card__badges">
-                    <Badge tone={selectedPlugin?.record.status === 'enabled' ? 'good' : 'neutral'}>
-                      {selectedPlugin?.record.status ?? 'uninstalled'}
-                    </Badge>
-                    <Badge
-                      tone={
-                        selectedPlugin?.health.status === 'healthy'
-                          ? 'good'
-                          : selectedPlugin?.health.status === 'unhealthy'
-                            ? 'bad'
-                            : 'warn'
-                      }
-                    >
-                      {selectedPlugin?.health.status ?? 'unknown'}
-                    </Badge>
-                  </div>
-                </div>
+                <CardHeading
+                  title={selectedCatalogPlugin.name}
+                  description={selectedCatalogPlugin.description}
+                  aside={
+                    <div className="plugin-card__badges">
+                      <Badge tone={selectedPlugin?.record.status === 'enabled' ? 'good' : 'neutral'}>
+                        {selectedPlugin?.record.status ?? 'uninstalled'}
+                      </Badge>
+                      <Badge
+                        tone={
+                          selectedPlugin?.health.status === 'healthy'
+                            ? 'good'
+                            : selectedPlugin?.health.status === 'unhealthy'
+                              ? 'bad'
+                              : 'warn'
+                        }
+                      >
+                        {selectedPlugin?.health.status ?? 'unknown'}
+                      </Badge>
+                    </div>
+                  }
+                />
               </CardHeader>
               <CardContent className="stack">
-                <div className="plugin-card__side">
+                <div className="grid gap-4 md:grid-cols-3">
                   <div className="kv">
                     <span>Binary</span>
                     <strong>{selectedCatalogPlugin.binary_name}</strong>
@@ -172,6 +173,8 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                     <span>Devices</span>
                     <strong>{asArray(selectedCatalogPlugin.manifest.device_kinds).join(', ')}</strong>
                   </div>
+                </div>
+                <div className="stack">
                   {hikvisionRuntimeHint ? (
                     <div className="plugin-auth-guide">
                       <div className="plugin-auth-guide__header">
@@ -381,13 +384,11 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
               <TabsContent value="logs">
                 <Card>
                   <CardHeader>
-                    <div className="section-title">
-                      <div>
-                        <CardTitle>Plugin Logs</CardTitle>
-                        <CardDescription>Live buffer for the currently selected plugin.</CardDescription>
-                      </div>
-                      <Badge tone="neutral">{selectedCatalogPlugin.id}</Badge>
-                    </div>
+                    <CardHeading
+                      title="Plugin Logs"
+                      description="Live buffer for the currently selected plugin."
+                      aside={<Badge tone="neutral">{selectedCatalogPlugin.id}</Badge>}
+                    />
                   </CardHeader>
                   <CardContent className="stack">
                     <div className="button-row">

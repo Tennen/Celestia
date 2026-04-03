@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
+import { SelectableListItem } from './shared/SelectableListItem';
 import type { AppSection } from '../../lib/admin';
 import { formatTime } from '../../lib/utils';
 import type { AuditRecord, CatalogPlugin, DashboardSummary, DeviceView, EventRecord, PluginRuntimeView } from '../../lib/types';
@@ -63,36 +64,34 @@ export function OverviewSection({
                 {catalog.map((plugin) => {
                   const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
                   return (
-                    <button
+                    <SelectableListItem
                       key={plugin.id}
-                      type="button"
                       className="preview-list__item"
                       onClick={() => {
                         onSelectPlugin(plugin.id);
                         onOpenSection('plugins');
                       }}
-                    >
-                      <div>
-                        <strong>{plugin.name}</strong>
-                        <p>{plugin.id}</p>
-                      </div>
-                      <div className="chip-list">
-                        <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
-                          {runtime?.record.status ?? 'uninstalled'}
-                        </Badge>
-                        <Badge
-                          tone={
-                            runtime?.health.status === 'healthy'
-                              ? 'good'
-                              : runtime?.health.status === 'unhealthy'
-                                ? 'bad'
-                                : 'warn'
-                          }
-                        >
-                          {runtime?.health.status ?? 'unknown'}
-                        </Badge>
-                      </div>
-                    </button>
+                      title={plugin.name}
+                      description={plugin.id}
+                      badges={
+                        <>
+                          <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
+                            {runtime?.record.status ?? 'uninstalled'}
+                          </Badge>
+                          <Badge
+                            tone={
+                              runtime?.health.status === 'healthy'
+                                ? 'good'
+                                : runtime?.health.status === 'unhealthy'
+                                  ? 'bad'
+                                  : 'warn'
+                            }
+                          >
+                            {runtime?.health.status ?? 'unknown'}
+                          </Badge>
+                        </>
+                      }
+                    />
                   );
                 })}
               </div>
@@ -169,24 +168,26 @@ export function OverviewSection({
           </CardHeader>
           <CardContent className="stack">
             {selectedCatalogPlugin ? (
-              <button type="button" className="preview-list__item" onClick={() => onOpenSection('plugins')}>
-                <div>
-                  <strong>{selectedCatalogPlugin.name}</strong>
-                  <p>{selectedCatalogPlugin.id}</p>
-                </div>
-                <Badge tone="accent">Plugin</Badge>
-              </button>
+              <SelectableListItem
+                className="preview-list__item"
+                onClick={() => onOpenSection('plugins')}
+                title={selectedCatalogPlugin.name}
+                description={selectedCatalogPlugin.id}
+                badges={<Badge tone="accent">Plugin</Badge>}
+              />
             ) : null}
             {selectedDevice ? (
-              <button type="button" className="preview-list__item" onClick={() => onOpenSection('devices')}>
-                <div>
-                  <strong>{selectedDevice.device.name}</strong>
-                  <p>{selectedDevice.device.id}</p>
-                </div>
-                <Badge tone={selectedDevice.device.online ? 'good' : 'bad'}>
-                  {selectedDevice.device.online ? 'online' : 'offline'}
-                </Badge>
-              </button>
+              <SelectableListItem
+                className="preview-list__item"
+                onClick={() => onOpenSection('devices')}
+                title={selectedDevice.device.name}
+                description={selectedDevice.device.id}
+                badges={
+                  <Badge tone={selectedDevice.device.online ? 'good' : 'bad'}>
+                    {selectedDevice.device.online ? 'online' : 'offline'}
+                  </Badge>
+                }
+              />
             ) : null}
           </CardContent>
         </Card>

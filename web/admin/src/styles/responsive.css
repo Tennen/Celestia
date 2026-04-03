@@ -17,12 +17,6 @@
     @apply items-start;
   }
 
-  .preview-list__item,
-  .plugin-list__item,
-  .table__row {
-    @apply flex-col items-start;
-  }
-
   .detail__header,
   .control-card__header {
     @apply flex-col;
