@@ -17,9 +17,12 @@ go test ./...
 make build
 make docker-build-hikvision
 npm run build --workspace web/admin
+./deploy.sh
 CELESTIA_ADDR=127.0.0.1:8080 ./bin/gateway
 go run ./cmd/celctl dashboard
 ```
+
+`./deploy.sh` runs the same build sequence as the README commands. If `make docker-build-hikvision` fails, the script prints an error and continues the remaining deployment steps.
 
 The gateway serves the admin build from `web/admin/dist` and persists runtime data to SQLite.
 
