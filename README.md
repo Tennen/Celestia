@@ -135,6 +135,19 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
 ```
 - The plugin directly uses HCNetSDK in-process, maps each configured camera entry to `camera_like`, supports PTZ movement and playback commands, and emits state/command events back to Core.
 
+## Implementation References
+
+Celestia's vendor plugins are implemented against Celestia's own Core/plugin architecture, gRPC protocol, unified device model, and SQLite-backed persistence. The following upstream projects were useful as implementation references while researching vendor-specific authentication flows, API behavior, device modeling, and command semantics:
+
+- Xiaomi MIoT: [al-one/hass-xiaomi-miot](https://github.com/al-one/hass-xiaomi-miot)
+  Celestia's Xiaomi plugin references this project when validating MIoT cloud login patterns, property/action mapping, and device capability interpretation. Celestia does not embed Home Assistant integration paths; the final implementation runs as a separate Celestia plugin process and maps vendor payloads into Celestia's unified models.
+- Haier hOn: [banto6/haier](https://github.com/banto6/haier)
+  Celestia's Haier plugin references this project when validating hOn authentication flow, appliance discovery shape, and command metadata interpretation. The resulting implementation is adapted to Celestia's plugin RPC lifecycle, Core-owned config persistence, and unified command/state pipeline.
+- Petkit: [Jezza34000/homeassistant_petkit](https://github.com/Jezza34000/homeassistant_petkit)
+  Celestia's Petkit plugin references this project when researching Petkit cloud login, device payload structure, feeder/fountain/litter-box behavior, and compatibility knobs exposed by the mobile app contract. Celestia implements those flows inside its own plugin runtime instead of reusing Home Assistant specific abstractions.
+
+These repositories are reference material for protocol and behavior research, not alternate runtime paths inside Celestia. Production behavior remains owned by Celestia's Core and vendor plugin processes.
+
 ## Repository Layout
 
 - `cmd/gateway`: gateway entrypoint that wires SQLite storage, runtime reconciliation, HTTP API, and graceful shutdown.
