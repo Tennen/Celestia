@@ -86,7 +86,7 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
   const hikvisionRuntimeHint = extractHikvisionRuntimeHint(selectedCatalogPlugin);
 
   return (
-    <Section className="plugin-workspace">
+    <Section stack={false} className="plugin-workspace">
       <Card className="plugin-explorer">
         <CardHeader>
           <CardTitle>Plugin List</CardTitle>
@@ -107,10 +107,14 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                     description={plugin.id}
                     badges={
                       <>
-                        <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
+                        <Badge
+                          tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}
+                          size="sm"
+                        >
                           {runtime?.record.status ?? 'uninstalled'}
                         </Badge>
                         <Badge
+                          size="sm"
                           tone={
                             runtime?.health.status === 'healthy'
                               ? 'good'
@@ -335,7 +339,7 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
               </TabsList>
 
               <TabsContent value="runtime">
-                <Section className="grid grid--two">
+                <Section stack={false} className="grid grid--two">
                   <Card>
                     <CardHeader>
                       <CardTitle>Runtime Details</CardTitle>

@@ -52,11 +52,11 @@
   }
 
   .control-card__icon-button {
-    @apply h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground;
+    @apply h-9 w-9 rounded-full p-0 text-muted-foreground hover:text-foreground;
   }
 
   .control-card__icon-button svg {
-    @apply h-4 w-4;
+    @apply h-5 w-5;
   }
 
   .control-card__icon-button--confirm {

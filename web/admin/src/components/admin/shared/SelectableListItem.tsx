@@ -21,7 +21,7 @@ export function SelectableListItem({
   return (
     <button
       type="button"
-      className={cn('table__row', selected && 'is-selected', className)}
+      className={cn('table__row space-y-3', selected && 'is-selected', className)}
       {...props}
     >
       <div className="list-item__row">

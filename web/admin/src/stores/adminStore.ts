@@ -28,7 +28,17 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   },
 
   refreshAll: async () => {
-    set({ loading: true, error: null });
+    const state = get();
+    if (state.refreshing || (state.loading && state.hasLoaded)) {
+      return;
+    }
+
+    set(
+      state.hasLoaded
+        ? { refreshing: true, error: null }
+        : { loading: true, refreshing: false, error: null },
+    );
+
     try {
       const deviceSearch = getDeviceSearchRef();
       const [dashboard, rawCatalog, rawPlugins, rawAutomations, rawDevices, rawEvents, rawAudits] = await Promise.all([
@@ -58,6 +68,8 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         events: asArray(rawEvents),
         audits: asArray(rawAudits),
         loading: false,
+        refreshing: false,
+        hasLoaded: true,
         error: null,
       });
 
@@ -67,6 +79,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     } catch (error) {
       set({
         loading: false,
+        refreshing: false,
         error: error instanceof Error ? error.message : 'Failed to load admin data',
       });
     }

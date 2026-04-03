@@ -109,7 +109,7 @@ export function DeviceWorkspace() {
   };
 
   return (
-    <Section className="grid items-start gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+    <Section stack={false} className="grid items-start gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
       <Card>
         <CardHeader>
           <CardTitle>Device List</CardTitle>
@@ -137,7 +137,7 @@ export function DeviceWorkspace() {
                   title={item.device.name}
                   description={item.device.id}
                   badges={
-                    <Badge tone={item.device.online ? 'good' : 'bad'}>
+                    <Badge tone={item.device.online ? 'good' : 'bad'} size="sm">
                       {item.device.online ? 'online' : 'offline'}
                     </Badge>
                   }

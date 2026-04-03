@@ -125,7 +125,7 @@ export function AutomationWorkspace() {
   };
 
   return (
-    <Section className="plugin-workspace">
+    <Section stack={false} className="plugin-workspace">
       <Card className="plugin-explorer">
         <CardHeader>
           <CardTitle>Automations</CardTitle>
@@ -147,10 +147,11 @@ export function AutomationWorkspace() {
                   description={automation.trigger.device_id || 'No trigger device'}
                   badges={
                     <>
-                      <Badge tone={automation.enabled ? 'good' : 'neutral'}>
+                      <Badge tone={automation.enabled ? 'good' : 'neutral'} size="sm">
                         {automation.enabled ? 'enabled' : 'disabled'}
                       </Badge>
                       <Badge
+                        size="sm"
                         tone={
                           automation.last_run_status === 'failed'
                             ? 'bad'

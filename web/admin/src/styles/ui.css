@@ -60,10 +60,13 @@
 
   .preview-list,
   .plugin-list,
-  .table,
   .feed,
   .config-field-list {
     @apply grid gap-4;
+  }
+
+  .table {
+    @apply grid gap-5;
   }
 
   .preview-list__item,
@@ -79,7 +82,7 @@
   }
 
   .list-item__row {
-    @apply flex w-full flex-wrap items-start justify-between gap-3;
+    @apply grid gap-3;
   }
 
   .list-item__meta {
@@ -87,11 +90,15 @@
   }
 
   .list-item__support {
-    @apply flex flex-wrap items-center gap-2 text-xs text-muted-foreground;
+    @apply flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground;
   }
 
   .list-item__badges {
-    @apply flex shrink-0 flex-wrap items-center gap-2;
+    @apply flex max-w-full flex-wrap items-center gap-2;
+  }
+
+  .list-item__badges > * {
+    @apply max-w-full;
   }
 
   .preview-list__item strong,
@@ -126,11 +133,19 @@
   }
 
   .stat {
-    @apply rounded-2xl border bg-card/85 p-5 shadow-sm backdrop-blur;
+    @apply rounded-2xl border bg-card/85 shadow-sm backdrop-blur;
   }
 
-  .stat .text-lg {
-    @apply text-3xl;
+  .stat__content {
+    @apply flex min-h-[112px] flex-col justify-between p-6;
+  }
+
+  .stat__label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .stat__value {
+    @apply text-4xl font-semibold leading-none tracking-tight text-foreground;
   }
 
   .detail {

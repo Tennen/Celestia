@@ -1,6 +1,10 @@
 import type { HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 
-export function Section({ className, ...props }: HTMLAttributes<HTMLElement>) {
-  return <section className={cn('space-y-6', className)} {...props} />;
+type Props = HTMLAttributes<HTMLElement> & {
+  stack?: boolean;
+};
+
+export function Section({ className, stack = true, ...props }: Props) {
+  return <section className={cn(stack && 'space-y-6', className)} {...props} />;
 }

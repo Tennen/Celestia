@@ -25,7 +25,20 @@ import { useXiaomiOAuth } from './hooks/useXiaomiOAuth';
 function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('overview');
 
-  const { loading, error, catalog, plugins, automations, devices, events, audits, dashboard, refreshAll } =
+  const {
+    loading,
+    refreshing,
+    hasLoaded,
+    error,
+    catalog,
+    plugins,
+    automations,
+    devices,
+    events,
+    audits,
+    dashboard,
+    refreshAll,
+  } =
     useAdminStore();
   const { selectedPluginId } = usePluginStore();
   const { selectedDeviceId } = useDeviceStore();
@@ -93,7 +106,10 @@ function App() {
 
   const selectedCatalogPlugin = catalog.find((p) => p.id === selectedPluginId) ?? null;
   const selectedDevice = devices.find((d) => d.device.id === selectedDeviceId) ?? null;
-  const runtimeBadgeTone = loading ? 'accent' : error ? 'bad' : 'good';
+  const runtimeBadgeTone = !hasLoaded && loading ? 'accent' : error ? 'bad' : 'good';
+  const runtimeBadgeText = !hasLoaded && loading ? 'Connecting' : error ? 'Attention' : 'Stable';
+  const runtimeHeaderText = !hasLoaded && loading ? 'Connecting' : error ? 'Needs Attention' : 'Runtime Stable';
+  const isRefreshing = loading || refreshing;
 
   return (
     <div className="shell shell--app">
@@ -112,9 +128,7 @@ function App() {
             </p>
             <div className="sidemenu__meta">
               <Badge tone="accent">Gateway API</Badge>
-              <Badge tone={runtimeBadgeTone}>
-                {loading ? 'Refreshing' : error ? 'Attention' : 'Stable'}
-              </Badge>
+              <Badge tone={runtimeBadgeTone}>{runtimeBadgeText}</Badge>
             </div>
           </div>
           <nav className="sidemenu__nav">
@@ -143,10 +157,10 @@ function App() {
             <Button
               variant="secondary"
               onClick={() => void refreshAll()}
-              disabled={loading}
+              disabled={isRefreshing}
               className="border-slate-700 bg-white/10 text-white hover:bg-white/15 hover:text-white"
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </div>
@@ -160,9 +174,12 @@ function App() {
               <p className="topbar__sub">{sectionMeta[activeSection].description}</p>
             </div>
             <div className="module-header__meta">
-              <Badge tone={runtimeBadgeTone}>
-                {loading ? 'Refreshing' : error ? 'Needs Attention' : 'Runtime Stable'}
-              </Badge>
+              <Badge tone={runtimeBadgeTone}>{runtimeHeaderText}</Badge>
+              {refreshing ? (
+                <Badge tone="neutral" size="sm">
+                  Syncing
+                </Badge>
+              ) : null}
               <span>
                 Endpoint <code>{getApiBase()}</code>
               </span>

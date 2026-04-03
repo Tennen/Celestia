@@ -36,7 +36,7 @@ export function OverviewSection({
 
   return (
     <>
-      <Section className="grid grid--stats">
+      <Section stack={false} className="grid grid--stats">
         {[
           ['Plugins', dashboard?.plugins ?? 0],
           ['Enabled', dashboard?.enabled_plugins ?? 0],
@@ -46,13 +46,15 @@ export function OverviewSection({
           ['Audits', dashboard?.audits ?? 0],
         ].map(([label, value]) => (
           <Card key={label as string} className="stat">
-            <CardDescription>{label}</CardDescription>
-            <CardTitle>{value as number}</CardTitle>
+            <div className="stat__content">
+              <CardDescription className="stat__label">{label}</CardDescription>
+              <CardTitle className="stat__value">{value as number}</CardTitle>
+            </div>
           </Card>
         ))}
       </Section>
 
-      <Section className="grid grid--two">
+      <Section stack={false} className="grid grid--two">
         <Card>
           <CardHeader>
             <CardTitle>Runtime Snapshot</CardTitle>
@@ -75,10 +77,14 @@ export function OverviewSection({
                       description={plugin.id}
                       badges={
                         <>
-                          <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
+                          <Badge
+                            tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}
+                            size="sm"
+                          >
                             {runtime?.record.status ?? 'uninstalled'}
                           </Badge>
                           <Badge
+                            size="sm"
                             tone={
                               runtime?.health.status === 'healthy'
                                 ? 'good'
@@ -111,7 +117,9 @@ export function OverviewSection({
                   overviewEvents.map((event) => (
                     <article key={event.id} className="feed__item">
                       <div className="feed__meta">
-                        <Badge tone="accent">{event.type}</Badge>
+                        <Badge tone="accent" size="sm">
+                          {event.type}
+                        </Badge>
                         <span>{formatTime(event.ts)}</span>
                       </div>
                       <strong>{event.device_id || event.plugin_id || 'system'}</strong>
@@ -129,7 +137,7 @@ export function OverviewSection({
         </Card>
       </Section>
 
-      <Section className="grid grid--two">
+      <Section stack={false} className="grid grid--two">
         <Card>
           <CardHeader>
             <CardTitle>Recent Audits</CardTitle>
@@ -142,7 +150,7 @@ export function OverviewSection({
                   overviewAudits.map((audit) => (
                     <article key={audit.id} className="feed__item">
                       <div className="feed__meta">
-                        <Badge tone={audit.allowed ? 'good' : 'bad'}>
+                        <Badge tone={audit.allowed ? 'good' : 'bad'} size="sm">
                           {audit.allowed ? 'allowed' : 'denied'}
                         </Badge>
                         <span>{formatTime(audit.created_at)}</span>
@@ -173,7 +181,11 @@ export function OverviewSection({
                 onClick={() => onOpenSection('plugins')}
                 title={selectedCatalogPlugin.name}
                 description={selectedCatalogPlugin.id}
-                badges={<Badge tone="accent">Plugin</Badge>}
+                badges={
+                  <Badge tone="accent" size="sm">
+                    Plugin
+                  </Badge>
+                }
               />
             ) : null}
             {selectedDevice ? (
@@ -183,7 +195,7 @@ export function OverviewSection({
                 title={selectedDevice.device.name}
                 description={selectedDevice.device.id}
                 badges={
-                  <Badge tone={selectedDevice.device.online ? 'good' : 'bad'}>
+                  <Badge tone={selectedDevice.device.online ? 'good' : 'bad'} size="sm">
                     {selectedDevice.device.online ? 'online' : 'offline'}
                   </Badge>
                 }

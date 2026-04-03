@@ -26,6 +26,8 @@ export type LoadState = {
   events: EventRecord[];
   audits: AuditRecord[];
   loading: boolean;
+  refreshing: boolean;
+  hasLoaded: boolean;
   error: string | null;
 };
 
@@ -38,6 +40,8 @@ export const emptyLoadState = (): LoadState => ({
   events: [],
   audits: [],
   loading: true,
+  refreshing: false,
+  hasLoaded: false,
   error: null,
 });
 

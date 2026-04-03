@@ -12,7 +12,7 @@ type Props = {
 
 export function ActivitySection({ events, audits }: Props) {
   return (
-    <Section className="grid grid--two">
+    <Section stack={false} className="grid grid--two">
       <Card>
         <CardHeader>
           <CardTitle>Events</CardTitle>
@@ -24,7 +24,9 @@ export function ActivitySection({ events, audits }: Props) {
               {events.map((event) => (
                 <article key={event.id} className="feed__item">
                   <div className="feed__meta">
-                    <Badge tone="accent">{event.type}</Badge>
+                    <Badge tone="accent" size="sm">
+                      {event.type}
+                    </Badge>
                     <span>{formatTime(event.ts)}</span>
                   </div>
                   <strong>{event.device_id || event.plugin_id || 'system'}</strong>
@@ -47,10 +49,11 @@ export function ActivitySection({ events, audits }: Props) {
               {audits.map((audit) => (
                 <article key={audit.id} className="feed__item">
                   <div className="feed__meta">
-                    <Badge tone={audit.allowed ? 'good' : 'bad'}>
+                    <Badge tone={audit.allowed ? 'good' : 'bad'} size="sm">
                       {audit.allowed ? 'allowed' : 'denied'}
                     </Badge>
                     <Badge
+                      size="sm"
                       tone={
                         audit.risk_level === 'high'
                           ? 'bad'
