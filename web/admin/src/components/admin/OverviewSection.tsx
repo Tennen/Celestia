@@ -49,13 +49,13 @@ export function OverviewSection({
       </Section>
 
       <Section stack={false} className="overview-panel__main">
-        <Card className="overview-panel__card">
+        <Card className="explorer-card">
           <CardHeader>
             <CardTitle>Runtime Snapshot</CardTitle>
             <CardDescription>Installed plugins in stable order. Open any item to inspect or reconfigure it.</CardDescription>
           </CardHeader>
-          <CardContent className="overview-panel__card-content">
-            <ScrollArea className="overview-panel__scroll">
+          <CardContent className="explorer-card__content">
+            <ScrollArea className="explorer-scroll">
               <div className="preview-list">
                 {catalog.map((plugin) => {
                   const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
@@ -83,13 +83,13 @@ export function OverviewSection({
           </CardContent>
         </Card>
 
-        <Card className="overview-panel__card">
+        <Card className="explorer-card">
           <CardHeader>
             <CardTitle>Recent Events</CardTitle>
             <CardDescription>Latest event bus activity with one-click jump into the activity module.</CardDescription>
           </CardHeader>
-          <CardContent className="overview-panel__card-content">
-            <ScrollArea className="overview-panel__scroll">
+          <CardContent className="explorer-card__content">
+            <ScrollArea className="explorer-scroll">
               <div className="feed">
                 {overviewEvents.length > 0 ? (
                   overviewEvents.map((event) => (
