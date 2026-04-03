@@ -6,13 +6,33 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useStreamSession } from './useStreamSession';
 
+class MockMediaStream {
+  constructor(public tracks: MediaStreamTrack[]) {}
+}
+
 // RTCPeerConnection is not available in jsdom — provide a minimal mock
 const mockPc = {
   createOffer: vi.fn().mockResolvedValue({ type: 'offer', sdp: 'offer-sdp' }),
-  setLocalDescription: vi.fn().mockResolvedValue(undefined),
+  setLocalDescription: vi.fn().mockImplementation(async (description?: RTCSessionDescriptionInit) => {
+    mockPc.localDescription = {
+      type: description?.type ?? 'offer',
+      sdp: description?.sdp ?? 'offer-sdp',
+    } as RTCSessionDescription;
+  }),
   setRemoteDescription: vi.fn().mockResolvedValue(undefined),
   addIceCandidate: vi.fn().mockResolvedValue(undefined),
+  addTransceiver: vi.fn().mockImplementation((kind: string) => ({
+    receiver: {
+      track: { kind } as MediaStreamTrack,
+    },
+  })),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
   close: vi.fn(),
+  localDescription: { type: 'offer', sdp: 'offer-sdp' } as RTCSessionDescription | null,
+  iceGatheringState: 'complete' as RTCIceGatheringState,
+  iceConnectionState: 'new' as RTCIceConnectionState,
+  oniceconnectionstatechange: null as (() => void) | null,
   ontrack: null as ((e: RTCTrackEvent) => void) | null,
   onicecandidate: null as ((e: RTCPeerConnectionIceEvent) => void) | null,
 };
@@ -42,14 +62,32 @@ beforeEach(() => {
   // Reset mock implementations
   mockPc.createOffer.mockResolvedValue({ type: 'offer', sdp: 'offer-sdp' });
   mockPc.setLocalDescription.mockResolvedValue(undefined);
+  mockPc.setLocalDescription.mockImplementation(async (description?: RTCSessionDescriptionInit) => {
+    mockPc.localDescription = {
+      type: description?.type ?? 'offer',
+      sdp: description?.sdp ?? 'offer-sdp',
+    } as RTCSessionDescription;
+  });
   mockPc.setRemoteDescription.mockResolvedValue(undefined);
   mockPc.addIceCandidate.mockResolvedValue(undefined);
+  mockPc.addTransceiver.mockImplementation((kind: string) => ({
+    receiver: {
+      track: { kind } as MediaStreamTrack,
+    },
+  }));
+  mockPc.addEventListener.mockImplementation(() => undefined);
+  mockPc.removeEventListener.mockImplementation(() => undefined);
   mockPc.close.mockReset();
+  mockPc.localDescription = { type: 'offer', sdp: 'offer-sdp' } as RTCSessionDescription;
+  mockPc.iceGatheringState = 'complete';
+  mockPc.iceConnectionState = 'new';
+  mockPc.oniceconnectionstatechange = null;
   mockPc.ontrack = null;
   mockPc.onicecandidate = null;
 
   global.RTCPeerConnection = vi.fn().mockImplementation(() => mockPc) as unknown as typeof RTCPeerConnection;
   global.EventSource = MockEventSource as unknown as typeof EventSource;
+  global.MediaStream = MockMediaStream as unknown as typeof MediaStream;
 });
 
 afterEach(() => {

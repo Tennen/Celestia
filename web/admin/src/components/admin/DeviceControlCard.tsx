@@ -1,9 +1,9 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
+import { Check, Eye, EyeOff, PencilLine, Play, RotateCcw } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ToggleSwitch } from '../ui/toggle-switch';
-import { CheckIcon, EditIcon, PlayIcon, ResetIcon, VisibilityIcon } from '../ui/icons';
 import type { DeviceControl } from '../../lib/types';
 import { cn } from '../../lib/utils';
 
@@ -28,13 +28,6 @@ type Props = {
   onValueChange: (value: string) => void;
   onValueControl: (value: ControlValue) => void;
 };
-
-function toggleTone(control: DeviceControl, pending = false) {
-  if (pending) return 'accent';
-  if (control.state === true) return 'good';
-  if (control.state === false) return 'neutral';
-  return 'warn';
-}
 
 function formatValue(value: DeviceControl['value']) {
   if (value === null || value === undefined || value === '') return 'unset';
@@ -142,7 +135,12 @@ export function DeviceControlCard({
         return (
           <div className="stack">
             <div className="toolbar control-card__value-row">
-              <select className="input" value={valueDraft} onChange={(event) => onValueChange(event.target.value)} disabled={valueBusy}>
+              <select
+                className="select"
+                value={valueDraft}
+                onChange={(event) => onValueChange(event.target.value)}
+                disabled={valueBusy}
+              >
                 <option value="" disabled>
                   Select a mode
                 </option>
@@ -207,7 +205,7 @@ export function DeviceControlCard({
                   aria-label={`Save label for ${control.label}`}
                   title="Save label"
                 >
-                  <CheckIcon />
+                  <Check />
                 </Button>
                 <Button
                   type="button"
@@ -219,7 +217,7 @@ export function DeviceControlCard({
                   aria-label={`Reset label for ${control.label}`}
                   title="Reset label"
                 >
-                  <ResetIcon />
+                  <RotateCcw />
                 </Button>
               </div>
             </div>
@@ -238,7 +236,7 @@ export function DeviceControlCard({
                 aria-label={`Edit label for ${control.label}`}
                 title="Edit label"
               >
-                <EditIcon />
+                <PencilLine />
               </Button>
             </div>
           )}
@@ -267,7 +265,7 @@ export function DeviceControlCard({
                 aria-label={`Run ${control.label}`}
                 title="Run action"
               >
-                <PlayIcon />
+                <Play />
               </Button>
             ) : null}
             {showControlBody && control.kind !== 'toggle' && control.kind !== 'action' && statusText ? (
@@ -284,7 +282,7 @@ export function DeviceControlCard({
             aria-label={isVisible ? `Hide ${control.label}` : `Show ${control.label}`}
             title={isVisible ? 'Hide control' : 'Show control'}
           >
-            <VisibilityIcon visible={isVisible} />
+            {isVisible ? <Eye /> : <EyeOff />}
           </Button>
         </div>
       </div>

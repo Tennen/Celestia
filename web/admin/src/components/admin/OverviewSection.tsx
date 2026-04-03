@@ -1,6 +1,7 @@
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
 import type { AppSection } from '../../lib/admin';
 import { formatTime } from '../../lib/utils';
@@ -57,43 +58,45 @@ export function OverviewSection({
             <CardDescription>Installed plugins in stable order. Open any item to inspect or reconfigure it.</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <div className="preview-list">
-              {catalog.map((plugin) => {
-                const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
-                return (
-                  <button
-                    key={plugin.id}
-                    type="button"
-                    className="preview-list__item"
-                    onClick={() => {
-                      onSelectPlugin(plugin.id);
-                      onOpenSection('plugins');
-                    }}
-                  >
-                    <div>
-                      <strong>{plugin.name}</strong>
-                      <p>{plugin.id}</p>
-                    </div>
-                    <div className="chip-list">
-                      <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
-                        {runtime?.record.status ?? 'uninstalled'}
-                      </Badge>
-                      <Badge
-                        tone={
-                          runtime?.health.status === 'healthy'
-                            ? 'good'
-                            : runtime?.health.status === 'unhealthy'
-                              ? 'bad'
-                              : 'warn'
-                        }
-                      >
-                        {runtime?.health.status ?? 'unknown'}
-                      </Badge>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <ScrollArea className="max-h-[360px] pr-4">
+              <div className="preview-list">
+                {catalog.map((plugin) => {
+                  const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
+                  return (
+                    <button
+                      key={plugin.id}
+                      type="button"
+                      className="preview-list__item"
+                      onClick={() => {
+                        onSelectPlugin(plugin.id);
+                        onOpenSection('plugins');
+                      }}
+                    >
+                      <div>
+                        <strong>{plugin.name}</strong>
+                        <p>{plugin.id}</p>
+                      </div>
+                      <div className="chip-list">
+                        <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
+                          {runtime?.record.status ?? 'uninstalled'}
+                        </Badge>
+                        <Badge
+                          tone={
+                            runtime?.health.status === 'healthy'
+                              ? 'good'
+                              : runtime?.health.status === 'unhealthy'
+                                ? 'bad'
+                                : 'warn'
+                          }
+                        >
+                          {runtime?.health.status ?? 'unknown'}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
 
@@ -103,21 +106,23 @@ export function OverviewSection({
             <CardDescription>Latest event bus activity with one-click jump into the activity module.</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <div className="feed">
-              {overviewEvents.length > 0 ? (
-                overviewEvents.map((event) => (
-                  <article key={event.id} className="feed__item">
-                    <div className="feed__meta">
-                      <Badge tone="accent">{event.type}</Badge>
-                      <span>{formatTime(event.ts)}</span>
-                    </div>
-                    <strong>{event.device_id || event.plugin_id || 'system'}</strong>
-                  </article>
-                ))
-              ) : (
-                <p className="muted">No recent events.</p>
-              )}
-            </div>
+            <ScrollArea className="max-h-[320px] pr-4">
+              <div className="feed">
+                {overviewEvents.length > 0 ? (
+                  overviewEvents.map((event) => (
+                    <article key={event.id} className="feed__item">
+                      <div className="feed__meta">
+                        <Badge tone="accent">{event.type}</Badge>
+                        <span>{formatTime(event.ts)}</span>
+                      </div>
+                      <strong>{event.device_id || event.plugin_id || 'system'}</strong>
+                    </article>
+                  ))
+                ) : (
+                  <p className="muted">No recent events.</p>
+                )}
+              </div>
+            </ScrollArea>
             <Button variant="secondary" onClick={() => onOpenSection('activity')}>
               Open Activity
             </Button>
@@ -132,24 +137,28 @@ export function OverviewSection({
             <CardDescription>Latest policy decisions and command history.</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <div className="feed">
-              {overviewAudits.length > 0 ? (
-                overviewAudits.map((audit) => (
-                  <article key={audit.id} className="feed__item">
-                    <div className="feed__meta">
-                      <Badge tone={audit.allowed ? 'good' : 'bad'}>{audit.allowed ? 'allowed' : 'denied'}</Badge>
-                      <span>{formatTime(audit.created_at)}</span>
-                    </div>
-                    <strong>
-                      {audit.actor} · {audit.action}
-                    </strong>
-                    <p>{audit.device_id}</p>
-                  </article>
-                ))
-              ) : (
-                <p className="muted">No recent audits.</p>
-              )}
-            </div>
+            <ScrollArea className="max-h-[320px] pr-4">
+              <div className="feed">
+                {overviewAudits.length > 0 ? (
+                  overviewAudits.map((audit) => (
+                    <article key={audit.id} className="feed__item">
+                      <div className="feed__meta">
+                        <Badge tone={audit.allowed ? 'good' : 'bad'}>
+                          {audit.allowed ? 'allowed' : 'denied'}
+                        </Badge>
+                        <span>{formatTime(audit.created_at)}</span>
+                      </div>
+                      <strong>
+                        {audit.actor} · {audit.action}
+                      </strong>
+                      <p>{audit.device_id}</p>
+                    </article>
+                  ))
+                ) : (
+                  <p className="muted">No recent audits.</p>
+                )}
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
 

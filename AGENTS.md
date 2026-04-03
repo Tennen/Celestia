@@ -28,6 +28,12 @@ Do not optimize for demos, placeholders, transitional adapters, or "temporary" p
 - New code must be organized into reasonably scoped modules instead of extending large catch-all files.
 - For large-scope changes, use module-scoped incremental commits by default; only skip this when the change cannot be reasonably covered by small-step commits.
 
+## Code Hygiene Rule
+
+- When a change replaces an existing implementation, promptly delete the superseded code in the same task unless the user explicitly asks to keep it.
+- Do not leave dead components, unused helpers, obsolete styles, stale feature flags, compatibility shims, or unused dependencies behind after a refactor.
+- Before finishing, remove unreachable branches and duplicate UI or backend paths that are no longer part of the intended architecture.
+
 ## Repository Architecture Pattern
 
 All work in this repository must preserve the current architecture:

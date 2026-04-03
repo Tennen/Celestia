@@ -3,7 +3,9 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
+import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
+import { Switch } from '../ui/switch';
 import { defaultAutomation, cloneAutomation, parseActionParams, prettyActionParams, type AutomationActionTemplate } from '../../lib/automation';
 import { deleteAutomation, saveAutomation } from '../../lib/api';
 import { formatTime } from '../../lib/utils';
@@ -131,34 +133,38 @@ export function AutomationWorkspace() {
           <div className="button-row">
             <Button onClick={startNewAutomation}>New Automation</Button>
           </div>
-          <div className="table">
-            {automations.map((automation) => (
-              <button
-                key={automation.id}
-                type="button"
-                className={`table__row ${selectedId === automation.id ? 'is-selected' : ''}`}
-                onClick={() => loadDraft(automation)}
-              >
-                <div>
-                  <strong>{automation.name || automation.id}</strong>
-                  <p>{automation.trigger.device_id || 'No trigger device'}</p>
-                </div>
-                <Badge tone={automation.enabled ? 'good' : 'neutral'}>{automation.enabled ? 'enabled' : 'disabled'}</Badge>
-                <Badge
-                  tone={
-                    automation.last_run_status === 'failed'
-                      ? 'bad'
-                      : automation.last_run_status === 'succeeded'
-                        ? 'good'
-                        : 'neutral'
-                  }
+          <ScrollArea className="max-h-[70vh] pr-4">
+            <div className="table">
+              {automations.map((automation) => (
+                <button
+                  key={automation.id}
+                  type="button"
+                  className={`table__row ${selectedId === automation.id ? 'is-selected' : ''}`}
+                  onClick={() => loadDraft(automation)}
                 >
-                  {automation.last_run_status ?? 'idle'}
-                </Badge>
-              </button>
-            ))}
-            {automations.length === 0 ? <div className="detail">No automations configured yet.</div> : null}
-          </div>
+                  <div>
+                    <strong>{automation.name || automation.id}</strong>
+                    <p>{automation.trigger.device_id || 'No trigger device'}</p>
+                  </div>
+                  <Badge tone={automation.enabled ? 'good' : 'neutral'}>
+                    {automation.enabled ? 'enabled' : 'disabled'}
+                  </Badge>
+                  <Badge
+                    tone={
+                      automation.last_run_status === 'failed'
+                        ? 'bad'
+                        : automation.last_run_status === 'succeeded'
+                          ? 'good'
+                          : 'neutral'
+                    }
+                  >
+                    {automation.last_run_status ?? 'idle'}
+                  </Badge>
+                </button>
+              ))}
+              {automations.length === 0 ? <div className="detail">No automations configured yet.</div> : null}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
 
@@ -199,16 +205,19 @@ export function AutomationWorkspace() {
                     <label>Name</label>
                     <Input value={draft.name} onChange={(e) => updateDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Haier washer done" />
                   </div>
-                  <div className="stack">
-                    <label>Enabled</label>
-                    <select
-                      className="select"
-                      value={draft.enabled ? 'true' : 'false'}
-                      onChange={(e) => updateDraft((current) => ({ ...current, enabled: e.target.value === 'true' }))}
-                    >
-                      <option value="true">Enabled</option>
-                      <option value="false">Disabled</option>
-                    </select>
+                  <div className="config-field-list__item">
+                    <div className="section-title section-title--inline">
+                      <div>
+                        <strong>Enabled</strong>
+                        <p className="muted">Control whether Core can evaluate and execute this rule.</p>
+                      </div>
+                      <Switch
+                        checked={draft.enabled}
+                        onCheckedChange={(checked) =>
+                          updateDraft((current) => ({ ...current, enabled: checked }))
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
 

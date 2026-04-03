@@ -1,4 +1,12 @@
 import { useEffect, useState } from 'react';
+import {
+  Activity,
+  Home,
+  PlugZap,
+  RefreshCw,
+  Smartphone,
+  Workflow,
+} from 'lucide-react';
 import { AutomationWorkspace } from './components/admin/AutomationWorkspace';
 import { ActivitySection } from './components/admin/ActivitySection';
 import { DeviceWorkspace } from './components/admin/DeviceWorkspace';
@@ -19,6 +27,8 @@ function App() {
 
   const { loading, error, catalog, plugins, automations, devices, events, audits, dashboard, refreshAll } =
     useAdminStore();
+  const { selectedPluginId } = usePluginStore();
+  const { selectedDeviceId } = useDeviceStore();
   const { oauthBanner, oauthActive, startFlow } = useXiaomiOAuth();
 
   // Wire auto-select handlers and device search provider into adminStore
@@ -68,18 +78,22 @@ function App() {
     activity: { label: 'Activity', description: 'Inspect recent events and audit decisions.' },
   };
 
-  const sectionItems: Array<{ id: AppSection; label: string; count: number }> = [
-    { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0 },
-    { id: 'plugins', label: 'Plugins', count: catalog.length },
-    { id: 'automations', label: 'Automations', count: automations.length },
-    { id: 'devices', label: 'Devices', count: devices.length },
-    { id: 'activity', label: 'Activity', count: events.length + audits.length },
+  const sectionItems: Array<{
+    id: AppSection;
+    label: string;
+    count: number;
+    icon: typeof Home;
+  }> = [
+    { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0, icon: Home },
+    { id: 'plugins', label: 'Plugins', count: catalog.length, icon: PlugZap },
+    { id: 'automations', label: 'Automations', count: automations.length, icon: Workflow },
+    { id: 'devices', label: 'Devices', count: devices.length, icon: Smartphone },
+    { id: 'activity', label: 'Activity', count: events.length + audits.length, icon: Activity },
   ];
 
-  const selectedCatalogPlugin =
-    catalog.find((p) => p.id === usePluginStore.getState().selectedPluginId) ?? null;
-  const selectedDevice =
-    devices.find((d) => d.device.id === useDeviceStore.getState().selectedDeviceId) ?? null;
+  const selectedCatalogPlugin = catalog.find((p) => p.id === selectedPluginId) ?? null;
+  const selectedDevice = devices.find((d) => d.device.id === selectedDeviceId) ?? null;
+  const runtimeBadgeTone = loading ? 'accent' : error ? 'bad' : 'good';
 
   return (
     <div className="shell shell--app">
@@ -93,34 +107,46 @@ function App() {
             <p className="eyebrow">Celestia Core Runtime</p>
             <h1>Admin Console</h1>
             <p className="topbar__sub">
-              Plugin orchestration, device control, and event inspection against{' '}
+              Real plugin orchestration, device control, and runtime inspection against{' '}
               <code>{getApiBase()}</code>
             </p>
             <div className="sidemenu__meta">
               <Badge tone="accent">Gateway API</Badge>
-              <Badge tone={loading ? 'accent' : error ? 'bad' : 'good'}>
+              <Badge tone={runtimeBadgeTone}>
                 {loading ? 'Refreshing' : error ? 'Attention' : 'Stable'}
               </Badge>
             </div>
           </div>
           <nav className="sidemenu__nav">
-            {sectionItems.map((section) => (
+            {sectionItems.map((section) => {
+              const Icon = section.icon;
+              return (
               <button
                 key={section.id}
                 type="button"
                 className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
                 onClick={() => setActiveSection(section.id)}
               >
-                <span>{section.label}</span>
+                <span className="flex items-center gap-3">
+                  <Icon className="h-4 w-4" />
+                  {section.label}
+                </span>
                 <Badge tone={activeSection === section.id ? 'accent' : 'neutral'}>
                   {section.count}
                 </Badge>
               </button>
-            ))}
+              );
+            })}
           </nav>
           <div className="sidemenu__footer">
             <Badge tone={error ? 'bad' : 'good'}>{error ? 'Degraded' : 'Connected'}</Badge>
-            <Button variant="secondary" onClick={() => void refreshAll()} disabled={loading}>
+            <Button
+              variant="secondary"
+              onClick={() => void refreshAll()}
+              disabled={loading}
+              className="border-slate-700 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </div>
@@ -134,12 +160,22 @@ function App() {
               <p className="topbar__sub">{sectionMeta[activeSection].description}</p>
             </div>
             <div className="module-header__meta">
-              <Badge tone={loading ? 'accent' : error ? 'bad' : 'good'}>
+              <Badge tone={runtimeBadgeTone}>
                 {loading ? 'Refreshing' : error ? 'Needs Attention' : 'Runtime Stable'}
               </Badge>
               <span>
                 Endpoint <code>{getApiBase()}</code>
               </span>
+              {selectedCatalogPlugin ? (
+                <span>
+                  Plugin <strong>{selectedCatalogPlugin.name}</strong>
+                </span>
+              ) : null}
+              {selectedDevice ? (
+                <span>
+                  Device <strong>{selectedDevice.device.name}</strong>
+                </span>
+              ) : null}
             </div>
           </header>
 

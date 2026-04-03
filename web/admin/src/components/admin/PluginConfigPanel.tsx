@@ -4,6 +4,7 @@ import { prettyJson } from '../../lib/utils';
 import type { CatalogPlugin } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { ScrollArea } from '../ui/scroll-area';
 import { Textarea } from '../ui/textarea';
 
 type Props = {
@@ -97,7 +98,9 @@ export function PluginConfigPanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <pre className="log-box">{prettyJson(defaultConfig)}</pre>
+          <ScrollArea className="max-h-[420px]">
+            <pre className="log-box">{prettyJson(defaultConfig)}</pre>
+          </ScrollArea>
         </CardContent>
       </Card>
 
@@ -108,14 +111,16 @@ export function PluginConfigPanel({
         </CardHeader>
         <CardContent className="stack">
           {properties.length > 0 ? (
-            <div className="config-field-list">
-              {properties.map((property) => (
-                <div key={property.key} className="config-field-list__item">
-                  <strong>{property.key}</strong>
-                  <p className="muted">{property.description || 'No description from schema.'}</p>
-                </div>
-              ))}
-            </div>
+            <ScrollArea className="max-h-[420px] pr-4">
+              <div className="config-field-list">
+                {properties.map((property) => (
+                  <div key={property.key} className="config-field-list__item">
+                    <strong>{property.key}</strong>
+                    <p className="muted">{property.description || 'No description from schema.'}</p>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
           ) : (
             <p className="muted">No schema metadata available for this plugin.</p>
           )}

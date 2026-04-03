@@ -1,90 +1,34 @@
-@media (max-width: 1200px) {
-  .app-frame,
-  .plugin-workspace,
-  .grid--stats,
-  .grid--two,
-  .plugin-card__grid,
-  .grid--detail,
-  .kv-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1279px) {
+  .sidemenu {
+    @apply h-auto;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 768px) {
   .shell {
-    padding: 18px;
+    @apply px-3 py-4;
   }
 
-  .sidemenu {
-    position: static;
-  }
-
-  .topbar,
-  .module-header,
-  .module-header__meta,
-  .sidemenu__meta,
-  .panel__notice,
-  .plugin-card__meta,
-  .detail__header,
-  .toolbar,
-  .topbar__actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .grid--stats,
-  .app-frame,
-  .plugin-workspace,
-  .grid--two,
-  .plugin-card__grid,
-  .grid--detail,
-  .kv-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .table__row {
-    grid-template-columns: 1fr;
-  }
-
-  .section-title {
-    flex-direction: column;
-    align-items: flex-start;
+  .module-header {
+    @apply px-4 py-4;
   }
 
   .module-header__meta {
-    align-self: stretch;
+    @apply items-start;
   }
 
-  .section-title--inline {
-    align-items: stretch;
-  }
-
-  .control-card__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .control-card__meta,
-  .control-card__status {
-    justify-content: space-between;
-  }
-
-  .control-card__title-edit {
-    grid-template-columns: 1fr;
-  }
-
-  .control-card__title-actions {
-    justify-content: flex-start;
-  }
-
-  .sidemenu__button,
   .preview-list__item,
-  .plugin-list__item {
-    align-items: flex-start;
-    flex-direction: column;
+  .plugin-list__item,
+  .table__row {
+    @apply flex-col items-start;
   }
 
-  .plugin-list__badges {
-    justify-content: flex-start;
+  .detail__header,
+  .control-card__header {
+    @apply flex-col;
+  }
+
+  .control-card__meta {
+    @apply w-full justify-between;
   }
 }

@@ -1,3 +1,4 @@
+import { Switch } from './switch';
 import { cn } from '../../lib/utils';
 
 type Props = {
@@ -18,23 +19,15 @@ export function ToggleSwitch({
   onChange,
 }: Props) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
+    <Switch
+      checked={checked}
       aria-label={label}
       className={cn(
-        'toggle-switch',
-        checked && 'is-checked',
-        pending && 'is-pending',
-        unknown && 'is-unknown',
+        pending && 'cursor-progress data-[state=checked]:bg-primary/70 data-[state=unchecked]:bg-primary/30',
+        unknown && 'data-[state=unchecked]:bg-warning/60',
       )}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
-    >
-      <span className="toggle-switch__track">
-        <span className="toggle-switch__thumb" />
-      </span>
-    </button>
+      onCheckedChange={onChange}
+    />
   );
 }

@@ -1,6 +1,7 @@
+import * as Collapsible from '@radix-ui/react-collapsible';
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Icon } from '../ui/icon';
 import type {
   ToggleControlOverrideMap,
   ToggleControlPendingMap,
@@ -10,7 +11,6 @@ import {
   isToggleControlRequestPending,
 } from '../../lib/control-state';
 import type { DeviceView } from '../../lib/types';
-import { cn } from '../../lib/utils';
 import { DeviceControlCard } from './DeviceControlCard';
 
 type Props = {
@@ -30,24 +30,6 @@ type Props = {
   onValueChange: (controlId: string, value: string) => void;
   onValueControl: (controlId: string, value: string | number) => void;
 };
-
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <Icon
-      size="md"
-      className={cn('collapse-toggle__icon', expanded && 'is-expanded')}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </Icon>
-  );
-}
 
 function ControlGrid({
   device,
@@ -180,44 +162,51 @@ export function DeviceQuickControlsPanel({
         <div className="section-title section-title--inline">
           <label>Hidden Controls</label>
           {hiddenControls.length > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="collapse-toggle"
-              onClick={() => setHiddenControlsCollapsed((current) => !current)}
-              aria-expanded={!hiddenControlsCollapsed}
-              aria-controls="hidden-controls-panel"
+            <Collapsible.Root
+              open={!hiddenControlsCollapsed}
+              onOpenChange={(open) => setHiddenControlsCollapsed(!open)}
             >
-              <span>{hiddenControlsCollapsed ? `Show ${hiddenControls.length}` : `Hide ${hiddenControls.length}`}</span>
-              <ChevronIcon expanded={!hiddenControlsCollapsed} />
-            </Button>
+              <Collapsible.Trigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="collapse-toggle"
+                  aria-controls="hidden-controls-panel"
+                >
+                  <span>
+                    {hiddenControlsCollapsed ? `Show ${hiddenControls.length}` : `Hide ${hiddenControls.length}`}
+                  </span>
+                  <ChevronDown
+                    className={`collapse-toggle__icon ${!hiddenControlsCollapsed ? 'is-expanded' : ''}`}
+                  />
+                </Button>
+              </Collapsible.Trigger>
+              <Collapsible.Content id="hidden-controls-panel" className="pt-4">
+                <ControlGrid
+                  device={device}
+                  controls={hiddenControls}
+                  selectedDevice={selectedDevice}
+                  toggleOverrides={toggleOverrides}
+                  togglePending={togglePending}
+                  busy={busy}
+                  aliasDrafts={aliasDrafts}
+                  controlDrafts={controlDrafts}
+                  hidden
+                  showControlBody={false}
+                  onAliasChange={onAliasChange}
+                  onSavePreference={onSavePreference}
+                  onResetPreference={onResetPreference}
+                  onToggleVisibility={onToggleVisibility}
+                  onToggle={onToggle}
+                  onAction={onAction}
+                  onValueChange={onValueChange}
+                  onValueControl={onValueControl}
+                />
+              </Collapsible.Content>
+            </Collapsible.Root>
           ) : null}
         </div>
-        {hiddenControls.length > 0 && !hiddenControlsCollapsed ? (
-          <div id="hidden-controls-panel">
-            <ControlGrid
-              device={device}
-              controls={hiddenControls}
-              selectedDevice={selectedDevice}
-              toggleOverrides={toggleOverrides}
-              togglePending={togglePending}
-              busy={busy}
-              aliasDrafts={aliasDrafts}
-              controlDrafts={controlDrafts}
-              hidden
-              showControlBody={false}
-              onAliasChange={onAliasChange}
-              onSavePreference={onSavePreference}
-              onResetPreference={onResetPreference}
-              onToggleVisibility={onToggleVisibility}
-              onToggle={onToggle}
-              onAction={onAction}
-              onValueChange={onValueChange}
-              onValueControl={onValueControl}
-            />
-          </div>
-        ) : null}
         {hiddenControls.length === 0 ? <p className="muted">No hidden quick controls.</p> : null}
       </div>
     </>

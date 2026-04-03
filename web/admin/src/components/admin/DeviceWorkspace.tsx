@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { Check, PencilLine, RotateCcw } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
+import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
-import { CheckIcon, EditIcon, ResetIcon } from '../ui/icons';
 import { asArray } from '../../lib/admin';
 import { applyToggleOverrides } from '../../lib/control-state';
 import { buildCommandSuggestions } from '../../lib/command-suggestions';
@@ -120,33 +121,35 @@ export function DeviceWorkspace() {
               placeholder="Search devices"
             />
             <Button variant="secondary" onClick={() => void refreshAll()}>
-              Search
+              Refresh
             </Button>
           </div>
-          <div className="table">
-            {devices.map((item) => (
-              <button
-                key={item.device.id}
-                type="button"
-                className={`table__row ${selectedDeviceId === item.device.id ? 'is-selected' : ''}`}
-                onClick={() => setSelectedDeviceId(item.device.id)}
-              >
-                <div>
-                  <strong>{item.device.name}</strong>
-                  <p>{item.device.id}</p>
-                </div>
-                <div>
-                  <Badge tone={item.device.online ? 'good' : 'bad'}>
-                    {item.device.online ? 'online' : 'offline'}
-                  </Badge>
-                </div>
-                <div>
-                  <span>{item.device.kind}</span>
-                  <p>{item.device.room || 'no room'}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+          <ScrollArea className="max-h-[70vh] pr-4">
+            <div className="table">
+              {devices.map((item) => (
+                <button
+                  key={item.device.id}
+                  type="button"
+                  className={`table__row ${selectedDeviceId === item.device.id ? 'is-selected' : ''}`}
+                  onClick={() => setSelectedDeviceId(item.device.id)}
+                >
+                  <div>
+                    <strong>{item.device.name}</strong>
+                    <p>{item.device.id}</p>
+                  </div>
+                  <div>
+                    <Badge tone={item.device.online ? 'good' : 'bad'}>
+                      {item.device.online ? 'online' : 'offline'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span>{item.device.kind}</span>
+                    <p>{item.device.room || 'no room'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
 
@@ -175,14 +178,14 @@ export function DeviceWorkspace() {
                           className="control-card__icon-button control-card__icon-button--confirm"
                           onClick={saveDeviceAlias} disabled={devicePrefBusy}
                           aria-label={`Save label for ${deviceView.device.name}`} title="Save label">
-                          <CheckIcon />
+                          <Check />
                         </Button>
                         <Button type="button" variant="ghost" size="sm"
                           className="control-card__icon-button control-card__icon-button--reset"
                           onClick={resetDeviceAlias}
                           disabled={devicePrefBusy || (!hasSavedDeviceAlias && deviceAliasDraft.trim() === '')}
                           aria-label={`Reset label for ${deviceView.device.name}`} title="Reset label">
-                          <ResetIcon />
+                          <RotateCcw />
                         </Button>
                       </div>
                     </div>
@@ -193,7 +196,7 @@ export function DeviceWorkspace() {
                         className="control-card__icon-button control-card__icon-button--edit"
                         onClick={() => setEditingDeviceAlias(true)} disabled={devicePrefBusy}
                         aria-label={`Edit label for ${deviceView.device.name}`} title="Edit label">
-                        <EditIcon />
+                        <PencilLine />
                       </Button>
                     </div>
                   )}
@@ -279,8 +282,14 @@ export function DeviceWorkspace() {
                   }}
                 />
               </div>
-              {commandResult ? <pre className="log-box">{commandResult}</pre> : null}
-              <pre className="log-box">{selectedDeviceDetails}</pre>
+              {commandResult ? (
+                <ScrollArea className="max-h-[220px]">
+                  <pre className="log-box">{commandResult}</pre>
+                </ScrollArea>
+              ) : null}
+              <ScrollArea className="max-h-[360px]">
+                <pre className="log-box">{selectedDeviceDetails}</pre>
+              </ScrollArea>
             </div>
           ) : (
             <p className="muted">No device selected.</p>

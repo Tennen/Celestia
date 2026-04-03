@@ -3,7 +3,9 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
+import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { asArray } from '../../lib/admin';
 import { formatTime, prettyJson } from '../../lib/utils';
 import { getPluginDraftText, canStartXiaomiOAuth } from '../../lib/admin';
@@ -89,40 +91,42 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
           <CardDescription>Stable ordering by plugin id. Select an item to open its full management panel.</CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <div className="plugin-list">
-            {catalog.map((plugin) => {
-              const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
-              return (
-                <button
-                  key={plugin.id}
-                  type="button"
-                  className={`plugin-list__item ${selectedPluginId === plugin.id ? 'is-selected' : ''}`}
-                  onClick={() => setSelectedPluginId(plugin.id)}
-                >
-                  <div className="plugin-list__meta">
-                    <strong>{plugin.name}</strong>
-                    <p>{plugin.id}</p>
-                  </div>
-                  <div className="plugin-list__badges">
-                    <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
-                      {runtime?.record.status ?? 'uninstalled'}
-                    </Badge>
-                    <Badge
-                      tone={
-                        runtime?.health.status === 'healthy'
-                          ? 'good'
-                          : runtime?.health.status === 'unhealthy'
-                            ? 'bad'
-                            : 'warn'
-                      }
-                    >
-                      {runtime?.health.status ?? 'unknown'}
-                    </Badge>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <ScrollArea className="max-h-[70vh] pr-4 xl:max-h-[calc(100vh-14rem)]">
+            <div className="plugin-list">
+              {catalog.map((plugin) => {
+                const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
+                return (
+                  <button
+                    key={plugin.id}
+                    type="button"
+                    className={`plugin-list__item ${selectedPluginId === plugin.id ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedPluginId(plugin.id)}
+                  >
+                    <div className="plugin-list__meta">
+                      <strong>{plugin.name}</strong>
+                      <p>{plugin.id}</p>
+                    </div>
+                    <div className="plugin-list__badges">
+                      <Badge tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}>
+                        {runtime?.record.status ?? 'uninstalled'}
+                      </Badge>
+                      <Badge
+                        tone={
+                          runtime?.health.status === 'healthy'
+                            ? 'good'
+                            : runtime?.health.status === 'unhealthy'
+                              ? 'bad'
+                              : 'warn'
+                        }
+                      >
+                        {runtime?.health.status ?? 'unknown'}
+                      </Badge>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
 
@@ -246,14 +250,11 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                         />
                       </div>
                       <div className="button-row">
-                        <a
-                          className="button button--secondary"
-                          href={xiaomiVerificationHint.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open Verification Page
-                        </a>
+                        <Button asChild variant="secondary">
+                          <a href={xiaomiVerificationHint.url} target="_blank" rel="noreferrer">
+                            Open Verification Page
+                          </a>
+                        </Button>
                         {selectedPlugin ? (
                           <Button
                             variant="secondary"
@@ -320,85 +321,91 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
               </CardContent>
             </Card>
 
-            <div className="detail-tabs">
-              {(['runtime', 'config', 'logs'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`detail-tabs__button ${detailMode === mode ? 'is-active' : ''}`}
-                  onClick={() => setDetailMode(mode)}
-                >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={detailMode}
+              onValueChange={(value) => setDetailMode(value as 'runtime' | 'config' | 'logs')}
+            >
+              <TabsList>
+                <TabsTrigger value="runtime">Runtime</TabsTrigger>
+                <TabsTrigger value="config">Config</TabsTrigger>
+                <TabsTrigger value="logs">Logs</TabsTrigger>
+              </TabsList>
 
-            {detailMode === 'runtime' ? (
-              <Section className="grid grid--two">
+              <TabsContent value="runtime">
+                <Section className="grid grid--two">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Runtime Details</CardTitle>
+                      <CardDescription>Current runtime view for the selected plugin.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="stack">
+                      {selectedPlugin ? (
+                        <ScrollArea className="max-h-[520px]">
+                          <pre className="log-box">{prettyJson(selectedPlugin)}</pre>
+                        </ScrollArea>
+                      ) : (
+                        <p className="muted">No runtime data yet. Install and enable the plugin first.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Current Config Snapshot</CardTitle>
+                      <CardDescription>The installed config record currently persisted by Core.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="stack">
+                      {selectedPlugin ? (
+                        <ScrollArea className="max-h-[520px]">
+                          <pre className="log-box">{prettyJson(selectedPlugin.record.config ?? {})}</pre>
+                        </ScrollArea>
+                      ) : (
+                        <p className="muted">Install the plugin to persist runtime config.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Section>
+              </TabsContent>
+
+              <TabsContent value="config">
+                <PluginConfigPanel
+                  plugin={selectedCatalogPlugin}
+                  runtimeInstalled={isInstalled}
+                  pluginDraft={pluginDraft}
+                  busy={busy}
+                  onDraftChange={(value) => setDraft(selectedCatalogPlugin.id, isInstalled, value)}
+                  onInstall={() => void installPlugin(selectedCatalogPlugin)}
+                  onSaveConfig={() => void saveConfig(selectedCatalogPlugin.id)}
+                />
+              </TabsContent>
+
+              <TabsContent value="logs">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Runtime Details</CardTitle>
-                    <CardDescription>Current runtime view for the selected plugin.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="stack">
-                    {selectedPlugin ? (
-                      <pre className="log-box">{prettyJson(selectedPlugin)}</pre>
-                    ) : (
-                      <p className="muted">No runtime data yet. Install and enable the plugin first.</p>
-                    )}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Current Config Snapshot</CardTitle>
-                    <CardDescription>The installed config record currently persisted by Core.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="stack">
-                    {selectedPlugin ? (
-                      <pre className="log-box">{prettyJson(selectedPlugin.record.config ?? {})}</pre>
-                    ) : (
-                      <p className="muted">Install the plugin to persist runtime config.</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </Section>
-            ) : null}
-
-            {detailMode === 'config' ? (
-              <PluginConfigPanel
-                plugin={selectedCatalogPlugin}
-                runtimeInstalled={isInstalled}
-                pluginDraft={pluginDraft}
-                busy={busy}
-                onDraftChange={(value) => setDraft(selectedCatalogPlugin.id, isInstalled, value)}
-                onInstall={() => void installPlugin(selectedCatalogPlugin)}
-                onSaveConfig={() => void saveConfig(selectedCatalogPlugin.id)}
-              />
-            ) : null}
-
-            {detailMode === 'logs' ? (
-              <Card>
-                <CardHeader>
-                  <div className="section-title">
-                    <div>
-                      <CardTitle>Plugin Logs</CardTitle>
-                      <CardDescription>Live buffer for the currently selected plugin.</CardDescription>
+                    <div className="section-title">
+                      <div>
+                        <CardTitle>Plugin Logs</CardTitle>
+                        <CardDescription>Live buffer for the currently selected plugin.</CardDescription>
+                      </div>
+                      <Badge tone="neutral">{selectedCatalogPlugin.id}</Badge>
                     </div>
-                    <Badge tone="neutral">{selectedCatalogPlugin.id}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="stack">
-                  <div className="button-row">
-                    <Button variant="secondary" onClick={() => void reloadPluginLogs(selectedCatalogPlugin.id)}>
-                      Reload
-                    </Button>
-                  </div>
-                  <pre className="log-box">
-                    {selectedPlugin ? pluginLogs.join('\n') || 'No logs captured yet.' : 'Plugin is not installed.'}
-                  </pre>
-                </CardContent>
-              </Card>
-            ) : null}
+                  </CardHeader>
+                  <CardContent className="stack">
+                    <div className="button-row">
+                      <Button variant="secondary" onClick={() => void reloadPluginLogs(selectedCatalogPlugin.id)}>
+                        Reload
+                      </Button>
+                    </div>
+                    <ScrollArea className="max-h-[560px]">
+                      <pre className="log-box">
+                        {selectedPlugin
+                          ? pluginLogs.join('\n') || 'No logs captured yet.'
+                          : 'Plugin is not installed.'}
+                      </pre>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </>
         ) : (
           <Card>
