@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -17,8 +18,8 @@ func (s *Server) handleAutomations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) {
-	var automation models.Automation
-	if err := json.NewDecoder(r.Body).Decode(&automation); err != nil {
+	automation, err := decodeAutomationRequest(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -31,8 +32,8 @@ func (s *Server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) {
-	var automation models.Automation
-	if err := json.NewDecoder(r.Body).Decode(&automation); err != nil {
+	automation, err := decodeAutomationRequest(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -51,4 +52,25 @@ func (s *Server) handleDeleteAutomation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func decodeAutomationRequest(r *http.Request) (models.Automation, error) {
+	var payload map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		return models.Automation{}, err
+	}
+	for _, key := range []string{"created_at", "updated_at", "last_triggered_at"} {
+		if value, ok := payload[key].(string); ok && strings.TrimSpace(value) == "" {
+			delete(payload, key)
+		}
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return models.Automation{}, err
+	}
+	var automation models.Automation
+	if err := json.Unmarshal(raw, &automation); err != nil {
+		return models.Automation{}, err
+	}
+	return automation, nil
 }

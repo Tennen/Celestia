@@ -123,9 +123,17 @@ export async function fetchDevices(query = '') {
 export async function saveAutomation(payload: Automation) {
   const isUpdate = Boolean(payload.id?.trim());
   const path = isUpdate ? `/automations/${payload.id}` : '/automations';
+  const body = {
+    ...payload,
+    last_triggered_at: payload.last_triggered_at || undefined,
+    last_run_status: undefined,
+    last_error: undefined,
+    created_at: payload.created_at || undefined,
+    updated_at: payload.updated_at || undefined,
+  };
   return request<Automation>(path, {
     method: isUpdate ? 'PUT' : 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 

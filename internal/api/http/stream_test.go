@@ -15,10 +15,11 @@ import (
 
 // stubGateway implements gatewayapi.Service for stream handler tests.
 type stubGateway struct {
-	device        models.DeviceView
-	deviceErr     error
-	commandResult gatewayapi.CommandExecutionResult
-	commandErr    error
+	device          models.DeviceView
+	deviceErr       error
+	commandResult   gatewayapi.CommandExecutionResult
+	commandErr      error
+	savedAutomation models.Automation
 }
 
 func (g *stubGateway) Health(_ context.Context) (gatewayapi.HealthStatus, error) {
@@ -50,6 +51,7 @@ func (g *stubGateway) ListAutomations(_ context.Context) ([]models.Automation, e
 	return nil, nil
 }
 func (g *stubGateway) SaveAutomation(_ context.Context, automation models.Automation) (models.Automation, error) {
+	g.savedAutomation = automation
 	return automation, nil
 }
 func (g *stubGateway) DeleteAutomation(_ context.Context, _ string) error {
