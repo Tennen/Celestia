@@ -32,8 +32,8 @@
   }
 
   .sidemenu {
-    @apply self-start rounded-[calc(var(--radius)+0.45rem)] border border-slate-800/80 bg-slate-950/90 p-5 text-slate-50 shadow-soft backdrop-blur xl:sticky xl:top-5;
-    @apply flex flex-col gap-6 xl:max-h-[calc(100vh-2.5rem)];
+    @apply self-start rounded-[calc(var(--radius)+0.45rem)] border border-slate-800/80 bg-slate-950/90 p-5 text-slate-50 shadow-soft backdrop-blur;
+    @apply flex flex-col gap-6;
   }
 
   .sidemenu__brand {

@@ -60,13 +60,10 @@
 
   .preview-list,
   .plugin-list,
+  .list-stack,
   .feed,
   .config-field-list {
     @apply grid gap-4;
-  }
-
-  .table {
-    @apply grid gap-5;
   }
 
   .preview-list__item,
@@ -82,7 +79,7 @@
   }
 
   .list-item__row {
-    @apply grid gap-3;
+    @apply grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start;
   }
 
   .list-item__meta {
@@ -94,7 +91,7 @@
   }
 
   .list-item__badges {
-    @apply flex max-w-full flex-wrap items-center gap-2;
+    @apply flex max-w-full flex-wrap items-center gap-1.5 sm:justify-end;
   }
 
   .list-item__badges > * {

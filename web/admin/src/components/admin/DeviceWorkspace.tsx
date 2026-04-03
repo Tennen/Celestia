@@ -127,7 +127,7 @@ export function DeviceWorkspace() {
             </Button>
           </div>
           <ScrollArea className="max-h-[calc(100vh-15rem)] pr-3">
-            <div className="table">
+            <div className="list-stack">
               {devices.map((item) => (
                 <SelectableListItem
                   key={item.device.id}

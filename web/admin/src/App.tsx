@@ -127,8 +127,12 @@ function App() {
               <code>{getApiBase()}</code>
             </p>
             <div className="sidemenu__meta">
-              <Badge tone="accent">Gateway API</Badge>
-              <Badge tone={runtimeBadgeTone}>{runtimeBadgeText}</Badge>
+              <Badge tone="accent" size="xs">
+                Gateway API
+              </Badge>
+              <Badge tone={runtimeBadgeTone} size="xs">
+                {runtimeBadgeText}
+              </Badge>
             </div>
           </div>
           <nav className="sidemenu__nav">
@@ -145,7 +149,11 @@ function App() {
                     <Icon className="h-4 w-4" />
                     {section.label}
                   </span>
-                  <Badge tone={activeSection === section.id ? 'accent' : 'neutral'}>
+                  <Badge
+                    tone={activeSection === section.id ? 'accent' : 'neutral'}
+                    size="xs"
+                    className="min-w-6 tabular-nums"
+                  >
                     {section.count}
                   </Badge>
                 </button>
@@ -153,12 +161,14 @@ function App() {
             })}
           </nav>
           <div className="sidemenu__footer">
-            <Badge tone={error ? 'bad' : 'good'}>{error ? 'Degraded' : 'Connected'}</Badge>
+            <Badge tone={error ? 'bad' : 'good'} size="xs">
+              {error ? 'Degraded' : 'Connected'}
+            </Badge>
             <Button
               variant="secondary"
               onClick={() => void refreshAll()}
-              disabled={isRefreshing}
-              className="border-slate-700 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+              aria-busy={isRefreshing}
+              className="min-w-[7.25rem] border-slate-700 bg-white/10 text-white hover:bg-white/15 hover:text-white"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
