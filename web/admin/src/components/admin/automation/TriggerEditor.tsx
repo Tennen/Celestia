@@ -1,5 +1,6 @@
 import {
   buildStateKeyOptions,
+  coerceMatchValueForOperator,
   findDevice,
   stateOperators,
   triggerFromOperators,
@@ -63,8 +64,8 @@ export function TriggerEditor({ draft, devices, onChange }: Props) {
                   trigger: {
                     ...current.trigger,
                     state_key: e.target.value,
-                    from: { ...current.trigger.from, value },
-                    to: { ...current.trigger.to, value },
+                    from: { ...current.trigger.from, value: coerceMatchValueForOperator(current.trigger.from.operator, value) },
+                    to: { ...current.trigger.to, value: coerceMatchValueForOperator(current.trigger.to.operator, value) },
                   },
                 };
               })
@@ -85,10 +86,20 @@ export function TriggerEditor({ draft, devices, onChange }: Props) {
             className="select"
             value={draft.trigger.from.operator}
             onChange={(e) =>
-              onChange((current) => ({
-                ...current,
-                trigger: { ...current.trigger, from: { ...current.trigger.from, operator: e.target.value as AutomationMatchOperator } },
-              }))
+              onChange((current) => {
+                const operator = e.target.value as AutomationMatchOperator;
+                return {
+                  ...current,
+                  trigger: {
+                    ...current.trigger,
+                    from: {
+                      ...current.trigger.from,
+                      operator,
+                      value: coerceMatchValueForOperator(operator, current.trigger.from.value),
+                    },
+                  },
+                };
+              })
             }
           >
             {triggerFromOperators.map((operator) => (
@@ -117,10 +128,20 @@ export function TriggerEditor({ draft, devices, onChange }: Props) {
             className="select"
             value={draft.trigger.to.operator}
             onChange={(e) =>
-              onChange((current) => ({
-                ...current,
-                trigger: { ...current.trigger, to: { ...current.trigger.to, operator: e.target.value as AutomationMatchOperator } },
-              }))
+              onChange((current) => {
+                const operator = e.target.value as AutomationMatchOperator;
+                return {
+                  ...current,
+                  trigger: {
+                    ...current.trigger,
+                    to: {
+                      ...current.trigger.to,
+                      operator,
+                      value: coerceMatchValueForOperator(operator, current.trigger.to.value),
+                    },
+                  },
+                };
+              })
             }
           >
             {stateOperators.map((operator) => (

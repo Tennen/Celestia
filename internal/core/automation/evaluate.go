@@ -265,9 +265,28 @@ func matchesStateValue(value any, exists bool, match models.AutomationStateMatch
 			return true
 		}
 		return !valueEquals(value, match.Value)
+	case models.AutomationMatchIn:
+		if !exists {
+			return false
+		}
+		return valueInList(value, match.Value)
+	case models.AutomationMatchNotIn:
+		if !exists {
+			return true
+		}
+		return !valueInList(value, match.Value)
 	default:
 		return false
 	}
+}
+
+func valueInList(value any, list any) bool {
+	for _, item := range matchValueList(list) {
+		if valueEquals(value, item) {
+			return true
+		}
+	}
+	return false
 }
 
 func valueEquals(left any, right any) bool {

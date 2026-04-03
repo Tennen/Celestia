@@ -1,6 +1,7 @@
 import { Button } from '../../ui/button';
 import {
   buildStateKeyOptions,
+  coerceMatchValueForOperator,
   findDevice,
   stateOperators,
 } from '../../../lib/automation';
@@ -29,7 +30,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                 {
                   device_id: current.trigger.device_id,
                   state_key: current.trigger.state_key,
-                  match: { operator: 'equals', value: current.trigger.to.value },
+                  match: { operator: current.trigger.to.operator, value: current.trigger.to.value },
                 },
               ],
             }))
@@ -70,7 +71,10 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                           ...conditions[index],
                           device_id: e.target.value,
                           state_key: stateKey,
-                          match: { ...conditions[index].match, value },
+                          match: {
+                            ...conditions[index].match,
+                            value: coerceMatchValueForOperator(conditions[index].match.operator, value),
+                          },
                         };
                         return { ...current, conditions };
                       })
@@ -91,7 +95,16 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                     onChange={(e) =>
                       onChange((current) => {
                         const conditions = [...(current.conditions ?? [])];
-                        conditions[index] = { ...conditions[index], state_key: e.target.value };
+                        const device = findDevice(devices, conditions[index].device_id);
+                        const value = device?.state.state?.[e.target.value];
+                        conditions[index] = {
+                          ...conditions[index],
+                          state_key: e.target.value,
+                          match: {
+                            ...conditions[index].match,
+                            value: coerceMatchValueForOperator(conditions[index].match.operator, value),
+                          },
+                        };
                         return { ...current, conditions };
                       })
                     }
@@ -113,9 +126,14 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                     onChange={(e) =>
                       onChange((current) => {
                         const conditions = [...(current.conditions ?? [])];
+                        const operator = e.target.value as AutomationMatchOperator;
                         conditions[index] = {
                           ...conditions[index],
-                          match: { ...conditions[index].match, operator: e.target.value as AutomationMatchOperator },
+                          match: {
+                            ...conditions[index].match,
+                            operator,
+                            value: coerceMatchValueForOperator(operator, conditions[index].match.value),
+                          },
                         };
                         return { ...current, conditions };
                       })

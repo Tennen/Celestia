@@ -229,8 +229,12 @@ Supported match operators:
 - `any` for trigger `from`
 - `equals`
 - `not_equals`
+- `in`
+- `not_in`
 - `exists`
 - `missing`
+
+For `in` and `not_in`, `value` must be a JSON array. This allows one rule to match transitions like `D -> A/B/C` on the same state key.
 
 `time_window.start` and `time_window.end` use `HH:MM` in the gateway's local timezone. Ranges that cross midnight are supported.
 
@@ -254,8 +258,8 @@ Response:
         "value": "ready"
       },
       "to": {
-        "operator": "equals",
-        "value": "ready"
+        "operator": "in",
+        "value": ["ready", "dry_done", "wash_done"]
       }
     },
     "condition_logic": "all",

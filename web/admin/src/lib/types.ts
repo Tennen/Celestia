@@ -66,7 +66,7 @@ export type PluginHealth = {
 };
 
 export type AutomationLogic = 'all' | 'any';
-export type AutomationMatchOperator = 'any' | 'equals' | 'not_equals' | 'exists' | 'missing';
+export type AutomationMatchOperator = 'any' | 'equals' | 'not_equals' | 'in' | 'not_in' | 'exists' | 'missing';
 export type AutomationRunStatus = 'idle' | 'succeeded' | 'failed';
 
 export type AutomationStateMatch = {

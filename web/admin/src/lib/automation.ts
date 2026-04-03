@@ -79,6 +79,14 @@ export function coerceStateOptionValue(
   return rawValue;
 }
 
+export function coerceStateOptionValues(
+  device: DeviceView | null | undefined,
+  stateKey: string,
+  rawValues: string[],
+): unknown[] {
+  return rawValues.map((item) => coerceStateOptionValue(device, stateKey, item));
+}
+
 function controlActionTemplate(control: DeviceControl): AutomationActionTemplate | null {
   if (!control.command?.action) {
     return null;
@@ -141,6 +149,9 @@ export function parseStateValueInput(raw: string): unknown {
 }
 
 export function formatStateValueInput(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => formatStateValueInput(item)).join(', ');
+  }
   if (typeof value === 'string') {
     return value;
   }
@@ -155,7 +166,48 @@ export function prettyActionParams(params: Record<string, unknown> | undefined) 
 }
 
 export function operatorNeedsValue(operator: AutomationMatchOperator) {
-  return operator === 'equals' || operator === 'not_equals';
+  return operator === 'equals' || operator === 'not_equals' || operator === 'in' || operator === 'not_in';
+}
+
+export function operatorAllowsMultipleValues(operator: AutomationMatchOperator) {
+  return operator === 'in' || operator === 'not_in';
+}
+
+export function coerceMatchValueForOperator(operator: AutomationMatchOperator, value: unknown): unknown {
+  if (operatorAllowsMultipleValues(operator)) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (value === null || value === undefined || value === '') {
+      return [];
+    }
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+  return value;
+}
+
+export function parseStateValuesInput(raw: string): unknown[] {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return [];
+  }
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      return [trimmed];
+    }
+  }
+  return trimmed
+    .split(',')
+    .map((item) => parseStateValueInput(item))
+    .filter((item) => item !== '');
 }
 
 export function parseActionParams(raw: string) {
@@ -227,5 +279,5 @@ export function defaultAutomation(devices: DeviceView[]): Automation {
   };
 }
 
-export const triggerFromOperators: AutomationMatchOperator[] = ['any', 'equals', 'not_equals', 'exists', 'missing'];
-export const stateOperators: AutomationMatchOperator[] = ['equals', 'not_equals', 'exists', 'missing'];
+export const triggerFromOperators: AutomationMatchOperator[] = ['any', 'equals', 'not_equals', 'in', 'not_in', 'exists', 'missing'];
+export const stateOperators: AutomationMatchOperator[] = ['equals', 'not_equals', 'in', 'not_in', 'exists', 'missing'];

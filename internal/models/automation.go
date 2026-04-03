@@ -15,6 +15,8 @@ const (
 	AutomationMatchAny       AutomationMatchOperator = "any"
 	AutomationMatchEquals    AutomationMatchOperator = "equals"
 	AutomationMatchNotEquals AutomationMatchOperator = "not_equals"
+	AutomationMatchIn        AutomationMatchOperator = "in"
+	AutomationMatchNotIn     AutomationMatchOperator = "not_in"
 	AutomationMatchExists    AutomationMatchOperator = "exists"
 	AutomationMatchMissing   AutomationMatchOperator = "missing"
 )

@@ -213,12 +213,16 @@ func normalizeMatch(match models.AutomationStateMatch, allowAny bool) models.Aut
 	case models.AutomationMatchAny,
 		models.AutomationMatchEquals,
 		models.AutomationMatchNotEquals,
+		models.AutomationMatchIn,
+		models.AutomationMatchNotIn,
 		models.AutomationMatchExists,
 		models.AutomationMatchMissing:
+		match.Value = normalizeMatchValue(match.Operator, match.Value)
 		return match
 	}
 	if match.Value != nil {
 		match.Operator = models.AutomationMatchEquals
+		match.Value = normalizeMatchValue(match.Operator, match.Value)
 		return match
 	}
 	if allowAny {
@@ -239,9 +243,66 @@ func validateMatch(match models.AutomationStateMatch, allowAny bool) error {
 		if match.Value == nil {
 			return errors.New("value is required")
 		}
+	case models.AutomationMatchIn, models.AutomationMatchNotIn:
+		items := matchValueList(match.Value)
+		if len(items) == 0 {
+			return errors.New("non-empty value list is required")
+		}
 	case models.AutomationMatchExists, models.AutomationMatchMissing:
 	default:
 		return fmt.Errorf("unsupported operator %q", match.Operator)
 	}
 	return nil
+}
+
+func normalizeMatchValue(operator models.AutomationMatchOperator, value any) any {
+	switch operator {
+	case models.AutomationMatchIn, models.AutomationMatchNotIn:
+		items := matchValueList(value)
+		if len(items) == 0 {
+			return nil
+		}
+		return items
+	default:
+		return value
+	}
+}
+
+func matchValueList(value any) []any {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, item)
+		}
+		return out
+	case []string:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, item)
+		}
+		return out
+	case []int:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, item)
+		}
+		return out
+	case []float64:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, item)
+		}
+		return out
+	case []bool:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, item)
+		}
+		return out
+	default:
+		return []any{typed}
+	}
 }

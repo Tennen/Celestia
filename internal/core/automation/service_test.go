@@ -118,6 +118,61 @@ func TestMatchesTriggerRequiresStateKeyChange(t *testing.T) {
 	}
 }
 
+func TestMatchesTriggerSupportsMultiTargetValues(t *testing.T) {
+	trigger := models.AutomationTrigger{
+		DeviceID: "haier:washer:test",
+		StateKey: "phase",
+		From:     models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
+		To:       models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: []any{"A", "B", "C"}},
+	}
+	if !matchesTrigger(trigger, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "B"}) {
+		t.Fatal("matchesTrigger() should accept D -> B when target matcher is in [A, B, C]")
+	}
+	if matchesTrigger(trigger, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "E"}) {
+		t.Fatal("matchesTrigger() should reject D -> E when target matcher is in [A, B, C]")
+	}
+}
+
+func TestServiceSaveNormalizesListMatchers(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAutomationTestService(t)
+
+	saved, err := svc.Save(ctx, models.Automation{
+		Name:    "Washer phase fan-out",
+		Enabled: true,
+		Trigger: models.AutomationTrigger{
+			DeviceID: "haier:washer:test",
+			StateKey: "phase",
+			From:     models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
+			To:       models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: "A"},
+		},
+		Conditions: []models.AutomationCondition{
+			{
+				DeviceID: "haier:washer:test",
+				StateKey: "phase",
+				Match:    models.AutomationStateMatch{Operator: models.AutomationMatchNotIn, Value: []string{"X", "Y"}},
+			},
+		},
+		Actions: []models.AutomationAction{
+			{
+				DeviceID: "xiaomi:speaker:test",
+				Action:   "push_voice_message",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	toValues, ok := saved.Trigger.To.Value.([]any)
+	if !ok || len(toValues) != 1 || toValues[0] != "A" {
+		t.Fatalf("Trigger.To.Value should normalize to single-item list, got %#v", saved.Trigger.To.Value)
+	}
+	conditionValues, ok := saved.Conditions[0].Match.Value.([]any)
+	if !ok || len(conditionValues) != 2 {
+		t.Fatalf("Condition matcher should preserve list values, got %#v", saved.Conditions[0].Match.Value)
+	}
+}
+
 func TestMatchesTimeWindowSupportsOvernightRanges(t *testing.T) {
 	window := &models.AutomationTimeWindow{Start: "22:00", End: "06:00"}
 	if !matchesTimeWindow(time.Date(2026, 4, 3, 23, 15, 0, 0, time.Local), window) {

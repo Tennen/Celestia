@@ -2,9 +2,12 @@ import { Input } from '../../ui/input';
 import {
   buildStateValueOptions,
   coerceStateOptionValue,
+  coerceStateOptionValues,
   formatStateValueInput,
+  operatorAllowsMultipleValues,
   operatorNeedsValue,
   parseStateValueInput,
+  parseStateValuesInput,
 } from '../../../lib/automation';
 import type { AutomationMatchOperator, DeviceView } from '../../../lib/types';
 
@@ -22,13 +25,26 @@ export function StateValueField({ device, stateKey, operator, value, placeholder
     return <Input value="" placeholder={placeholder} disabled />;
   }
 
+  const multiple = operatorAllowsMultipleValues(operator);
   const options = buildStateValueOptions(device, stateKey);
   if (options.length > 0) {
     return (
       <select
         className="select"
-        value={String(value ?? '')}
-        onChange={(e) => onChange(coerceStateOptionValue(device, stateKey, e.target.value))}
+        value={multiple ? (Array.isArray(value) ? value.map((item) => String(item)) : []) : String(value ?? '')}
+        multiple={multiple}
+        size={multiple ? Math.min(Math.max(options.length, 3), 6) : undefined}
+        onChange={(e) =>
+          onChange(
+            multiple
+              ? coerceStateOptionValues(
+                  device,
+                  stateKey,
+                  Array.from(e.currentTarget.selectedOptions).map((option) => option.value),
+                )
+              : coerceStateOptionValue(device, stateKey, e.target.value),
+          )
+        }
       >
         {options.map((option) => (
           <option key={`${stateKey}-${option.value}`} value={option.value}>
@@ -42,8 +58,8 @@ export function StateValueField({ device, stateKey, operator, value, placeholder
   return (
     <Input
       value={formatStateValueInput(value)}
-      onChange={(e) => onChange(parseStateValueInput(e.target.value))}
-      placeholder={placeholder}
+      onChange={(e) => onChange(multiple ? parseStateValuesInput(e.target.value) : parseStateValueInput(e.target.value))}
+      placeholder={multiple ? 'A, B, C' : placeholder}
     />
   );
 }
