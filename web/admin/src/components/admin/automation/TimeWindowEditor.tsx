@@ -1,6 +1,7 @@
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import type { Automation } from '../../../lib/types';
+import { AutomationSection } from './AutomationSection';
 
 type Props = {
   draft: Automation;
@@ -9,9 +10,10 @@ type Props = {
 
 export function TimeWindowEditor({ draft, onChange }: Props) {
   return (
-    <div className="config-field-list__item">
-      <div className="section-title">
-        <strong>Time Window</strong>
+    <AutomationSection
+      title="Time Window"
+      description="Optionally limit this automation to a daily time range."
+      action={
         <Button
           variant="secondary"
           size="sm"
@@ -24,10 +26,11 @@ export function TimeWindowEditor({ draft, onChange }: Props) {
         >
           {draft.time_window ? 'Remove Time Window' : 'Add Time Window'}
         </Button>
-      </div>
+      }
+    >
       {draft.time_window ? (
-        <div className="grid grid--two">
-          <div className="stack">
+        <div className="automation-field-grid">
+          <div className="automation-field">
             <label>Start</label>
             <Input
               type="time"
@@ -40,7 +43,7 @@ export function TimeWindowEditor({ draft, onChange }: Props) {
               }
             />
           </div>
-          <div className="stack">
+          <div className="automation-field">
             <label>End</label>
             <Input
               type="time"
@@ -55,8 +58,8 @@ export function TimeWindowEditor({ draft, onChange }: Props) {
           </div>
         </div>
       ) : (
-        <p className="muted">Runs all day when no time window is configured.</p>
+        <div className="automation-empty">Runs all day when no time window is configured.</div>
       )}
-    </div>
+    </AutomationSection>
   );
 }

@@ -3,6 +3,7 @@ import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { buildActionTemplates, findDevice, prettyActionParams, type AutomationActionTemplate } from '../../../lib/automation';
 import type { Automation, DeviceView } from '../../../lib/types';
+import { AutomationSection } from './AutomationSection';
 
 type Props = {
   draft: Automation;
@@ -24,9 +25,10 @@ export function ActionsEditor({
   onResetParamDrafts,
 }: Props) {
   return (
-    <div className="config-field-list__item">
-      <div className="section-title">
-        <strong>Actions</strong>
+    <AutomationSection
+      title="Actions"
+      description="Choose the commands Core should execute when the rule is satisfied."
+      action={
         <Button
           variant="secondary"
           size="sm"
@@ -48,15 +50,36 @@ export function ActionsEditor({
         >
           Add Action
         </Button>
-      </div>
-      <div className="stack">
+      }
+    >
+      <div className="automation-rule-list">
         {draft.actions.map((action, index) => {
           const actionDevice = findDevice(devices, action.device_id);
           const templates = buildActionTemplates(actionDevice);
           return (
-            <div key={`${action.device_id}-${index}`} className="config-field-list__item">
-              <div className="grid grid--two">
-                <div className="stack">
+            <div key={`${action.device_id}-${index}`} className="automation-rule">
+              <div className="automation-rule__header">
+                <div className="automation-section__heading">
+                  <h4 className="automation-rule__title">Action {index + 1}</h4>
+                  <p className="muted">Dispatch a command to an existing device.</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    onChange((current) => {
+                      const actions = current.actions.filter((_, itemIndex) => itemIndex !== index);
+                      onResetParamDrafts(actions);
+                      return { ...current, actions };
+                    })
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+              <div className="automation-rule__body">
+                <div className="automation-field-grid">
+                  <div className="automation-field">
                   <label>Device</label>
                   <select
                     className="select"
@@ -76,7 +99,7 @@ export function ActionsEditor({
                     ))}
                   </select>
                 </div>
-                <div className="stack">
+                <div className="automation-field">
                   <label>Behavior</label>
                   <select
                     className="select"
@@ -91,9 +114,9 @@ export function ActionsEditor({
                     ))}
                   </select>
                 </div>
-              </div>
-              <div className="grid grid--two">
-                <div className="stack">
+                </div>
+                <div className="automation-field-grid">
+                  <div className="automation-field">
                   <label>Action</label>
                   <Input
                     value={action.action}
@@ -107,7 +130,7 @@ export function ActionsEditor({
                     placeholder="push_voice_message"
                   />
                 </div>
-                <div className="stack">
+                <div className="automation-field">
                   <label>Label</label>
                   <Input
                     value={action.label ?? ''}
@@ -121,8 +144,8 @@ export function ActionsEditor({
                     placeholder="Suggested · Voice push"
                   />
                 </div>
-              </div>
-              <div className="stack">
+                </div>
+                <div className="automation-field">
                 <label>Params JSON</label>
                 <Textarea
                   value={actionParamDrafts[index] ?? prettyActionParams(action.params)}
@@ -130,25 +153,11 @@ export function ActionsEditor({
                   rows={6}
                 />
               </div>
-              <div className="button-row">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    onChange((current) => {
-                      const actions = current.actions.filter((_, itemIndex) => itemIndex !== index);
-                      onResetParamDrafts(actions);
-                      return { ...current, actions };
-                    })
-                  }
-                >
-                  Remove
-                </Button>
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </AutomationSection>
   );
 }

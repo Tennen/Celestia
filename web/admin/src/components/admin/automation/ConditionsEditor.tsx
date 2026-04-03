@@ -6,6 +6,7 @@ import {
   stateOperators,
 } from '../../../lib/automation';
 import type { Automation, AutomationMatchOperator, DeviceView } from '../../../lib/types';
+import { AutomationSection } from './AutomationSection';
 import { StateValueField } from './StateValueField';
 
 type Props = {
@@ -16,9 +17,10 @@ type Props = {
 
 export function ConditionsEditor({ draft, devices, onChange }: Props) {
   return (
-    <div className="config-field-list__item">
-      <div className="section-title">
-        <strong>Conditions</strong>
+    <AutomationSection
+      title="Conditions"
+      description="Add optional checks that must pass before the automation runs."
+      action={
         <Button
           variant="secondary"
           size="sm"
@@ -38,8 +40,9 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
         >
           Add Condition
         </Button>
-      </div>
-      <div className="stack">
+      }
+    >
+      <div className="automation-logic-row">
         <label>Condition Logic</label>
         <select
           className="select"
@@ -50,13 +53,33 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
           <option value="any">any</option>
         </select>
       </div>
-      <div className="stack">
+      {(draft.conditions ?? []).length > 0 ? (
+        <div className="automation-rule-list">
         {(draft.conditions ?? []).map((condition, index) => {
           const conditionDevice = findDevice(devices, condition.device_id);
           return (
-            <div key={`${condition.device_id}-${index}`} className="config-field-list__item">
-              <div className="grid grid--two">
-                <div className="stack">
+            <div key={`${condition.device_id}-${index}`} className="automation-rule">
+              <div className="automation-rule__header">
+                <div className="automation-section__heading">
+                  <h4 className="automation-rule__title">Condition {index + 1}</h4>
+                  <p className="muted">Gate the trigger with another device state match.</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    onChange((current) => ({
+                      ...current,
+                      conditions: (current.conditions ?? []).filter((_, itemIndex) => itemIndex !== index),
+                    }))
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+              <div className="automation-rule__body">
+                <div className="automation-field-grid">
+                  <div className="automation-field">
                   <label>Device</label>
                   <select
                     className="select"
@@ -87,7 +110,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                     ))}
                   </select>
                 </div>
-                <div className="stack">
+                <div className="automation-field">
                   <label>State Key</label>
                   <select
                     className="select"
@@ -116,9 +139,9 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                     ))}
                   </select>
                 </div>
-              </div>
-              <div className="grid grid--two">
-                <div className="stack">
+                </div>
+                <div className="automation-field-grid">
+                  <div className="automation-field">
                   <label>Operator</label>
                   <select
                     className="select"
@@ -146,7 +169,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                     ))}
                   </select>
                 </div>
-                <div className="stack">
+                <div className="automation-field">
                   <label>Value</label>
                   <StateValueField
                     device={conditionDevice}
@@ -167,25 +190,16 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                   />
                 </div>
               </div>
-              <div className="button-row">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    onChange((current) => ({
-                      ...current,
-                      conditions: (current.conditions ?? []).filter((_, itemIndex) => itemIndex !== index),
-                    }))
-                  }
-                >
-                  Remove
-                </Button>
               </div>
             </div>
           );
         })}
-        {(draft.conditions ?? []).length === 0 ? <p className="muted">No extra conditions. Trigger alone will fire the actions.</p> : null}
-      </div>
-    </div>
+        </div>
+      ) : (
+        <div className="automation-empty">
+          No extra conditions. Trigger alone will fire the actions.
+        </div>
+      )}
+    </AutomationSection>
   );
 }

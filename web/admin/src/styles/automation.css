@@ -1,0 +1,93 @@
+@layer components {
+  .automation-editor {
+    @apply space-y-6;
+  }
+
+  .automation-summary {
+    @apply grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px];
+  }
+
+  .automation-section,
+  .automation-toggle-panel {
+    @apply rounded-2xl border bg-secondary/20 p-5;
+  }
+
+  .automation-section__header {
+    @apply flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
+  }
+
+  .automation-section__heading {
+    @apply min-w-0 space-y-1;
+  }
+
+  .automation-section__title,
+  .automation-rule__title {
+    @apply text-base font-semibold text-foreground;
+  }
+
+  .automation-section__body {
+    @apply mt-5 space-y-4;
+  }
+
+  .automation-toggle-panel__row,
+  .automation-rule__header {
+    @apply flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
+  }
+
+  .automation-field-grid,
+  .automation-match-grid {
+    @apply grid gap-4 md:grid-cols-2;
+  }
+
+  .automation-field,
+  .automation-logic-row {
+    @apply space-y-2;
+  }
+
+  .automation-logic-row {
+    @apply max-w-[220px];
+  }
+
+  .automation-match-card,
+  .automation-rule {
+    @apply rounded-xl border bg-background/80 p-4 shadow-sm;
+  }
+
+  .automation-match-card__title {
+    @apply text-sm font-semibold text-foreground;
+  }
+
+  .automation-match-card__body,
+  .automation-rule__body,
+  .automation-rule-list {
+    @apply mt-4 space-y-4;
+  }
+
+  .automation-empty {
+    @apply rounded-xl border border-dashed bg-background/60 p-4 text-sm text-muted-foreground;
+  }
+
+  .automation-choice-list {
+    @apply grid gap-2;
+  }
+
+  .automation-choice {
+    @apply flex items-center gap-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-left text-sm text-foreground transition hover:border-primary/35 hover:bg-primary/5;
+  }
+
+  .automation-choice.is-selected {
+    @apply border-primary/40 bg-primary/10;
+  }
+
+  .automation-choice__dot {
+    @apply h-2.5 w-2.5 rounded-full border border-border bg-transparent;
+  }
+
+  .automation-choice__dot.is-selected {
+    @apply border-primary bg-primary;
+  }
+
+  .automation-choice__label {
+    @apply min-w-0 truncate;
+  }
+}
