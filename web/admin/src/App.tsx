@@ -110,8 +110,7 @@ function App() {
   const runtimeBadgeText = !hasLoaded && loading ? 'Connecting' : error ? 'Attention' : 'Stable';
   const runtimeHeaderText = !hasLoaded && loading ? 'Connecting' : error ? 'Needs Attention' : 'Runtime Stable';
   const isRefreshing = loading || refreshing;
-  const splitSection =
-    activeSection === 'plugins' || activeSection === 'automations' || activeSection === 'devices';
+  const splitSection = activeSection !== 'overview';
 
   return (
     <div className="shell shell--app">
@@ -233,9 +232,6 @@ function App() {
                   catalog={catalog}
                   plugins={plugins}
                   events={events}
-                  audits={audits}
-                  selectedCatalogPlugin={selectedCatalogPlugin}
-                  selectedDevice={selectedDevice}
                   onOpenSection={setActiveSection}
                   onSelectPlugin={(id) => usePluginStore.getState().setSelectedPluginId(id)}
                 />

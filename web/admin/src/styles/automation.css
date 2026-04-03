@@ -3,25 +3,17 @@
     @apply space-y-6;
   }
 
+  .automation-editor__meta {
+    @apply flex items-center gap-2;
+  }
+
   .automation-summary {
-    @apply space-y-4;
+    @apply space-y-3;
   }
 
   .automation-section,
   .automation-toggle-panel {
     @apply rounded-2xl border bg-secondary/20 p-5;
-  }
-
-  .automation-summary__top {
-    @apply flex flex-wrap items-start justify-between gap-3;
-  }
-
-  .automation-switch-row {
-    @apply flex items-start gap-3;
-  }
-
-  .automation-switch-row__copy {
-    @apply min-w-0 space-y-1;
   }
 
   .automation-section__header {

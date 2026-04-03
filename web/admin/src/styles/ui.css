@@ -21,6 +21,10 @@
     @apply grid items-start gap-3 xl:grid-cols-2;
   }
 
+  .grid--two > * {
+    @apply min-w-0;
+  }
+
   .grid--stats {
     @apply grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6;
   }
@@ -47,7 +51,11 @@
   }
 
   .plugin-workspace {
-    @apply grid h-full min-h-0 items-start gap-3 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)];
+    @apply grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)];
+  }
+
+  .plugin-workspace > * {
+    @apply min-h-0 min-w-0 self-stretch;
   }
 
   .plugin-explorer {

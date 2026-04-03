@@ -112,13 +112,9 @@ export function DeviceWorkspace() {
   };
 
   return (
-    <Section stack={false} className="grid h-full min-h-0 items-start gap-3 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+    <Section stack={false} className="plugin-workspace xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
       <Card className="explorer-card">
-        <CardHeader>
-          <CardTitle>Device List</CardTitle>
-          <CardDescription>Stable device list with command shortcuts and search.</CardDescription>
-        </CardHeader>
-        <CardContent className="explorer-card__content">
+        <CardContent className="explorer-card__content pt-6">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <Input
               value={deviceSearch}

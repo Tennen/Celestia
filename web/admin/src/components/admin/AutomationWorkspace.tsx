@@ -156,11 +156,7 @@ export function AutomationWorkspace() {
   return (
     <Section stack={false} className="plugin-workspace">
       <Card className="plugin-explorer explorer-card">
-        <CardHeader>
-          <CardTitle>Automations</CardTitle>
-          <CardDescription>State-change rules executed by Core against your existing devices.</CardDescription>
-        </CardHeader>
-        <CardContent className="explorer-card__content">
+        <CardContent className="explorer-card__content pt-6">
           <div className="button-row">
             <Button onClick={startNewAutomation}>New Automation</Button>
           </div>
@@ -209,18 +205,27 @@ export function AutomationWorkspace() {
               description="Trigger on one device state transition, optionally gate it with other conditions and a time window, then execute actions on existing devices."
               aside={
                 draft ? (
-                  <Badge
-                    size="xs"
-                    tone={
-                      draft.last_run_status === 'failed'
-                        ? 'bad'
-                        : draft.last_run_status === 'succeeded'
-                          ? 'good'
-                          : 'neutral'
-                    }
-                  >
-                    {draft.last_run_status ?? 'idle'}
-                  </Badge>
+                  <div className="automation-editor__meta">
+                    <Badge
+                      size="xs"
+                      tone={
+                        draft.last_run_status === 'failed'
+                          ? 'bad'
+                          : draft.last_run_status === 'succeeded'
+                            ? 'good'
+                            : 'neutral'
+                      }
+                    >
+                      {draft.last_run_status ?? 'idle'}
+                    </Badge>
+                    <Switch
+                      checked={draft.enabled}
+                      onCheckedChange={(checked) =>
+                        updateDraft((current) => ({ ...current, enabled: checked }))
+                      }
+                      aria-label="Toggle automation enabled"
+                    />
+                  </div>
                 ) : null
               }
             />
@@ -229,20 +234,6 @@ export function AutomationWorkspace() {
             {draft ? (
               <div className="automation-editor">
                 <div className="automation-summary">
-                  <div className="automation-summary__top">
-                    <div className="automation-switch-row">
-                      <Switch
-                        checked={draft.enabled}
-                        onCheckedChange={(checked) =>
-                          updateDraft((current) => ({ ...current, enabled: checked }))
-                        }
-                      />
-                      <div className="automation-switch-row__copy">
-                        <strong>Enabled</strong>
-                        <p className="muted">Evaluate and execute this rule when the trigger matches.</p>
-                      </div>
-                    </div>
-                  </div>
                   <div className="automation-field">
                     <label>Name</label>
                     <Input

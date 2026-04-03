@@ -7,16 +7,13 @@ import { SelectableListItem } from './shared/SelectableListItem';
 import type { AppSection } from '../../lib/admin';
 import { getPluginStatusBadge } from '../../lib/plugin-status';
 import { formatTime } from '../../lib/utils';
-import type { AuditRecord, CatalogPlugin, DashboardSummary, DeviceView, EventRecord, PluginRuntimeView } from '../../lib/types';
+import type { CatalogPlugin, DashboardSummary, EventRecord, PluginRuntimeView } from '../../lib/types';
 
 type Props = {
   dashboard: DashboardSummary | null;
   catalog: CatalogPlugin[];
   plugins: PluginRuntimeView[];
   events: EventRecord[];
-  audits: AuditRecord[];
-  selectedCatalogPlugin: CatalogPlugin | null;
-  selectedDevice: DeviceView | null;
   onOpenSection: (section: AppSection) => void;
   onSelectPlugin: (pluginId: string) => void;
 };
@@ -26,17 +23,13 @@ export function OverviewSection({
   catalog,
   plugins,
   events,
-  audits,
-  selectedCatalogPlugin,
-  selectedDevice,
   onOpenSection,
   onSelectPlugin,
 }: Props) {
   const overviewEvents = events.slice(0, 5);
-  const overviewAudits = audits.slice(0, 5);
 
   return (
-    <>
+    <Section className="detail">
       <Section stack={false} className="grid grid--stats">
         {[
           ['Plugins', dashboard?.plugins ?? 0],
@@ -121,74 +114,6 @@ export function OverviewSection({
           </CardContent>
         </Card>
       </Section>
-
-      <Section stack={false} className="grid grid--two">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Audits</CardTitle>
-            <CardDescription>Latest policy decisions and command history.</CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            <ScrollArea className="h-[320px] pr-4">
-              <div className="feed">
-                {overviewAudits.length > 0 ? (
-                  overviewAudits.map((audit) => (
-                    <article key={audit.id} className="feed__item">
-                      <div className="feed__meta">
-                        <Badge tone={audit.allowed ? 'good' : 'bad'} size="sm">
-                          {audit.allowed ? 'allowed' : 'denied'}
-                        </Badge>
-                        <span>{formatTime(audit.created_at)}</span>
-                      </div>
-                      <strong>
-                        {audit.actor} · {audit.action}
-                      </strong>
-                      <p>{audit.device_id}</p>
-                    </article>
-                  ))
-                ) : (
-                  <p className="muted">No recent audits.</p>
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Entry</CardTitle>
-            <CardDescription>Jump straight into the currently selected device or plugin without scrolling through the whole console.</CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            {selectedCatalogPlugin ? (
-              <SelectableListItem
-                className="preview-list__item"
-                onClick={() => onOpenSection('plugins')}
-                title={selectedCatalogPlugin.name}
-                description={selectedCatalogPlugin.id}
-                badges={
-                  <Badge tone="accent" size="sm">
-                    Plugin
-                  </Badge>
-                }
-              />
-            ) : null}
-            {selectedDevice ? (
-              <SelectableListItem
-                className="preview-list__item"
-                onClick={() => onOpenSection('devices')}
-                title={selectedDevice.device.name}
-                description={selectedDevice.device.id}
-                badges={
-                  <Badge tone={selectedDevice.device.online ? 'good' : 'bad'} size="sm">
-                    {selectedDevice.device.online ? 'online' : 'offline'}
-                  </Badge>
-                }
-              />
-            ) : null}
-          </CardContent>
-        </Card>
-      </Section>
-    </>
+    </Section>
   );
 }

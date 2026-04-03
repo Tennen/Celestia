@@ -12,14 +12,14 @@ type Props = {
 
 export function ActivitySection({ events, audits }: Props) {
   return (
-    <Section stack={false} className="grid grid--two">
-      <Card>
+    <Section stack={false} className="plugin-workspace xl:grid-cols-2">
+      <Card className="explorer-card">
         <CardHeader>
           <CardTitle>Events</CardTitle>
           <CardDescription>Recent event bus and device activity feed.</CardDescription>
         </CardHeader>
-        <CardContent className="stack">
-          <ScrollArea className="max-h-[70vh] pr-4">
+        <CardContent className="explorer-card__content">
+          <ScrollArea className="explorer-scroll">
             <div className="feed">
               {events.map((event) => (
                 <article key={event.id} className="feed__item">
@@ -38,13 +38,13 @@ export function ActivitySection({ events, audits }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="explorer-card">
         <CardHeader>
           <CardTitle>Audits</CardTitle>
           <CardDescription>Command history and policy decisions.</CardDescription>
         </CardHeader>
-        <CardContent className="stack">
-          <ScrollArea className="max-h-[70vh] pr-4">
+        <CardContent className="explorer-card__content">
+          <ScrollArea className="explorer-scroll">
             <div className="feed">
               {audits.map((audit) => (
                 <article key={audit.id} className="feed__item">
