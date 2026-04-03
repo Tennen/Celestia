@@ -1,6 +1,27 @@
 @media (max-width: 1279px) {
+  .shell,
+  .shell--app {
+    @apply h-auto min-h-screen overflow-visible;
+  }
+
+  .app-frame,
+  .workspace,
+  .workspace__body,
+  .workspace__panel,
+  .plugin-workspace,
+  .explorer-card,
+  .explorer-card__content,
+  .explorer-scroll,
+  .detail-stack,
   .sidemenu {
     @apply h-auto;
+  }
+
+  .workspace__panel--fixed,
+  .workspace__panel--scroll,
+  .explorer-scroll,
+  .detail-stack {
+    @apply overflow-visible pr-0;
   }
 }
 
@@ -11,6 +32,10 @@
 
   .module-header {
     @apply px-4 py-4;
+  }
+
+  .module-header {
+    @apply flex-col items-start;
   }
 
   .module-header__meta {

@@ -54,7 +54,7 @@ export function PluginConfigPanel({
   }, [defaultDraft, plugin, pluginDraft]);
 
   return (
-    <div className="detail-stack">
+    <div className="detail">
       <Card>
         <CardHeader>
           <CardTitle>Plugin Config</CardTitle>

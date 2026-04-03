@@ -155,16 +155,16 @@ export function AutomationWorkspace() {
 
   return (
     <Section stack={false} className="plugin-workspace">
-      <Card className="plugin-explorer">
+      <Card className="plugin-explorer explorer-card">
         <CardHeader>
           <CardTitle>Automations</CardTitle>
           <CardDescription>State-change rules executed by Core against your existing devices.</CardDescription>
         </CardHeader>
-        <CardContent className="stack">
+        <CardContent className="explorer-card__content">
           <div className="button-row">
             <Button onClick={startNewAutomation}>New Automation</Button>
           </div>
-          <ScrollArea className="max-h-[calc(100vh-15rem)] pr-3">
+          <ScrollArea className="explorer-scroll">
             <div className="list-stack">
               {automations.map((automation) => (
                 <SelectableListItem

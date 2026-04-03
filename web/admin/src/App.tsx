@@ -83,12 +83,12 @@ function App() {
     useDeviceStore.getState().pruneOverrides(devices);
   }, [devices]);
 
-  const sectionMeta: Record<AppSection, { label: string; description: string }> = {
-    overview: { label: 'Overview', description: 'Dashboard summary and recent runtime activity.' },
-    plugins: { label: 'Plugins', description: 'Browse a stable plugin list and open each plugin in its own detail pane.' },
-    automations: { label: 'Automations', description: 'Run device-to-device actions when selected state transitions happen.' },
-    devices: { label: 'Devices', description: 'Browse unified devices and issue commands against the selected item.' },
-    activity: { label: 'Activity', description: 'Inspect recent events and audit decisions.' },
+  const sectionLabel: Record<AppSection, string> = {
+    overview: 'Overview',
+    plugins: 'Plugins',
+    automations: 'Automations',
+    devices: 'Devices',
+    activity: 'Activity',
   };
 
   const sectionItems: Array<{
@@ -110,6 +110,8 @@ function App() {
   const runtimeBadgeText = !hasLoaded && loading ? 'Connecting' : error ? 'Attention' : 'Stable';
   const runtimeHeaderText = !hasLoaded && loading ? 'Connecting' : error ? 'Needs Attention' : 'Runtime Stable';
   const isRefreshing = loading || refreshing;
+  const splitSection =
+    activeSection === 'plugins' || activeSection === 'automations' || activeSection === 'devices';
 
   return (
     <div className="shell shell--app">
@@ -178,11 +180,7 @@ function App() {
 
         <main className="workspace">
           <header className="module-header">
-            <div>
-              <p className="eyebrow">{sectionMeta[activeSection].label}</p>
-              <h2>{sectionMeta[activeSection].label}</h2>
-              <p className="topbar__sub">{sectionMeta[activeSection].description}</p>
-            </div>
+            <p className="module-header__title">{sectionLabel[activeSection]}</p>
             <div className="module-header__meta">
               <Badge tone={runtimeBadgeTone}>{runtimeHeaderText}</Badge>
               {refreshing ? (
@@ -206,63 +204,67 @@ function App() {
             </div>
           </header>
 
-          {error ? (
-            <Card className="panel panel--error">
-              <CardContent>{error}</CardContent>
-            </Card>
-          ) : null}
+          <div className="workspace__body">
+            {error ? (
+              <Card className="panel panel--error">
+                <CardContent>{error}</CardContent>
+              </Card>
+            ) : null}
 
-          {oauthBanner ? (
-            <Card className="panel panel--notice">
-              <CardContent className="panel__notice">
-                <Badge tone={oauthBanner.tone}>
-                  {oauthBanner.tone === 'good'
-                    ? 'Connected'
-                    : oauthBanner.tone === 'warn'
-                      ? 'Pending'
-                      : 'Error'}
-                </Badge>
-                <span>{oauthBanner.text}</span>
-              </CardContent>
-            </Card>
-          ) : null}
+            {oauthBanner ? (
+              <Card className="panel panel--notice">
+                <CardContent className="panel__notice">
+                  <Badge tone={oauthBanner.tone}>
+                    {oauthBanner.tone === 'good'
+                      ? 'Connected'
+                      : oauthBanner.tone === 'warn'
+                        ? 'Pending'
+                        : 'Error'}
+                  </Badge>
+                  <span>{oauthBanner.text}</span>
+                </CardContent>
+              </Card>
+            ) : null}
 
-          {activeSection === 'overview' ? (
-            <OverviewSection
-              dashboard={dashboard}
-              catalog={catalog}
-              plugins={plugins}
-              events={events}
-              audits={audits}
-              selectedCatalogPlugin={selectedCatalogPlugin}
-              selectedDevice={selectedDevice}
-              onOpenSection={setActiveSection}
-              onSelectPlugin={(id) => usePluginStore.getState().setSelectedPluginId(id)}
-            />
-          ) : null}
+            <div className={`workspace__panel ${splitSection ? 'workspace__panel--fixed' : 'workspace__panel--scroll'}`}>
+              {activeSection === 'overview' ? (
+                <OverviewSection
+                  dashboard={dashboard}
+                  catalog={catalog}
+                  plugins={plugins}
+                  events={events}
+                  audits={audits}
+                  selectedCatalogPlugin={selectedCatalogPlugin}
+                  selectedDevice={selectedDevice}
+                  onOpenSection={setActiveSection}
+                  onSelectPlugin={(id) => usePluginStore.getState().setSelectedPluginId(id)}
+                />
+              ) : null}
 
-          {activeSection === 'plugins' ? (
-            <PluginWorkspace
-              oauthActive={oauthActive}
-              onConnectXiaomiOAuth={() => {
-                const { selectedPluginId } = usePluginStore.getState();
-                const plugin = catalog.find((p) => p.id === selectedPluginId);
-                if (!plugin) return;
-                void usePluginStore.setState({ busy: `xiaomi-oauth-${plugin.id}` });
-                void startFlow(plugin)
-                  .catch(() => {})
-                  .finally(() => usePluginStore.setState({ busy: '' }));
-              }}
-            />
-          ) : null}
+              {activeSection === 'plugins' ? (
+                <PluginWorkspace
+                  oauthActive={oauthActive}
+                  onConnectXiaomiOAuth={() => {
+                    const { selectedPluginId } = usePluginStore.getState();
+                    const plugin = catalog.find((p) => p.id === selectedPluginId);
+                    if (!plugin) return;
+                    void usePluginStore.setState({ busy: `xiaomi-oauth-${plugin.id}` });
+                    void startFlow(plugin)
+                      .catch(() => {})
+                      .finally(() => usePluginStore.setState({ busy: '' }));
+                  }}
+                />
+              ) : null}
 
-          {activeSection === 'automations' ? <AutomationWorkspace /> : null}
+              {activeSection === 'automations' ? <AutomationWorkspace /> : null}
 
-          {activeSection === 'devices' ? <DeviceWorkspace /> : null}
+              {activeSection === 'devices' ? <DeviceWorkspace /> : null}
 
-          {activeSection === 'activity' ? (
-            <ActivitySection events={events} audits={audits} />
-          ) : null}
+              {activeSection === 'activity' ? (
+                <ActivitySection events={events} audits={audits} />
+              ) : null}
+            </div>
+          </div>
         </main>
       </div>
     </div>

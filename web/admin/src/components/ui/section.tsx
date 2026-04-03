@@ -6,5 +6,5 @@ type Props = HTMLAttributes<HTMLElement> & {
 };
 
 export function Section({ className, stack = true, ...props }: Props) {
-  return <section className={cn(stack && 'space-y-6', className)} {...props} />;
+  return <section className={cn(stack && 'space-y-3', className)} {...props} />;
 }

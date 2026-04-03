@@ -9,24 +9,24 @@
   }
 
   .stack {
-    @apply flex flex-col gap-4;
+    @apply flex flex-col gap-3;
   }
 
   .grid {
     display: grid;
-    @apply gap-4;
+    @apply gap-3;
   }
 
   .grid--two {
-    @apply grid items-start gap-6 xl:grid-cols-2;
+    @apply grid items-start gap-3 xl:grid-cols-2;
   }
 
   .grid--stats {
-    @apply grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6;
+    @apply grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6;
   }
 
   .grid--detail {
-    @apply grid gap-4 md:grid-cols-2;
+    @apply grid gap-3 md:grid-cols-2;
   }
 
   .grid__full {
@@ -47,15 +47,27 @@
   }
 
   .plugin-workspace {
-    @apply grid items-start gap-6 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)];
+    @apply grid h-full min-h-0 items-start gap-3 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)];
   }
 
   .plugin-explorer {
-    @apply self-start xl:sticky xl:top-5;
+    @apply flex h-full min-h-0 flex-col;
   }
 
   .detail-stack {
-    @apply min-w-0 space-y-6;
+    @apply flex min-w-0 min-h-0 flex-col gap-3 overflow-y-auto pr-1;
+  }
+
+  .explorer-card {
+    @apply flex h-full min-h-0 flex-col;
+  }
+
+  .explorer-card__content {
+    @apply flex min-h-0 flex-1 flex-col gap-3;
+  }
+
+  .explorer-scroll {
+    @apply min-h-0 flex-1 pr-3;
   }
 
   .preview-list,
@@ -63,7 +75,7 @@
   .list-stack,
   .feed,
   .config-field-list {
-    @apply grid gap-4;
+    @apply grid gap-3;
   }
 
   .preview-list__item,
@@ -134,7 +146,7 @@
   }
 
   .stat__content {
-    @apply flex min-h-[112px] flex-col justify-between p-6;
+    @apply flex min-h-[104px] flex-col justify-between p-5;
   }
 
   .stat__label {
@@ -146,7 +158,7 @@
   }
 
   .detail {
-    @apply space-y-4;
+    @apply space-y-3;
   }
 
   .log-box {

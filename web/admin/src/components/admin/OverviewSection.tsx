@@ -62,7 +62,7 @@ export function OverviewSection({
             <CardDescription>Installed plugins in stable order. Open any item to inspect or reconfigure it.</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <ScrollArea className="max-h-[360px] pr-4">
+            <ScrollArea className="h-[360px] pr-4">
               <div className="preview-list">
                 {catalog.map((plugin) => {
                   const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
@@ -96,7 +96,7 @@ export function OverviewSection({
             <CardDescription>Latest event bus activity with one-click jump into the activity module.</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <ScrollArea className="max-h-[320px] pr-4">
+            <ScrollArea className="h-[320px] pr-4">
               <div className="feed">
                 {overviewEvents.length > 0 ? (
                   overviewEvents.map((event) => (
@@ -129,7 +129,7 @@ export function OverviewSection({
             <CardDescription>Latest policy decisions and command history.</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <ScrollArea className="max-h-[320px] pr-4">
+            <ScrollArea className="h-[320px] pr-4">
               <div className="feed">
                 {overviewAudits.length > 0 ? (
                   overviewAudits.map((audit) => (

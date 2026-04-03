@@ -112,13 +112,13 @@ export function DeviceWorkspace() {
   };
 
   return (
-    <Section stack={false} className="grid items-start gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
-      <Card>
+    <Section stack={false} className="grid h-full min-h-0 items-start gap-3 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <Card className="explorer-card">
         <CardHeader>
           <CardTitle>Device List</CardTitle>
           <CardDescription>Stable device list with command shortcuts and search.</CardDescription>
         </CardHeader>
-        <CardContent className="stack">
+        <CardContent className="explorer-card__content">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <Input
               value={deviceSearch}
@@ -129,7 +129,7 @@ export function DeviceWorkspace() {
               Refresh
             </Button>
           </div>
-          <ScrollArea className="h-[calc(100vh-15rem)] min-h-0 pr-3">
+          <ScrollArea className="explorer-scroll">
             <div className="list-stack pb-3">
               {devices.map((item) => (
                 <SelectableListItem

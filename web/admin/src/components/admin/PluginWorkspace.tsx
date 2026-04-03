@@ -88,13 +88,13 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
 
   return (
     <Section stack={false} className="plugin-workspace">
-      <Card className="plugin-explorer">
+      <Card className="plugin-explorer explorer-card">
         <CardHeader>
           <CardTitle>Plugin List</CardTitle>
           <CardDescription>Stable ordering by plugin id. Select an item to open its full management panel.</CardDescription>
         </CardHeader>
-        <CardContent className="stack">
-          <ScrollArea className="max-h-[calc(100vh-15rem)] pr-3">
+        <CardContent className="explorer-card__content">
+          <ScrollArea className="explorer-scroll">
             <div className="plugin-list">
               {catalog.map((plugin) => {
                 const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
