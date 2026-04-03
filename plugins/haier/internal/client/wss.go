@@ -15,24 +15,17 @@ import (
 const uwsWSSGatewayURL = "https://uws.haier.net/gmsWS/wsag/assign"
 
 // getWSSGatewayURL fetches the WebSocket gateway address for this account.
-// POST body: {"clientId": "<clientId>", "accessToken": "<accessToken>"}
+// POST body: {"clientId": "<clientId>", "token": "<accessToken>"}
 // WSS URL format: {agAddr}/userag?token={accessToken}&agClientId={clientId}
 func (c *UWSClient) getWSSGatewayURL(ctx context.Context) (string, error) {
 	body := map[string]any{
-		"clientId":    c.cfg.ClientID,
-		"accessToken": c.auth.AccessToken,
+		"clientId": c.cfg.ClientID,
+		"token":    c.auth.AccessToken,
 	}
-	payload, err := json.Marshal(body)
+	req, err := c.newSignedRequest(ctx, http.MethodPost, uwsWSSGatewayURL, body)
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uwsWSSGatewayURL, bytes.NewReader(payload))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("accessToken", c.auth.AccessToken)
-	req.Header.Set("clientId", c.cfg.ClientID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -44,11 +37,18 @@ func (c *UWSClient) getWSSGatewayURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("uws wss gateway failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 
-	var result map[string]any
+	var result struct {
+		RetCode string `json:"retCode"`
+		RetInfo string `json:"retInfo"`
+		AgAddr  string `json:"agAddr"`
+	}
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return "", fmt.Errorf("uws wss gateway decode: %w", err)
 	}
-	addr := StringFromAny(result["agAddr"])
+	if result.RetCode != "" && result.RetCode != "00000" {
+		return "", fmt.Errorf("uws wss gateway failed: retCode=%s retInfo=%s", result.RetCode, result.RetInfo)
+	}
+	addr := StringFromAny(result.AgAddr)
 	if addr == "" {
 		return "", fmt.Errorf("uws wss gateway: missing agAddr in response")
 	}

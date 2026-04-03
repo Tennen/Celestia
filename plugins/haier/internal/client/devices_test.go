@@ -28,7 +28,7 @@ func TestLoadAppliances_Success(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"retCode": "00000",
 			"retInfo": "成功",
-			"deviceInfoList": []any{
+			"deviceinfos": []any{
 				map[string]any{"deviceId": "dev1", "deviceName": "Washer A", "online": true},
 				map[string]any{"deviceId": "dev2", "deviceName": "Washer B", "online": false},
 			},
@@ -73,14 +73,8 @@ func TestLoadDigitalModels_Success(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"retCode": "00000",
-			"deviceDigitalModelList": []any{
-				map[string]any{
-					"deviceId": "dev1",
-					"attributes": []any{
-						map[string]any{"name": "machMode", "value": "0"},
-						map[string]any{"name": "prCode", "value": "3"},
-					},
-				},
+			"detailInfo": map[string]any{
+				"dev1": `{"attributes":[{"name":"machMode","value":"0"},{"name":"prCode","value":"3"}]}`,
 			},
 		})
 	}))
@@ -121,8 +115,8 @@ func TestLoadAppliances_Property3_ParseCompleteness(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]any{
-				"retCode":        "00000",
-				"deviceInfoList": devices,
+				"retCode":     "00000",
+				"deviceinfos": devices,
 			})
 		}))
 		defer srv.Close()
@@ -188,16 +182,17 @@ func TestLoadDigitalModels_Property5_AttributeParseRoundTrip(t *testing.T) {
 			attrs[i] = map[string]any{"name": name, "value": value}
 			expectedCount++
 		}
+		rawDetail, err := json.Marshal(map[string]any{"attributes": attrs})
+		if err != nil {
+			t.Fatalf("marshal detail: %v", err)
+		}
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]any{
 				"retCode": "00000",
-				"deviceDigitalModelList": []any{
-					map[string]any{
-						"deviceId":   "dev1",
-						"attributes": attrs,
-					},
+				"detailInfo": map[string]any{
+					"dev1": string(rawDetail),
 				},
 			})
 		}))

@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,17 +22,11 @@ func (c *UWSClient) Authenticate(ctx context.Context) error {
 func (c *UWSClient) refreshAccessToken(ctx context.Context) error {
 	body := map[string]any{
 		"refreshToken": c.auth.RefreshToken,
-		"clientId":     c.cfg.ClientID,
 	}
-	payload, err := json.Marshal(body)
+	req, err := c.newSignedRequest(ctx, http.MethodPost, uwsRefreshURL, body)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uwsRefreshURL, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -46,22 +39,46 @@ func (c *UWSClient) refreshAccessToken(ctx context.Context) error {
 	}
 
 	var result struct {
+		RetCode      string `json:"retCode"`
+		RetInfo      string `json:"retInfo"`
 		AccessToken  string `json:"accessToken"`
 		RefreshToken string `json:"refreshToken"`
+		ExpiresIn    int    `json:"expiresIn"`
+		Data         struct {
+			TokenInfo struct {
+				AccountToken string `json:"accountToken"`
+				RefreshToken string `json:"refreshToken"`
+				ExpiresIn    int    `json:"expiresIn"`
+			} `json:"tokenInfo"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return fmt.Errorf("uws refresh token decode: %w", err)
 	}
-	if result.AccessToken == "" {
-		return fmt.Errorf("uws refresh token response missing accessToken: %s", trimForError(string(raw)))
+	if result.RetCode != "" && result.RetCode != "00000" {
+		return fmt.Errorf("uws refresh token failed: retCode=%s retInfo=%s", result.RetCode, result.RetInfo)
 	}
 
-	c.auth.AccessToken = result.AccessToken
-	if result.RefreshToken != "" {
-		c.auth.RefreshToken = result.RefreshToken
-		c.cfg.RefreshToken = result.RefreshToken
+	accessToken := firstNonEmpty(result.AccessToken, result.Data.TokenInfo.AccountToken)
+	if accessToken == "" {
+		return fmt.Errorf("uws refresh token response missing accessToken: %s", trimForError(string(raw)))
 	}
-	c.auth.ExpiresAt = time.Now().Add(2 * time.Hour)
+	refreshToken := firstNonEmpty(result.RefreshToken, result.Data.TokenInfo.RefreshToken)
+	expiresIn := result.ExpiresIn
+	if result.Data.TokenInfo.ExpiresIn > 0 {
+		expiresIn = result.Data.TokenInfo.ExpiresIn
+	}
+
+	c.auth.AccessToken = accessToken
+	if refreshToken != "" {
+		c.auth.RefreshToken = refreshToken
+		c.cfg.RefreshToken = refreshToken
+	}
+	if expiresIn > 0 {
+		c.auth.ExpiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
+	} else {
+		c.auth.ExpiresAt = time.Now().Add(2 * time.Hour)
+	}
 	return nil
 }
 

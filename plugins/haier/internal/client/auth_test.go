@@ -3,8 +3,10 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -37,10 +39,53 @@ func (t *rewriteHostTransport) RoundTrip(req *http.Request) (*http.Response, err
 
 func TestAuthenticate_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		if !strings.Contains(string(rawBody), `"refreshToken":"old-refresh"`) {
+			t.Fatalf("expected refreshToken in body, got %s", string(rawBody))
+		}
+		if strings.Contains(string(rawBody), `"clientId"`) {
+			t.Fatalf("did not expect clientId in refresh body, got %s", string(rawBody))
+		}
+		if got := r.Header.Get("appId"); got != uwsAppID {
+			t.Fatalf("expected appId=%s, got %q", uwsAppID, got)
+		}
+		if got := r.Header.Get("appKey"); got != uwsAppKey {
+			t.Fatalf("expected appKey=%s, got %q", uwsAppKey, got)
+		}
+		if got := r.Header.Get("clientId"); got != "client1" {
+			t.Fatalf("expected clientId=client1, got %q", got)
+		}
+		if got := r.Header.Get("timezone"); got != uwsTimezone {
+			t.Fatalf("expected timezone=%s, got %q", uwsTimezone, got)
+		}
+		if got := r.Header.Get("language"); got != uwsLanguage {
+			t.Fatalf("expected language=%s, got %q", uwsLanguage, got)
+		}
+		if got := r.Header.Get("sequenceId"); len(got) != 20 {
+			t.Fatalf("expected 20-digit sequenceId, got %q", got)
+		}
+		if ok, _ := regexp.MatchString(`^[0-9]{20}$`, r.Header.Get("sequenceId")); !ok {
+			t.Fatalf("sequenceId should be numeric, got %q", r.Header.Get("sequenceId"))
+		}
+		timestamp := r.Header.Get("timestamp")
+		expectedSign := Sign("/api-gw/oauthserver/account/v1/refreshToken", string(rawBody), timestamp)
+		if got := r.Header.Get("sign"); got != expectedSign {
+			t.Fatalf("expected sign=%s, got %q", expectedSign, got)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"accessToken":  "test-access-token",
-			"refreshToken": "test-refresh-token-new",
+			"retCode": "00000",
+			"data": map[string]any{
+				"tokenInfo": map[string]any{
+					"accountToken": "test-access-token",
+					"refreshToken": "test-refresh-token-new",
+					"expiresIn":    7200,
+				},
+			},
 		})
 	}))
 	defer srv.Close()
@@ -73,7 +118,12 @@ func TestAuthenticate_MissingAccessToken(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"refreshToken": "some-token",
+			"retCode": "00000",
+			"data": map[string]any{
+				"tokenInfo": map[string]any{
+					"refreshToken": "some-token",
+				},
+			},
 		})
 	}))
 	defer srv.Close()
@@ -85,7 +135,7 @@ func TestAuthenticate_MissingAccessToken(t *testing.T) {
 }
 
 // TestAuthenticate_Property2_TokenParseRoundTrip is Property 2:
-// For any valid refresh response JSON with accessToken and refreshToken fields,
+// For any valid HAier refresh response JSON with accountToken and refreshToken fields,
 // parsing extracts both fields correctly.
 // Feature: haier-uws-platform-migration, Property 2: token 刷新响应解析往返
 func TestAuthenticate_Property2_TokenParseRoundTrip(t *testing.T) {
@@ -96,8 +146,14 @@ func TestAuthenticate_Property2_TokenParseRoundTrip(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]any{
-				"accessToken":  accessToken,
-				"refreshToken": refreshToken,
+				"retCode": "00000",
+				"data": map[string]any{
+					"tokenInfo": map[string]any{
+						"accountToken": accessToken,
+						"refreshToken": refreshToken,
+						"expiresIn":    7200,
+					},
+				},
 			})
 		}))
 		defer srv.Close()

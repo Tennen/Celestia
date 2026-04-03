@@ -3,12 +3,48 @@ package client
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"pgregory.net/rapid"
 )
+
+func TestGetWSSGatewayURL_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		if !strings.Contains(string(rawBody), `"token":"access-token"`) {
+			t.Fatalf("expected body to contain token field, got %s", string(rawBody))
+		}
+		if strings.Contains(string(rawBody), `"accessToken"`) {
+			t.Fatalf("did not expect accessToken field in body, got %s", string(rawBody))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"retCode": "00000",
+			"agAddr":  "http://gw.haier.local/ws",
+		})
+	}))
+	defer srv.Close()
+
+	client := newTestUWSClient(AccountConfig{ClientID: "client1", RefreshToken: "refresh"}, srv)
+	client.auth.AccessToken = "access-token"
+	addr, err := client.getWSSGatewayURL(context.Background())
+	if err != nil {
+		t.Fatalf("getWSSGatewayURL failed: %v", err)
+	}
+	if addr != "wss://gw.haier.local/ws" {
+		t.Fatalf("expected gateway URL to be rewritten to wss, got %q", addr)
+	}
+}
 
 // encodeWSSDeviceUpdate encodes a deviceID + attributes into the GenMsgDown/DigitalModel
 // wire format: base64(JSON{dev, args: base64(gzip(JSON{attributes}))})

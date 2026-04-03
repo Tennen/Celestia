@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -12,6 +13,7 @@ func (c *UWSClient) LoadAppliances(ctx context.Context) ([]map[string]any, error
 	var resp struct {
 		RetCode        string           `json:"retCode"`
 		RetInfo        string           `json:"retInfo"`
+		DeviceInfos    []map[string]any `json:"deviceinfos"`
 		DeviceInfoList []map[string]any `json:"deviceInfoList"`
 	}
 	if err := c.requestJSON(ctx, http.MethodGet, "/uds/v1/protected/deviceinfos", nil, &resp); err != nil {
@@ -20,10 +22,14 @@ func (c *UWSClient) LoadAppliances(ctx context.Context) ([]map[string]any, error
 	if resp.RetCode != "00000" {
 		return nil, fmt.Errorf("LoadAppliances failed: retCode=%s retInfo=%s", resp.RetCode, resp.RetInfo)
 	}
-	if resp.DeviceInfoList == nil {
+	devices := resp.DeviceInfos
+	if devices == nil {
+		devices = resp.DeviceInfoList
+	}
+	if devices == nil {
 		return []map[string]any{}, nil
 	}
-	return resp.DeviceInfoList, nil
+	return devices, nil
 }
 
 // LoadDigitalModels fetches the digital model state for one or more devices.
@@ -42,8 +48,9 @@ func (c *UWSClient) LoadDigitalModels(ctx context.Context, deviceIDs []string) (
 	}
 
 	var resp struct {
-		RetCode              string `json:"retCode"`
-		RetInfo              string `json:"retInfo"`
+		RetCode                string            `json:"retCode"`
+		RetInfo                string            `json:"retInfo"`
+		DetailInfo             map[string]string `json:"detailInfo"`
 		DeviceDigitalModelList []struct {
 			DeviceID   string `json:"deviceId"`
 			Attributes []struct {
@@ -55,8 +62,22 @@ func (c *UWSClient) LoadDigitalModels(ctx context.Context, deviceIDs []string) (
 	if err := c.requestJSON(ctx, http.MethodPost, "/shadow/v1/devdigitalmodels", body, &resp); err != nil {
 		return nil, err
 	}
+	if resp.RetCode != "" && resp.RetCode != "00000" {
+		return nil, fmt.Errorf("LoadDigitalModels failed: retCode=%s retInfo=%s", resp.RetCode, resp.RetInfo)
+	}
 
-	result := make(map[string]map[string]string, len(resp.DeviceDigitalModelList))
+	result := make(map[string]map[string]string, len(deviceIDs))
+	for deviceID, raw := range resp.DetailInfo {
+		attrs, err := decodeDigitalModelAttributes(raw)
+		if err != nil {
+			return nil, fmt.Errorf("decode digital model for %s: %w", deviceID, err)
+		}
+		result[deviceID] = attrs
+	}
+	if len(result) > 0 {
+		return result, nil
+	}
+
 	for _, entry := range resp.DeviceDigitalModelList {
 		if entry.DeviceID == "" {
 			continue
@@ -71,4 +92,27 @@ func (c *UWSClient) LoadDigitalModels(ctx context.Context, deviceIDs []string) (
 		result[entry.DeviceID] = attrs
 	}
 	return result, nil
+}
+
+func decodeDigitalModelAttributes(raw string) (map[string]string, error) {
+	if raw == "" {
+		return map[string]string{}, nil
+	}
+	var payload struct {
+		Attributes []struct {
+			Name  string `json:"name"`
+			Value any    `json:"value"`
+		} `json:"attributes"`
+	}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return nil, err
+	}
+	attrs := make(map[string]string, len(payload.Attributes))
+	for _, attr := range payload.Attributes {
+		if attr.Name == "" {
+			continue
+		}
+		attrs[attr.Name] = StringFromAny(attr.Value)
+	}
+	return attrs, nil
 }

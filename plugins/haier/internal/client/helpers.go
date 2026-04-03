@@ -36,6 +36,15 @@ func trimForError(text string) string {
 	return text
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
 func randomHex(n int) string {
 	const chars = "abcdef0123456789"
 	b := make([]byte, n)
