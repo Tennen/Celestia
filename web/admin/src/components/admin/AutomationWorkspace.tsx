@@ -209,23 +209,18 @@ export function AutomationWorkspace() {
               description="Trigger on one device state transition, optionally gate it with other conditions and a time window, then execute actions on existing devices."
               aside={
                 draft ? (
-                  <div className="plugin-card__badges">
-                    <Badge tone={draft.enabled ? 'good' : 'neutral'} size="xs">
-                      {draft.enabled ? 'enabled' : 'disabled'}
-                    </Badge>
-                    <Badge
-                      size="xs"
-                      tone={
-                        draft.last_run_status === 'failed'
-                          ? 'bad'
-                          : draft.last_run_status === 'succeeded'
-                            ? 'good'
-                            : 'neutral'
-                      }
-                    >
-                      {draft.last_run_status ?? 'idle'}
-                    </Badge>
-                  </div>
+                  <Badge
+                    size="xs"
+                    tone={
+                      draft.last_run_status === 'failed'
+                        ? 'bad'
+                        : draft.last_run_status === 'succeeded'
+                          ? 'good'
+                          : 'neutral'
+                    }
+                  >
+                    {draft.last_run_status ?? 'idle'}
+                  </Badge>
                 ) : null
               }
             />
@@ -234,6 +229,20 @@ export function AutomationWorkspace() {
             {draft ? (
               <div className="automation-editor">
                 <div className="automation-summary">
+                  <div className="automation-summary__top">
+                    <div className="automation-switch-row">
+                      <Switch
+                        checked={draft.enabled}
+                        onCheckedChange={(checked) =>
+                          updateDraft((current) => ({ ...current, enabled: checked }))
+                        }
+                      />
+                      <div className="automation-switch-row__copy">
+                        <strong>Enabled</strong>
+                        <p className="muted">Evaluate and execute this rule when the trigger matches.</p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="automation-field">
                     <label>Name</label>
                     <Input
@@ -241,20 +250,6 @@ export function AutomationWorkspace() {
                       onChange={(e) => updateDraft((current) => ({ ...current, name: e.target.value }))}
                       placeholder="Haier washer done"
                     />
-                  </div>
-                  <div className="automation-toggle-panel">
-                    <div className="automation-toggle-panel__row">
-                      <div>
-                        <strong>Enabled</strong>
-                        <p className="muted">Control whether Core can evaluate and execute this rule.</p>
-                      </div>
-                      <Switch
-                        checked={draft.enabled}
-                        onCheckedChange={(checked) =>
-                          updateDraft((current) => ({ ...current, enabled: checked }))
-                        }
-                      />
-                    </div>
                   </div>
                 </div>
 

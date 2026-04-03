@@ -7,6 +7,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { asArray } from '../../lib/admin';
+import { getPluginStatusBadge } from '../../lib/plugin-status';
 import { formatTime, prettyJson } from '../../lib/utils';
 import { getPluginDraftText, canStartXiaomiOAuth } from '../../lib/admin';
 import { useAdminStore } from '../../stores/adminStore';
@@ -97,6 +98,7 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
             <div className="plugin-list">
               {catalog.map((plugin) => {
                 const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
+                const statusBadge = getPluginStatusBadge(runtime);
                 return (
                   <SelectableListItem
                     key={plugin.id}
@@ -106,26 +108,9 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                     title={plugin.name}
                     description={plugin.id}
                     badges={
-                      <>
-                        <Badge
-                          tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}
-                          size="sm"
-                        >
-                          {runtime?.record.status ?? 'uninstalled'}
-                        </Badge>
-                        <Badge
-                          size="sm"
-                          tone={
-                            runtime?.health.status === 'healthy'
-                              ? 'good'
-                              : runtime?.health.status === 'unhealthy'
-                                ? 'bad'
-                                : 'warn'
-                          }
-                        >
-                          {runtime?.health.status ?? 'unknown'}
-                        </Badge>
-                      </>
+                      <Badge tone={statusBadge.tone} size="xs">
+                        {statusBadge.label}
+                      </Badge>
                     }
                   />
                 );

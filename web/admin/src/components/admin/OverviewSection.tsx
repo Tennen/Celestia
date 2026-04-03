@@ -5,6 +5,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
 import { SelectableListItem } from './shared/SelectableListItem';
 import type { AppSection } from '../../lib/admin';
+import { getPluginStatusBadge } from '../../lib/plugin-status';
 import { formatTime } from '../../lib/utils';
 import type { AuditRecord, CatalogPlugin, DashboardSummary, DeviceView, EventRecord, PluginRuntimeView } from '../../lib/types';
 
@@ -65,6 +66,7 @@ export function OverviewSection({
               <div className="preview-list">
                 {catalog.map((plugin) => {
                   const runtime = plugins.find((item) => item.record.plugin_id === plugin.id);
+                  const statusBadge = getPluginStatusBadge(runtime);
                   return (
                     <SelectableListItem
                       key={plugin.id}
@@ -76,26 +78,9 @@ export function OverviewSection({
                       title={plugin.name}
                       description={plugin.id}
                       badges={
-                        <>
-                          <Badge
-                            tone={runtime?.record.status === 'enabled' ? 'good' : 'neutral'}
-                            size="sm"
-                          >
-                            {runtime?.record.status ?? 'uninstalled'}
-                          </Badge>
-                          <Badge
-                            size="sm"
-                            tone={
-                              runtime?.health.status === 'healthy'
-                                ? 'good'
-                                : runtime?.health.status === 'unhealthy'
-                                  ? 'bad'
-                                  : 'warn'
-                            }
-                          >
-                            {runtime?.health.status ?? 'unknown'}
-                          </Badge>
-                        </>
+                        <Badge tone={statusBadge.tone} size="xs">
+                          {statusBadge.label}
+                        </Badge>
                       }
                     />
                   );

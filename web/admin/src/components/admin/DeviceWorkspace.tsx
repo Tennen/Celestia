@@ -1,5 +1,6 @@
+import * as Collapsible from '@radix-ui/react-collapsible';
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import { Check, PencilLine, RotateCcw } from 'lucide-react';
+import { Check, ChevronDown, PencilLine, RotateCcw } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -49,6 +50,7 @@ export function DeviceWorkspace() {
   const [editingDeviceAlias, setEditingDeviceAlias] = useState(false);
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
   const [controlDrafts, setControlDrafts] = useState<Record<string, string>>({});
+  const [summaryCollapsed, setSummaryCollapsed] = useState(true);
 
   const displayDevice = useMemo(
     () => applyToggleOverrides(selectedDevice, toggleOverrides),
@@ -68,6 +70,7 @@ export function DeviceWorkspace() {
     const nextControlDrafts: Record<string, string> = {};
     setDeviceAliasDraft(selectedDevice.device.alias ?? '');
     setEditingDeviceAlias(false);
+    setSummaryCollapsed(true);
     for (const control of selectedDevice.controls ?? []) {
       nextAliasDrafts[control.id] = control.alias ?? '';
       if (control.kind === 'select' || control.kind === 'number') {
@@ -126,8 +129,8 @@ export function DeviceWorkspace() {
               Refresh
             </Button>
           </div>
-          <ScrollArea className="max-h-[calc(100vh-15rem)] pr-3">
-            <div className="list-stack">
+          <ScrollArea className="h-[calc(100vh-15rem)] min-h-0 pr-3">
+            <div className="list-stack pb-3">
               {devices.map((item) => (
                 <SelectableListItem
                   key={item.device.id}
@@ -158,91 +161,114 @@ export function DeviceWorkspace() {
         {deviceView ? (
           <>
             <Card>
-              <CardHeader>
-                <CardHeading
-                  title="Device Summary"
-                  description="Selected device identity, presence, stream capability, and unified labels."
-                  aside={
-                    <Badge tone={deviceView.device.online ? 'good' : 'bad'}>
-                      {deviceView.device.online ? 'online' : 'offline'}
-                    </Badge>
-                  }
-                />
-              </CardHeader>
-              <CardContent className="stack">
-                <div className="detail__header">
-                  <div className="control-card__title">
-                    {editingDeviceAlias ? (
-                      <div className="control-card__title-edit">
-                        <Input
-                          className="control-card__title-input"
-                          value={deviceAliasDraft}
-                          onChange={(e) => setDeviceAliasDraft(e.target.value)}
-                          placeholder={defaultDeviceName}
-                          autoFocus
-                          onKeyDown={onDeviceAliasKeyDown}
-                        />
-                        <div className="control-card__title-actions">
+              <Collapsible.Root
+                open={!summaryCollapsed}
+                onOpenChange={(open) => setSummaryCollapsed(!open)}
+              >
+                <CardHeader>
+                  <CardHeading
+                    title="Device Summary"
+                    description="Selected device identity, presence, stream capability, and unified labels."
+                    aside={
+                      <div className="device-summary__aside">
+                        <Badge tone={deviceView.device.online ? 'good' : 'bad'} size="xs">
+                          {deviceView.device.online ? 'online' : 'offline'}
+                        </Badge>
+                        <Collapsible.Trigger asChild>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="control-card__icon-button control-card__icon-button--confirm"
-                            onClick={saveDeviceAlias}
-                            disabled={devicePrefBusy}
-                            aria-label={`Save label for ${deviceView.device.name}`}
-                            title="Save label"
+                            className="collapse-toggle"
+                            aria-controls="device-summary-panel"
                           >
-                            <Check />
+                            <span>{summaryCollapsed ? 'Show' : 'Hide'}</span>
+                            <ChevronDown
+                              className={`collapse-toggle__icon ${!summaryCollapsed ? 'is-expanded' : ''}`}
+                            />
                           </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="control-card__icon-button control-card__icon-button--reset"
-                            onClick={resetDeviceAlias}
-                            disabled={
-                              devicePrefBusy || (!hasSavedDeviceAlias && deviceAliasDraft.trim() === '')
-                            }
-                            aria-label={`Reset label for ${deviceView.device.name}`}
-                            title="Reset label"
-                          >
-                            <RotateCcw />
-                          </Button>
-                        </div>
+                        </Collapsible.Trigger>
                       </div>
-                    ) : (
-                      <div className="control-card__title-row">
-                        <h3>{deviceView.device.name}</h3>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="control-card__icon-button control-card__icon-button--edit"
-                          onClick={() => setEditingDeviceAlias(true)}
-                          disabled={devicePrefBusy}
-                          aria-label={`Edit label for ${deviceView.device.name}`}
-                          title="Edit label"
-                        >
-                          <PencilLine />
-                        </Button>
+                    }
+                  />
+                </CardHeader>
+                <Collapsible.Content id="device-summary-panel">
+                  <CardContent className="stack">
+                    <div className="detail__header">
+                      <div className="control-card__title">
+                        {editingDeviceAlias ? (
+                          <div className="control-card__title-edit">
+                            <Input
+                              className="control-card__title-input"
+                              value={deviceAliasDraft}
+                              onChange={(e) => setDeviceAliasDraft(e.target.value)}
+                              placeholder={defaultDeviceName}
+                              autoFocus
+                              onKeyDown={onDeviceAliasKeyDown}
+                            />
+                            <div className="control-card__title-actions">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="control-card__icon-button control-card__icon-button--confirm"
+                                onClick={saveDeviceAlias}
+                                disabled={devicePrefBusy}
+                                aria-label={`Save label for ${deviceView.device.name}`}
+                                title="Save label"
+                              >
+                                <Check />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="control-card__icon-button control-card__icon-button--reset"
+                                onClick={resetDeviceAlias}
+                                disabled={
+                                  devicePrefBusy || (!hasSavedDeviceAlias && deviceAliasDraft.trim() === '')
+                                }
+                                aria-label={`Reset label for ${deviceView.device.name}`}
+                                title="Reset label"
+                              >
+                                <RotateCcw />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="control-card__title-row">
+                            <h3>{deviceView.device.name}</h3>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="control-card__icon-button control-card__icon-button--edit"
+                              onClick={() => setEditingDeviceAlias(true)}
+                              disabled={devicePrefBusy}
+                              aria-label={`Edit label for ${deviceView.device.name}`}
+                              title="Edit label"
+                            >
+                              <PencilLine />
+                            </Button>
+                          </div>
+                        )}
+                        <p>{deviceView.device.id}</p>
+                        {hasSavedDeviceAlias ? <p>Default: {defaultDeviceName}</p> : null}
                       </div>
-                    )}
-                    <p>{deviceView.device.id}</p>
-                    {hasSavedDeviceAlias ? <p>Default: {defaultDeviceName}</p> : null}
-                  </div>
-                </div>
-                <div className="chip-list">
-                  {asArray(deviceView.device.capabilities).map((capability) => (
-                    <Badge key={capability} tone="neutral">
-                      {capability}
-                    </Badge>
-                  ))}
-                </div>
-                {deviceView.device.capabilities.includes('stream') ? (
-                  <StreamViewerPanel deviceId={deviceView.device.id} />
-                ) : null}
-              </CardContent>
+                    </div>
+                    <div className="chip-list">
+                      {asArray(deviceView.device.capabilities).map((capability) => (
+                        <Badge key={capability} tone="neutral" size="xs">
+                          {capability}
+                        </Badge>
+                      ))}
+                    </div>
+                    {deviceView.device.capabilities.includes('stream') ? (
+                      <StreamViewerPanel deviceId={deviceView.device.id} />
+                    ) : null}
+                  </CardContent>
+                </Collapsible.Content>
+              </Collapsible.Root>
             </Card>
 
             <Card>

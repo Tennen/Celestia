@@ -139,6 +139,7 @@ Use these boundaries when deciding where code belongs:
 ## Git Workflow Rules
 
 - Never create or switch branches unless the user explicitly asks for it.
+- After completing a requested task, default to committing and pushing the current branch unless the user explicitly asks not to.
 - When the user asks to `commit`, `push`, or `commit push`, stay on the current branch by default.
 - Do not infer branch creation from generic publish workflows or helper skills.
 
