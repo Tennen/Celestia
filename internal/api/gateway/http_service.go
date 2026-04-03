@@ -292,6 +292,24 @@ func (s *HTTPService) decodeError(resp *http.Response) error {
 				return &StatusError{StatusCode: resp.StatusCode, Err: &PolicyDeniedError{Decision: models.PolicyDecision{Allowed: false, Reason: reason}}}
 			}
 		}
+		if field, ok := payload["field"].(string); ok {
+			rawMatches, hasMatches := payload["matches"]
+			if hasMatches {
+				encodedMatches, _ := json.Marshal(rawMatches)
+				var matches []AIResolveMatch
+				if err := json.Unmarshal(encodedMatches, &matches); err == nil {
+					value, _ := payload["value"].(string)
+					return &StatusError{
+						StatusCode: resp.StatusCode,
+						Err: &AmbiguousReferenceError{
+							Field:   field,
+							Value:   value,
+							Matches: matches,
+						},
+					}
+				}
+			}
+		}
 		if text, ok := payload["error"].(string); ok && strings.TrimSpace(text) != "" {
 			return statusError(resp.StatusCode, fmt.Errorf(text))
 		}

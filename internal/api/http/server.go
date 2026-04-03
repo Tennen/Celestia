@@ -10,8 +10,8 @@ import (
 	"time"
 
 	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
-	corestream "github.com/chentianyu/celestia/internal/core/stream"
 	runtimepkg "github.com/chentianyu/celestia/internal/core/runtime"
+	corestream "github.com/chentianyu/celestia/internal/core/stream"
 )
 
 // pluginChecker allows checking whether a plugin process is running.
@@ -30,9 +30,9 @@ type Server struct {
 
 func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	s := &Server{
-		runtime:     runtime,
-		gateway:     gatewayapi.NewRuntimeService(runtime),
-		plugins:     runtime.PluginMgr,
+		runtime: runtime,
+		gateway: gatewayapi.NewRuntimeService(runtime),
+		plugins: runtime.PluginMgr,
 		streamRelay: corestream.New(4, 60*time.Second,
 			strings.TrimSpace(os.Getenv("CELESTIA_WEBRTC_NAT_IP")),
 			webrtcTCPPort(),
@@ -67,6 +67,8 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("POST /api/external/v1/toggle/{id}/on", s.handleToggleOn)
 	mux.HandleFunc("POST /api/external/v1/toggle/{id}/off", s.handleToggleOff)
 	mux.HandleFunc("POST /api/external/v1/action/{id}", s.handleActionControl)
+	mux.HandleFunc("GET /api/ai/v1/devices", s.handleAIDevices)
+	mux.HandleFunc("POST /api/ai/v1/commands", s.handleAICommand)
 	mux.HandleFunc("GET /api/v1/events", s.handleEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("GET /api/v1/audits", s.handleAudits)

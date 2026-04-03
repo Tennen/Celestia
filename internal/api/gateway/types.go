@@ -23,9 +23,11 @@ type Service interface {
 
 	ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error)
 	GetDevice(ctx context.Context, deviceID string) (models.DeviceView, error)
+	ListAIDevices(ctx context.Context, filter DeviceFilter) ([]AIDevice, error)
 	UpdateDevicePreference(ctx context.Context, req UpdateDevicePreferenceRequest) (models.DevicePreference, error)
 	UpdateControlPreference(ctx context.Context, req UpdateControlPreferenceRequest) (models.DeviceControlPreference, error)
 	SendDeviceCommand(ctx context.Context, req DeviceCommandRequest) (CommandExecutionResult, error)
+	ExecuteAICommand(ctx context.Context, req AICommandRequest) (AICommandResult, error)
 	ToggleControl(ctx context.Context, req ToggleControlRequest) (CommandExecutionResult, error)
 	RunActionControl(ctx context.Context, req ActionControlRequest) (CommandExecutionResult, error)
 

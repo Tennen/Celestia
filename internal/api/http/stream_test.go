@@ -52,6 +52,9 @@ func (g *stubGateway) ListDevices(_ context.Context, _ gatewayapi.DeviceFilter) 
 func (g *stubGateway) GetDevice(_ context.Context, _ string) (models.DeviceView, error) {
 	return g.device, g.deviceErr
 }
+func (g *stubGateway) ListAIDevices(_ context.Context, _ gatewayapi.DeviceFilter) ([]gatewayapi.AIDevice, error) {
+	return nil, nil
+}
 func (g *stubGateway) UpdateDevicePreference(_ context.Context, _ gatewayapi.UpdateDevicePreferenceRequest) (models.DevicePreference, error) {
 	return models.DevicePreference{}, nil
 }
@@ -60,6 +63,9 @@ func (g *stubGateway) UpdateControlPreference(_ context.Context, _ gatewayapi.Up
 }
 func (g *stubGateway) SendDeviceCommand(_ context.Context, _ gatewayapi.DeviceCommandRequest) (gatewayapi.CommandExecutionResult, error) {
 	return g.commandResult, g.commandErr
+}
+func (g *stubGateway) ExecuteAICommand(_ context.Context, _ gatewayapi.AICommandRequest) (gatewayapi.AICommandResult, error) {
+	return gatewayapi.AICommandResult{}, nil
 }
 func (g *stubGateway) ToggleControl(_ context.Context, _ gatewayapi.ToggleControlRequest) (gatewayapi.CommandExecutionResult, error) {
 	return gatewayapi.CommandExecutionResult{}, nil

@@ -80,6 +80,7 @@ func cloneCommand(input *models.DeviceControlCommand) *models.DeviceControlComma
 		Action:     input.Action,
 		Params:     cloneParams(input.Params),
 		ValueParam: input.ValueParam,
+		ParamsSpec: cloneCommandParams(input.ParamsSpec),
 	}
 }
 
@@ -89,6 +90,27 @@ func cloneOptions(input []models.DeviceControlOption) []models.DeviceControlOpti
 	}
 	out := make([]models.DeviceControlOption, len(input))
 	copy(out, input)
+	return out
+}
+
+func cloneCommandParams(input []models.DeviceCommandParamSpec) []models.DeviceCommandParamSpec {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make([]models.DeviceCommandParamSpec, len(input))
+	for idx, item := range input {
+		out[idx] = models.DeviceCommandParamSpec{
+			Name:     item.Name,
+			Type:     item.Type,
+			Required: item.Required,
+			Default:  item.Default,
+			Options:  cloneOptions(item.Options),
+			Min:      cloneNumberPtr(item.Min),
+			Max:      cloneNumberPtr(item.Max),
+			Step:     cloneNumberPtr(item.Step),
+			Unit:     item.Unit,
+		}
+	}
 	return out
 }
 

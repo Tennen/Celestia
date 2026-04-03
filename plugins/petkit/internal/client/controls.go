@@ -17,8 +17,16 @@ func ControlSpecsForDevice(info PetkitDeviceInfo, kind models.DeviceKind) []mode
 }
 
 func feederControlSpecs(info PetkitDeviceInfo) []models.DeviceControlSpec {
+	minPortions := 1.0
+	stepPortions := 1.0
 	specs := []models.DeviceControlSpec{
-		actionControlSpec("feed-once", "Feed Once", "feed_once", map[string]any{"portions": 1}),
+		actionControlSpec("feed-once", "Feed Once", "feed_once", map[string]any{"portions": 1}, []models.DeviceCommandParamSpec{{
+			Name:    "portions",
+			Type:    models.DeviceCommandParamTypeNumber,
+			Default: 1,
+			Min:     &minPortions,
+			Step:    &stepPortions,
+		}}),
 		actionControlSpec("cancel-manual-feed", "Cancel Manual Feed", "cancel_manual_feed", nil),
 		actionControlSpec("reset-desiccant", "Reset Desiccant", "reset_desiccant", nil),
 	}
@@ -48,14 +56,19 @@ func fountainControlSpecs() []models.DeviceControlSpec {
 	}
 }
 
-func actionControlSpec(id, label, action string, params map[string]any) models.DeviceControlSpec {
+func actionControlSpec(id, label, action string, params map[string]any, paramsSpec ...[]models.DeviceCommandParamSpec) models.DeviceControlSpec {
+	var declaredParams []models.DeviceCommandParamSpec
+	if len(paramsSpec) > 0 {
+		declaredParams = cloneCommandParams(paramsSpec[0])
+	}
 	return models.DeviceControlSpec{
 		ID:    id,
 		Kind:  models.DeviceControlKindAction,
 		Label: label,
 		Command: &models.DeviceControlCommand{
-			Action: action,
-			Params: cloneControlParams(params),
+			Action:     action,
+			Params:     cloneControlParams(params),
+			ParamsSpec: declaredParams,
 		},
 	}
 }
@@ -85,5 +98,14 @@ func cloneControlParams(input map[string]any) map[string]any {
 	for key, value := range input {
 		out[key] = value
 	}
+	return out
+}
+
+func cloneCommandParams(input []models.DeviceCommandParamSpec) []models.DeviceCommandParamSpec {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make([]models.DeviceCommandParamSpec, len(input))
+	copy(out, input)
 	return out
 }

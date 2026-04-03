@@ -52,11 +52,33 @@ func parseLimit(raw string, defaultValue int) int {
 }
 
 func actorFromRequest(r *http.Request) string {
+	return actorFromRequestWithDefault(r, "admin")
+}
+
+func actorFromRequestWithDefault(r *http.Request, fallback string) string {
 	actor := strings.TrimSpace(r.Header.Get("X-Actor"))
 	if actor == "" {
-		actor = "admin"
+		actor = fallback
 	}
 	return actor
+}
+
+func writeAIServiceError(w http.ResponseWriter, err error) {
+	var ambiguous *gatewayapi.AmbiguousReferenceError
+	if errors.As(err, &ambiguous) {
+		status := gatewayapi.StatusCode(err)
+		if status == 0 {
+			status = http.StatusConflict
+		}
+		writeJSON(w, status, map[string]any{
+			"error":   ambiguous.Error(),
+			"field":   ambiguous.Field,
+			"value":   ambiguous.Value,
+			"matches": ambiguous.Matches,
+		})
+		return
+	}
+	writeServiceError(w, err)
 }
 
 func withCORS(next http.Handler) http.Handler {

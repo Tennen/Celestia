@@ -16,10 +16,31 @@ type DeviceControlOption struct {
 	Label string `json:"label"`
 }
 
+type DeviceCommandParamType string
+
+const (
+	DeviceCommandParamTypeBoolean DeviceCommandParamType = "boolean"
+	DeviceCommandParamTypeNumber  DeviceCommandParamType = "number"
+	DeviceCommandParamTypeString  DeviceCommandParamType = "string"
+)
+
+type DeviceCommandParamSpec struct {
+	Name     string                 `json:"name"`
+	Type     DeviceCommandParamType `json:"type"`
+	Required bool                   `json:"required,omitempty"`
+	Default  any                    `json:"default,omitempty"`
+	Options  []DeviceControlOption  `json:"options,omitempty"`
+	Min      *float64               `json:"min,omitempty"`
+	Max      *float64               `json:"max,omitempty"`
+	Step     *float64               `json:"step,omitempty"`
+	Unit     string                 `json:"unit,omitempty"`
+}
+
 type DeviceControlCommand struct {
-	Action     string         `json:"action"`
-	Params     map[string]any `json:"params,omitempty"`
-	ValueParam string         `json:"value_param,omitempty"`
+	Action     string                   `json:"action"`
+	Params     map[string]any           `json:"params,omitempty"`
+	ValueParam string                   `json:"value_param,omitempty"`
+	ParamsSpec []DeviceCommandParamSpec `json:"params_spec,omitempty"`
 }
 
 // DeviceControlSpec is plugin-declared control metadata persisted inside device metadata.
