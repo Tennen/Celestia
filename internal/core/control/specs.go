@@ -50,6 +50,7 @@ func buildControlSpec(spec models.DeviceControlSpec, state models.DeviceStateSna
 		if spec.Command == nil || spec.Command.Action == "" {
 			return controlSpec{}, false
 		}
+		view.Command = cloneCommand(spec.Command)
 		return controlSpec{
 			view:    view,
 			command: cloneCommand(spec.Command),

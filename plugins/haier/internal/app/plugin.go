@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -63,7 +64,7 @@ func (p *Plugin) ValidateConfig(_ context.Context, cfg map[string]any) error {
 		entry, _ := raw.(map[string]any)
 		acct := parseAccountConfig(entry)
 		if !acct.HasCredentials() {
-			return fmt.Errorf("account %d requires clientId and refresh_token", i)
+			return fmt.Errorf("account %d requires clientId and refreshToken", i)
 		}
 	}
 	return nil
@@ -86,7 +87,7 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 		entry, _ := raw.(map[string]any)
 		acct := parseAccountConfig(entry)
 		if !acct.HasCredentials() {
-			return fmt.Errorf("account %d requires clientId and refresh_token", i)
+			return fmt.Errorf("account %d requires clientId and refreshToken", i)
 		}
 		if acct.Name == "" {
 			acct.Name = acct.NormalizedName()
@@ -97,9 +98,10 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 		}
 		config.Accounts = append(config.Accounts, acct)
 		accountRuntimes[acct.NormalizedName()] = &accountRuntime{
-			Config:     acct,
-			Client:     haierCli,
-			Appliances: map[string]*applianceRuntime{},
+			Config:           acct,
+			Client:           haierCli,
+			Appliances:       map[string]*applianceRuntime{},
+			VendorToDeviceID: map[string]string{},
 		}
 	}
 
@@ -110,6 +112,7 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	p.devices = map[string]*applianceRuntime{}
 	p.lastError = ""
 	p.lastSyncAt = time.Time{}
+	log.Printf("haier: setup complete accounts=%d poll_interval_seconds=%d", len(config.Accounts), config.PollIntervalSeconds)
 	return nil
 }
 
@@ -125,11 +128,13 @@ func (p *Plugin) Start(ctx context.Context) error {
 	interval := time.Duration(max(p.config.PollIntervalSeconds, 10)) * time.Second
 	p.polling = true
 	p.mu.Unlock()
+	log.Printf("haier: starting plugin accounts=%d interval=%s", len(p.accountRuntimes()), interval)
 
 	if err := p.refreshAll(runCtx); err != nil {
 		p.mu.Lock()
 		p.lastError = err.Error()
 		p.mu.Unlock()
+		log.Printf("haier: initial refresh failed: %v", err)
 	}
 
 	// Start WebSocket listeners after initial device discovery.
@@ -147,6 +152,7 @@ func (p *Plugin) Start(ctx context.Context) error {
 					p.mu.Lock()
 					p.lastError = err.Error()
 					p.mu.Unlock()
+					log.Printf("haier: refresh loop failed: %v", err)
 				}
 				// Slow down polling when WSS is delivering real-time updates.
 				next := interval
@@ -169,6 +175,7 @@ func (p *Plugin) Stop(_ context.Context) error {
 	p.started = false
 	p.polling = false
 	// WSS listeners are stopped via context cancellation (runCtx.Done).
+	log.Printf("haier: plugin stopped")
 	return nil
 }
 

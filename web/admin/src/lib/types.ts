@@ -65,6 +65,56 @@ export type PluginHealth = {
   process_pid?: number;
 };
 
+export type AutomationLogic = 'all' | 'any';
+export type AutomationMatchOperator = 'any' | 'equals' | 'not_equals' | 'exists' | 'missing';
+export type AutomationRunStatus = 'idle' | 'succeeded' | 'failed';
+
+export type AutomationStateMatch = {
+  operator: AutomationMatchOperator;
+  value?: unknown;
+};
+
+export type AutomationTrigger = {
+  device_id: string;
+  state_key: string;
+  from: AutomationStateMatch;
+  to: AutomationStateMatch;
+};
+
+export type AutomationCondition = {
+  device_id: string;
+  state_key: string;
+  match: AutomationStateMatch;
+};
+
+export type AutomationTimeWindow = {
+  start: string;
+  end: string;
+};
+
+export type AutomationAction = {
+  device_id: string;
+  label?: string;
+  action: string;
+  params?: Record<string, unknown>;
+};
+
+export type Automation = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  trigger: AutomationTrigger;
+  condition_logic: AutomationLogic;
+  conditions?: AutomationCondition[];
+  time_window?: AutomationTimeWindow | null;
+  actions: AutomationAction[];
+  last_triggered_at?: string | null;
+  last_run_status?: AutomationRunStatus;
+  last_error?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PluginRuntimeView = {
   record: PluginInstallRecord;
   manifest?: PluginManifest | null;

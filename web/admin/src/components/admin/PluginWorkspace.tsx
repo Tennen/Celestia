@@ -209,6 +209,22 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                       </p>
                     </div>
                   ) : null}
+                  {selectedCatalogPlugin.id === 'haier' ? (
+                    <div className="plugin-auth-guide">
+                      <div className="plugin-auth-guide__header">
+                        <Badge tone="accent">Haier China UWS</Badge>
+                        <strong>Configure the real China-region credentials that the plugin now expects.</strong>
+                      </div>
+                      <p className="muted">
+                        Use <code>accounts[0].clientId</code> and <code>accounts[0].refreshToken</code> in the Core-owned
+                        config draft. The previous email/password placeholders were wrong for the current UWS flow.
+                      </p>
+                      <p className="muted">
+                        If the runtime still cannot connect, open <code>Logs</code>. The plugin now logs whether failure
+                        happened during token refresh, device discovery, or WSS subscription.
+                      </p>
+                    </div>
+                  ) : null}
                   {xiaomiVerificationHint ? (
                     <div className="plugin-auth-warning">
                       <div className="plugin-auth-guide__header">

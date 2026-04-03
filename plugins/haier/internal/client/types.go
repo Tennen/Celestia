@@ -7,7 +7,7 @@ import "strings"
 type AccountConfig struct {
 	Name         string `json:"name,omitempty"`
 	ClientID     string `json:"clientId"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refreshToken"`
 }
 
 func (a AccountConfig) NormalizedName() string {

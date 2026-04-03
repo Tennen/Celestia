@@ -14,6 +14,11 @@ type Store interface {
 	ListPluginRecords(context.Context) ([]models.PluginInstallRecord, error)
 	DeletePluginRecord(context.Context, string) error
 
+	UpsertAutomation(context.Context, models.Automation) error
+	GetAutomation(context.Context, string) (models.Automation, bool, error)
+	ListAutomations(context.Context) ([]models.Automation, error)
+	DeleteAutomation(context.Context, string) error
+
 	UpsertDevice(context.Context, models.Device) error
 	GetDevice(context.Context, string) (models.Device, bool, error)
 	ListDevices(context.Context, DeviceFilter) ([]models.Device, error)

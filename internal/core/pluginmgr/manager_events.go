@@ -3,9 +3,11 @@ package pluginmgr
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
@@ -115,6 +117,14 @@ func (m *Manager) consumeEvents(ctx context.Context, runtime *managedPlugin) {
 		}
 		if event.PluginID == "" {
 			event.PluginID = runtime.record.PluginID
+		}
+		if statePayload, ok := event.Payload["state"].(map[string]any); ok && event.DeviceID != "" {
+			previousState, _, err := m.state.Get(context.Background(), event.DeviceID)
+			if err != nil {
+				runtime.logs.Append("load previous state error: " + err.Error())
+			} else {
+				event.Payload = enrichStateEventPayload(event.Payload, previousState.State, statePayload)
+			}
 		}
 		if err := m.store.AppendEvent(context.Background(), event); err != nil {
 			runtime.logs.Append("persist event error: " + err.Error())
@@ -229,4 +239,53 @@ func consumeLogs(buffer *logBuffer, pluginID, stream string, reader io.Reader) {
 	for scanner.Scan() {
 		buffer.Append(fmt.Sprintf("[%s][%s] %s", pluginID, stream, scanner.Text()))
 	}
+}
+
+func enrichStateEventPayload(payload map[string]any, previousState map[string]any, currentState map[string]any) map[string]any {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	if currentState == nil {
+		currentState = map[string]any{}
+	}
+	previous := cloneEventMap(previousState)
+	current := cloneEventMap(currentState)
+	payload["state"] = current
+	payload["previous_state"] = previous
+	payload["changed_keys"] = changedStateKeys(previous, current)
+	return payload
+}
+
+func cloneEventMap(src map[string]any) map[string]any {
+	if src == nil {
+		return map[string]any{}
+	}
+	raw, err := json.Marshal(src)
+	if err != nil {
+		out := make(map[string]any, len(src))
+		for key, value := range src {
+			out[key] = value
+		}
+		return out
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return map[string]any{}
+	}
+	return out
+}
+
+func changedStateKeys(previousState map[string]any, currentState map[string]any) []string {
+	keys := make([]string, 0, len(currentState))
+	for key, value := range currentState {
+		if !reflect.DeepEqual(previousState[key], value) {
+			keys = append(keys, key)
+		}
+	}
+	for key := range previousState {
+		if _, ok := currentState[key]; !ok {
+			keys = append(keys, key)
+		}
+	}
+	return keys
 }

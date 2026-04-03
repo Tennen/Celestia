@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/chentianyu/celestia/internal/core/audit"
+	"github.com/chentianyu/celestia/internal/core/automation"
 	"github.com/chentianyu/celestia/internal/core/control"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	oauthsvc "github.com/chentianyu/celestia/internal/core/oauth"
@@ -16,31 +17,36 @@ import (
 )
 
 type Runtime struct {
-	Store     storage.Store
-	EventBus  *eventbus.Bus
-	Registry  *registry.Service
-	State     *state.Service
-	Audit     *audit.Service
-	Controls  *control.Service
-	Policy    *policy.Service
-	OAuth     *oauthsvc.Service
-	PluginMgr *pluginmgr.Manager
+	Store      storage.Store
+	EventBus   *eventbus.Bus
+	Registry   *registry.Service
+	State      *state.Service
+	Audit      *audit.Service
+	Automation *automation.Service
+	Controls   *control.Service
+	Policy     *policy.Service
+	OAuth      *oauthsvc.Service
+	PluginMgr  *pluginmgr.Manager
 }
 
 func New(store storage.Store) *Runtime {
 	bus := eventbus.New()
 	registrySvc := registry.New(store)
 	stateSvc := state.New(store)
+	policySvc := policy.New()
+	auditSvc := audit.New(store)
+	pluginMgr := pluginmgr.New(store, registrySvc, stateSvc, bus)
 	return &Runtime{
-		Store:     store,
-		EventBus:  bus,
-		Registry:  registrySvc,
-		State:     stateSvc,
-		Audit:     audit.New(store),
-		Controls:  control.New(),
-		Policy:    policy.New(),
-		OAuth:     oauthsvc.New(store),
-		PluginMgr: pluginmgr.New(store, registrySvc, stateSvc, bus),
+		Store:      store,
+		EventBus:   bus,
+		Registry:   registrySvc,
+		State:      stateSvc,
+		Audit:      auditSvc,
+		Automation: automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr),
+		Controls:   control.New(),
+		Policy:     policySvc,
+		OAuth:      oauthsvc.New(store),
+		PluginMgr:  pluginMgr,
 	}
 }
 
@@ -49,6 +55,9 @@ func (r *Runtime) Reconcile(ctx context.Context) error {
 }
 
 func (r *Runtime) Shutdown(ctx context.Context) error {
+	if r.Automation != nil {
+		r.Automation.Close()
+	}
 	return r.PluginMgr.Shutdown(ctx)
 }
 

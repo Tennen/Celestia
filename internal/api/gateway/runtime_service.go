@@ -105,6 +105,29 @@ func (s *RuntimeService) GetPluginLogs(_ context.Context, pluginID string) (Plug
 	}, nil
 }
 
+func (s *RuntimeService) ListAutomations(ctx context.Context) ([]models.Automation, error) {
+	items, err := s.runtime.Automation.List(ctx)
+	if err != nil {
+		return nil, statusError(http.StatusInternalServerError, err)
+	}
+	return items, nil
+}
+
+func (s *RuntimeService) SaveAutomation(ctx context.Context, automation models.Automation) (models.Automation, error) {
+	item, err := s.runtime.Automation.Save(ctx, automation)
+	if err != nil {
+		return models.Automation{}, statusError(http.StatusBadRequest, err)
+	}
+	return item, nil
+}
+
+func (s *RuntimeService) DeleteAutomation(ctx context.Context, id string) error {
+	if err := s.runtime.Automation.Delete(ctx, id); err != nil {
+		return statusError(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
 func (s *RuntimeService) ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error) {
 	devices, err := s.runtime.Registry.List(ctx, storage.DeviceFilter{
 		PluginID: filter.PluginID,

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"time"
 
@@ -19,12 +20,14 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 	if len(runtimes) == 0 {
 		return errors.New("no accounts configured")
 	}
+	previousDevices := p.deviceSnapshotMap()
 	nextDevices := map[string]*applianceRuntime{}
 	var firstErr error
 	successes := 0
 	for _, account := range runtimes {
 		if err := p.refreshAccount(ctx, account, nextDevices); err != nil {
 			account.LastError = err.Error()
+			log.Printf("haier: refresh account=%s failed: %v", account.Config.NormalizedName(), err)
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -34,6 +37,7 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 		account.LastError = ""
 		account.LastSync = time.Now().UTC()
 	}
+	events := buildStateChangeEvents(previousDevices, nextDevices)
 	p.mu.Lock()
 	p.devices = nextDevices
 	p.lastSyncAt = time.Now().UTC()
@@ -41,6 +45,9 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 		p.lastError = firstErr.Error()
 	} else {
 		p.lastError = ""
+	}
+	for _, event := range events {
+		p.emitLocked(event)
 	}
 	p.mu.Unlock()
 	if successes == 0 && firstErr != nil {
@@ -70,15 +77,16 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 	if account == nil || account.Client == nil {
 		return errors.New("account client missing")
 	}
+	accountName := account.Config.NormalizedName()
 	if err := account.Client.Authenticate(ctx); err != nil {
-		return err
+		return fmt.Errorf("authenticate account %s: %w", accountName, err)
 	}
 	if err := p.syncAccountConfig(account); err != nil {
-		return err
+		return fmt.Errorf("persist account %s runtime config: %w", accountName, err)
 	}
 	appliances, err := account.Client.LoadAppliances(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("load appliances for %s: %w", accountName, err)
 	}
 
 	// Collect device IDs for batch digital model fetch.
@@ -97,6 +105,7 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 	}
 
 	current := map[string]*applianceRuntime{}
+	vendorIndex := map[string]string{}
 	for _, appliance := range appliances {
 		deviceID := client.StringFromAny(appliance["deviceId"])
 		if deviceID == "" {
@@ -118,9 +127,15 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 			LastSnapshotTS: snapshot.TS,
 		}
 		current[device.ID] = runtime
+		vendorIndex[deviceID] = device.ID
 		nextDevices[device.ID] = runtime
 	}
 	account.Appliances = current
+	account.VendorToDeviceID = vendorIndex
+	if account.WSS != nil {
+		account.WSS.UpdateDevices(deviceIDs)
+	}
+	log.Printf("haier: account=%s appliances=%d digital_models=%d", accountName, len(appliances), len(digitalModels))
 	return nil
 }
 
@@ -219,6 +234,50 @@ func configMap(cfg Config) (map[string]any, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func (p *Plugin) deviceSnapshotMap() map[string]models.DeviceStateSnapshot {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := make(map[string]models.DeviceStateSnapshot, len(p.devices))
+	for _, device := range p.devices {
+		out[device.Device.ID] = models.DeviceStateSnapshot{
+			DeviceID: device.Device.ID,
+			PluginID: device.Device.PluginID,
+			TS:       device.LastSnapshotTS,
+			State:    cloneMap(device.CurrentState),
+		}
+	}
+	return out
+}
+
+func buildStateChangeEvents(previous map[string]models.DeviceStateSnapshot, current map[string]*applianceRuntime) []models.Event {
+	events := make([]models.Event, 0, len(current))
+	for deviceID, runtime := range current {
+		snapshot := models.DeviceStateSnapshot{
+			DeviceID: runtime.Device.ID,
+			PluginID: runtime.Device.PluginID,
+			TS:       runtime.LastSnapshotTS,
+			State:    cloneMap(runtime.CurrentState),
+		}
+		prev, ok := previous[deviceID]
+		if !ok || reflect.DeepEqual(prev.State, snapshot.State) {
+			continue
+		}
+		events = append(events, models.Event{
+			ID:       uuid.NewString(),
+			Type:     models.EventDeviceStateChanged,
+			PluginID: "haier",
+			DeviceID: deviceID,
+			TS:       snapshot.TS,
+			Payload: map[string]any{
+				"state":          snapshot.State,
+				"previous_state": cloneMap(prev.State),
+				"source":         "poll_refresh",
+			},
+		})
+	}
+	return events
 }
 
 func (p *Plugin) snapshot() ([]models.Device, []models.DeviceStateSnapshot, error) {

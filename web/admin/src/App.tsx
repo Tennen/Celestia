@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AutomationWorkspace } from './components/admin/AutomationWorkspace';
 import { ActivitySection } from './components/admin/ActivitySection';
 import { DeviceWorkspace } from './components/admin/DeviceWorkspace';
 import { OverviewSection } from './components/admin/OverviewSection';
@@ -16,7 +17,7 @@ import { useXiaomiOAuth } from './hooks/useXiaomiOAuth';
 function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('overview');
 
-  const { loading, error, catalog, plugins, devices, events, audits, dashboard, refreshAll } =
+  const { loading, error, catalog, plugins, automations, devices, events, audits, dashboard, refreshAll } =
     useAdminStore();
   const { oauthBanner, oauthActive, startFlow } = useXiaomiOAuth();
 
@@ -62,6 +63,7 @@ function App() {
   const sectionMeta: Record<AppSection, { label: string; description: string }> = {
     overview: { label: 'Overview', description: 'Dashboard summary and recent runtime activity.' },
     plugins: { label: 'Plugins', description: 'Browse a stable plugin list and open each plugin in its own detail pane.' },
+    automations: { label: 'Automations', description: 'Run device-to-device actions when selected state transitions happen.' },
     devices: { label: 'Devices', description: 'Browse unified devices and issue commands against the selected item.' },
     activity: { label: 'Activity', description: 'Inspect recent events and audit decisions.' },
   };
@@ -69,6 +71,7 @@ function App() {
   const sectionItems: Array<{ id: AppSection; label: string; count: number }> = [
     { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0 },
     { id: 'plugins', label: 'Plugins', count: catalog.length },
+    { id: 'automations', label: 'Automations', count: automations.length },
     { id: 'devices', label: 'Devices', count: devices.length },
     { id: 'activity', label: 'Activity', count: events.length + audits.length },
   ];
@@ -189,6 +192,8 @@ function App() {
               }}
             />
           ) : null}
+
+          {activeSection === 'automations' ? <AutomationWorkspace /> : null}
 
           {activeSection === 'devices' ? <DeviceWorkspace /> : null}
 

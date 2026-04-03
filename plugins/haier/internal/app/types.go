@@ -13,13 +13,14 @@ type Config struct {
 }
 
 type accountRuntime struct {
-	Config      client.AccountConfig
-	Client      *client.UWSClient
-	Appliances  map[string]*applianceRuntime
-	LastSync    time.Time
-	LastError   string
-	LastRefresh time.Time
-	WSS         *client.WssListener
+	Config           client.AccountConfig
+	Client           *client.UWSClient
+	Appliances       map[string]*applianceRuntime
+	VendorToDeviceID map[string]string
+	LastSync         time.Time
+	LastError        string
+	LastRefresh      time.Time
+	WSS              *client.WssListener
 }
 
 type applianceRuntime struct {

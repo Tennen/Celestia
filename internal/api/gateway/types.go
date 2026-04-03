@@ -21,6 +21,10 @@ type Service interface {
 	DeletePlugin(ctx context.Context, pluginID string) error
 	GetPluginLogs(ctx context.Context, pluginID string) (PluginLogsView, error)
 
+	ListAutomations(ctx context.Context) ([]models.Automation, error)
+	SaveAutomation(ctx context.Context, automation models.Automation) (models.Automation, error)
+	DeleteAutomation(ctx context.Context, id string) error
+
 	ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error)
 	GetDevice(ctx context.Context, deviceID string) (models.DeviceView, error)
 	ListAIDevices(ctx context.Context, filter DeviceFilter) ([]AIDevice, error)

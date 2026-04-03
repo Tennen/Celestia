@@ -213,6 +213,114 @@ Response:
 }
 ```
 
+### Automations
+
+These routes stay under `/api/v1` and let the admin UI manage Core-owned state-change automations.
+
+Each automation has:
+
+- one trigger based on a device state transition
+- zero or more current-state conditions combined by `condition_logic`
+- an optional daily time window
+- one or more actions executed against existing devices
+
+Supported match operators:
+
+- `any` for trigger `from`
+- `equals`
+- `not_equals`
+- `exists`
+- `missing`
+
+`time_window.start` and `time_window.end` use `HH:MM` in the gateway's local timezone. Ranges that cross midnight are supported.
+
+#### List Automations
+
+`GET /api/v1/automations`
+
+Response:
+
+```json
+[
+  {
+    "id": "automation-1",
+    "name": "Washer Done Voice Push",
+    "enabled": true,
+    "trigger": {
+      "device_id": "haier:washer:home:washer-1",
+      "state_key": "phase",
+      "from": {
+        "operator": "not_equals",
+        "value": "ready"
+      },
+      "to": {
+        "operator": "equals",
+        "value": "ready"
+      }
+    },
+    "condition_logic": "all",
+    "conditions": [
+      {
+        "device_id": "haier:washer:home:washer-1",
+        "state_key": "machine_status",
+        "match": {
+          "operator": "equals",
+          "value": "idle"
+        }
+      }
+    ],
+    "time_window": {
+      "start": "08:00",
+      "end": "23:00"
+    },
+    "actions": [
+      {
+        "device_id": "xiaomi:cn:speaker-1",
+        "label": "Suggested · Voice push",
+        "action": "push_voice_message",
+        "params": {
+          "message": "洗衣机已结束",
+          "volume": 55
+        }
+      }
+    ],
+    "last_triggered_at": "2026-04-03T10:20:00Z",
+    "last_run_status": "succeeded",
+    "last_error": "",
+    "created_at": "2026-04-03T09:50:00Z",
+    "updated_at": "2026-04-03T10:20:00Z"
+  }
+]
+```
+
+#### Create Automation
+
+`POST /api/v1/automations`
+
+Request body: the automation payload without a required `id`. Core assigns one when missing.
+
+Response: HTTP `200` with the persisted `Automation`.
+
+#### Update Automation
+
+`PUT /api/v1/automations/{automation_id}`
+
+Request body: the automation payload. The path `automation_id` wins over any body `id`.
+
+Response: HTTP `200` with the persisted `Automation`.
+
+#### Delete Automation
+
+`DELETE /api/v1/automations/{automation_id}`
+
+Response:
+
+```json
+{
+  "ok": true
+}
+```
+
 ## Device Query And Control API
 
 `/api/v1/devices` and `/api/external/v1/devices` share the same response shape.
@@ -302,7 +410,7 @@ Response:
 `controls[].kind` supports:
 
 - `toggle` with boolean `state`
-- `action` with one-shot execution through the action endpoint
+- `action` with one-shot execution through the action endpoint; action controls may also expose `command.action` as the underlying normalized action
 - `select` with `value`, `options`, and `command`
 - `number` with `value`, optional `min` / `max` / `step`, and `command`
 
@@ -687,13 +795,28 @@ Response:
     "device_id": "xiaomi:cn:123456",
     "ts": "2026-04-03T10:00:00Z",
     "payload": {
+      "previous_state": {
+        "power": false
+      },
       "state": {
         "power": true
-      }
+      },
+      "changed_keys": ["power"]
     }
   }
 ]
 ```
+
+For `device.state.changed`, Core enriches the payload before publishing it to SSE subscribers and persisting it:
+
+- `payload.state` is the new snapshot
+- `payload.previous_state` is the last persisted snapshot for that device
+- `payload.changed_keys` lists the keys whose values changed
+
+Core-generated automation execution events use:
+
+- `automation.triggered`
+- `automation.failed`
 
 ### Event Stream
 

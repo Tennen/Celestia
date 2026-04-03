@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {
+  fetchAutomations,
   fetchAudits,
   fetchCatalogPlugins,
   fetchDashboard,
@@ -30,10 +31,11 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const deviceSearch = getDeviceSearchRef();
-      const [dashboard, rawCatalog, rawPlugins, rawDevices, rawEvents, rawAudits] = await Promise.all([
+      const [dashboard, rawCatalog, rawPlugins, rawAutomations, rawDevices, rawEvents, rawAudits] = await Promise.all([
         fetchDashboard(),
         fetchCatalogPlugins(),
         fetchPlugins(),
+        fetchAutomations(),
         fetchDevices(deviceSearch),
         fetchEvents(80),
         fetchAudits(80),
@@ -51,6 +53,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         dashboard,
         catalog,
         plugins,
+        automations: asArray(rawAutomations).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
         devices,
         events: asArray(rawEvents),
         audits: asArray(rawAudits),
@@ -82,6 +85,8 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     source.addEventListener('device.state.changed', onEvent);
     source.addEventListener('device.event.occurred', onEvent);
     source.addEventListener('plugin.lifecycle.changed', onEvent);
+    source.addEventListener('automation.triggered', onEvent);
+    source.addEventListener('automation.failed', onEvent);
     source.onerror = () => source.close();
 
     return () => {

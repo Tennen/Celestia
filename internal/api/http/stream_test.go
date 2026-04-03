@@ -46,6 +46,15 @@ func (g *stubGateway) DeletePlugin(_ context.Context, _ string) error   { return
 func (g *stubGateway) GetPluginLogs(_ context.Context, _ string) (gatewayapi.PluginLogsView, error) {
 	return gatewayapi.PluginLogsView{}, nil
 }
+func (g *stubGateway) ListAutomations(_ context.Context) ([]models.Automation, error) {
+	return nil, nil
+}
+func (g *stubGateway) SaveAutomation(_ context.Context, automation models.Automation) (models.Automation, error) {
+	return automation, nil
+}
+func (g *stubGateway) DeleteAutomation(_ context.Context, _ string) error {
+	return nil
+}
 func (g *stubGateway) ListDevices(_ context.Context, _ gatewayapi.DeviceFilter) ([]models.DeviceView, error) {
 	return nil, nil
 }

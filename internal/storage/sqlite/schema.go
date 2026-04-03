@@ -17,6 +17,21 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			last_health_status text not null,
 			metadata_json text not null default '{}'
 		)`,
+		`create table if not exists automations (
+			id text primary key,
+			name text not null,
+			enabled integer not null default 1,
+			trigger_json text not null default '{}',
+			condition_logic text not null default 'all',
+			conditions_json text not null default '[]',
+			time_window_json text not null default '{}',
+			actions_json text not null default '[]',
+			last_triggered_at text,
+			last_run_status text not null default 'idle',
+			last_error text not null default '',
+			created_at text not null,
+			updated_at text not null
+		)`,
 		`create table if not exists devices (
 			device_id text primary key,
 			plugin_id text not null,
@@ -89,6 +104,7 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 		`create index if not exists idx_devices_plugin on devices(plugin_id)`,
 		`create index if not exists idx_device_preferences_alias on device_preferences(alias)`,
 		`create index if not exists idx_device_control_preferences_device on device_control_preferences(device_id)`,
+		`create index if not exists idx_automations_enabled on automations(enabled, updated_at desc)`,
 		`create index if not exists idx_events_plugin_ts on events(plugin_id, ts desc)`,
 		`create index if not exists idx_audits_created_at on audits(created_at desc)`,
 		`create unique index if not exists idx_oauth_sessions_provider_state on oauth_sessions(provider, state)`,

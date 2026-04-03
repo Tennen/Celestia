@@ -1,0 +1,247 @@
+package automation
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/chentianyu/celestia/internal/core/audit"
+	"github.com/chentianyu/celestia/internal/core/eventbus"
+	"github.com/chentianyu/celestia/internal/core/pluginmgr"
+	"github.com/chentianyu/celestia/internal/core/policy"
+	"github.com/chentianyu/celestia/internal/core/registry"
+	"github.com/chentianyu/celestia/internal/core/state"
+	"github.com/chentianyu/celestia/internal/models"
+	"github.com/chentianyu/celestia/internal/storage"
+	"github.com/google/uuid"
+)
+
+type Service struct {
+	store     storage.Store
+	bus       *eventbus.Bus
+	registry  *registry.Service
+	state     *state.Service
+	policy    *policy.Service
+	audit     *audit.Service
+	pluginMgr *pluginmgr.Manager
+
+	subscriptionID int
+}
+
+func New(
+	store storage.Store,
+	bus *eventbus.Bus,
+	registry *registry.Service,
+	state *state.Service,
+	policySvc *policy.Service,
+	auditSvc *audit.Service,
+	pluginMgr *pluginmgr.Manager,
+) *Service {
+	svc := &Service{
+		store:     store,
+		bus:       bus,
+		registry:  registry,
+		state:     state,
+		policy:    policySvc,
+		audit:     auditSvc,
+		pluginMgr: pluginMgr,
+	}
+	svc.start()
+	return svc
+}
+
+func (s *Service) start() {
+	id, ch := s.bus.Subscribe(128)
+	s.subscriptionID = id
+	go func() {
+		for event := range ch {
+			if event.Type != models.EventDeviceStateChanged {
+				continue
+			}
+			go s.handleStateChange(event)
+		}
+	}()
+}
+
+func (s *Service) Close() {
+	if s.bus != nil {
+		s.bus.Unsubscribe(s.subscriptionID)
+	}
+}
+
+func (s *Service) List(ctx context.Context) ([]models.Automation, error) {
+	return s.store.ListAutomations(ctx)
+}
+
+func (s *Service) Get(ctx context.Context, id string) (models.Automation, bool, error) {
+	return s.store.GetAutomation(ctx, strings.TrimSpace(id))
+}
+
+func (s *Service) Save(ctx context.Context, automation models.Automation) (models.Automation, error) {
+	now := time.Now().UTC()
+	automation.ID = strings.TrimSpace(automation.ID)
+	if automation.ID == "" {
+		automation.ID = uuid.NewString()
+	}
+	if existing, ok, err := s.store.GetAutomation(ctx, automation.ID); err != nil {
+		return models.Automation{}, err
+	} else if ok {
+		automation.CreatedAt = existing.CreatedAt
+		if automation.LastTriggeredAt == nil {
+			automation.LastTriggeredAt = existing.LastTriggeredAt
+		}
+		if automation.LastRunStatus == "" {
+			automation.LastRunStatus = existing.LastRunStatus
+		}
+		if automation.LastError == "" {
+			automation.LastError = existing.LastError
+		}
+	}
+	if automation.CreatedAt.IsZero() {
+		automation.CreatedAt = now
+	}
+	automation.UpdatedAt = now
+	normalized, err := s.normalizeAutomation(ctx, automation)
+	if err != nil {
+		return models.Automation{}, err
+	}
+	if err := s.store.UpsertAutomation(ctx, normalized); err != nil {
+		return models.Automation{}, err
+	}
+	return normalized, nil
+}
+
+func (s *Service) Delete(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return errors.New("automation id is required")
+	}
+	return s.store.DeleteAutomation(ctx, id)
+}
+
+func (s *Service) normalizeAutomation(ctx context.Context, automation models.Automation) (models.Automation, error) {
+	automation.Name = strings.TrimSpace(automation.Name)
+	if automation.Name == "" {
+		return models.Automation{}, errors.New("automation name is required")
+	}
+	automation.Trigger.DeviceID = strings.TrimSpace(automation.Trigger.DeviceID)
+	automation.Trigger.StateKey = strings.TrimSpace(automation.Trigger.StateKey)
+	if automation.Trigger.DeviceID == "" || automation.Trigger.StateKey == "" {
+		return models.Automation{}, errors.New("automation trigger requires device_id and state_key")
+	}
+	if _, ok, err := s.registry.Get(ctx, automation.Trigger.DeviceID); err != nil {
+		return models.Automation{}, err
+	} else if !ok {
+		return models.Automation{}, fmt.Errorf("trigger device %q not found", automation.Trigger.DeviceID)
+	}
+	automation.Trigger.From = normalizeMatch(automation.Trigger.From, true)
+	automation.Trigger.To = normalizeMatch(automation.Trigger.To, false)
+	if err := validateMatch(automation.Trigger.From, true); err != nil {
+		return models.Automation{}, fmt.Errorf("invalid trigger from matcher: %w", err)
+	}
+	if err := validateMatch(automation.Trigger.To, false); err != nil {
+		return models.Automation{}, fmt.Errorf("invalid trigger to matcher: %w", err)
+	}
+	switch automation.ConditionLogic {
+	case models.AutomationLogicAll, models.AutomationLogicAny:
+	default:
+		automation.ConditionLogic = models.AutomationLogicAll
+	}
+	if automation.LastRunStatus == "" {
+		automation.LastRunStatus = models.AutomationRunStatusIdle
+	}
+	for idx := range automation.Conditions {
+		condition := &automation.Conditions[idx]
+		condition.DeviceID = strings.TrimSpace(condition.DeviceID)
+		condition.StateKey = strings.TrimSpace(condition.StateKey)
+		if condition.DeviceID == "" || condition.StateKey == "" {
+			return models.Automation{}, fmt.Errorf("condition %d requires device_id and state_key", idx)
+		}
+		if _, ok, err := s.registry.Get(ctx, condition.DeviceID); err != nil {
+			return models.Automation{}, err
+		} else if !ok {
+			return models.Automation{}, fmt.Errorf("condition device %q not found", condition.DeviceID)
+		}
+		condition.Match = normalizeMatch(condition.Match, false)
+		if err := validateMatch(condition.Match, false); err != nil {
+			return models.Automation{}, fmt.Errorf("condition %d has invalid matcher: %w", idx, err)
+		}
+	}
+	if automation.TimeWindow != nil {
+		automation.TimeWindow.Start = strings.TrimSpace(automation.TimeWindow.Start)
+		automation.TimeWindow.End = strings.TrimSpace(automation.TimeWindow.End)
+		if automation.TimeWindow.Start == "" && automation.TimeWindow.End == "" {
+			automation.TimeWindow = nil
+		} else if automation.TimeWindow.Start == "" || automation.TimeWindow.End == "" {
+			return models.Automation{}, errors.New("time_window requires both start and end")
+		} else {
+			if _, err := parseClockHM(automation.TimeWindow.Start); err != nil {
+				return models.Automation{}, fmt.Errorf("invalid time_window start: %w", err)
+			}
+			if _, err := parseClockHM(automation.TimeWindow.End); err != nil {
+				return models.Automation{}, fmt.Errorf("invalid time_window end: %w", err)
+			}
+		}
+	}
+	if len(automation.Actions) == 0 {
+		return models.Automation{}, errors.New("automation requires at least one action")
+	}
+	for idx := range automation.Actions {
+		action := &automation.Actions[idx]
+		action.DeviceID = strings.TrimSpace(action.DeviceID)
+		action.Label = strings.TrimSpace(action.Label)
+		action.Action = strings.TrimSpace(action.Action)
+		if action.DeviceID == "" || action.Action == "" {
+			return models.Automation{}, fmt.Errorf("action %d requires device_id and action", idx)
+		}
+		if _, ok, err := s.registry.Get(ctx, action.DeviceID); err != nil {
+			return models.Automation{}, err
+		} else if !ok {
+			return models.Automation{}, fmt.Errorf("action device %q not found", action.DeviceID)
+		}
+		if action.Params == nil {
+			action.Params = map[string]any{}
+		}
+	}
+	return automation, nil
+}
+
+func normalizeMatch(match models.AutomationStateMatch, allowAny bool) models.AutomationStateMatch {
+	switch match.Operator {
+	case models.AutomationMatchAny,
+		models.AutomationMatchEquals,
+		models.AutomationMatchNotEquals,
+		models.AutomationMatchExists,
+		models.AutomationMatchMissing:
+		return match
+	}
+	if match.Value != nil {
+		match.Operator = models.AutomationMatchEquals
+		return match
+	}
+	if allowAny {
+		match.Operator = models.AutomationMatchAny
+		return match
+	}
+	match.Operator = models.AutomationMatchExists
+	return match
+}
+
+func validateMatch(match models.AutomationStateMatch, allowAny bool) error {
+	switch match.Operator {
+	case models.AutomationMatchAny:
+		if !allowAny {
+			return errors.New(`operator "any" is only allowed for trigger from`)
+		}
+	case models.AutomationMatchEquals, models.AutomationMatchNotEquals:
+		if match.Value == nil {
+			return errors.New("value is required")
+		}
+	case models.AutomationMatchExists, models.AutomationMatchMissing:
+	default:
+		return fmt.Errorf("unsupported operator %q", match.Operator)
+	}
+	return nil
+}

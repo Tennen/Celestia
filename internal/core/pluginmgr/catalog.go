@@ -120,7 +120,7 @@ func BuiltinCatalog() []models.CatalogPlugin {
 		{
 			ID:          "haier",
 			Name:        "Haier Washer Plugin",
-			Description: "Phase 3 Haier hOn washer integration with real auth, appliance discovery, and model capability matrices.",
+			Description: "Phase 3 Haier hOn washer integration with real China-region UWS refresh-token auth, appliance discovery, and model capability matrices.",
 			BinaryName:  "haier-plugin",
 			Manifest: models.PluginManifest{
 				ID:           "haier",
@@ -133,11 +133,9 @@ func BuiltinCatalog() []models.CatalogPlugin {
 					"default": map[string]any{
 						"accounts": []map[string]any{
 							{
-								"name":      "primary",
-								"email":     "<hon-email>",
-								"password":  "<hon-password>",
-								"mobile_id": "celestia-primary",
-								"timezone":  "Asia/Shanghai",
+								"name":         "primary",
+								"clientId":     "<haier-client-id>",
+								"refreshToken": "<haier-refresh-token>",
 							},
 						},
 						"poll_interval_seconds": 20,
@@ -145,7 +143,7 @@ func BuiltinCatalog() []models.CatalogPlugin {
 					"properties": map[string]any{
 						"accounts": map[string]any{
 							"type":        "array",
-							"description": "Real hOn accounts with email/password or refresh_token plus optional mobile_id/timezone.",
+							"description": "Real Haier China-region UWS accounts using clientId plus refreshToken. Core persists refreshed tokens back into this schema.",
 						},
 						"poll_interval_seconds": map[string]any{
 							"type":    "number",

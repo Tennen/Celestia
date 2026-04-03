@@ -38,6 +38,8 @@ const (
 	EventDeviceCommandFailed  EventType = "device.command.failed"
 	EventPluginHealthChanged  EventType = "plugin.health.changed"
 	EventPluginLifecycleState EventType = "plugin.lifecycle.changed"
+	EventAutomationTriggered  EventType = "automation.triggered"
+	EventAutomationFailed     EventType = "automation.failed"
 )
 
 type DeviceKind string

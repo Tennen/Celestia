@@ -112,6 +112,33 @@ func (s *HTTPService) GetPluginLogs(ctx context.Context, pluginID string) (Plugi
 	return out, nil
 }
 
+func (s *HTTPService) ListAutomations(ctx context.Context) ([]models.Automation, error) {
+	var out []models.Automation
+	if err := s.get(ctx, "/api/v1/automations", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) SaveAutomation(ctx context.Context, automation models.Automation) (models.Automation, error) {
+	var out models.Automation
+	path := "/api/v1/automations"
+	method := http.MethodPost
+	if strings.TrimSpace(automation.ID) != "" {
+		method = http.MethodPut
+		path = fmt.Sprintf("/api/v1/automations/%s", url.PathEscape(automation.ID))
+	}
+	if err := s.request(ctx, method, path, nil, automation, &out, ""); err != nil {
+		return models.Automation{}, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) DeleteAutomation(ctx context.Context, id string) error {
+	path := fmt.Sprintf("/api/v1/automations/%s", url.PathEscape(id))
+	return s.request(ctx, http.MethodDelete, path, nil, nil, nil, "")
+}
+
 func (s *HTTPService) ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error) {
 	var out []models.DeviceView
 	query := url.Values{}
