@@ -75,7 +75,13 @@ func buildCapabilitiesFromDigitalModel(attrs map[string]string) (map[string]stri
 	return commandNames, capabilitySet
 }
 
-func buildDevice(account client.AccountConfig, appliance map[string]any, commandNames map[string]string, capabilitySet map[string]bool) models.Device {
+func buildDevice(
+	account client.AccountConfig,
+	appliance map[string]any,
+	commandNames map[string]string,
+	capabilitySet map[string]bool,
+	stateDescriptors map[string]models.DeviceStateDescriptor,
+) models.Device {
 	capabilities := []string{}
 	for _, name := range []string{
 		"start", "stop", "pause", "resume", "remaining_time", "program", "phase", "machine_status",
@@ -87,10 +93,13 @@ func buildDevice(account client.AccountConfig, appliance map[string]any, command
 	}
 	deviceID := client.StringFromAny(appliance["deviceId"])
 	metadata := map[string]any{
-		"account":        account.NormalizedName(),
-		"device_type":    appliance["deviceType"],
+		"account":           account.NormalizedName(),
+		"device_type":       appliance["deviceType"],
 		"capability_matrix": capabilitySet,
-		"command_names":  commandNames,
+		"command_names":     commandNames,
+	}
+	if len(stateDescriptors) > 0 {
+		metadata["state_descriptors"] = stateDescriptors
 	}
 	if controls := buildControlSpecs(capabilitySet); len(controls) > 0 {
 		metadata["controls"] = controls

@@ -5,6 +5,8 @@ import type {
   AutomationCondition,
   AutomationMatchOperator,
   DeviceControl,
+  DeviceControlOption,
+  DeviceStateDescriptor,
   DeviceView,
 } from './types';
 
@@ -19,10 +21,62 @@ export function cloneAutomation<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function stateDescriptorMap(device: DeviceView | null | undefined): Record<string, DeviceStateDescriptor> {
+  const raw = device?.device.metadata?.state_descriptors;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  return raw as Record<string, DeviceStateDescriptor>;
+}
+
 export function buildStateKeyOptions(device: DeviceView | null | undefined) {
+  const descriptors = stateDescriptorMap(device);
   return Object.keys(device?.state?.state ?? {})
-    .sort((a, b) => a.localeCompare(b, 'en'))
-    .map((key) => ({ value: key, label: key }));
+    .filter((key) => !descriptors[key]?.hidden)
+    .sort((a, b) => {
+      const left = descriptors[a]?.label?.trim() || a;
+      const right = descriptors[b]?.label?.trim() || b;
+      return left.localeCompare(right, 'zh-Hans-CN');
+    })
+    .map((key) => {
+      const label = descriptors[key]?.label?.trim();
+      return {
+        value: key,
+        label: label && label !== key ? `${label} (${key})` : key,
+      };
+    });
+}
+
+export function buildStateValueOptions(device: DeviceView | null | undefined, stateKey: string): DeviceControlOption[] {
+  const options = [...(stateDescriptorMap(device)[stateKey]?.options ?? [])];
+  const current = device?.state.state?.[stateKey];
+  if (current === null || current === undefined) {
+    return options;
+  }
+  const currentValue = String(current);
+  if (!currentValue) {
+    return options;
+  }
+  if (options.some((option) => option.value === currentValue)) {
+    return options;
+  }
+  return [{ value: currentValue, label: currentValue }, ...options];
+}
+
+export function coerceStateOptionValue(
+  device: DeviceView | null | undefined,
+  stateKey: string,
+  rawValue: string,
+): unknown {
+  const current = device?.state.state?.[stateKey];
+  if (typeof current === 'number') {
+    const parsed = Number(rawValue);
+    return Number.isNaN(parsed) ? rawValue : parsed;
+  }
+  if (typeof current === 'boolean') {
+    return rawValue === 'true';
+  }
+  return rawValue;
 }
 
 function controlActionTemplate(control: DeviceControl): AutomationActionTemplate | null {

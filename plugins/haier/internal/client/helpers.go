@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,6 +22,17 @@ func StringFromAny(v any) string {
 		return fmt.Sprintf("%v", raw)
 	case int:
 		return fmt.Sprintf("%d", raw)
+	case int64:
+		return strconv.FormatInt(raw, 10)
+	case int32:
+		return strconv.FormatInt(int64(raw), 10)
+	case float32:
+		if raw == float32(int64(raw)) {
+			return fmt.Sprintf("%d", int64(raw))
+		}
+		return fmt.Sprintf("%v", raw)
+	case bool:
+		return strconv.FormatBool(raw)
 	case json.Number:
 		return raw.String()
 	default:

@@ -1,14 +1,11 @@
-import { Input } from '../../ui/input';
 import {
   buildStateKeyOptions,
   findDevice,
-  formatStateValueInput,
-  operatorNeedsValue,
-  parseStateValueInput,
   stateOperators,
   triggerFromOperators,
 } from '../../../lib/automation';
 import type { Automation, AutomationMatchOperator, DeviceView } from '../../../lib/types';
+import { StateValueField } from './StateValueField';
 
 type Props = {
   draft: Automation;
@@ -100,18 +97,19 @@ export function TriggerEditor({ draft, devices, onChange }: Props) {
               </option>
             ))}
           </select>
-          {operatorNeedsValue(draft.trigger.from.operator) ? (
-            <Input
-              value={formatStateValueInput(draft.trigger.from.value)}
-              onChange={(e) =>
-                onChange((current) => ({
-                  ...current,
-                  trigger: { ...current.trigger, from: { ...current.trigger.from, value: parseStateValueInput(e.target.value) } },
-                }))
-              }
-              placeholder="ready"
-            />
-          ) : null}
+          <StateValueField
+            device={selectedDevice}
+            stateKey={draft.trigger.state_key}
+            operator={draft.trigger.from.operator}
+            value={draft.trigger.from.value}
+            placeholder="ready"
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                trigger: { ...current.trigger, from: { ...current.trigger.from, value } },
+              }))
+            }
+          />
         </div>
         <div className="config-field-list__item">
           <strong>To</strong>
@@ -131,18 +129,19 @@ export function TriggerEditor({ draft, devices, onChange }: Props) {
               </option>
             ))}
           </select>
-          {operatorNeedsValue(draft.trigger.to.operator) ? (
-            <Input
-              value={formatStateValueInput(draft.trigger.to.value)}
-              onChange={(e) =>
-                onChange((current) => ({
-                  ...current,
-                  trigger: { ...current.trigger, to: { ...current.trigger.to, value: parseStateValueInput(e.target.value) } },
-                }))
-              }
-              placeholder="ready"
-            />
-          ) : null}
+          <StateValueField
+            device={selectedDevice}
+            stateKey={draft.trigger.state_key}
+            operator={draft.trigger.to.operator}
+            value={draft.trigger.to.value}
+            placeholder="ready"
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                trigger: { ...current.trigger, to: { ...current.trigger.to, value } },
+              }))
+            }
+          />
         </div>
       </div>
     </div>

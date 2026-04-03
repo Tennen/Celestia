@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/chentianyu/celestia/plugins/haier/internal/client"
 	"pgregory.net/rapid"
 )
 
@@ -39,7 +40,9 @@ func TestBuildStateSnapshot_MachModeMapping(t *testing.T) {
 
 // TestBuildStateSnapshot_Property8_MachModeDeterministic is Property 8:
 // For any attrs map containing machMode, buildStateSnapshot always maps:
-//   "0" → "idle", "3" → "paused", anything else → "running"
+//
+//	"0" → "idle", "3" → "paused", anything else → "running"
+//
 // and the result is deterministic (same input → same output).
 // Feature: haier-uws-platform-migration, Property 8: 状态映射确定性
 func TestBuildStateSnapshot_Property8_MachModeDeterministic(t *testing.T) {
@@ -75,4 +78,43 @@ func TestBuildStateSnapshot_Property8_MachModeDeterministic(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestBuildStateDescriptors_ExposePhaseAndProgramLabels(t *testing.T) {
+	descriptors := buildStateDescriptors(client.DigitalModel{
+		Attributes: []client.DigitalModelAttribute{
+			{
+				Name:        "prPhase",
+				Description: "程序阶段",
+				Options: []client.DigitalModelValueOption{
+					{Value: "11", Label: "烘干中"},
+					{Value: "12", Label: "烘干程序结束"},
+				},
+			},
+			{
+				Name:        "prCode",
+				Description: "洗衣程序",
+				Options: []client.DigitalModelValueOption{
+					{Value: "7", Label: "标准洗"},
+					{Value: "9", Label: "快洗"},
+				},
+			},
+		},
+	})
+
+	if descriptors["prPhase"].Hidden != true {
+		t.Fatal("expected raw prPhase descriptor to be hidden")
+	}
+	if descriptors["prCode"].Hidden != true {
+		t.Fatal("expected raw prCode descriptor to be hidden")
+	}
+	if descriptors["phase"].Label != "程序阶段" {
+		t.Fatalf("expected phase label 程序阶段, got %q", descriptors["phase"].Label)
+	}
+	if descriptors["program"].Label != "洗衣程序" {
+		t.Fatalf("expected program label 洗衣程序, got %q", descriptors["program"].Label)
+	}
+	if len(descriptors["phase"].Options) != 2 || descriptors["phase"].Options[1].Label != "烘干程序结束" {
+		t.Fatalf("expected phase options to preserve enum labels, got %#v", descriptors["phase"].Options)
+	}
 }

@@ -24,11 +24,12 @@ type accountRuntime struct {
 }
 
 type applianceRuntime struct {
-	Device         models.Device
-	ApplianceInfo  map[string]any
-	CommandData    map[string]any
-	CapabilitySet  map[string]bool
-	CommandNames   map[string]string
-	CurrentState   map[string]any
-	LastSnapshotTS time.Time
+	Device           models.Device
+	ApplianceInfo    map[string]any
+	CommandData      map[string]any
+	CapabilitySet    map[string]bool
+	CommandNames     map[string]string
+	StateDescriptors map[string]models.DeviceStateDescriptor
+	CurrentState     map[string]any
+	LastSnapshotTS   time.Time
 }

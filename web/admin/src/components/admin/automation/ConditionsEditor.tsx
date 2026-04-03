@@ -1,14 +1,11 @@
 import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
 import {
   buildStateKeyOptions,
   findDevice,
-  formatStateValueInput,
-  operatorNeedsValue,
-  parseStateValueInput,
   stateOperators,
 } from '../../../lib/automation';
 import type { Automation, AutomationMatchOperator, DeviceView } from '../../../lib/types';
+import { StateValueField } from './StateValueField';
 
 type Props = {
   draft: Automation;
@@ -133,20 +130,22 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                 </div>
                 <div className="stack">
                   <label>Value</label>
-                  <Input
-                    value={formatStateValueInput(condition.match.value)}
-                    onChange={(e) =>
+                  <StateValueField
+                    device={conditionDevice}
+                    stateKey={condition.state_key}
+                    operator={condition.match.operator}
+                    value={condition.match.value}
+                    placeholder="optional"
+                    onChange={(value) =>
                       onChange((current) => {
                         const conditions = [...(current.conditions ?? [])];
                         conditions[index] = {
                           ...conditions[index],
-                          match: { ...conditions[index].match, value: parseStateValueInput(e.target.value) },
+                          match: { ...conditions[index].match, value },
                         };
                         return { ...current, conditions };
                       })
                     }
-                    placeholder="optional"
-                    disabled={!operatorNeedsValue(condition.match.operator)}
                   />
                 </div>
               </div>

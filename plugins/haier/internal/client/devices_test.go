@@ -97,6 +97,42 @@ func TestLoadDigitalModels_Success(t *testing.T) {
 	}
 }
 
+func TestLoadDigitalModelDetails_PreservesDescriptionsAndOptions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"retCode": "00000",
+			"detailInfo": map[string]any{
+				"dev1": `{"attributes":[{"name":"prPhase","desc":"程序阶段","value":"12","readable":true,"writable":false,"valueRange":{"dataList":[{"data":"11","desc":"烘干中"},{"data":"12","desc":"烘干程序结束"}]}}]}`,
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := newDevicesTestClient(srv)
+	models, err := c.LoadDigitalModelDetails(context.Background(), []string{"dev1"})
+	if err != nil {
+		t.Fatalf("LoadDigitalModelDetails failed: %v", err)
+	}
+	model, ok := models["dev1"]
+	if !ok {
+		t.Fatal("expected dev1 in result")
+	}
+	if len(model.Attributes) != 1 {
+		t.Fatalf("expected 1 attribute, got %d", len(model.Attributes))
+	}
+	attribute := model.Attributes[0]
+	if attribute.Description != "程序阶段" {
+		t.Fatalf("expected description 程序阶段, got %q", attribute.Description)
+	}
+	if len(attribute.Options) != 2 {
+		t.Fatalf("expected 2 enum options, got %d", len(attribute.Options))
+	}
+	if attribute.Options[1].Label != "烘干程序结束" {
+		t.Fatalf("expected second option label 烘干程序结束, got %q", attribute.Options[1].Label)
+	}
+}
+
 // TestLoadAppliances_Property3_ParseCompleteness is Property 3:
 // For any N-device response with retCode=="00000", LoadAppliances returns exactly N entries
 // each with a non-empty deviceId.

@@ -154,6 +154,12 @@ export type DeviceControlOption = {
   label: string;
 };
 
+export type DeviceStateDescriptor = {
+  label?: string;
+  options?: DeviceControlOption[];
+  hidden?: boolean;
+};
+
 export type DeviceControlCommand = {
   action: string;
   params?: Record<string, unknown>;

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // LoadAppliances fetches the device list from the UWS platform.
@@ -36,6 +37,20 @@ func (c *UWSClient) LoadAppliances(ctx context.Context) ([]map[string]any, error
 // POST https://uws.haier.net/shadow/v1/devdigitalmodels
 // Returns a map of deviceId → attribute key/value pairs.
 func (c *UWSClient) LoadDigitalModels(ctx context.Context, deviceIDs []string) (map[string]map[string]string, error) {
+	models, err := c.LoadDigitalModelDetails(ctx, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]map[string]string, len(models))
+	for deviceID, model := range models {
+		result[deviceID] = model.Values()
+	}
+	return result, nil
+}
+
+// LoadDigitalModelDetails fetches the full digital model for one or more devices.
+// The returned structure preserves attribute descriptions and enum options from Haier cloud.
+func (c *UWSClient) LoadDigitalModelDetails(ctx context.Context, deviceIDs []string) (map[string]DigitalModel, error) {
 	type deviceRef struct {
 		DeviceID string `json:"deviceId"`
 	}
@@ -66,13 +81,13 @@ func (c *UWSClient) LoadDigitalModels(ctx context.Context, deviceIDs []string) (
 		return nil, fmt.Errorf("LoadDigitalModels failed: retCode=%s retInfo=%s", resp.RetCode, resp.RetInfo)
 	}
 
-	result := make(map[string]map[string]string, len(deviceIDs))
+	result := make(map[string]DigitalModel, len(deviceIDs))
 	for deviceID, raw := range resp.DetailInfo {
-		attrs, err := decodeDigitalModelAttributes(raw)
+		model, err := decodeDigitalModel(raw)
 		if err != nil {
 			return nil, fmt.Errorf("decode digital model for %s: %w", deviceID, err)
 		}
-		result[deviceID] = attrs
+		result[deviceID] = model
 	}
 	if len(result) > 0 {
 		return result, nil
@@ -82,37 +97,68 @@ func (c *UWSClient) LoadDigitalModels(ctx context.Context, deviceIDs []string) (
 		if entry.DeviceID == "" {
 			continue
 		}
-		attrs := make(map[string]string, len(entry.Attributes))
+		model := DigitalModel{Attributes: make([]DigitalModelAttribute, 0, len(entry.Attributes))}
 		for _, attr := range entry.Attributes {
 			if attr.Name == "" {
 				continue
 			}
-			attrs[attr.Name] = StringFromAny(attr.Value)
+			model.Attributes = append(model.Attributes, DigitalModelAttribute{
+				Name:  attr.Name,
+				Value: StringFromAny(attr.Value),
+			})
 		}
-		result[entry.DeviceID] = attrs
+		result[entry.DeviceID] = model
 	}
 	return result, nil
 }
 
-func decodeDigitalModelAttributes(raw string) (map[string]string, error) {
+func decodeDigitalModel(raw string) (DigitalModel, error) {
 	if raw == "" {
-		return map[string]string{}, nil
+		return DigitalModel{}, nil
 	}
 	var payload struct {
 		Attributes []struct {
-			Name  string `json:"name"`
-			Value any    `json:"value"`
+			Name       string `json:"name"`
+			Desc       string `json:"desc"`
+			Value      any    `json:"value"`
+			Readable   bool   `json:"readable"`
+			Writable   bool   `json:"writable"`
+			ValueRange struct {
+				DataList []struct {
+					Data any    `json:"data"`
+					Desc string `json:"desc"`
+				} `json:"dataList"`
+			} `json:"valueRange"`
 		} `json:"attributes"`
 	}
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-		return nil, err
+		return DigitalModel{}, err
 	}
-	attrs := make(map[string]string, len(payload.Attributes))
+	model := DigitalModel{Attributes: make([]DigitalModelAttribute, 0, len(payload.Attributes))}
 	for _, attr := range payload.Attributes {
 		if attr.Name == "" {
 			continue
 		}
-		attrs[attr.Name] = StringFromAny(attr.Value)
+		item := DigitalModelAttribute{
+			Name:        attr.Name,
+			Description: strings.TrimSpace(attr.Desc),
+			Value:       StringFromAny(attr.Value),
+			Readable:    attr.Readable,
+			Writable:    attr.Writable,
+			Options:     make([]DigitalModelValueOption, 0, len(attr.ValueRange.DataList)),
+		}
+		for _, option := range attr.ValueRange.DataList {
+			value := StringFromAny(option.Data)
+			label := strings.TrimSpace(option.Desc)
+			if value == "" && label == "" {
+				continue
+			}
+			item.Options = append(item.Options, DigitalModelValueOption{
+				Value: value,
+				Label: firstNonEmpty(label, value),
+			})
+		}
+		model.Attributes = append(model.Attributes, item)
 	}
-	return attrs, nil
+	return model, nil
 }

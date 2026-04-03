@@ -407,6 +407,35 @@ Response:
 ]
 ```
 
+Some devices may expose state-label metadata in `device.metadata.state_descriptors`.
+This is especially useful for enum-like vendor states where the raw state value is a code but the UI should render a friendly label.
+
+Example:
+
+```json
+{
+  "device": {
+    "metadata": {
+      "state_descriptors": {
+        "phase": {
+          "label": "程序阶段",
+          "options": [
+            { "value": "11", "label": "烘干中" },
+            { "value": "12", "label": "烘干程序结束" }
+          ]
+        },
+        "prPhase": {
+          "label": "程序阶段",
+          "hidden": true
+        }
+      }
+    }
+  }
+}
+```
+
+Clients should continue to compare against `state.state[key]` using the raw value, while using `state_descriptors[key].options` and `state_descriptors[key].label` for display and selection.
+
 `controls[].kind` supports:
 
 - `toggle` with boolean `state`

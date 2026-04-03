@@ -97,10 +97,10 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 		}
 	}
 
-	digitalModels := map[string]map[string]string{}
+	digitalModels := map[string]client.DigitalModel{}
 	if len(deviceIDs) > 0 {
-		if models, err := account.Client.LoadDigitalModels(ctx, deviceIDs); err == nil {
-			digitalModels = models
+		if details, err := account.Client.LoadDigitalModelDetails(ctx, deviceIDs); err == nil {
+			digitalModels = details
 		}
 	}
 
@@ -111,20 +111,20 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 		if deviceID == "" {
 			continue
 		}
-		attrs := digitalModels[deviceID]
-		if attrs == nil {
-			attrs = map[string]string{}
-		}
+		digitalModel := digitalModels[deviceID]
+		attrs := digitalModel.Values()
 		commandNames, capabilitySet := buildCapabilitiesFromDigitalModel(attrs)
-		device := buildDevice(account.Config, appliance, commandNames, capabilitySet)
+		stateDescriptors := buildStateDescriptors(digitalModel)
+		device := buildDevice(account.Config, appliance, commandNames, capabilitySet, stateDescriptors)
 		snapshot := buildStateSnapshot(device, appliance, attrs)
 		runtime := &applianceRuntime{
-			Device:         device,
-			ApplianceInfo:  appliance,
-			CapabilitySet:  capabilitySet,
-			CommandNames:   commandNames,
-			CurrentState:   snapshot.State,
-			LastSnapshotTS: snapshot.TS,
+			Device:           device,
+			ApplianceInfo:    appliance,
+			CapabilitySet:    capabilitySet,
+			CommandNames:     commandNames,
+			StateDescriptors: stateDescriptors,
+			CurrentState:     snapshot.State,
+			LastSnapshotTS:   snapshot.TS,
 		}
 		current[device.ID] = runtime
 		vendorIndex[deviceID] = device.ID
@@ -147,18 +147,24 @@ func (p *Plugin) syncDevice(ctx context.Context, account *accountRuntime, device
 	if deviceID == "" {
 		return errors.New("device has no deviceId")
 	}
-	digitalModels, err := account.Client.LoadDigitalModels(ctx, []string{deviceID})
+	digitalModels, err := account.Client.LoadDigitalModelDetails(ctx, []string{deviceID})
 	if err != nil {
 		return err
 	}
-	attrs := digitalModels[deviceID]
-	if attrs == nil {
-		attrs = map[string]string{}
-	}
+	digitalModel := digitalModels[deviceID]
+	attrs := digitalModel.Values()
+	stateDescriptors := buildStateDescriptors(digitalModel)
 	snapshot := buildStateSnapshot(device.Device, device.ApplianceInfo, attrs)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if existing, ok := p.devices[device.Device.ID]; ok {
+		if len(stateDescriptors) > 0 {
+			if existing.Device.Metadata == nil {
+				existing.Device.Metadata = map[string]any{}
+			}
+			existing.Device.Metadata["state_descriptors"] = stateDescriptors
+			existing.StateDescriptors = stateDescriptors
+		}
 		if !reflect.DeepEqual(existing.CurrentState, snapshot.State) {
 			existing.CurrentState = snapshot.State
 			existing.LastSnapshotTS = snapshot.TS
