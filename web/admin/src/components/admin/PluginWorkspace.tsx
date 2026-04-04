@@ -368,7 +368,7 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
               </TabsContent>
 
               <TabsContent value="logs">
-                <Card>
+                <Card className="log-panel">
                   <CardHeader>
                     <CardHeading
                       title="Plugin Logs"
@@ -376,14 +376,14 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                       aside={<Badge tone="neutral">{selectedCatalogPlugin.id}</Badge>}
                     />
                   </CardHeader>
-                  <CardContent className="stack">
+                  <CardContent className="log-panel__content">
                     <div className="button-row">
                       <Button variant="secondary" onClick={() => void reloadPluginLogs(selectedCatalogPlugin.id)}>
                         Reload
                       </Button>
                     </div>
-                    <ScrollArea className="max-h-[560px]">
-                      <pre className="log-box">
+                    <ScrollArea className="log-panel__scroll">
+                      <pre className="log-box log-box--wrap">
                         {selectedPlugin
                           ? pluginLogs.join('\n') || 'No logs captured yet.'
                           : 'Plugin is not installed.'}
