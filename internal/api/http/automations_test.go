@@ -17,8 +17,7 @@ func TestHandleCreateAutomation_AllowsBlankDerivedTimestamps(t *testing.T) {
 		"condition_logic":"all",
 		"conditions":[
 			{
-				"scope":"event",
-				"kind":"transition",
+				"type":"state_changed",
 				"device_id":"haier:washer:test",
 				"state_key":"phase",
 				"from":{"operator":"not_equals","value":"running"},
@@ -47,7 +46,7 @@ func TestHandleCreateAutomation_AllowsBlankDerivedTimestamps(t *testing.T) {
 	if gw.savedAutomation.LastTriggeredAt != nil {
 		t.Fatalf("expected LastTriggeredAt to be nil, got %v", gw.savedAutomation.LastTriggeredAt)
 	}
-	if len(gw.savedAutomation.Conditions) != 1 || gw.savedAutomation.Conditions[0].Scope != "event" {
+	if len(gw.savedAutomation.Conditions) != 1 || gw.savedAutomation.Conditions[0].Type != "state_changed" {
 		t.Fatalf("expected conditions payload to survive decoding, got %#v", gw.savedAutomation.Conditions)
 	}
 }

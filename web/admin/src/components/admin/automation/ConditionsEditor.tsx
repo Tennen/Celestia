@@ -4,17 +4,15 @@ import {
   coerceMatchValueForOperator,
   createDefaultCondition,
   findDevice,
-  getConditionKind,
-  getConditionScope,
-  getEventConditionDeviceId,
+  getConditionType,
+  getStateChangedConditionDeviceId,
   stateOperators,
   transitionFromOperators,
 } from '../../../lib/automation';
 import type {
   Automation,
   AutomationCondition,
-  AutomationConditionKind,
-  AutomationConditionScope,
+  AutomationConditionType,
   AutomationMatchOperator,
   AutomationStateMatch,
   DeviceView,
@@ -32,7 +30,7 @@ function stateValue(device: DeviceView | null, stateKey: string) {
   return stateKey ? device?.state.state?.[stateKey] : '';
 }
 
-function transitionFromValue(condition: AutomationCondition, fallback: unknown): AutomationStateMatch {
+function stateChangedFromValue(condition: AutomationCondition, fallback: unknown): AutomationStateMatch {
   const value = condition.from?.value ?? fallback;
   return {
     operator: condition.from?.operator ?? 'not_equals',
@@ -40,7 +38,7 @@ function transitionFromValue(condition: AutomationCondition, fallback: unknown):
   };
 }
 
-function transitionToValue(condition: AutomationCondition, fallback: unknown): AutomationStateMatch {
+function stateChangedToValue(condition: AutomationCondition, fallback: unknown): AutomationStateMatch {
   const operator = condition.to?.operator ?? condition.match?.operator ?? 'equals';
   const value = condition.to?.value ?? condition.match?.value ?? fallback;
   return {
@@ -49,7 +47,7 @@ function transitionToValue(condition: AutomationCondition, fallback: unknown): A
   };
 }
 
-function matchValue(condition: AutomationCondition, fallback: unknown): AutomationStateMatch {
+function currentStateMatchValue(condition: AutomationCondition, fallback: unknown): AutomationStateMatch {
   const operator = condition.match?.operator ?? condition.to?.operator ?? 'equals';
   const value = condition.match?.value ?? condition.to?.value ?? fallback;
   return {
@@ -67,14 +65,13 @@ function withConditionTarget(
   const device = findDevice(devices, deviceId);
   const nextStateKey = stateKey ?? buildStateKeyOptions(device)[0]?.value ?? '';
   const fallback = stateValue(device, nextStateKey);
-  const kind = getConditionKind(condition);
-  if (kind === 'transition') {
+  if (getConditionType(condition) === 'state_changed') {
     return {
       ...condition,
       device_id: deviceId,
       state_key: nextStateKey,
-      from: transitionFromValue(condition, fallback),
-      to: transitionToValue(condition, fallback),
+      from: stateChangedFromValue(condition, fallback),
+      to: stateChangedToValue(condition, fallback),
       match: undefined,
     };
   }
@@ -82,69 +79,38 @@ function withConditionTarget(
     ...condition,
     device_id: deviceId,
     state_key: nextStateKey,
-    match: matchValue(condition, fallback),
+    match: currentStateMatchValue(condition, fallback),
     from: undefined,
     to: undefined,
   };
 }
 
-function withConditionScope(
+function withConditionType(
   condition: AutomationCondition,
   devices: DeviceView[],
-  scope: AutomationConditionScope,
+  type: AutomationConditionType,
 ): AutomationCondition {
   const device = findDevice(devices, condition.device_id);
   const nextStateKey = condition.state_key || buildStateKeyOptions(device)[0]?.value || '';
   const fallback = stateValue(device, nextStateKey);
-  const kind = scope === 'state' ? 'match' : getConditionKind(condition);
-  if (kind === 'transition') {
+  if (type === 'state_changed') {
     return {
-      scope,
-      kind,
+      type,
       device_id: condition.device_id,
       state_key: nextStateKey,
-      from: transitionFromValue(condition, fallback),
-      to: transitionToValue(condition, fallback),
+      from: stateChangedFromValue(condition, fallback),
+      to: stateChangedToValue(condition, fallback),
     };
   }
   return {
-    scope,
-    kind: 'match',
+    type,
     device_id: condition.device_id,
     state_key: nextStateKey,
-    match: matchValue(condition, fallback),
-  };
-}
-
-function withConditionKind(
-  condition: AutomationCondition,
-  devices: DeviceView[],
-  kind: AutomationConditionKind,
-): AutomationCondition {
-  const device = findDevice(devices, condition.device_id);
-  const nextStateKey = condition.state_key || buildStateKeyOptions(device)[0]?.value || '';
-  const fallback = stateValue(device, nextStateKey);
-  if (kind === 'transition') {
-    return {
-      scope: 'event',
-      kind,
-      device_id: condition.device_id,
-      state_key: nextStateKey,
-      from: transitionFromValue(condition, fallback),
-      to: transitionToValue(condition, fallback),
-    };
-  }
-  return {
-    scope: getConditionScope(condition),
-    kind,
-    device_id: condition.device_id,
-    state_key: nextStateKey,
-    match: matchValue(condition, fallback),
+    match: currentStateMatchValue(condition, fallback),
   };
 }
 
 function updateCondition(
-  draft: Automation,
   onChange: Props['onChange'],
   index: number,
   updater: (condition: AutomationCondition) => AutomationCondition,
@@ -157,12 +123,12 @@ function updateCondition(
 }
 
 export function ConditionsEditor({ draft, devices, onChange }: Props) {
-  const eventConditionCount = (draft.conditions ?? []).filter((condition) => getConditionScope(condition) === 'event').length;
+  const stateChangedCount = (draft.conditions ?? []).filter((condition) => getConditionType(condition) === 'state_changed').length;
 
   return (
     <AutomationSection
       title="Conditions"
-      description="Event conditions start the automation when any one matches. State conditions are extra gates combined by Condition Logic."
+      description="State Changed conditions start the automation when any one matches. Current State Is conditions are extra gates combined by Condition Logic."
       action={
         <Button
           variant="secondary"
@@ -172,7 +138,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
               ...current,
               conditions: [
                 ...(current.conditions ?? []),
-                createDefaultCondition(devices, { deviceId: getEventConditionDeviceId(current) }),
+                createDefaultCondition(devices, { deviceId: getStateChangedConditionDeviceId(current) }),
               ],
             }))
           }
@@ -188,26 +154,23 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
           value={draft.condition_logic}
           onChange={(e) => onChange((current) => ({ ...current, condition_logic: e.target.value as Automation['condition_logic'] }))}
         >
-          <option value="all">all state conditions</option>
-          <option value="any">any state condition</option>
+          <option value="all">all current-state conditions</option>
+          <option value="any">any current-state condition</option>
         </select>
       </div>
       <div className="automation-rule-list">
         {(draft.conditions ?? []).map((condition, index) => {
-          const scope = getConditionScope(condition);
-          const kind = getConditionKind(condition);
+          const type = getConditionType(condition);
           const conditionDevice = findDevice(devices, condition.device_id);
-          const isOnlyEventCondition = scope === 'event' && eventConditionCount <= 1;
+          const isOnlyStateChangedCondition = type === 'state_changed' && stateChangedCount <= 1;
           return (
             <div key={`${condition.device_id}-${index}`} className="automation-rule">
               <div className="automation-rule__header">
                 <div className="automation-section__heading">
                   <h4 className="automation-rule__title">Condition {index + 1}</h4>
                   <p className="muted">
-                    {scope === 'event'
-                      ? kind === 'transition'
-                        ? 'Start when one device state changes from one value to another.'
-                        : 'Start when a device state key changes and its new value matches.'
+                    {type === 'state_changed'
+                      ? 'Start when one device state changes from one value to another.'
                       : 'Require another device state to match before actions run.'}
                   </p>
                 </div>
@@ -220,7 +183,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                       conditions: (current.conditions ?? []).filter((_, itemIndex) => itemIndex !== index),
                     }))
                   }
-                  disabled={(draft.conditions ?? []).length <= 1 || isOnlyEventCondition}
+                  disabled={(draft.conditions ?? []).length <= 1 || isOnlyStateChangedCondition}
                 >
                   Remove
                 </Button>
@@ -229,36 +192,20 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
               <div className="automation-rule__body">
                 <div className="automation-field-grid">
                   <div className="automation-field">
-                    <label>Scope</label>
+                    <label>Type</label>
                     <select
                       className="select"
-                      value={scope}
+                      value={type}
                       onChange={(e) =>
-                        updateCondition(draft, onChange, index, (current) =>
-                          withConditionScope(current, devices, e.target.value as AutomationConditionScope),
+                        updateCondition(onChange, index, (current) =>
+                          withConditionType(current, devices, e.target.value as AutomationConditionType),
                         )
                       }
                     >
-                      <option value="event">Event Condition</option>
-                      <option value="state" disabled={isOnlyEventCondition}>
-                        State Gate
+                      <option value="state_changed">State Changed</option>
+                      <option value="current_state" disabled={isOnlyStateChangedCondition}>
+                        Current State Is
                       </option>
-                    </select>
-                  </div>
-                  <div className="automation-field">
-                    <label>Match Type</label>
-                    <select
-                      className="select"
-                      value={kind}
-                      onChange={(e) =>
-                        updateCondition(draft, onChange, index, (current) =>
-                          withConditionKind(current, devices, e.target.value as AutomationConditionKind),
-                        )
-                      }
-                      disabled={scope === 'state'}
-                    >
-                      <option value="transition">State Changed</option>
-                      <option value="match">State Is</option>
                     </select>
                   </div>
                 </div>
@@ -270,7 +217,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                       className="select"
                       value={condition.device_id}
                       onChange={(e) =>
-                        updateCondition(draft, onChange, index, (current) =>
+                        updateCondition(onChange, index, (current) =>
                           withConditionTarget(current, devices, e.target.value),
                         )
                       }
@@ -288,7 +235,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                       className="select"
                       value={condition.state_key}
                       onChange={(e) =>
-                        updateCondition(draft, onChange, index, (current) =>
+                        updateCondition(onChange, index, (current) =>
                           withConditionTarget(current, devices, current.device_id, e.target.value),
                         )
                       }
@@ -302,7 +249,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                   </div>
                 </div>
 
-                {kind === 'transition' ? (
+                {type === 'state_changed' ? (
                   <div className="automation-match-grid">
                     <div className="automation-match-card">
                       <h4 className="automation-match-card__title">From</h4>
@@ -313,7 +260,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                             className="select"
                             value={condition.from?.operator ?? 'not_equals'}
                             onChange={(e) =>
-                              updateCondition(draft, onChange, index, (current) => ({
+                              updateCondition(onChange, index, (current) => ({
                                 ...current,
                                 from: {
                                   operator: e.target.value as AutomationMatchOperator,
@@ -341,7 +288,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                             value={condition.from?.value}
                             placeholder="previous value"
                             onChange={(value) =>
-                              updateCondition(draft, onChange, index, (current) => ({
+                              updateCondition(onChange, index, (current) => ({
                                 ...current,
                                 from: {
                                   operator: current.from?.operator ?? 'not_equals',
@@ -363,7 +310,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                             className="select"
                             value={condition.to?.operator ?? 'equals'}
                             onChange={(e) =>
-                              updateCondition(draft, onChange, index, (current) => ({
+                              updateCondition(onChange, index, (current) => ({
                                 ...current,
                                 to: {
                                   operator: e.target.value as AutomationMatchOperator,
@@ -391,7 +338,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                             value={condition.to?.value}
                             placeholder="new value"
                             onChange={(value) =>
-                              updateCondition(draft, onChange, index, (current) => ({
+                              updateCondition(onChange, index, (current) => ({
                                 ...current,
                                 to: {
                                   operator: current.to?.operator ?? 'equals',
@@ -412,7 +359,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                         className="select"
                         value={condition.match?.operator ?? 'equals'}
                         onChange={(e) =>
-                          updateCondition(draft, onChange, index, (current) => ({
+                          updateCondition(onChange, index, (current) => ({
                             ...current,
                             match: {
                               operator: e.target.value as AutomationMatchOperator,
@@ -438,9 +385,9 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                         stateKey={condition.state_key}
                         operator={condition.match?.operator ?? 'equals'}
                         value={condition.match?.value}
-                        placeholder={scope === 'event' ? 'new value' : 'current value'}
+                        placeholder="current value"
                         onChange={(value) =>
-                          updateCondition(draft, onChange, index, (current) => ({
+                          updateCondition(onChange, index, (current) => ({
                             ...current,
                             match: {
                               operator: current.match?.operator ?? 'equals',

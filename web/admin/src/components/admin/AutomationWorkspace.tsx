@@ -9,7 +9,7 @@ import { Switch } from '../ui/switch';
 import {
   defaultAutomation,
   cloneAutomation,
-  getEventConditionDeviceId,
+  getStateChangedConditionDeviceId,
   parseActionParams,
   prettyActionParams,
   type AutomationActionTemplate,
@@ -175,7 +175,7 @@ export function AutomationWorkspace() {
                   onClick={() => loadDraft(automation)}
                   selected={selectedId === automation.id}
                   title={automation.name || automation.id}
-                  description={getEventConditionDeviceId(automation) || 'No event condition'}
+                  description={getStateChangedConditionDeviceId(automation) || 'No state-change condition'}
                   badges={
                     <>
                       <Badge tone={automation.enabled ? 'good' : 'neutral'} size="xs">

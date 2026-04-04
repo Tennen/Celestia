@@ -143,13 +143,13 @@ func (s *Service) normalizeAutomation(ctx context.Context, automation models.Aut
 		if err != nil {
 			return models.Automation{}, err
 		}
-		if normalized.Scope == models.AutomationConditionScopeEvent {
+		if normalized.Type == models.AutomationConditionTypeStateChanged {
 			eventConditionCount++
 		}
 		automation.Conditions[idx] = normalized
 	}
 	if eventConditionCount == 0 {
-		return models.Automation{}, errors.New("automation requires at least one event condition")
+		return models.Automation{}, errors.New("automation requires at least one state_changed condition")
 	}
 	if automation.TimeWindow != nil {
 		automation.TimeWindow.Start = strings.TrimSpace(automation.TimeWindow.Start)
@@ -201,18 +201,9 @@ func (s *Service) normalizeCondition(ctx context.Context, condition models.Autom
 	} else if !ok {
 		return models.AutomationCondition{}, fmt.Errorf("condition device %q not found", condition.DeviceID)
 	}
-	condition.Scope = normalizeConditionScope(condition)
-	condition.Kind = normalizeConditionKind(condition)
-	switch condition.Scope {
-	case models.AutomationConditionScopeEvent, models.AutomationConditionScopeState:
-	default:
-		return models.AutomationCondition{}, fmt.Errorf("condition %d has unsupported scope %q", idx, condition.Scope)
-	}
-	switch condition.Kind {
-	case models.AutomationConditionKindTransition:
-		if condition.Scope != models.AutomationConditionScopeEvent {
-			return models.AutomationCondition{}, fmt.Errorf("condition %d only allows transition matchers for event scope", idx)
-		}
+	condition.Type = normalizeConditionType(condition)
+	switch condition.Type {
+	case models.AutomationConditionTypeStateChanged:
 		from := derefMatch(condition.From)
 		to := derefMatch(condition.To)
 		from = normalizeMatch(from, true)
@@ -226,7 +217,7 @@ func (s *Service) normalizeCondition(ctx context.Context, condition models.Autom
 		condition.From = &from
 		condition.To = &to
 		condition.Match = nil
-	case models.AutomationConditionKindMatch:
+	case models.AutomationConditionTypeCurrentState:
 		match := normalizeMatch(derefMatch(condition.Match), false)
 		if err := validateMatch(match, false); err != nil {
 			return models.AutomationCondition{}, fmt.Errorf("condition %d has invalid matcher: %w", idx, err)
@@ -235,31 +226,20 @@ func (s *Service) normalizeCondition(ctx context.Context, condition models.Autom
 		condition.From = nil
 		condition.To = nil
 	default:
-		return models.AutomationCondition{}, fmt.Errorf("condition %d has unsupported kind %q", idx, condition.Kind)
+		return models.AutomationCondition{}, fmt.Errorf("condition %d has unsupported type %q", idx, condition.Type)
 	}
 	return condition, nil
 }
 
-func normalizeConditionScope(condition models.AutomationCondition) models.AutomationConditionScope {
-	switch condition.Scope {
-	case models.AutomationConditionScopeEvent, models.AutomationConditionScopeState:
-		return condition.Scope
+func normalizeConditionType(condition models.AutomationCondition) models.AutomationConditionType {
+	switch condition.Type {
+	case models.AutomationConditionTypeStateChanged, models.AutomationConditionTypeCurrentState:
+		return condition.Type
 	}
 	if condition.From != nil || condition.To != nil {
-		return models.AutomationConditionScopeEvent
+		return models.AutomationConditionTypeStateChanged
 	}
-	return models.AutomationConditionScopeState
-}
-
-func normalizeConditionKind(condition models.AutomationCondition) models.AutomationConditionKind {
-	switch condition.Kind {
-	case models.AutomationConditionKindTransition, models.AutomationConditionKindMatch:
-		return condition.Kind
-	}
-	if condition.From != nil || condition.To != nil {
-		return models.AutomationConditionKindTransition
-	}
-	return models.AutomationConditionKindMatch
+	return models.AutomationConditionTypeCurrentState
 }
 
 func derefMatch(match *models.AutomationStateMatch) models.AutomationStateMatch {

@@ -34,28 +34,20 @@ type AutomationStateMatch struct {
 	Value    any                     `json:"value,omitempty"`
 }
 
-type AutomationConditionScope string
+type AutomationConditionType string
 
 const (
-	AutomationConditionScopeEvent AutomationConditionScope = "event"
-	AutomationConditionScopeState AutomationConditionScope = "state"
-)
-
-type AutomationConditionKind string
-
-const (
-	AutomationConditionKindTransition AutomationConditionKind = "transition"
-	AutomationConditionKindMatch      AutomationConditionKind = "match"
+	AutomationConditionTypeStateChanged AutomationConditionType = "state_changed"
+	AutomationConditionTypeCurrentState AutomationConditionType = "current_state"
 )
 
 type AutomationCondition struct {
-	Scope    AutomationConditionScope `json:"scope,omitempty"`
-	Kind     AutomationConditionKind  `json:"kind,omitempty"`
-	DeviceID string                   `json:"device_id"`
-	StateKey string                   `json:"state_key"`
-	From     *AutomationStateMatch    `json:"from,omitempty"`
-	To       *AutomationStateMatch    `json:"to,omitempty"`
-	Match    *AutomationStateMatch    `json:"match,omitempty"`
+	Type     AutomationConditionType `json:"type,omitempty"`
+	DeviceID string                  `json:"device_id"`
+	StateKey string                  `json:"state_key"`
+	From     *AutomationStateMatch   `json:"from,omitempty"`
+	To       *AutomationStateMatch   `json:"to,omitempty"`
+	Match    *AutomationStateMatch   `json:"match,omitempty"`
 }
 
 type AutomationTimeWindow struct {

@@ -31,7 +31,7 @@ func (s *Service) handleStateChange(event models.Event) {
 		if !automation.Enabled {
 			continue
 		}
-		if !matchesEventConditions(automation.Conditions, event.DeviceID, previousState, currentState) {
+		if !matchesStateChangedConditions(automation.Conditions, event.DeviceID, previousState, currentState) {
 			continue
 		}
 		if !matchesTimeWindow(event.TS, automation.TimeWindow) {
@@ -56,24 +56,24 @@ func (s *Service) handleStateChange(event models.Event) {
 	}
 }
 
-func matchesEventConditions(
+func matchesStateChangedConditions(
 	conditions []models.AutomationCondition,
 	deviceID string,
 	previousState map[string]any,
 	currentState map[string]any,
 ) bool {
 	for _, condition := range conditions {
-		if condition.Scope != models.AutomationConditionScopeEvent {
+		if condition.Type != models.AutomationConditionTypeStateChanged {
 			continue
 		}
-		if matchesEventCondition(condition, deviceID, previousState, currentState) {
+		if matchesStateChangedCondition(condition, deviceID, previousState, currentState) {
 			return true
 		}
 	}
 	return false
 }
 
-func matchesEventCondition(
+func matchesStateChangedCondition(
 	condition models.AutomationCondition,
 	deviceID string,
 	previousState map[string]any,
@@ -93,17 +93,10 @@ func matchesEventCondition(
 	if reflect.DeepEqual(previousValue, currentValue) {
 		return false
 	}
-	switch condition.Kind {
-	case models.AutomationConditionKindTransition:
-		return condition.From != nil &&
-			condition.To != nil &&
-			matchesStateValue(previousValue, hasPrevious, *condition.From) &&
-			matchesStateValue(currentValue, hasCurrent, *condition.To)
-	case models.AutomationConditionKindMatch:
-		return condition.Match != nil && matchesStateValue(currentValue, hasCurrent, *condition.Match)
-	default:
-		return false
-	}
+	return condition.From != nil &&
+		condition.To != nil &&
+		matchesStateValue(previousValue, hasPrevious, *condition.From) &&
+		matchesStateValue(currentValue, hasCurrent, *condition.To)
 }
 
 func matchesTimeWindow(ts time.Time, window *models.AutomationTimeWindow) bool {
@@ -140,7 +133,7 @@ func parseClockHM(value string) (int, error) {
 func (s *Service) matchesStateConditions(ctx context.Context, automation models.Automation) (bool, error) {
 	stateConditions := make([]models.AutomationCondition, 0, len(automation.Conditions))
 	for _, condition := range automation.Conditions {
-		if condition.Scope != models.AutomationConditionScopeState {
+		if condition.Type != models.AutomationConditionTypeCurrentState {
 			continue
 		}
 		stateConditions = append(stateConditions, condition)

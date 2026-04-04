@@ -63,8 +63,7 @@ func TestServiceSavePersistsNormalizedAutomation(t *testing.T) {
 		Enabled: true,
 		Conditions: []models.AutomationCondition{
 			{
-				Scope:    models.AutomationConditionScopeEvent,
-				Kind:     models.AutomationConditionKindTransition,
+				Type:     models.AutomationConditionTypeStateChanged,
 				DeviceID: "haier:washer:test",
 				StateKey: "phase",
 				From:     &models.AutomationStateMatch{Operator: models.AutomationMatchNotEquals, Value: "ready"},
@@ -109,35 +108,33 @@ func TestServiceSavePersistsNormalizedAutomation(t *testing.T) {
 
 func TestMatchesEventConditionRequiresStateKeyChange(t *testing.T) {
 	condition := models.AutomationCondition{
-		Scope:    models.AutomationConditionScopeEvent,
-		Kind:     models.AutomationConditionKindTransition,
+		Type:     models.AutomationConditionTypeStateChanged,
 		DeviceID: "haier:washer:test",
 		StateKey: "phase",
 		From:     &models.AutomationStateMatch{Operator: models.AutomationMatchNotEquals, Value: "ready"},
 		To:       &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "ready"},
 	}
-	if !matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "rinse"}, map[string]any{"phase": "ready"}) {
-		t.Fatal("matchesEventCondition() should accept non-ready -> ready")
+	if !matchesStateChangedCondition(condition, "haier:washer:test", map[string]any{"phase": "rinse"}, map[string]any{"phase": "ready"}) {
+		t.Fatal("matchesStateChangedCondition() should accept non-ready -> ready")
 	}
-	if matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "ready"}, map[string]any{"phase": "ready"}) {
-		t.Fatal("matchesEventCondition() should reject unchanged state values")
+	if matchesStateChangedCondition(condition, "haier:washer:test", map[string]any{"phase": "ready"}, map[string]any{"phase": "ready"}) {
+		t.Fatal("matchesStateChangedCondition() should reject unchanged state values")
 	}
 }
 
 func TestMatchesEventConditionSupportsMultiTargetValues(t *testing.T) {
 	condition := models.AutomationCondition{
-		Scope:    models.AutomationConditionScopeEvent,
-		Kind:     models.AutomationConditionKindTransition,
+		Type:     models.AutomationConditionTypeStateChanged,
 		DeviceID: "haier:washer:test",
 		StateKey: "phase",
 		From:     &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
 		To:       &models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: []any{"A", "B", "C"}},
 	}
-	if !matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "B"}) {
-		t.Fatal("matchesEventCondition() should accept D -> B when target matcher is in [A, B, C]")
+	if !matchesStateChangedCondition(condition, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "B"}) {
+		t.Fatal("matchesStateChangedCondition() should accept D -> B when target matcher is in [A, B, C]")
 	}
-	if matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "E"}) {
-		t.Fatal("matchesEventCondition() should reject D -> E when target matcher is in [A, B, C]")
+	if matchesStateChangedCondition(condition, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "E"}) {
+		t.Fatal("matchesStateChangedCondition() should reject D -> E when target matcher is in [A, B, C]")
 	}
 }
 
@@ -150,16 +147,14 @@ func TestServiceSaveNormalizesListMatchers(t *testing.T) {
 		Enabled: true,
 		Conditions: []models.AutomationCondition{
 			{
-				Scope:    models.AutomationConditionScopeEvent,
-				Kind:     models.AutomationConditionKindTransition,
+				Type:     models.AutomationConditionTypeStateChanged,
 				DeviceID: "haier:washer:test",
 				StateKey: "phase",
 				From:     &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
 				To:       &models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: "A"},
 			},
 			{
-				Scope:    models.AutomationConditionScopeState,
-				Kind:     models.AutomationConditionKindMatch,
+				Type:     models.AutomationConditionTypeCurrentState,
 				DeviceID: "haier:washer:test",
 				StateKey: "phase",
 				Match:    &models.AutomationStateMatch{Operator: models.AutomationMatchNotIn, Value: []string{"X", "Y"}},

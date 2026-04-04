@@ -3,8 +3,7 @@ import type {
   Automation,
   AutomationAction,
   AutomationCondition,
-  AutomationConditionKind,
-  AutomationConditionScope,
+  AutomationConditionType,
   AutomationMatchOperator,
   DeviceControl,
   DeviceControlOption,
@@ -136,23 +135,16 @@ function conditionStateValue(device: DeviceView | null | undefined, stateKey: st
   return stateKey ? device?.state.state?.[stateKey] : '';
 }
 
-export function getConditionScope(condition: AutomationCondition): AutomationConditionScope {
-  if (condition.scope === 'event' || condition.scope === 'state') {
-    return condition.scope;
+export function getConditionType(condition: AutomationCondition): AutomationConditionType {
+  if (condition.type === 'state_changed' || condition.type === 'current_state') {
+    return condition.type;
   }
-  return condition.from || condition.to ? 'event' : 'state';
+  return condition.from || condition.to ? 'state_changed' : 'current_state';
 }
 
-export function getConditionKind(condition: AutomationCondition): AutomationConditionKind {
-  if (condition.kind === 'transition' || condition.kind === 'match') {
-    return condition.kind;
-  }
-  return condition.from || condition.to ? 'transition' : 'match';
-}
-
-export function getEventConditionDeviceId(automation: Automation) {
+export function getStateChangedConditionDeviceId(automation: Automation) {
   const conditions = automation.conditions ?? [];
-  const eventCondition = conditions.find((condition) => getConditionScope(condition) === 'event');
+  const eventCondition = conditions.find((condition) => getConditionType(condition) === 'state_changed');
   return eventCondition?.device_id || conditions[0]?.device_id || '';
 }
 
@@ -160,19 +152,16 @@ export function createDefaultCondition(
   devices: DeviceView[],
   options?: {
     deviceId?: string;
-    scope?: AutomationConditionScope;
-    kind?: AutomationConditionKind;
+    type?: AutomationConditionType;
   },
 ): AutomationCondition {
   const selectedDevice = findDevice(devices, options?.deviceId ?? '') ?? devices[0] ?? null;
   const stateKey = buildStateKeyOptions(selectedDevice)[0]?.value ?? '';
   const value = conditionStateValue(selectedDevice, stateKey);
-  const scope = options?.scope ?? 'event';
-  const kind = options?.kind ?? 'transition';
-  if (kind === 'transition') {
+  const type = options?.type ?? 'state_changed';
+  if (type === 'state_changed') {
     return {
-      scope,
-      kind,
+      type,
       device_id: selectedDevice?.device.id ?? '',
       state_key: stateKey,
       from: {
@@ -186,8 +175,7 @@ export function createDefaultCondition(
     };
   }
   return {
-    scope,
-    kind,
+    type,
     device_id: selectedDevice?.device.id ?? '',
     state_key: stateKey,
     match: {

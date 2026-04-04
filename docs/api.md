@@ -220,14 +220,14 @@ These routes stay under `/api/v1` and let the admin UI manage Core-owned state-c
 Each automation has:
 
 - one or more `conditions`
-- one or more `event`-scoped conditions; any matching event condition can start the automation
-- zero or more `state`-scoped conditions combined by `condition_logic` as extra runtime gates
+- one or more `type: "state_changed"` conditions; any matching state-change condition can start the automation
+- zero or more `type: "current_state"` conditions combined by `condition_logic` as extra runtime gates
 - an optional daily time window
 - one or more actions executed against existing devices
 
 Supported match operators:
 
-- `any` for `event` + `transition` condition `from`
+- `any` for `type: "state_changed"` condition `from`
 - `equals`
 - `not_equals`
 - `in`
@@ -237,9 +237,8 @@ Supported match operators:
 
 Condition shapes:
 
-- `scope: "event"` + `kind: "transition"` uses `from` and `to`
-- `scope: "event"` + `kind: "match"` uses `match` against the changed key's new value
-- `scope: "state"` + `kind: "match"` uses `match` against the latest persisted device state
+- `type: "state_changed"` uses `from` and `to`
+- `type: "current_state"` uses `match` against the latest persisted device state
 
 For `in` and `not_in`, `value` must be a JSON array. This allows one rule to match transitions like `D -> A/B/C` on the same state key.
 
@@ -260,8 +259,7 @@ Response:
     "condition_logic": "all",
     "conditions": [
       {
-        "scope": "event",
-        "kind": "transition",
+        "type": "state_changed",
         "device_id": "haier:washer:home:washer-1",
         "state_key": "phase",
         "from": {
@@ -274,8 +272,7 @@ Response:
         }
       },
       {
-        "scope": "state",
-        "kind": "match",
+        "type": "current_state",
         "device_id": "haier:washer:home:washer-1",
         "state_key": "machine_status",
         "match": {

@@ -74,12 +74,10 @@ export type AutomationStateMatch = {
   value?: unknown;
 };
 
-export type AutomationConditionScope = 'event' | 'state';
-export type AutomationConditionKind = 'transition' | 'match';
+export type AutomationConditionType = 'state_changed' | 'current_state';
 
 export type AutomationCondition = {
-  scope?: AutomationConditionScope;
-  kind?: AutomationConditionKind;
+  type?: AutomationConditionType;
   device_id: string;
   state_key: string;
   from?: AutomationStateMatch;
