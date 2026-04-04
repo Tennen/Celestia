@@ -61,11 +61,15 @@ func TestServiceSavePersistsNormalizedAutomation(t *testing.T) {
 	saved, err := svc.Save(ctx, models.Automation{
 		Name:    "Washer done",
 		Enabled: true,
-		Trigger: models.AutomationTrigger{
-			DeviceID: "haier:washer:test",
-			StateKey: "phase",
-			From:     models.AutomationStateMatch{Operator: models.AutomationMatchNotEquals, Value: "ready"},
-			To:       models.AutomationStateMatch{Value: "ready"},
+		Conditions: []models.AutomationCondition{
+			{
+				Scope:    models.AutomationConditionScopeEvent,
+				Kind:     models.AutomationConditionKindTransition,
+				DeviceID: "haier:washer:test",
+				StateKey: "phase",
+				From:     &models.AutomationStateMatch{Operator: models.AutomationMatchNotEquals, Value: "ready"},
+				To:       &models.AutomationStateMatch{Value: "ready"},
+			},
 		},
 		Actions: []models.AutomationAction{
 			{
@@ -84,8 +88,8 @@ func TestServiceSavePersistsNormalizedAutomation(t *testing.T) {
 	if saved.ConditionLogic != models.AutomationLogicAll {
 		t.Fatalf("ConditionLogic = %q, want %q", saved.ConditionLogic, models.AutomationLogicAll)
 	}
-	if saved.Trigger.To.Operator != models.AutomationMatchEquals {
-		t.Fatalf("Trigger.To.Operator = %q, want %q", saved.Trigger.To.Operator, models.AutomationMatchEquals)
+	if saved.Conditions[0].To == nil || saved.Conditions[0].To.Operator != models.AutomationMatchEquals {
+		t.Fatalf("Conditions[0].To.Operator = %#v, want %q", saved.Conditions[0].To, models.AutomationMatchEquals)
 	}
 	if saved.LastRunStatus != models.AutomationRunStatusIdle {
 		t.Fatalf("LastRunStatus = %q, want %q", saved.LastRunStatus, models.AutomationRunStatusIdle)
@@ -103,33 +107,37 @@ func TestServiceSavePersistsNormalizedAutomation(t *testing.T) {
 	}
 }
 
-func TestMatchesTriggerRequiresStateKeyChange(t *testing.T) {
-	trigger := models.AutomationTrigger{
+func TestMatchesEventConditionRequiresStateKeyChange(t *testing.T) {
+	condition := models.AutomationCondition{
+		Scope:    models.AutomationConditionScopeEvent,
+		Kind:     models.AutomationConditionKindTransition,
 		DeviceID: "haier:washer:test",
 		StateKey: "phase",
-		From:     models.AutomationStateMatch{Operator: models.AutomationMatchNotEquals, Value: "ready"},
-		To:       models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "ready"},
+		From:     &models.AutomationStateMatch{Operator: models.AutomationMatchNotEquals, Value: "ready"},
+		To:       &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "ready"},
 	}
-	if !matchesTrigger(trigger, "haier:washer:test", map[string]any{"phase": "rinse"}, map[string]any{"phase": "ready"}) {
-		t.Fatal("matchesTrigger() should accept non-ready -> ready")
+	if !matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "rinse"}, map[string]any{"phase": "ready"}) {
+		t.Fatal("matchesEventCondition() should accept non-ready -> ready")
 	}
-	if matchesTrigger(trigger, "haier:washer:test", map[string]any{"phase": "ready"}, map[string]any{"phase": "ready"}) {
-		t.Fatal("matchesTrigger() should reject unchanged state values")
+	if matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "ready"}, map[string]any{"phase": "ready"}) {
+		t.Fatal("matchesEventCondition() should reject unchanged state values")
 	}
 }
 
-func TestMatchesTriggerSupportsMultiTargetValues(t *testing.T) {
-	trigger := models.AutomationTrigger{
+func TestMatchesEventConditionSupportsMultiTargetValues(t *testing.T) {
+	condition := models.AutomationCondition{
+		Scope:    models.AutomationConditionScopeEvent,
+		Kind:     models.AutomationConditionKindTransition,
 		DeviceID: "haier:washer:test",
 		StateKey: "phase",
-		From:     models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
-		To:       models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: []any{"A", "B", "C"}},
+		From:     &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
+		To:       &models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: []any{"A", "B", "C"}},
 	}
-	if !matchesTrigger(trigger, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "B"}) {
-		t.Fatal("matchesTrigger() should accept D -> B when target matcher is in [A, B, C]")
+	if !matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "B"}) {
+		t.Fatal("matchesEventCondition() should accept D -> B when target matcher is in [A, B, C]")
 	}
-	if matchesTrigger(trigger, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "E"}) {
-		t.Fatal("matchesTrigger() should reject D -> E when target matcher is in [A, B, C]")
+	if matchesEventCondition(condition, "haier:washer:test", map[string]any{"phase": "D"}, map[string]any{"phase": "E"}) {
+		t.Fatal("matchesEventCondition() should reject D -> E when target matcher is in [A, B, C]")
 	}
 }
 
@@ -140,17 +148,21 @@ func TestServiceSaveNormalizesListMatchers(t *testing.T) {
 	saved, err := svc.Save(ctx, models.Automation{
 		Name:    "Washer phase fan-out",
 		Enabled: true,
-		Trigger: models.AutomationTrigger{
-			DeviceID: "haier:washer:test",
-			StateKey: "phase",
-			From:     models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
-			To:       models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: "A"},
-		},
 		Conditions: []models.AutomationCondition{
 			{
+				Scope:    models.AutomationConditionScopeEvent,
+				Kind:     models.AutomationConditionKindTransition,
 				DeviceID: "haier:washer:test",
 				StateKey: "phase",
-				Match:    models.AutomationStateMatch{Operator: models.AutomationMatchNotIn, Value: []string{"X", "Y"}},
+				From:     &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "D"},
+				To:       &models.AutomationStateMatch{Operator: models.AutomationMatchIn, Value: "A"},
+			},
+			{
+				Scope:    models.AutomationConditionScopeState,
+				Kind:     models.AutomationConditionKindMatch,
+				DeviceID: "haier:washer:test",
+				StateKey: "phase",
+				Match:    &models.AutomationStateMatch{Operator: models.AutomationMatchNotIn, Value: []string{"X", "Y"}},
 			},
 		},
 		Actions: []models.AutomationAction{
@@ -163,13 +175,13 @@ func TestServiceSaveNormalizesListMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
-	toValues, ok := saved.Trigger.To.Value.([]any)
+	toValues, ok := saved.Conditions[0].To.Value.([]any)
 	if !ok || len(toValues) != 1 || toValues[0] != "A" {
-		t.Fatalf("Trigger.To.Value should normalize to single-item list, got %#v", saved.Trigger.To.Value)
+		t.Fatalf("Conditions[0].To.Value should normalize to single-item list, got %#v", saved.Conditions[0].To.Value)
 	}
-	conditionValues, ok := saved.Conditions[0].Match.Value.([]any)
+	conditionValues, ok := saved.Conditions[1].Match.Value.([]any)
 	if !ok || len(conditionValues) != 2 {
-		t.Fatalf("Condition matcher should preserve list values, got %#v", saved.Conditions[0].Match.Value)
+		t.Fatalf("Condition matcher should preserve list values, got %#v", saved.Conditions[1].Match.Value)
 	}
 }
 

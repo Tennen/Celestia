@@ -6,7 +6,14 @@ import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
 import { Switch } from '../ui/switch';
-import { defaultAutomation, cloneAutomation, parseActionParams, prettyActionParams, type AutomationActionTemplate } from '../../lib/automation';
+import {
+  defaultAutomation,
+  cloneAutomation,
+  getPrimaryConditionDeviceId,
+  parseActionParams,
+  prettyActionParams,
+  type AutomationActionTemplate,
+} from '../../lib/automation';
 import { deleteAutomation, saveAutomation } from '../../lib/api';
 import { formatTime } from '../../lib/utils';
 import { useAdminStore } from '../../stores/adminStore';
@@ -14,7 +21,6 @@ import type { Automation } from '../../lib/types';
 import { ActionsEditor } from './automation/ActionsEditor';
 import { ConditionsEditor } from './automation/ConditionsEditor';
 import { TimeWindowEditor } from './automation/TimeWindowEditor';
-import { TriggerEditor } from './automation/TriggerEditor';
 import { CardHeading } from './shared/CardHeading';
 import { SelectableListItem } from './shared/SelectableListItem';
 
@@ -169,7 +175,7 @@ export function AutomationWorkspace() {
                   onClick={() => loadDraft(automation)}
                   selected={selectedId === automation.id}
                   title={automation.name || automation.id}
-                  description={automation.trigger.device_id || 'No trigger device'}
+                  description={getPrimaryConditionDeviceId(automation) || 'No trigger condition'}
                   badges={
                     <>
                       <Badge tone={automation.enabled ? 'good' : 'neutral'} size="xs">
@@ -203,7 +209,7 @@ export function AutomationWorkspace() {
             <CardHeader>
               <CardHeading
                 title={selectedId ? 'Automation Editor' : 'New Automation'}
-                description="Trigger on one device state transition, optionally gate it with other conditions and a time window, then execute actions on existing devices."
+                description="Define one or more event/state conditions, optionally limit them by time, then execute actions on existing devices."
                 aside={
                   draft ? (
                     <div className="automation-editor__meta">
@@ -245,7 +251,6 @@ export function AutomationWorkspace() {
                   </div>
                 </div>
 
-                <TriggerEditor draft={draft} devices={devices} onChange={updateDraft} />
                 <ConditionsEditor draft={draft} devices={devices} onChange={updateDraft} />
                 <TimeWindowEditor draft={draft} onChange={updateDraft} />
                 <ActionsEditor

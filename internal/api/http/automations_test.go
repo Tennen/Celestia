@@ -44,4 +44,10 @@ func TestHandleCreateAutomation_AllowsBlankDerivedTimestamps(t *testing.T) {
 	if gw.savedAutomation.LastTriggeredAt != nil {
 		t.Fatalf("expected LastTriggeredAt to be nil, got %v", gw.savedAutomation.LastTriggeredAt)
 	}
+	if len(gw.savedAutomation.Conditions) != 1 {
+		t.Fatalf("expected legacy trigger to be converted into one condition, got %d", len(gw.savedAutomation.Conditions))
+	}
+	if gw.savedAutomation.Conditions[0].Scope != "event" || gw.savedAutomation.Conditions[0].Kind != "transition" {
+		t.Fatalf("expected converted condition to be event/transition, got %#v", gw.savedAutomation.Conditions[0])
+	}
 }

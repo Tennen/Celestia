@@ -1,7 +1,13 @@
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
-import { buildActionTemplates, findDevice, prettyActionParams, type AutomationActionTemplate } from '../../../lib/automation';
+import {
+  buildActionTemplates,
+  findDevice,
+  getPrimaryConditionDeviceId,
+  prettyActionParams,
+  type AutomationActionTemplate,
+} from '../../../lib/automation';
 import type { Automation, DeviceView } from '../../../lib/types';
 import { AutomationSection } from './AutomationSection';
 
@@ -37,7 +43,7 @@ export function ActionsEditor({
               const actions = [
                 ...current.actions,
                 {
-                  device_id: current.actions[0]?.device_id || current.trigger.device_id,
+                  device_id: current.actions[0]?.device_id || getPrimaryConditionDeviceId(current),
                   label: '',
                   action: '',
                   params: {},

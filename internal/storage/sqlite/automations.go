@@ -11,10 +11,7 @@ import (
 )
 
 func (s *Store) UpsertAutomation(ctx context.Context, automation models.Automation) error {
-	triggerJSON, err := marshalJSON(automation.Trigger)
-	if err != nil {
-		return err
-	}
+	triggerJSON := "{}"
 	conditionsJSON, err := marshalJSON(automation.Conditions)
 	if err != nil {
 		return err
@@ -128,14 +125,17 @@ func scanAutomation(scanner interface{ Scan(...any) error }) (models.Automation,
 		return models.Automation{}, err
 	}
 	automation.Enabled = enabled != 0
-	if err := parseJSON(triggerJSON, &automation.Trigger); err != nil {
-		return models.Automation{}, err
-	}
 	if conditionsJSON == "" {
 		conditionsJSON = "[]"
 	}
 	if err := json.Unmarshal([]byte(conditionsJSON), &automation.Conditions); err != nil {
 		return models.Automation{}, err
+	}
+	automation.Conditions = normalizeLoadedConditions(automation.Conditions)
+	if legacyTrigger, ok, err := parseLegacyTriggerCondition(triggerJSON); err != nil {
+		return models.Automation{}, err
+	} else if ok {
+		automation.Conditions = append([]models.AutomationCondition{legacyTrigger}, automation.Conditions...)
 	}
 	if timeWindowJSON != "" && strings.TrimSpace(timeWindowJSON) != "{}" && strings.TrimSpace(timeWindowJSON) != "null" {
 		var window models.AutomationTimeWindow
@@ -171,4 +171,69 @@ func scanAutomation(scanner interface{ Scan(...any) error }) (models.Automation,
 	automation.CreatedAt = parsedCreatedAt.UTC()
 	automation.UpdatedAt = parsedUpdatedAt.UTC()
 	return automation, nil
+}
+
+type legacyAutomationTrigger struct {
+	DeviceID string                      `json:"device_id"`
+	StateKey string                      `json:"state_key"`
+	From     models.AutomationStateMatch `json:"from"`
+	To       models.AutomationStateMatch `json:"to"`
+}
+
+func parseLegacyTriggerCondition(raw string) (models.AutomationCondition, bool, error) {
+	if strings.TrimSpace(raw) == "" || strings.TrimSpace(raw) == "{}" || strings.TrimSpace(raw) == "null" {
+		return models.AutomationCondition{}, false, nil
+	}
+	var trigger legacyAutomationTrigger
+	if err := json.Unmarshal([]byte(raw), &trigger); err != nil {
+		return models.AutomationCondition{}, false, err
+	}
+	if strings.TrimSpace(trigger.DeviceID) == "" || strings.TrimSpace(trigger.StateKey) == "" {
+		return models.AutomationCondition{}, false, nil
+	}
+	from := trigger.From
+	to := trigger.To
+	return models.AutomationCondition{
+		Scope:    models.AutomationConditionScopeEvent,
+		Kind:     models.AutomationConditionKindTransition,
+		DeviceID: strings.TrimSpace(trigger.DeviceID),
+		StateKey: strings.TrimSpace(trigger.StateKey),
+		From:     &from,
+		To:       &to,
+	}, true, nil
+}
+
+func normalizeLoadedConditions(conditions []models.AutomationCondition) []models.AutomationCondition {
+	if len(conditions) == 0 {
+		return conditions
+	}
+	out := make([]models.AutomationCondition, 0, len(conditions))
+	for _, condition := range conditions {
+		switch condition.Kind {
+		case models.AutomationConditionKindTransition, models.AutomationConditionKindMatch:
+		default:
+			if condition.From != nil || condition.To != nil {
+				condition.Kind = models.AutomationConditionKindTransition
+			} else {
+				condition.Kind = models.AutomationConditionKindMatch
+			}
+		}
+		switch condition.Scope {
+		case models.AutomationConditionScopeEvent, models.AutomationConditionScopeState:
+		default:
+			if condition.Kind == models.AutomationConditionKindTransition {
+				condition.Scope = models.AutomationConditionScopeEvent
+			} else {
+				condition.Scope = models.AutomationConditionScopeState
+			}
+		}
+		if condition.Kind == models.AutomationConditionKindTransition {
+			condition.Match = nil
+		} else {
+			condition.From = nil
+			condition.To = nil
+		}
+		out = append(out, condition)
+	}
+	return out
 }

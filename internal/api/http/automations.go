@@ -72,5 +72,40 @@ func decodeAutomationRequest(r *http.Request) (models.Automation, error) {
 	if err := json.Unmarshal(raw, &automation); err != nil {
 		return models.Automation{}, err
 	}
+	if triggerPayload, ok := payload["trigger"]; ok {
+		legacyTrigger, err := decodeLegacyTriggerCondition(triggerPayload)
+		if err != nil {
+			return models.Automation{}, err
+		}
+		automation.Conditions = append([]models.AutomationCondition{legacyTrigger}, automation.Conditions...)
+	}
 	return automation, nil
+}
+
+type legacyAutomationTrigger struct {
+	DeviceID string                      `json:"device_id"`
+	StateKey string                      `json:"state_key"`
+	From     models.AutomationStateMatch `json:"from"`
+	To       models.AutomationStateMatch `json:"to"`
+}
+
+func decodeLegacyTriggerCondition(value any) (models.AutomationCondition, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return models.AutomationCondition{}, err
+	}
+	var trigger legacyAutomationTrigger
+	if err := json.Unmarshal(raw, &trigger); err != nil {
+		return models.AutomationCondition{}, err
+	}
+	from := trigger.From
+	to := trigger.To
+	return models.AutomationCondition{
+		Scope:    models.AutomationConditionScopeEvent,
+		Kind:     models.AutomationConditionKindTransition,
+		DeviceID: strings.TrimSpace(trigger.DeviceID),
+		StateKey: strings.TrimSpace(trigger.StateKey),
+		From:     &from,
+		To:       &to,
+	}, nil
 }

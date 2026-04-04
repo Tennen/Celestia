@@ -31,13 +31,13 @@ func (s *Service) handleStateChange(event models.Event) {
 		if !automation.Enabled {
 			continue
 		}
-		if !matchesTrigger(automation.Trigger, event.DeviceID, previousState, currentState) {
+		if !matchesEventConditions(automation.Conditions, event.DeviceID, previousState, currentState) {
 			continue
 		}
 		if !matchesTimeWindow(event.TS, automation.TimeWindow) {
 			continue
 		}
-		ok, err := s.matchesConditions(ctx, automation)
+		ok, err := s.matchesStateConditions(ctx, automation)
 		if err != nil {
 			s.updateRunResult(ctx, automation, models.AutomationRunStatusFailed, err.Error())
 			s.publishAutomationEvent(models.EventAutomationFailed, automation, event, err.Error(), nil)
@@ -56,23 +56,54 @@ func (s *Service) handleStateChange(event models.Event) {
 	}
 }
 
-func matchesTrigger(trigger models.AutomationTrigger, deviceID string, previousState map[string]any, currentState map[string]any) bool {
-	if trigger.DeviceID != deviceID {
+func matchesEventConditions(
+	conditions []models.AutomationCondition,
+	deviceID string,
+	previousState map[string]any,
+	currentState map[string]any,
+) bool {
+	for _, condition := range conditions {
+		if condition.Scope != models.AutomationConditionScopeEvent {
+			continue
+		}
+		if matchesEventCondition(condition, deviceID, previousState, currentState) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesEventCondition(
+	condition models.AutomationCondition,
+	deviceID string,
+	previousState map[string]any,
+	currentState map[string]any,
+) bool {
+	if condition.DeviceID != deviceID {
 		return false
 	}
-	currentValue, hasCurrent := currentState[trigger.StateKey]
+	currentValue, hasCurrent := currentState[condition.StateKey]
 	if !hasCurrent {
 		return false
 	}
-	previousValue, hasPrevious := previousState[trigger.StateKey]
+	previousValue, hasPrevious := previousState[condition.StateKey]
 	if !hasPrevious {
 		return false
 	}
 	if reflect.DeepEqual(previousValue, currentValue) {
 		return false
 	}
-	return matchesStateValue(previousValue, hasPrevious, trigger.From) &&
-		matchesStateValue(currentValue, hasCurrent, trigger.To)
+	switch condition.Kind {
+	case models.AutomationConditionKindTransition:
+		return condition.From != nil &&
+			condition.To != nil &&
+			matchesStateValue(previousValue, hasPrevious, *condition.From) &&
+			matchesStateValue(currentValue, hasCurrent, *condition.To)
+	case models.AutomationConditionKindMatch:
+		return condition.Match != nil && matchesStateValue(currentValue, hasCurrent, *condition.Match)
+	default:
+		return false
+	}
 }
 
 func matchesTimeWindow(ts time.Time, window *models.AutomationTimeWindow) bool {
@@ -106,12 +137,19 @@ func parseClockHM(value string) (int, error) {
 	return parsed.Hour()*60 + parsed.Minute(), nil
 }
 
-func (s *Service) matchesConditions(ctx context.Context, automation models.Automation) (bool, error) {
-	if len(automation.Conditions) == 0 {
+func (s *Service) matchesStateConditions(ctx context.Context, automation models.Automation) (bool, error) {
+	stateConditions := make([]models.AutomationCondition, 0, len(automation.Conditions))
+	for _, condition := range automation.Conditions {
+		if condition.Scope != models.AutomationConditionScopeState {
+			continue
+		}
+		stateConditions = append(stateConditions, condition)
+	}
+	if len(stateConditions) == 0 {
 		return true, nil
 	}
-	results := make([]bool, 0, len(automation.Conditions))
-	for _, condition := range automation.Conditions {
+	results := make([]bool, 0, len(stateConditions))
+	for _, condition := range stateConditions {
 		snapshot, ok, err := s.state.Get(ctx, condition.DeviceID)
 		if err != nil {
 			return false, err
@@ -120,7 +158,7 @@ func (s *Service) matchesConditions(ctx context.Context, automation models.Autom
 			return false, fmt.Errorf("condition device %q state not found", condition.DeviceID)
 		}
 		value, exists := snapshot.State[condition.StateKey]
-		results = append(results, matchesStateValue(value, exists, condition.Match))
+		results = append(results, condition.Match != nil && matchesStateValue(value, exists, *condition.Match))
 	}
 	if automation.ConditionLogic == models.AutomationLogicAny {
 		for _, result := range results {

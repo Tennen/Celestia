@@ -219,20 +219,27 @@ These routes stay under `/api/v1` and let the admin UI manage Core-owned state-c
 
 Each automation has:
 
-- one trigger based on a device state transition
-- zero or more current-state conditions combined by `condition_logic`
+- one or more `conditions`
+- one or more `event`-scoped conditions; any matching event condition can trigger the automation
+- zero or more `state`-scoped conditions combined by `condition_logic` as extra runtime gates
 - an optional daily time window
 - one or more actions executed against existing devices
 
 Supported match operators:
 
-- `any` for trigger `from`
+- `any` for `event` + `transition` condition `from`
 - `equals`
 - `not_equals`
 - `in`
 - `not_in`
 - `exists`
 - `missing`
+
+Condition shapes:
+
+- `scope: "event"` + `kind: "transition"` uses `from` and `to`
+- `scope: "event"` + `kind: "match"` uses `match` against the changed key's new value
+- `scope: "state"` + `kind: "match"` uses `match` against the latest persisted device state
 
 For `in` and `not_in`, `value` must be a JSON array. This allows one rule to match transitions like `D -> A/B/C` on the same state key.
 
@@ -250,21 +257,25 @@ Response:
     "id": "automation-1",
     "name": "Washer Done Voice Push",
     "enabled": true,
-    "trigger": {
-      "device_id": "haier:washer:home:washer-1",
-      "state_key": "phase",
-      "from": {
-        "operator": "not_equals",
-        "value": "ready"
-      },
-      "to": {
-        "operator": "in",
-        "value": ["ready", "dry_done", "wash_done"]
-      }
-    },
     "condition_logic": "all",
     "conditions": [
       {
+        "scope": "event",
+        "kind": "transition",
+        "device_id": "haier:washer:home:washer-1",
+        "state_key": "phase",
+        "from": {
+          "operator": "not_equals",
+          "value": "ready"
+        },
+        "to": {
+          "operator": "in",
+          "value": ["ready", "dry_done", "wash_done"]
+        }
+      },
+      {
+        "scope": "state",
+        "kind": "match",
         "device_id": "haier:washer:home:washer-1",
         "state_key": "machine_status",
         "match": {

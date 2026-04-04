@@ -34,17 +34,28 @@ type AutomationStateMatch struct {
 	Value    any                     `json:"value,omitempty"`
 }
 
-type AutomationTrigger struct {
-	DeviceID string               `json:"device_id"`
-	StateKey string               `json:"state_key"`
-	From     AutomationStateMatch `json:"from"`
-	To       AutomationStateMatch `json:"to"`
-}
+type AutomationConditionScope string
+
+const (
+	AutomationConditionScopeEvent AutomationConditionScope = "event"
+	AutomationConditionScopeState AutomationConditionScope = "state"
+)
+
+type AutomationConditionKind string
+
+const (
+	AutomationConditionKindTransition AutomationConditionKind = "transition"
+	AutomationConditionKindMatch      AutomationConditionKind = "match"
+)
 
 type AutomationCondition struct {
-	DeviceID string               `json:"device_id"`
-	StateKey string               `json:"state_key"`
-	Match    AutomationStateMatch `json:"match"`
+	Scope    AutomationConditionScope `json:"scope,omitempty"`
+	Kind     AutomationConditionKind  `json:"kind,omitempty"`
+	DeviceID string                   `json:"device_id"`
+	StateKey string                   `json:"state_key"`
+	From     *AutomationStateMatch    `json:"from,omitempty"`
+	To       *AutomationStateMatch    `json:"to,omitempty"`
+	Match    *AutomationStateMatch    `json:"match,omitempty"`
 }
 
 type AutomationTimeWindow struct {
@@ -63,7 +74,6 @@ type Automation struct {
 	ID              string                `json:"id"`
 	Name            string                `json:"name"`
 	Enabled         bool                  `json:"enabled"`
-	Trigger         AutomationTrigger     `json:"trigger"`
 	ConditionLogic  AutomationLogic       `json:"condition_logic"`
 	Conditions      []AutomationCondition `json:"conditions,omitempty"`
 	TimeWindow      *AutomationTimeWindow `json:"time_window,omitempty"`

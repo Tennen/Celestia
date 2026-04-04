@@ -74,17 +74,17 @@ export type AutomationStateMatch = {
   value?: unknown;
 };
 
-export type AutomationTrigger = {
-  device_id: string;
-  state_key: string;
-  from: AutomationStateMatch;
-  to: AutomationStateMatch;
-};
+export type AutomationConditionScope = 'event' | 'state';
+export type AutomationConditionKind = 'transition' | 'match';
 
 export type AutomationCondition = {
+  scope?: AutomationConditionScope;
+  kind?: AutomationConditionKind;
   device_id: string;
   state_key: string;
-  match: AutomationStateMatch;
+  from?: AutomationStateMatch;
+  to?: AutomationStateMatch;
+  match?: AutomationStateMatch;
 };
 
 export type AutomationTimeWindow = {
@@ -103,7 +103,6 @@ export type Automation = {
   id: string;
   name: string;
   enabled: boolean;
-  trigger: AutomationTrigger;
   condition_logic: AutomationLogic;
   conditions?: AutomationCondition[];
   time_window?: AutomationTimeWindow | null;

@@ -3,6 +3,8 @@ import type {
   Automation,
   AutomationAction,
   AutomationCondition,
+  AutomationConditionKind,
+  AutomationConditionScope,
   AutomationMatchOperator,
   DeviceControl,
   DeviceControlOption,
@@ -130,6 +132,71 @@ export function findDevice(devices: DeviceView[], deviceId: string) {
   return devices.find((device) => device.device.id === deviceId) ?? null;
 }
 
+function conditionStateValue(device: DeviceView | null | undefined, stateKey: string) {
+  return stateKey ? device?.state.state?.[stateKey] : '';
+}
+
+export function getConditionScope(condition: AutomationCondition): AutomationConditionScope {
+  if (condition.scope === 'event' || condition.scope === 'state') {
+    return condition.scope;
+  }
+  return condition.from || condition.to ? 'event' : 'state';
+}
+
+export function getConditionKind(condition: AutomationCondition): AutomationConditionKind {
+  if (condition.kind === 'transition' || condition.kind === 'match') {
+    return condition.kind;
+  }
+  return condition.from || condition.to ? 'transition' : 'match';
+}
+
+export function getPrimaryConditionDeviceId(automation: Automation) {
+  const conditions = automation.conditions ?? [];
+  const eventCondition = conditions.find((condition) => getConditionScope(condition) === 'event');
+  return eventCondition?.device_id || conditions[0]?.device_id || '';
+}
+
+export function createDefaultCondition(
+  devices: DeviceView[],
+  options?: {
+    deviceId?: string;
+    scope?: AutomationConditionScope;
+    kind?: AutomationConditionKind;
+  },
+): AutomationCondition {
+  const selectedDevice = findDevice(devices, options?.deviceId ?? '') ?? devices[0] ?? null;
+  const stateKey = buildStateKeyOptions(selectedDevice)[0]?.value ?? '';
+  const value = conditionStateValue(selectedDevice, stateKey);
+  const scope = options?.scope ?? 'event';
+  const kind = options?.kind ?? 'transition';
+  if (kind === 'transition') {
+    return {
+      scope,
+      kind,
+      device_id: selectedDevice?.device.id ?? '',
+      state_key: stateKey,
+      from: {
+        operator: 'not_equals',
+        value,
+      },
+      to: {
+        operator: 'equals',
+        value,
+      },
+    };
+  }
+  return {
+    scope,
+    kind,
+    device_id: selectedDevice?.device.id ?? '',
+    state_key: stateKey,
+    match: {
+      operator: 'equals',
+      value,
+    },
+  };
+}
+
 export function parseStateValueInput(raw: string): unknown {
   const value = raw.trim();
   if (!value) {
@@ -223,12 +290,9 @@ export function parseActionParams(raw: string) {
 }
 
 export function defaultAutomation(devices: DeviceView[]): Automation {
-  const triggerDevice = devices[0] ?? null;
-  const triggerKeys = buildStateKeyOptions(triggerDevice);
-  const triggerKey = triggerKeys[0]?.value ?? '';
-  const triggerValue = triggerKey ? triggerDevice?.state.state?.[triggerKey] : '';
+  const defaultCondition = createDefaultCondition(devices);
 
-  let actionDevice = devices.find((device) => buildActionTemplates(device).length > 0) ?? triggerDevice;
+  let actionDevice = devices.find((device) => buildActionTemplates(device).length > 0) ?? devices[0] ?? null;
   if (!actionDevice && devices.length > 0) {
     actionDevice = devices[0];
   }
@@ -239,36 +303,13 @@ export function defaultAutomation(devices: DeviceView[]): Automation {
     action: actionTemplate?.action ?? '',
     params: actionTemplate?.params ?? {},
   };
-  const defaultCondition: AutomationCondition | undefined =
-    triggerDevice && triggerKey
-      ? {
-          device_id: triggerDevice.device.id,
-          state_key: triggerKey,
-          match: {
-            operator: 'equals',
-            value: triggerValue,
-          },
-        }
-      : undefined;
 
   return {
     id: '',
     name: '',
     enabled: true,
-    trigger: {
-      device_id: triggerDevice?.device.id ?? '',
-      state_key: triggerKey,
-      from: {
-        operator: 'not_equals',
-        value: triggerValue,
-      },
-      to: {
-        operator: 'equals',
-        value: triggerValue,
-      },
-    },
     condition_logic: 'all',
-    conditions: defaultCondition ? [defaultCondition] : [],
+    conditions: [defaultCondition],
     time_window: null,
     actions: [action],
     last_triggered_at: null,
@@ -279,5 +320,5 @@ export function defaultAutomation(devices: DeviceView[]): Automation {
   };
 }
 
-export const triggerFromOperators: AutomationMatchOperator[] = ['any', 'equals', 'not_equals', 'in', 'not_in', 'exists', 'missing'];
+export const transitionFromOperators: AutomationMatchOperator[] = ['any', 'equals', 'not_equals', 'in', 'not_in', 'exists', 'missing'];
 export const stateOperators: AutomationMatchOperator[] = ['equals', 'not_equals', 'in', 'not_in', 'exists', 'missing'];
