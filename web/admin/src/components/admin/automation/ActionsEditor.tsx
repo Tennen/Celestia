@@ -4,7 +4,7 @@ import { Textarea } from '../../ui/textarea';
 import {
   buildActionTemplates,
   findDevice,
-  getPrimaryConditionDeviceId,
+  getEventConditionDeviceId,
   prettyActionParams,
   type AutomationActionTemplate,
 } from '../../../lib/automation';
@@ -43,7 +43,7 @@ export function ActionsEditor({
               const actions = [
                 ...current.actions,
                 {
-                  device_id: current.actions[0]?.device_id || getPrimaryConditionDeviceId(current),
+                  device_id: current.actions[0]?.device_id || getEventConditionDeviceId(current),
                   label: '',
                   action: '',
                   params: {},

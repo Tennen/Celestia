@@ -9,7 +9,7 @@ import { Switch } from '../ui/switch';
 import {
   defaultAutomation,
   cloneAutomation,
-  getPrimaryConditionDeviceId,
+  getEventConditionDeviceId,
   parseActionParams,
   prettyActionParams,
   type AutomationActionTemplate,
@@ -175,7 +175,7 @@ export function AutomationWorkspace() {
                   onClick={() => loadDraft(automation)}
                   selected={selectedId === automation.id}
                   title={automation.name || automation.id}
-                  description={getPrimaryConditionDeviceId(automation) || 'No trigger condition'}
+                  description={getEventConditionDeviceId(automation) || 'No event condition'}
                   badges={
                     <>
                       <Badge tone={automation.enabled ? 'good' : 'neutral'} size="xs">
@@ -286,7 +286,7 @@ export function AutomationWorkspace() {
                 </div>
 
                 <div className="runtime-metadata">
-                  {draft.last_triggered_at ? <p>Last triggered {formatTime(draft.last_triggered_at)}</p> : <p>No executions yet.</p>}
+                  {draft.last_triggered_at ? <p>Last run {formatTime(draft.last_triggered_at)}</p> : <p>No executions yet.</p>}
                   {draft.last_error ? <p className="muted">Last error: {draft.last_error}</p> : null}
                 </div>
                 </div>

@@ -150,7 +150,7 @@ export function getConditionKind(condition: AutomationCondition): AutomationCond
   return condition.from || condition.to ? 'transition' : 'match';
 }
 
-export function getPrimaryConditionDeviceId(automation: Automation) {
+export function getEventConditionDeviceId(automation: Automation) {
   const conditions = automation.conditions ?? [];
   const eventCondition = conditions.find((condition) => getConditionScope(condition) === 'event');
   return eventCondition?.device_id || conditions[0]?.device_id || '';

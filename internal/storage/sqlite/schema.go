@@ -21,7 +21,6 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			id text primary key,
 			name text not null,
 			enabled integer not null default 1,
-			trigger_json text not null default '{}',
 			condition_logic text not null default 'all',
 			conditions_json text not null default '[]',
 			time_window_json text not null default '{}',

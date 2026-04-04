@@ -6,7 +6,7 @@ import {
   findDevice,
   getConditionKind,
   getConditionScope,
-  getPrimaryConditionDeviceId,
+  getEventConditionDeviceId,
   stateOperators,
   transitionFromOperators,
 } from '../../../lib/automation';
@@ -162,7 +162,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
   return (
     <AutomationSection
       title="Conditions"
-      description="Event conditions trigger the automation when any one matches. State conditions are extra gates combined by Condition Logic."
+      description="Event conditions start the automation when any one matches. State conditions are extra gates combined by Condition Logic."
       action={
         <Button
           variant="secondary"
@@ -172,7 +172,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
               ...current,
               conditions: [
                 ...(current.conditions ?? []),
-                createDefaultCondition(devices, { deviceId: getPrimaryConditionDeviceId(current) }),
+                createDefaultCondition(devices, { deviceId: getEventConditionDeviceId(current) }),
               ],
             }))
           }
@@ -206,8 +206,8 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                   <p className="muted">
                     {scope === 'event'
                       ? kind === 'transition'
-                        ? 'Trigger when one device state changes from one value to another.'
-                        : 'Trigger when a device state key changes and its new value matches.'
+                        ? 'Start when one device state changes from one value to another.'
+                        : 'Start when a device state key changes and its new value matches.'
                       : 'Require another device state to match before actions run.'}
                   </p>
                 </div>
@@ -239,7 +239,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                         )
                       }
                     >
-                      <option value="event">Trigger Event</option>
+                      <option value="event">Event Condition</option>
                       <option value="state" disabled={isOnlyEventCondition}>
                         State Gate
                       </option>

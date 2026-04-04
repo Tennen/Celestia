@@ -14,14 +14,17 @@ func TestHandleCreateAutomation_AllowsBlankDerivedTimestamps(t *testing.T) {
 	body := bytes.NewBufferString(`{
 		"name":"Washer done",
 		"enabled":true,
-		"trigger":{
-			"device_id":"haier:washer:test",
-			"state_key":"phase",
-			"from":{"operator":"not_equals","value":"running"},
-			"to":{"operator":"equals","value":"done"}
-		},
 		"condition_logic":"all",
-		"conditions":[],
+		"conditions":[
+			{
+				"scope":"event",
+				"kind":"transition",
+				"device_id":"haier:washer:test",
+				"state_key":"phase",
+				"from":{"operator":"not_equals","value":"running"},
+				"to":{"operator":"equals","value":"done"}
+			}
+		],
 		"actions":[{"device_id":"xiaomi:speaker:test","action":"push_voice_message","params":{"message":"done"}}],
 		"last_triggered_at":"",
 		"created_at":"",
@@ -44,10 +47,7 @@ func TestHandleCreateAutomation_AllowsBlankDerivedTimestamps(t *testing.T) {
 	if gw.savedAutomation.LastTriggeredAt != nil {
 		t.Fatalf("expected LastTriggeredAt to be nil, got %v", gw.savedAutomation.LastTriggeredAt)
 	}
-	if len(gw.savedAutomation.Conditions) != 1 {
-		t.Fatalf("expected legacy trigger to be converted into one condition, got %d", len(gw.savedAutomation.Conditions))
-	}
-	if gw.savedAutomation.Conditions[0].Scope != "event" || gw.savedAutomation.Conditions[0].Kind != "transition" {
-		t.Fatalf("expected converted condition to be event/transition, got %#v", gw.savedAutomation.Conditions[0])
+	if len(gw.savedAutomation.Conditions) != 1 || gw.savedAutomation.Conditions[0].Scope != "event" {
+		t.Fatalf("expected conditions payload to survive decoding, got %#v", gw.savedAutomation.Conditions)
 	}
 }

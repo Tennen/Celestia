@@ -220,7 +220,7 @@ These routes stay under `/api/v1` and let the admin UI manage Core-owned state-c
 Each automation has:
 
 - one or more `conditions`
-- one or more `event`-scoped conditions; any matching event condition can trigger the automation
+- one or more `event`-scoped conditions; any matching event condition can start the automation
 - zero or more `state`-scoped conditions combined by `condition_logic` as extra runtime gates
 - an optional daily time window
 - one or more actions executed against existing devices

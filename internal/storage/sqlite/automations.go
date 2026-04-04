@@ -11,7 +11,6 @@ import (
 )
 
 func (s *Store) UpsertAutomation(ctx context.Context, automation models.Automation) error {
-	triggerJSON := "{}"
 	conditionsJSON, err := marshalJSON(automation.Conditions)
 	if err != nil {
 		return err
@@ -30,13 +29,12 @@ func (s *Store) UpsertAutomation(ctx context.Context, automation models.Automati
 	}
 	_, err = s.db.ExecContext(ctx, `
 		insert into automations(
-			id, name, enabled, trigger_json, condition_logic, conditions_json, time_window_json,
+			id, name, enabled, condition_logic, conditions_json, time_window_json,
 			actions_json, last_triggered_at, last_run_status, last_error, created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		on conflict(id) do update set
 			name=excluded.name,
 			enabled=excluded.enabled,
-			trigger_json=excluded.trigger_json,
 			condition_logic=excluded.condition_logic,
 			conditions_json=excluded.conditions_json,
 			time_window_json=excluded.time_window_json,
@@ -45,7 +43,7 @@ func (s *Store) UpsertAutomation(ctx context.Context, automation models.Automati
 			last_run_status=excluded.last_run_status,
 			last_error=excluded.last_error,
 			updated_at=excluded.updated_at
-	`, automation.ID, strings.TrimSpace(automation.Name), boolToInt(automation.Enabled), triggerJSON, automation.ConditionLogic,
+	`, automation.ID, strings.TrimSpace(automation.Name), boolToInt(automation.Enabled), automation.ConditionLogic,
 		conditionsJSON, timeWindowJSON, actionsJSON, lastTriggeredAt, automation.LastRunStatus, automation.LastError,
 		automation.CreatedAt.UTC().Format(time.RFC3339Nano), automation.UpdatedAt.UTC().Format(time.RFC3339Nano))
 	return err
@@ -53,7 +51,7 @@ func (s *Store) UpsertAutomation(ctx context.Context, automation models.Automati
 
 func (s *Store) GetAutomation(ctx context.Context, id string) (models.Automation, bool, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select id, name, enabled, trigger_json, condition_logic, conditions_json, time_window_json,
+		select id, name, enabled, condition_logic, conditions_json, time_window_json,
 		       actions_json, last_triggered_at, last_run_status, last_error, created_at, updated_at
 		from automations where id = ?
 	`, id)
@@ -70,7 +68,7 @@ func (s *Store) GetAutomation(ctx context.Context, id string) (models.Automation
 
 func (s *Store) ListAutomations(ctx context.Context) ([]models.Automation, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select id, name, enabled, trigger_json, condition_logic, conditions_json, time_window_json,
+		select id, name, enabled, condition_logic, conditions_json, time_window_json,
 		       actions_json, last_triggered_at, last_run_status, last_error, created_at, updated_at
 		from automations
 		order by updated_at desc, id
@@ -99,7 +97,6 @@ func scanAutomation(scanner interface{ Scan(...any) error }) (models.Automation,
 	var (
 		automation      models.Automation
 		enabled         int
-		triggerJSON     string
 		conditionsJSON  string
 		timeWindowJSON  string
 		actionsJSON     string
@@ -111,7 +108,6 @@ func scanAutomation(scanner interface{ Scan(...any) error }) (models.Automation,
 		&automation.ID,
 		&automation.Name,
 		&enabled,
-		&triggerJSON,
 		&automation.ConditionLogic,
 		&conditionsJSON,
 		&timeWindowJSON,
@@ -130,12 +126,6 @@ func scanAutomation(scanner interface{ Scan(...any) error }) (models.Automation,
 	}
 	if err := json.Unmarshal([]byte(conditionsJSON), &automation.Conditions); err != nil {
 		return models.Automation{}, err
-	}
-	automation.Conditions = normalizeLoadedConditions(automation.Conditions)
-	if legacyTrigger, ok, err := parseLegacyTriggerCondition(triggerJSON); err != nil {
-		return models.Automation{}, err
-	} else if ok {
-		automation.Conditions = append([]models.AutomationCondition{legacyTrigger}, automation.Conditions...)
 	}
 	if timeWindowJSON != "" && strings.TrimSpace(timeWindowJSON) != "{}" && strings.TrimSpace(timeWindowJSON) != "null" {
 		var window models.AutomationTimeWindow
@@ -171,69 +161,4 @@ func scanAutomation(scanner interface{ Scan(...any) error }) (models.Automation,
 	automation.CreatedAt = parsedCreatedAt.UTC()
 	automation.UpdatedAt = parsedUpdatedAt.UTC()
 	return automation, nil
-}
-
-type legacyAutomationTrigger struct {
-	DeviceID string                      `json:"device_id"`
-	StateKey string                      `json:"state_key"`
-	From     models.AutomationStateMatch `json:"from"`
-	To       models.AutomationStateMatch `json:"to"`
-}
-
-func parseLegacyTriggerCondition(raw string) (models.AutomationCondition, bool, error) {
-	if strings.TrimSpace(raw) == "" || strings.TrimSpace(raw) == "{}" || strings.TrimSpace(raw) == "null" {
-		return models.AutomationCondition{}, false, nil
-	}
-	var trigger legacyAutomationTrigger
-	if err := json.Unmarshal([]byte(raw), &trigger); err != nil {
-		return models.AutomationCondition{}, false, err
-	}
-	if strings.TrimSpace(trigger.DeviceID) == "" || strings.TrimSpace(trigger.StateKey) == "" {
-		return models.AutomationCondition{}, false, nil
-	}
-	from := trigger.From
-	to := trigger.To
-	return models.AutomationCondition{
-		Scope:    models.AutomationConditionScopeEvent,
-		Kind:     models.AutomationConditionKindTransition,
-		DeviceID: strings.TrimSpace(trigger.DeviceID),
-		StateKey: strings.TrimSpace(trigger.StateKey),
-		From:     &from,
-		To:       &to,
-	}, true, nil
-}
-
-func normalizeLoadedConditions(conditions []models.AutomationCondition) []models.AutomationCondition {
-	if len(conditions) == 0 {
-		return conditions
-	}
-	out := make([]models.AutomationCondition, 0, len(conditions))
-	for _, condition := range conditions {
-		switch condition.Kind {
-		case models.AutomationConditionKindTransition, models.AutomationConditionKindMatch:
-		default:
-			if condition.From != nil || condition.To != nil {
-				condition.Kind = models.AutomationConditionKindTransition
-			} else {
-				condition.Kind = models.AutomationConditionKindMatch
-			}
-		}
-		switch condition.Scope {
-		case models.AutomationConditionScopeEvent, models.AutomationConditionScopeState:
-		default:
-			if condition.Kind == models.AutomationConditionKindTransition {
-				condition.Scope = models.AutomationConditionScopeEvent
-			} else {
-				condition.Scope = models.AutomationConditionScopeState
-			}
-		}
-		if condition.Kind == models.AutomationConditionKindTransition {
-			condition.Match = nil
-		} else {
-			condition.From = nil
-			condition.To = nil
-		}
-		out = append(out, condition)
-	}
-	return out
 }
