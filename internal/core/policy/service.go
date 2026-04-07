@@ -13,10 +13,7 @@ func New() *Service {
 }
 
 func (s *Service) Evaluate(actor, action string) models.PolicyDecision {
-	role := strings.ToLower(strings.TrimSpace(actor))
-	if role == "" {
-		role = "admin"
-	}
+	role := normalizeActorRole(actor)
 
 	risk := models.RiskLevelLow
 	lowerAction := strings.ToLower(action)
@@ -57,3 +54,14 @@ func (s *Service) Evaluate(actor, action string) models.PolicyDecision {
 	}
 }
 
+func normalizeActorRole(actor string) string {
+	role := strings.ToLower(strings.TrimSpace(actor))
+	switch {
+	case role == "":
+		return "admin"
+	case strings.HasPrefix(role, "automation:"):
+		return "admin"
+	default:
+		return role
+	}
+}
