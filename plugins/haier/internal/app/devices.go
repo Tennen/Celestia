@@ -122,65 +122,7 @@ func buildDevice(
 // buildStateSnapshot builds a unified state snapshot from UWS digital model attributes.
 // attrs is a map[string]string of attribute name → value from LoadDigitalModels.
 func buildStateSnapshot(device models.Device, appliance map[string]any, attrs map[string]string) models.DeviceStateSnapshot {
-	normalized := map[string]any{}
-
-	// Copy all raw attributes.
-	for k, v := range attrs {
-		normalized[k] = v
-	}
-
-	// machMode → machine_status
-	switch attrs["machMode"] {
-	case "3":
-		normalized["machine_status"] = "paused"
-	case "0":
-		normalized["machine_status"] = "idle"
-	case "":
-		normalized["machine_status"] = "idle"
-	default:
-		normalized["machine_status"] = "running"
-	}
-
-	if v, ok := attrs["prCode"]; ok && v != "" {
-		normalized["program"] = v
-	}
-	if v, ok := attrs["prPhase"]; ok && v != "" {
-		normalized["phase"] = v
-	}
-	if v, ok := attrs["remainingTimeMM"]; ok {
-		normalized["remaining_minutes"] = intFromAny(v)
-	}
-	if v, ok := attrs["tempLevel"]; ok {
-		if i := intFromAny(v); i > 0 {
-			normalized["temperature"] = i
-		}
-	}
-	if v, ok := attrs["spinSpeed"]; ok {
-		if i := intFromAny(v); i > 0 {
-			normalized["spin_speed"] = i
-		}
-	}
-	if v, ok := attrs["delayTime"]; ok {
-		normalized["delay_time"] = intFromAny(v)
-	}
-	if v, ok := attrs["prewash"]; ok {
-		normalized["prewash"] = v == "1" || v == "true"
-	}
-	if v, ok := attrs["extraRinse"]; ok {
-		normalized["extra_rinse"] = intFromAny(v)
-	}
-	if v, ok := attrs["goodNight"]; ok {
-		normalized["good_night"] = intFromAny(v)
-	}
-	if v, ok := attrs["totalElectricityUsed"]; ok {
-		normalized["total_electricity_used"] = floatFromAny(v)
-	}
-	if v, ok := attrs["totalWaterUsed"]; ok {
-		normalized["total_water_used"] = floatFromAny(v)
-	}
-	if v, ok := attrs["totalWashCycle"]; ok {
-		normalized["total_wash_cycle"] = intFromAny(v)
-	}
+	normalized := normalizeHaierState(attrs)
 
 	return models.DeviceStateSnapshot{
 		DeviceID: device.ID,

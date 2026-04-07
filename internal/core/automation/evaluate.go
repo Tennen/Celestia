@@ -27,6 +27,8 @@ func (s *Service) handleStateChange(event models.Event) {
 	}
 	previousState := stateMap(event.Payload["previous_state"])
 	currentState := stateMap(event.Payload["state"])
+	matchedStateChanges := 0
+	triggeredCount := 0
 	for _, automation := range automations {
 		if !automation.Enabled {
 			continue
@@ -34,6 +36,7 @@ func (s *Service) handleStateChange(event models.Event) {
 		if !matchesStateChangedConditions(automation.Conditions, event.DeviceID, previousState, currentState) {
 			continue
 		}
+		matchedStateChanges++
 		if !matchesTimeWindow(event.TS, automation.TimeWindow) {
 			continue
 		}
@@ -44,6 +47,15 @@ func (s *Service) handleStateChange(event models.Event) {
 			continue
 		}
 		if !ok {
+			if event.PluginID == "haier" {
+				log.Printf(
+					"automation: state event matched trigger but gate rejected automation=%s device=%s source=%v changed_keys=%v",
+					automation.ID,
+					event.DeviceID,
+					event.Payload["source"],
+					event.Payload["changed_keys"],
+				)
+			}
 			continue
 		}
 		if err := s.executeAutomation(ctx, automation, event); err != nil {
@@ -51,8 +63,20 @@ func (s *Service) handleStateChange(event models.Event) {
 			s.publishAutomationEvent(models.EventAutomationFailed, automation, event, err.Error(), nil)
 			continue
 		}
+		triggeredCount++
 		s.updateRunResult(ctx, automation, models.AutomationRunStatusSucceeded, "")
 		s.publishAutomationEvent(models.EventAutomationTriggered, automation, event, "", nil)
+	}
+	if event.PluginID == "haier" {
+		log.Printf(
+			"automation: state event evaluated plugin=%s device=%s source=%v changed_keys=%v matched_state_changes=%d triggered=%d",
+			event.PluginID,
+			event.DeviceID,
+			event.Payload["source"],
+			event.Payload["changed_keys"],
+			matchedStateChanges,
+			triggeredCount,
+		)
 	}
 }
 

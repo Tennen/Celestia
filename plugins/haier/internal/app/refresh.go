@@ -20,6 +20,7 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 	if len(runtimes) == 0 {
 		return errors.New("no accounts configured")
 	}
+	log.Printf("haier: poll refresh start accounts=%d", len(runtimes))
 	previousDevices := p.deviceSnapshotMap()
 	nextDevices := map[string]*applianceRuntime{}
 	var firstErr error
@@ -50,6 +51,14 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 		p.emitLocked(event)
 	}
 	p.mu.Unlock()
+	log.Printf(
+		"haier: poll refresh complete accounts=%d successes=%d devices=%d state_events=%d wss_connected=%t",
+		len(runtimes),
+		successes,
+		len(nextDevices),
+		len(events),
+		p.allWSSConnected(),
+	)
 	if successes == 0 && firstErr != nil {
 		return firstErr
 	}
@@ -101,6 +110,8 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 	if len(deviceIDs) > 0 {
 		if details, err := account.Client.LoadDigitalModelDetails(ctx, deviceIDs); err == nil {
 			digitalModels = details
+		} else {
+			log.Printf("haier: load digital models failed account=%s vendor_devices=%d err=%v", accountName, len(deviceIDs), err)
 		}
 	}
 
@@ -135,7 +146,14 @@ func (p *Plugin) refreshAccount(ctx context.Context, account *accountRuntime, ne
 	if account.WSS != nil {
 		account.WSS.UpdateDevices(deviceIDs)
 	}
-	log.Printf("haier: account=%s appliances=%d digital_models=%d", accountName, len(appliances), len(digitalModels))
+	log.Printf(
+		"haier: account=%s appliances=%d digital_models=%d vendor_devices=%d wss_connected=%t",
+		accountName,
+		len(appliances),
+		len(digitalModels),
+		len(deviceIDs),
+		account.WSS != nil && account.WSS.IsConnected(),
+	)
 	return nil
 }
 
@@ -165,9 +183,12 @@ func (p *Plugin) syncDevice(ctx context.Context, account *accountRuntime, device
 			existing.Device.Metadata["state_descriptors"] = stateDescriptors
 			existing.StateDescriptors = stateDescriptors
 		}
+		previous := cloneMap(existing.CurrentState)
 		if !reflect.DeepEqual(existing.CurrentState, snapshot.State) {
+			changedKeys := changedStateKeys(previous, snapshot.State)
 			existing.CurrentState = snapshot.State
 			existing.LastSnapshotTS = snapshot.TS
+			log.Printf("haier: single-device sync updated device=%s changed_keys=%v", device.Device.ID, changedKeys)
 			p.emitLocked(models.Event{
 				ID:       uuid.NewString(),
 				Type:     models.EventDeviceStateChanged,
@@ -175,7 +196,10 @@ func (p *Plugin) syncDevice(ctx context.Context, account *accountRuntime, device
 				DeviceID: device.Device.ID,
 				TS:       snapshot.TS,
 				Payload: map[string]any{
-					"state": snapshot.State,
+					"state":          cloneMap(snapshot.State),
+					"previous_state": previous,
+					"changed_keys":   changedKeys,
+					"source":         "single_refresh",
 				},
 			})
 		}
@@ -270,6 +294,8 @@ func buildStateChangeEvents(previous map[string]models.DeviceStateSnapshot, curr
 		if !ok || reflect.DeepEqual(prev.State, snapshot.State) {
 			continue
 		}
+		changedKeys := changedStateKeys(prev.State, snapshot.State)
+		log.Printf("haier: poll state synced device=%s changed_keys=%v", deviceID, changedKeys)
 		events = append(events, models.Event{
 			ID:       uuid.NewString(),
 			Type:     models.EventDeviceStateChanged,
@@ -279,6 +305,7 @@ func buildStateChangeEvents(previous map[string]models.DeviceStateSnapshot, curr
 			Payload: map[string]any{
 				"state":          snapshot.State,
 				"previous_state": cloneMap(prev.State),
+				"changed_keys":   changedKeys,
 				"source":         "poll_refresh",
 			},
 		})

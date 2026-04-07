@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -59,13 +60,19 @@ func (l *WssListener) Start(ctx context.Context) {
 // Stop shuts down the WebSocket listener.
 func (l *WssListener) Stop() {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	if !l.started {
+		l.mu.Unlock()
 		return
 	}
 	l.started = false
 	l.connected = false
+	conn := l.conn
+	l.conn = nil
 	close(l.stopCh)
+	l.mu.Unlock()
+	if conn != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "stopping")
+	}
 }
 
 // IsConnected reports whether the WebSocket connection is currently active.
@@ -133,6 +140,7 @@ func (l *WssListener) runLoop(ctx context.Context) {
 			l.connected = false
 			l.conn = nil
 			l.mu.Unlock()
+			log.Printf("haier: WSS connect failed account=%s err=%v", l.client.cfg.NormalizedName(), err)
 			select {
 			case <-l.stopCh:
 				return
@@ -145,6 +153,8 @@ func (l *WssListener) runLoop(ctx context.Context) {
 }
 
 func (l *WssListener) connect(ctx context.Context) error {
+	accountName := l.client.cfg.NormalizedName()
+
 	// Refresh token before connecting.
 	if err := l.client.Authenticate(ctx); err != nil {
 		return fmt.Errorf("uws wss auth: %w", err)
@@ -168,11 +178,11 @@ func (l *WssListener) connect(ctx context.Context) error {
 	defer conn.CloseNow()
 
 	l.mu.Lock()
-	l.connected = true
 	l.conn = conn
 	deviceIDs := make([]string, len(l.deviceIDs))
 	copy(deviceIDs, l.deviceIDs)
 	l.mu.Unlock()
+	log.Printf("haier: WSS connected account=%s vendor_devices=%d", accountName, len(deviceIDs))
 
 	// Subscribe to bound device updates.
 	subMsg := wssMessage{
@@ -183,8 +193,16 @@ func (l *WssListener) connect(ctx context.Context) error {
 		},
 	}
 	if err := wsjson.Write(ctx, conn, subMsg); err != nil {
+		l.mu.Lock()
+		l.conn = nil
+		l.connected = false
+		l.mu.Unlock()
 		return fmt.Errorf("uws wss subscribe: %w", err)
 	}
+	l.mu.Lock()
+	l.connected = true
+	l.mu.Unlock()
+	log.Printf("haier: WSS subscribed account=%s vendor_devices=%d", accountName, len(deviceIDs))
 
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 	defer cancelHeartbeat()
@@ -207,6 +225,7 @@ func (l *WssListener) connect(ctx context.Context) error {
 			l.connected = false
 			l.conn = nil
 			l.mu.Unlock()
+			log.Printf("haier: WSS disconnected account=%s err=%v", accountName, err)
 			return fmt.Errorf("uws wss read: %w", err)
 		}
 		l.handleRawMessage(raw)
@@ -250,8 +269,12 @@ func (l *WssListener) handleRawMessage(raw map[string]any) {
 	}
 	deviceID, attributes, err := parseWSSDeviceUpdate(msg)
 	if err != nil || deviceID == "" || len(attributes) == 0 {
+		if err != nil {
+			log.Printf("haier: WSS message ignored account=%s err=%v", l.client.cfg.NormalizedName(), err)
+		}
 		return
 	}
+	log.Printf("haier: WSS push received account=%s vendor_device_id=%s attrs=%v", l.client.cfg.NormalizedName(), deviceID, attributes)
 	if l.onUpdate != nil {
 		l.onUpdate(deviceID, attributes)
 	}

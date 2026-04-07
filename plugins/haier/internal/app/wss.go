@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"log"
-	"reflect"
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
@@ -72,19 +71,16 @@ func (p *Plugin) applyWSSUpdate(vendorDeviceID string, attributes map[string]str
 		return
 	}
 
-	// Merge incoming attributes into current state.
 	previous := cloneMap(device.CurrentState)
-	next := cloneMap(device.CurrentState)
-	for k, v := range attributes {
-		next[k] = v
-	}
-
-	if reflect.DeepEqual(device.CurrentState, next) {
+	next := mergeHaierStateUpdate(device.CurrentState, attributes)
+	changedKeys := changedStateKeys(previous, next)
+	if len(changedKeys) == 0 {
 		return
 	}
 
 	device.CurrentState = next
 	device.LastSnapshotTS = time.Now().UTC()
+	log.Printf("haier: WSS state synced device=%s vendor_device_id=%s changed_keys=%v attrs=%v", deviceID, vendorDeviceID, changedKeys, attributes)
 
 	p.emitLocked(models.Event{
 		ID:       uuid.NewString(),
@@ -95,6 +91,7 @@ func (p *Plugin) applyWSSUpdate(vendorDeviceID string, attributes map[string]str
 		Payload: map[string]any{
 			"state":          cloneMap(next),
 			"previous_state": previous,
+			"changed_keys":   changedKeys,
 			"source":         "wss_push",
 		},
 	})
