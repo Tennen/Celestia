@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chentianyu/celestia/internal/core/audit"
@@ -27,6 +28,11 @@ type Service struct {
 	audit     *audit.Service
 	pluginMgr *pluginmgr.Manager
 
+	mu                sync.RWMutex
+	automationIndex   map[string][]string
+	automationCache   map[string]models.Automation
+	automationDevices map[string]string
+
 	subscriptionID int
 }
 
@@ -40,14 +46,18 @@ func New(
 	pluginMgr *pluginmgr.Manager,
 ) *Service {
 	svc := &Service{
-		store:     store,
-		bus:       bus,
-		registry:  registry,
-		state:     state,
-		policy:    policySvc,
-		audit:     auditSvc,
-		pluginMgr: pluginMgr,
+		store:             store,
+		bus:               bus,
+		registry:          registry,
+		state:             state,
+		policy:            policySvc,
+		audit:             auditSvc,
+		pluginMgr:         pluginMgr,
+		automationIndex:   map[string][]string{},
+		automationCache:   map[string]models.Automation{},
+		automationDevices: map[string]string{},
 	}
+	svc.loadIndexOnStart()
 	svc.start()
 	return svc
 }
@@ -110,6 +120,7 @@ func (s *Service) Save(ctx context.Context, automation models.Automation) (model
 	if err := s.store.UpsertAutomation(ctx, normalized); err != nil {
 		return models.Automation{}, err
 	}
+	s.upsertIndexedAutomation(normalized)
 	return normalized, nil
 }
 
@@ -118,7 +129,11 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New("automation id is required")
 	}
-	return s.store.DeleteAutomation(ctx, id)
+	if err := s.store.DeleteAutomation(ctx, id); err != nil {
+		return err
+	}
+	s.removeIndexedAutomation(id)
+	return nil
 }
 
 func (s *Service) normalizeAutomation(ctx context.Context, automation models.Automation) (models.Automation, error) {
@@ -148,8 +163,8 @@ func (s *Service) normalizeAutomation(ctx context.Context, automation models.Aut
 		}
 		automation.Conditions[idx] = normalized
 	}
-	if eventConditionCount == 0 {
-		return models.Automation{}, errors.New("automation requires at least one state_changed condition")
+	if eventConditionCount != 1 {
+		return models.Automation{}, errors.New("automation requires exactly one state_changed condition")
 	}
 	if automation.TimeWindow != nil {
 		automation.TimeWindow.Start = strings.TrimSpace(automation.TimeWindow.Start)

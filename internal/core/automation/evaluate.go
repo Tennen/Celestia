@@ -17,11 +17,7 @@ func (s *Service) handleStateChange(event models.Event) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
-	automations, err := s.store.ListAutomations(ctx)
-	if err != nil {
-		log.Printf("automation: list failed: %v", err)
-		return
-	}
+	automations := s.indexedAutomationsForDevice(event.DeviceID)
 	if len(automations) == 0 {
 		return
 	}
@@ -30,10 +26,11 @@ func (s *Service) handleStateChange(event models.Event) {
 	matchedStateChanges := 0
 	triggeredCount := 0
 	for _, automation := range automations {
-		if !automation.Enabled {
+		trigger, ok := stateChangedCondition(automation.Conditions)
+		if !ok {
 			continue
 		}
-		if !matchesStateChangedConditions(automation.Conditions, event.DeviceID, previousState, currentState) {
+		if !matchesStateChangedCondition(trigger, event.DeviceID, previousState, currentState) {
 			continue
 		}
 		matchedStateChanges++
@@ -78,23 +75,6 @@ func (s *Service) handleStateChange(event models.Event) {
 			triggeredCount,
 		)
 	}
-}
-
-func matchesStateChangedConditions(
-	conditions []models.AutomationCondition,
-	deviceID string,
-	previousState map[string]any,
-	currentState map[string]any,
-) bool {
-	for _, condition := range conditions {
-		if condition.Type != models.AutomationConditionTypeStateChanged {
-			continue
-		}
-		if matchesStateChangedCondition(condition, deviceID, previousState, currentState) {
-			return true
-		}
-	}
-	return false
 }
 
 func matchesStateChangedCondition(
@@ -257,6 +237,7 @@ func (s *Service) updateRunResult(ctx context.Context, automation models.Automat
 	now := time.Now().UTC()
 	automation.LastTriggeredAt = &now
 	automation.UpdatedAt = now
+	s.updateIndexedAutomation(automation)
 	if err := s.store.UpsertAutomation(ctx, automation); err != nil {
 		log.Printf("automation: persist run result id=%s failed: %v", automation.ID, err)
 	}

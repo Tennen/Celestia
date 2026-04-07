@@ -180,6 +180,69 @@ func TestServiceSaveNormalizesListMatchers(t *testing.T) {
 	}
 }
 
+func TestServiceSaveRequiresExactlyOneStateChangedCondition(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAutomationTestService(t)
+
+	tests := []struct {
+		name       string
+		conditions []models.AutomationCondition
+	}{
+		{
+			name: "missing state_changed",
+			conditions: []models.AutomationCondition{
+				{
+					Type:     models.AutomationConditionTypeCurrentState,
+					DeviceID: "haier:washer:test",
+					StateKey: "phase",
+					Match:    &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "ready"},
+				},
+			},
+		},
+		{
+			name: "multiple state_changed",
+			conditions: []models.AutomationCondition{
+				{
+					Type:     models.AutomationConditionTypeStateChanged,
+					DeviceID: "haier:washer:test",
+					StateKey: "phase",
+					From:     &models.AutomationStateMatch{Operator: models.AutomationMatchAny},
+					To:       &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "ready"},
+				},
+				{
+					Type:     models.AutomationConditionTypeStateChanged,
+					DeviceID: "xiaomi:speaker:test",
+					StateKey: "play_status",
+					From:     &models.AutomationStateMatch{Operator: models.AutomationMatchAny},
+					To:       &models.AutomationStateMatch{Operator: models.AutomationMatchEquals, Value: "idle"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := svc.Save(ctx, models.Automation{
+				Name:       tt.name,
+				Enabled:    true,
+				Conditions: tt.conditions,
+				Actions: []models.AutomationAction{
+					{
+						DeviceID: "xiaomi:speaker:test",
+						Action:   "push_voice_message",
+					},
+				},
+			})
+			if err == nil {
+				t.Fatal("Save() should reject automations without exactly one state_changed condition")
+			}
+			if got := err.Error(); got != "automation requires exactly one state_changed condition" {
+				t.Fatalf("Save() error = %q, want exact single-trigger error", got)
+			}
+		})
+	}
+}
+
 func TestMatchesTimeWindowSupportsOvernightRanges(t *testing.T) {
 	window := &models.AutomationTimeWindow{Start: "22:00", End: "06:00"}
 	if !matchesTimeWindow(time.Date(2026, 4, 3, 23, 15, 0, 0, time.Local), window) {

@@ -310,3 +310,7 @@ export function defaultAutomation(devices: DeviceView[]): Automation {
 
 export const transitionFromOperators: AutomationMatchOperator[] = ['any', 'equals', 'not_equals', 'in', 'not_in', 'exists', 'missing'];
 export const stateOperators: AutomationMatchOperator[] = ['equals', 'not_equals', 'in', 'not_in', 'exists', 'missing'];
+
+export function countStateChangedConditions(conditions: AutomationCondition[] | undefined): number {
+  return (conditions ?? []).filter((condition) => getConditionType(condition) === 'state_changed').length;
+}

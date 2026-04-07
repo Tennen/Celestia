@@ -1,6 +1,7 @@
 import { Button } from '../../ui/button';
 import {
   buildStateKeyOptions,
+  countStateChangedConditions,
   coerceMatchValueForOperator,
   createDefaultCondition,
   findDevice,
@@ -123,12 +124,12 @@ function updateCondition(
 }
 
 export function ConditionsEditor({ draft, devices, onChange }: Props) {
-  const stateChangedCount = (draft.conditions ?? []).filter((condition) => getConditionType(condition) === 'state_changed').length;
+  const stateChangedCount = countStateChangedConditions(draft.conditions);
 
   return (
     <AutomationSection
       title="Conditions"
-      description="State Changed conditions start the automation when any one matches. Current State Is conditions are extra gates combined by Condition Logic."
+      description="Exactly one State Changed condition starts the automation. Current State Is conditions are optional runtime gates combined by Condition Logic."
       action={
         <Button
           variant="secondary"
@@ -138,7 +139,10 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
               ...current,
               conditions: [
                 ...(current.conditions ?? []),
-                createDefaultCondition(devices, { deviceId: getStateChangedConditionDeviceId(current) }),
+                createDefaultCondition(devices, {
+                  deviceId: getStateChangedConditionDeviceId(current),
+                  type: countStateChangedConditions(current.conditions) === 0 ? 'state_changed' : 'current_state',
+                }),
               ],
             }))
           }
@@ -163,14 +167,19 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
           const type = getConditionType(condition);
           const conditionDevice = findDevice(devices, condition.device_id);
           const isOnlyStateChangedCondition = type === 'state_changed' && stateChangedCount <= 1;
+          const isRequiredStateChangedCondition = type === 'state_changed' && stateChangedCount === 1;
+          const canSwitchToStateChanged = type === 'state_changed' || stateChangedCount === 0;
           return (
             <div key={`${condition.device_id}-${index}`} className="automation-rule">
               <div className="automation-rule__header">
                 <div className="automation-section__heading">
-                  <h4 className="automation-rule__title">Condition {index + 1}</h4>
+                  <div className="automation-rule__title-row">
+                    <h4 className="automation-rule__title">Condition {index + 1}</h4>
+                    {isRequiredStateChangedCondition ? <span className="automation-rule__required">Required trigger</span> : null}
+                  </div>
                   <p className="muted">
                     {type === 'state_changed'
-                      ? 'Start when one device state changes from one value to another.'
+                      ? 'Start when the selected device state changes from one value to another.'
                       : 'Require another device state to match before actions run.'}
                   </p>
                 </div>
@@ -202,7 +211,9 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
                         )
                       }
                     >
-                      <option value="state_changed">State Changed</option>
+                      <option value="state_changed" disabled={!canSwitchToStateChanged}>
+                        State Changed
+                      </option>
                       <option value="current_state" disabled={isOnlyStateChangedCondition}>
                         Current State Is
                       </option>

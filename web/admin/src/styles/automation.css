@@ -29,6 +29,14 @@
     @apply text-base font-semibold text-foreground;
   }
 
+  .automation-rule__title-row {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .automation-rule__required {
+    @apply text-xs font-semibold text-destructive;
+  }
+
   .automation-section__body {
     @apply mt-5 space-y-4;
   }

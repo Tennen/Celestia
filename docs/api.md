@@ -220,7 +220,7 @@ These routes stay under `/api/v1` and let the admin UI manage Core-owned state-c
 Each automation has:
 
 - one or more `conditions`
-- one or more `type: "state_changed"` conditions; any matching state-change condition can start the automation
+- exactly one `type: "state_changed"` condition; that single state-change condition starts the automation
 - zero or more `type: "current_state"` conditions combined by `condition_logic` as extra runtime gates
 - an optional daily time window
 - one or more actions executed against existing devices
@@ -239,6 +239,8 @@ Condition shapes:
 
 - `type: "state_changed"` uses `from` and `to`
 - `type: "current_state"` uses `match` against the latest persisted device state
+
+Requests with zero or multiple `state_changed` conditions are rejected.
 
 For `in` and `not_in`, `value` must be a JSON array. This allows one rule to match transitions like `D -> A/B/C` on the same state key.
 
