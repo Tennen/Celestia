@@ -206,7 +206,7 @@ The container exposes the gateway and admin UI on port `8080`.
 
 ## API Docs
 
-- External device query/control API and admin control preference endpoints: [docs/api.md](/Users/chentianyu/workspace/private/Celestia/docs/api.md)
+- HTTP API reference grouped by domain, including runtime management, devices, AI, events, OAuth, and streaming: [docs/api.md](/Users/chentianyu/workspace/private/Celestia/docs/api.md)
 
 ## Admin Surface
 
