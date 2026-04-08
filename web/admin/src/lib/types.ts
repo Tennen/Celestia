@@ -146,6 +146,12 @@ export type VisionEntitySelector = {
   value: string;
 };
 
+export type VisionEntityDescriptor = {
+  kind: string;
+  value: string;
+  display_name?: string;
+};
+
 export type VisionZoneBox = {
   x: number;
   y: number;
@@ -176,6 +182,19 @@ export type VisionCapabilityConfig = {
   updated_at: string;
 };
 
+export type VisionEntityCatalog = {
+  service_url: string;
+  schema_version: string;
+  service_version?: string;
+  model_name?: string;
+  fetched_at: string;
+  entities: VisionEntityDescriptor[];
+};
+
+export type VisionEntityCatalogRefreshRequest = {
+  service_url?: string;
+};
+
 export type VisionCapabilityStatus = {
   status: HealthState;
   message?: string;
@@ -191,6 +210,7 @@ export type VisionCapabilityStatus = {
 export type VisionCapabilityDetail = {
   config: VisionCapabilityConfig;
   runtime: VisionCapabilityStatus;
+  catalog?: VisionEntityCatalog | null;
   recent_events?: EventRecord[];
 };
 

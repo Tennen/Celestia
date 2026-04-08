@@ -68,8 +68,60 @@ Response:
       "sync_error": "",
       "updated_at": "2026-04-08T09:28:11Z"
     },
+    "catalog": {
+      "service_url": "http://127.0.0.1:8090",
+      "schema_version": "celestia.vision.catalog.v1",
+      "service_version": "1.2.0",
+      "model_name": "yolo11m-coco",
+      "fetched_at": "2026-04-08T09:18:00Z",
+      "entities": [
+        {
+          "kind": "label",
+          "value": "cat",
+          "display_name": "Cat"
+        }
+      ]
+    },
     "recent_events": []
   }
+}
+```
+
+## Refresh Vision Entity Catalog
+
+`POST /api/v1/capabilities/vision_entity_stay_zone/entities/refresh`
+
+Request body:
+
+```json
+{
+  "service_url": "http://127.0.0.1:8090"
+}
+```
+
+`service_url` is optional when the capability already has a saved Vision Service address. Gateway uses this route to fetch the current model-supported recognizable entity list before rules are configured.
+
+Response:
+
+```json
+{
+  "service_url": "http://127.0.0.1:8090",
+  "schema_version": "celestia.vision.catalog.v1",
+  "service_version": "1.2.0",
+  "model_name": "yolo11m-coco",
+  "fetched_at": "2026-04-08T09:18:00Z",
+  "entities": [
+    {
+      "kind": "label",
+      "value": "cat",
+      "display_name": "Cat"
+    },
+    {
+      "kind": "label",
+      "value": "dog",
+      "display_name": "Dog"
+    }
+  ]
 }
 ```
 
@@ -114,6 +166,13 @@ Response: HTTP `200` with the persisted `CapabilityDetail` for `vision_entity_st
 Gateway is the source of truth for this config. It persists the config first, then attempts to push a normalized copy to the external Vision Service at:
 
 - `PUT {service_url}/api/v1/capabilities/vision_entity_stay_zone`
+
+If Gateway already has a fetched entity catalog for the same `service_url`, it validates each `entity_selector` against that catalog before accepting the config. This lets the admin flow follow the intended sequence:
+
+1. refresh current recognizable entities from the Vision Service
+2. choose `cat` or another advertised entity
+3. bind camera, RTSP source, zone, and stay threshold
+4. save and sync the full rule set downstream
 
 The pushed payload is a stable control-plane structure:
 

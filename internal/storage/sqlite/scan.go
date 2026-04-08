@@ -206,6 +206,35 @@ func scanVisionConfig(scanner interface{ Scan(...any) error }) (models.VisionCap
 	return config, nil
 }
 
+func scanVisionCatalog(scanner interface{ Scan(...any) error }) (models.VisionEntityCatalog, error) {
+	var (
+		capabilityID string
+		catalog      models.VisionEntityCatalog
+		entitiesJSON string
+		fetchedAt    string
+	)
+	if err := scanner.Scan(
+		&capabilityID,
+		&catalog.ServiceURL,
+		&catalog.SchemaVersion,
+		&catalog.ServiceVersion,
+		&catalog.ModelName,
+		&entitiesJSON,
+		&fetchedAt,
+	); err != nil {
+		return models.VisionEntityCatalog{}, err
+	}
+	if err := parseJSON(entitiesJSON, &catalog.Entities); err != nil {
+		return models.VisionEntityCatalog{}, err
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, fetchedAt)
+	if err != nil {
+		return models.VisionEntityCatalog{}, err
+	}
+	catalog.FetchedAt = parsed.UTC()
+	return catalog, nil
+}
+
 func scanVisionStatus(scanner interface{ Scan(...any) error }) (models.VisionCapabilityStatus, error) {
 	var (
 		capabilityID   string

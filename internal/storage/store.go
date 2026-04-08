@@ -21,6 +21,8 @@ type Store interface {
 
 	UpsertVisionConfig(context.Context, models.VisionCapabilityConfig) error
 	GetVisionConfig(context.Context) (models.VisionCapabilityConfig, bool, error)
+	UpsertVisionCatalog(context.Context, models.VisionEntityCatalog) error
+	GetVisionCatalog(context.Context) (models.VisionEntityCatalog, bool, error)
 	UpsertVisionStatus(context.Context, models.VisionCapabilityStatus) error
 	GetVisionStatus(context.Context) (models.VisionCapabilityStatus, bool, error)
 

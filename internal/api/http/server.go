@@ -46,6 +46,7 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("GET /api/v1/capabilities", s.handleCapabilities)
 	mux.HandleFunc("GET /api/v1/capabilities/{id}", s.handleCapability)
 	mux.HandleFunc("PUT /api/v1/capabilities/vision_entity_stay_zone", s.handleUpdateVisionCapability)
+	mux.HandleFunc("POST /api/v1/capabilities/vision_entity_stay_zone/entities/refresh", s.handleRefreshVisionEntityCatalog)
 	mux.HandleFunc("POST /api/v1/capabilities/vision_entity_stay_zone/status", s.handleVisionCapabilityStatus)
 	mux.HandleFunc("POST /api/v1/capabilities/vision_entity_stay_zone/events", s.handleVisionCapabilityEvents)
 	mux.HandleFunc("POST /api/v1/plugins", s.handleInstallPlugin)

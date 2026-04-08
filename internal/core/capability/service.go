@@ -115,6 +115,18 @@ func (s *Service) visionDetail(ctx context.Context) (models.CapabilityDetail, bo
 	if err != nil {
 		return models.CapabilityDetail{}, false, err
 	}
+	summary := map[string]any{
+		"service_url":        visionDetail.Config.ServiceURL,
+		"rule_count":         len(visionDetail.Config.Rules),
+		"enabled_rule_count": enabledRuleCount(visionDetail.Config.Rules),
+		"last_event_at":      visionDetail.Runtime.LastEventAt,
+		"last_synced_at":     visionDetail.Runtime.LastSyncedAt,
+	}
+	if visionDetail.Catalog != nil {
+		summary["entity_count"] = len(visionDetail.Catalog.Entities)
+		summary["catalog_fetched_at"] = visionDetail.Catalog.FetchedAt
+		summary["catalog_service_url"] = visionDetail.Catalog.ServiceURL
+	}
 	detail := models.CapabilityDetail{
 		Capability: models.Capability{
 			ID:          models.VisionCapabilityID,
@@ -123,14 +135,8 @@ func (s *Service) visionDetail(ctx context.Context) (models.CapabilityDetail, bo
 			Description: "Gateway-managed stay-zone control plane for independent vision processing services.",
 			Enabled:     visionDetail.Config.RecognitionEnabled,
 			Status:      visionDetail.Runtime.Status,
-			Summary: map[string]any{
-				"service_url":        visionDetail.Config.ServiceURL,
-				"rule_count":         len(visionDetail.Config.Rules),
-				"enabled_rule_count": enabledRuleCount(visionDetail.Config.Rules),
-				"last_event_at":      visionDetail.Runtime.LastEventAt,
-				"last_synced_at":     visionDetail.Runtime.LastSyncedAt,
-			},
-			UpdatedAt: latestVisionUpdate(visionDetail),
+			Summary:     summary,
+			UpdatedAt:   latestVisionUpdate(visionDetail),
 		},
 		Vision: &visionDetail,
 	}

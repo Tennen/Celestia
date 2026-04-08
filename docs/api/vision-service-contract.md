@@ -40,6 +40,8 @@ Important:
 
 Current base paths:
 
+- Gateway -> Vision Service entity catalog:
+  `GET {service_url}/api/v1/capabilities/vision_entity_stay_zone/entities`
 - Gateway -> Vision Service sync:
   `PUT {service_url}/api/v1/capabilities/vision_entity_stay_zone`
 - Vision Service -> Gateway status callback:
@@ -48,6 +50,62 @@ Current base paths:
   `POST {gateway_base}{event_path}`
 
 The `status_path` and `event_path` are supplied by Gateway inside the sync payload, so the Vision Service should not hardcode them beyond basic routing support.
+
+## 0. Entity Catalog Discovery: Gateway -> Vision Service
+
+Before Gateway configures a rule such as `cat` stay-zone detection, it first fetches the current model-supported entity catalog from the Vision Service.
+
+### Request
+
+`GET {service_url}/api/v1/capabilities/vision_entity_stay_zone/entities`
+
+### Recommended Response
+
+```json
+{
+  "schema_version": "celestia.vision.catalog.v1",
+  "service_version": "1.2.0",
+  "model_name": "yolo11m-coco",
+  "fetched_at": "2026-04-08T09:18:00Z",
+  "entities": [
+    {
+      "kind": "label",
+      "value": "cat",
+      "display_name": "Cat"
+    },
+    {
+      "kind": "label",
+      "value": "dog",
+      "display_name": "Dog"
+    }
+  ]
+}
+```
+
+### Field Semantics
+
+- `schema_version`
+  Current value is `celestia.vision.catalog.v1`.
+- `service_version`
+  Optional service/runtime version string.
+- `model_name`
+  Optional current recognition model identifier, for example `yolo11m-coco`.
+- `fetched_at`
+  Service-side timestamp for this entity catalog snapshot.
+- `entities`
+  Current recognizable entities for the active model.
+
+#### Entity Fields
+
+- `kind`
+  Generic selector kind that Gateway can feed back into `entity_selector.kind`.
+  Current recommended value is `label`.
+- `value`
+  Business-facing selector value, for example `cat`.
+- `display_name`
+  Optional human-friendly label for admin surfaces.
+
+Gateway uses this catalog to populate the rule editor and validate configured entities when the catalog matches the target Vision Service address.
 
 ## 1. Config Sync: Gateway -> Vision Service
 
@@ -378,20 +436,22 @@ Practical guidance for the Vision Service:
 
 To be considered compatible with the current Gateway contract, the Vision Service must:
 
-1. Expose `PUT /api/v1/capabilities/vision_entity_stay_zone`.
-2. Accept the full sync payload defined above.
-3. Reconcile internal active rules to the synced desired state.
-4. Read RTSP from `rtsp_source.url` directly.
-5. Apply zone and dwell logic per rule.
-6. POST runtime health to Gateway using the provided `status_path`.
-7. POST structured `threshold_met` / `cleared` batches to Gateway using the provided `event_path`.
-8. Avoid repeated `threshold_met` emission for the same active stay episode.
+1. Expose `GET /api/v1/capabilities/vision_entity_stay_zone/entities`.
+2. Expose `PUT /api/v1/capabilities/vision_entity_stay_zone`.
+3. Accept the full sync payload defined above.
+4. Reconcile internal active rules to the synced desired state.
+5. Read RTSP from `rtsp_source.url` directly.
+6. Apply zone and dwell logic per rule.
+7. POST runtime health to Gateway using the provided `status_path`.
+8. POST structured `threshold_met` / `cleared` batches to Gateway using the provided `event_path`.
+9. Avoid repeated `threshold_met` emission for the same active stay episode.
 
 ## 7. Schema Reference
 
 The canonical Go structs in this repository are:
 
 - `internal/models/vision.go`
+  - `VisionServiceEntityCatalog`
   - `VisionServiceSyncPayload`
   - `VisionServiceSyncCallbacks`
   - `VisionServiceRule`

@@ -5,14 +5,14 @@ import { Card, CardContent, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
 import { Switch } from '../ui/switch';
-import { fetchCapability, saveVisionCapabilityConfig } from '../../lib/api';
-import { cameraLabel, cloneVisionConfig, createVisionRule, defaultVisionConfig } from '../../lib/capability';
+import { fetchCapability, refreshVisionEntityCatalog, saveVisionCapabilityConfig } from '../../lib/api';
+import { cloneVisionConfig, createVisionRule, defaultVisionConfig } from '../../lib/capability';
 import { formatTime, prettyJson } from '../../lib/utils';
 import { useAdminStore } from '../../stores/adminStore';
 import type { CapabilityDetail, CapabilitySummary, DeviceView, HealthState, VisionCapabilityConfig, VisionRule } from '../../lib/types';
 import { CardHeading } from './shared/CardHeading';
 import { SelectableListItem } from './shared/SelectableListItem';
-import { ZoneBoxEditor } from './ZoneBoxEditor';
+import { VisionRuleEditorCard } from './VisionRuleEditorCard';
 
 type Props = {
   summary: CapabilitySummary | null;
@@ -33,6 +33,10 @@ function ensureSelection(currentId: string, rules: VisionRule[]) {
   return rules[0].id;
 }
 
+function normalizeVisionServiceURL(value: string) {
+  return value.trim().replace(/\/+$/, '');
+}
+
 export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   const { refreshAll } = useAdminStore();
   const cameraDevices = useMemo(
@@ -42,7 +46,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   const [detail, setDetail] = useState<CapabilityDetail | null>(null);
   const [draft, setDraft] = useState<VisionCapabilityConfig>(() => defaultVisionConfig());
   const [selectedRuleId, setSelectedRuleId] = useState('');
-  const [busy, setBusy] = useState<'load' | 'save' | ''>('load');
+  const [busy, setBusy] = useState<'load' | 'save' | 'refresh_entities' | ''>('load');
 
   useEffect(() => {
     if (summary?.id !== 'vision_entity_stay_zone') return;
@@ -72,7 +76,13 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   }, [summary?.id, summary?.updated_at, onError]);
 
   const runtime = detail?.vision?.runtime;
+  const catalog = detail?.vision?.catalog ?? null;
   const recentEvents = detail?.vision?.recent_events ?? [];
+  const normalizedDraftServiceURL = normalizeVisionServiceURL(draft.service_url);
+  const catalogMatchesDraft = Boolean(
+    catalog && normalizeVisionServiceURL(catalog.service_url) === normalizedDraftServiceURL,
+  );
+  const activeCatalog = catalogMatchesDraft ? catalog : null;
   const selectedRule = draft.rules.find((rule) => rule.id === selectedRuleId) ?? null;
 
   const updateDraft = (updater: (current: VisionCapabilityConfig) => VisionCapabilityConfig) => {
@@ -88,6 +98,14 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
 
   const addRule = () => {
     const rule = createVisionRule(cameraDevices, draft.rules.length);
+    const preferredEntity =
+      activeCatalog?.entities.find((entity) => entity.kind === 'label' && entity.value === 'cat') ?? activeCatalog?.entities[0];
+    if (preferredEntity) {
+      rule.entity_selector = {
+        kind: preferredEntity.kind,
+        value: preferredEntity.value,
+      };
+    }
     updateDraft((current) => ({
       ...current,
       rules: [...current.rules, rule],
@@ -102,6 +120,31 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
       rules: nextRules,
     }));
     setSelectedRuleId(ensureSelection(selectedRuleId === ruleId ? '' : selectedRuleId, nextRules));
+  };
+
+  const handleRefreshEntities = async () => {
+    setBusy('refresh_entities');
+    try {
+      const nextCatalog = await refreshVisionEntityCatalog({
+        service_url: draft.service_url || detail?.vision?.config.service_url || undefined,
+      });
+      setDetail((current) =>
+        current && current.vision
+          ? {
+              ...current,
+              vision: {
+                ...current.vision,
+                catalog: nextCatalog,
+              },
+            }
+          : current,
+      );
+      await refreshAll();
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Failed to refresh supported entities');
+    } finally {
+      setBusy('');
+    }
   };
 
   const handleSave = async () => {
@@ -149,6 +192,52 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
               onChange={(event) => updateDraft((current) => ({ ...current, service_url: event.target.value }))}
               placeholder="http://127.0.0.1:8090"
             />
+          </div>
+
+          <div className="automation-field">
+            <div className="button-row">
+              <label>Supported Entities</label>
+              <Button
+                variant="secondary"
+                onClick={() => void handleRefreshEntities()}
+                disabled={busy === 'refresh_entities'}
+              >
+                {busy === 'refresh_entities' ? 'Refreshing…' : 'Refresh Supported Entities'}
+              </Button>
+            </div>
+            {catalog ? (
+              <>
+                <p className="muted">
+                  Catalog from {catalog.service_url} · fetched{' '}
+                  {catalog.fetched_at ? formatTime(catalog.fetched_at) : 'unknown'} · model{' '}
+                  {catalog.model_name || runtime?.service_version || 'unknown'}
+                </p>
+                {!catalogMatchesDraft ? (
+                  <p className="muted">
+                    Current draft points to {normalizedDraftServiceURL || 'no service address'}. Refresh again after updating the
+                    Vision Service address so entity validation matches the target model.
+                  </p>
+                ) : null}
+                <div className="button-row">
+                  {catalog.entities.length > 0 ? (
+                    catalog.entities.map((entity) => (
+                      <Badge key={`${entity.kind}:${entity.value}`} size="xs" tone={entity.value === 'cat' ? 'accent' : 'neutral'}>
+                        {entity.display_name || entity.value}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Badge size="xs" tone="neutral">
+                      no entities reported
+                    </Badge>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="muted">
+                Gateway has not fetched the current Vision Service entity catalog yet. Refresh it before configuring a rule for
+                `cat` or any other recognizable entity.
+              </p>
+            )}
           </div>
 
           <div className="vision-runtime-grid">
@@ -233,178 +322,16 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
 
         <ScrollArea className="detail-scroll">
           <div className="detail-stack">
-            <Card>
-              <CardHeader>
-                <CardHeading
-                  title={selectedRule ? selectedRule.name || 'Rule Editor' : 'Rule Editor'}
-                  description="Bind a camera and RTSP source to a generic entity stay-zone rule. Gateway persists this config and pushes a normalized copy to the external Vision Service."
-                  aside={
-                    selectedRule ? (
-                      <div className="automation-editor__meta">
-                        <Badge size="xs" tone={selectedRule.enabled ? 'good' : 'neutral'}>
-                          {selectedRule.enabled ? 'enabled' : 'disabled'}
-                        </Badge>
-                        <Button variant="danger" size="sm" onClick={() => removeRule(selectedRule.id)}>
-                          Delete Rule
-                        </Button>
-                      </div>
-                    ) : null
-                  }
-                />
-              </CardHeader>
-              <CardContent className="stack">
-                {selectedRule ? (
-                  <>
-                    <div className="automation-field-grid">
-                      <div className="automation-field">
-                        <label>Name</label>
-                        <Input
-                          value={selectedRule.name}
-                          onChange={(event) =>
-                            updateRule(selectedRule.id, (current) => ({ ...current, name: event.target.value }))
-                          }
-                          placeholder="Feeder Zone Stay"
-                        />
-                      </div>
-                      <div className="automation-field">
-                        <label>Rule ID</label>
-                        <Input
-                          value={selectedRule.id}
-                          onChange={(event) => {
-                            const nextId = event.target.value;
-                            updateRule(selectedRule.id, (current) => ({ ...current, id: nextId }));
-                            setSelectedRuleId(nextId);
-                          }}
-                          placeholder="feeder-zone-stay"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="automation-field-grid">
-                      <div className="automation-field">
-                        <label>Camera Device</label>
-                        <select
-                          className="select"
-                          value={selectedRule.camera_device_id}
-                          onChange={(event) =>
-                            updateRule(selectedRule.id, (current) => ({
-                              ...current,
-                              camera_device_id: event.target.value,
-                            }))
-                          }
-                        >
-                          {cameraDevices.map((device) => (
-                            <option key={device.device.id} value={device.device.id}>
-                              {cameraLabel(device)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="automation-field">
-                        <label>Stay Threshold Seconds</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={selectedRule.stay_threshold_seconds}
-                          onChange={(event) =>
-                            updateRule(selectedRule.id, (current) => ({
-                              ...current,
-                              stay_threshold_seconds: Math.max(1, Number(event.target.value) || 1),
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="automation-field-grid">
-                      <div className="automation-field">
-                        <label>Entity Selector Kind</label>
-                        <Input
-                          value={selectedRule.entity_selector.kind}
-                          onChange={(event) =>
-                            updateRule(selectedRule.id, (current) => ({
-                              ...current,
-                              entity_selector: { ...current.entity_selector, kind: event.target.value },
-                            }))
-                          }
-                          placeholder="label"
-                        />
-                      </div>
-                      <div className="automation-field">
-                        <label>Entity Selector Value</label>
-                        <Input
-                          value={selectedRule.entity_selector.value}
-                          onChange={(event) =>
-                            updateRule(selectedRule.id, (current) => ({
-                              ...current,
-                              entity_selector: { ...current.entity_selector, value: event.target.value },
-                            }))
-                          }
-                          placeholder="cat"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="automation-field">
-                      <label>RTSP Source URL</label>
-                      <Input
-                        value={selectedRule.rtsp_source.url}
-                        onChange={(event) =>
-                          updateRule(selectedRule.id, (current) => ({
-                            ...current,
-                            rtsp_source: { ...current.rtsp_source, url: event.target.value },
-                          }))
-                        }
-                        placeholder="rtsp://user:password@camera-host:554/stream"
-                      />
-                    </div>
-
-                    <div className="automation-field-grid automation-field-grid--compact">
-                      <div className="automation-field">
-                        <label>Rule Enabled</label>
-                        <div className="vision-switch-row">
-                          <Switch
-                            checked={selectedRule.enabled}
-                            onCheckedChange={(checked) =>
-                              updateRule(selectedRule.id, (current) => ({ ...current, enabled: checked }))
-                            }
-                          />
-                          <span>{selectedRule.enabled ? 'Enabled' : 'Disabled'}</span>
-                        </div>
-                      </div>
-                      <div className="automation-field">
-                        <label>Recognition Toggle</label>
-                        <div className="vision-switch-row">
-                          <Switch
-                            checked={selectedRule.recognition_enabled}
-                            onCheckedChange={(checked) =>
-                              updateRule(selectedRule.id, (current) => ({
-                                ...current,
-                                recognition_enabled: checked,
-                              }))
-                            }
-                          />
-                          <span>{selectedRule.recognition_enabled ? 'Vision active' : 'Vision paused'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="automation-field">
-                      <label>Zone Selection</label>
-                      <ZoneBoxEditor
-                        value={selectedRule.zone}
-                        onChange={(zone) => updateRule(selectedRule.id, (current) => ({ ...current, zone }))}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <p className="muted">
-                    {busy === 'load' ? 'Loading vision capability…' : 'Select or create a rule to edit it.'}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            <VisionRuleEditorCard
+              catalog={activeCatalog}
+              catalogMismatch={Boolean(catalog && !catalogMatchesDraft)}
+              cameraDevices={cameraDevices}
+              loading={busy === 'load'}
+              onRemoveRule={removeRule}
+              onSelectRuleId={setSelectedRuleId}
+              onUpdateRule={updateRule}
+              selectedRule={selectedRule}
+            />
 
             <Card>
               <CardHeader>

@@ -38,6 +38,15 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			rules_json text not null default '[]',
 			updated_at text not null
 		)`,
+		`create table if not exists vision_capability_catalog (
+			capability_id text primary key,
+			service_url text not null default '',
+			schema_version text not null default '',
+			service_version text not null default '',
+			model_name text not null default '',
+			entities_json text not null default '[]',
+			fetched_at text not null
+		)`,
 		`create table if not exists vision_capability_status (
 			capability_id text primary key,
 			status text not null,

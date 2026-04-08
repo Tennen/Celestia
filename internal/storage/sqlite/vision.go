@@ -48,6 +48,50 @@ func (s *Store) GetVisionConfig(ctx context.Context) (models.VisionCapabilityCon
 	return config, err == nil, err
 }
 
+func (s *Store) UpsertVisionCatalog(ctx context.Context, catalog models.VisionEntityCatalog) error {
+	entitiesJSON, err := marshalJSON(catalog.Entities)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `
+		insert into vision_capability_catalog(
+			capability_id, service_url, schema_version, service_version, model_name, entities_json, fetched_at
+		) values (?, ?, ?, ?, ?, ?, ?)
+		on conflict(capability_id) do update set
+			service_url=excluded.service_url,
+			schema_version=excluded.schema_version,
+			service_version=excluded.service_version,
+			model_name=excluded.model_name,
+			entities_json=excluded.entities_json,
+			fetched_at=excluded.fetched_at
+	`,
+		models.VisionCapabilityID,
+		strings.TrimSpace(catalog.ServiceURL),
+		strings.TrimSpace(catalog.SchemaVersion),
+		strings.TrimSpace(catalog.ServiceVersion),
+		strings.TrimSpace(catalog.ModelName),
+		entitiesJSON,
+		catalog.FetchedAt.UTC().Format(time.RFC3339Nano),
+	)
+	return err
+}
+
+func (s *Store) GetVisionCatalog(ctx context.Context) (models.VisionEntityCatalog, bool, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select capability_id, service_url, schema_version, service_version, model_name, entities_json, fetched_at
+		from vision_capability_catalog where capability_id = ?
+	`, models.VisionCapabilityID)
+	if err != nil {
+		return models.VisionEntityCatalog{}, false, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return models.VisionEntityCatalog{}, false, nil
+	}
+	catalog, err := scanVisionCatalog(rows)
+	return catalog, err == nil, err
+}
+
 func (s *Store) UpsertVisionStatus(ctx context.Context, status models.VisionCapabilityStatus) error {
 	runtimeJSON, err := marshalJSON(status.Runtime)
 	if err != nil {

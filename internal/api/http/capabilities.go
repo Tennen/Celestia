@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -34,6 +36,21 @@ func (s *Server) handleUpdateVisionCapability(w http.ResponseWriter, r *http.Req
 	}
 	config.ServiceURL = strings.TrimSpace(config.ServiceURL)
 	item, err := s.gateway.SaveVisionCapabilityConfig(r.Context(), config)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) handleRefreshVisionEntityCatalog(w http.ResponseWriter, r *http.Request) {
+	var req models.VisionEntityCatalogRefreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	req.ServiceURL = strings.TrimSpace(req.ServiceURL)
+	item, err := s.gateway.RefreshVisionEntityCatalog(r.Context(), req)
 	if err != nil {
 		writeServiceError(w, err)
 		return

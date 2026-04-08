@@ -19,6 +19,9 @@ func (s *Service) SaveConfig(ctx context.Context, config models.VisionCapability
 	if err != nil {
 		return models.VisionCapabilityDetail{}, err
 	}
+	if err := s.validateConfigAgainstCatalog(ctx, normalized); err != nil {
+		return models.VisionCapabilityDetail{}, err
+	}
 	if err := s.store.UpsertVisionConfig(ctx, normalized); err != nil {
 		return models.VisionCapabilityDetail{}, err
 	}
@@ -48,7 +51,7 @@ func (s *Service) SaveConfig(ctx context.Context, config models.VisionCapability
 
 func (s *Service) normalizeConfig(ctx context.Context, config models.VisionCapabilityConfig) (models.VisionCapabilityConfig, error) {
 	now := time.Now().UTC()
-	config.ServiceURL = strings.TrimRight(strings.TrimSpace(config.ServiceURL), "/")
+	config.ServiceURL = normalizeServiceURL(config.ServiceURL)
 	config.UpdatedAt = now
 	if config.Rules == nil {
 		config.Rules = []models.VisionRule{}

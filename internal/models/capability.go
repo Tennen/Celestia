@@ -35,5 +35,6 @@ type AutomationCapabilityDetail struct {
 type VisionCapabilityDetail struct {
 	Config       VisionCapabilityConfig `json:"config"`
 	Runtime      VisionCapabilityStatus `json:"runtime"`
+	Catalog      *VisionEntityCatalog   `json:"catalog,omitempty"`
 	RecentEvents []Event                `json:"recent_events,omitempty"`
 }

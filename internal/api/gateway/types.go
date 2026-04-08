@@ -23,6 +23,7 @@ type Service interface {
 	DeletePlugin(ctx context.Context, pluginID string) error
 	GetPluginLogs(ctx context.Context, pluginID string) (PluginLogsView, error)
 	SaveVisionCapabilityConfig(ctx context.Context, config models.VisionCapabilityConfig) (models.CapabilityDetail, error)
+	RefreshVisionEntityCatalog(ctx context.Context, req models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error)
 	ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error)
 	ReportVisionCapabilityEvents(ctx context.Context, batch models.VisionServiceEventBatch) error
 

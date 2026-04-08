@@ -93,6 +93,15 @@ export async function saveVisionCapabilityConfig(config: import('./types').Visio
   });
 }
 
+export async function refreshVisionEntityCatalog(
+  payload: import('./types').VisionEntityCatalogRefreshRequest,
+) {
+  return request<import('./types').VisionEntityCatalog>('/capabilities/vision_entity_stay_zone/entities/refresh', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function installPlugin(payload: {
   plugin_id: string;
   binary_path?: string;

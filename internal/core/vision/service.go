@@ -67,6 +67,10 @@ func (s *Service) Detail(ctx context.Context) (models.VisionCapabilityDetail, er
 	if err != nil {
 		return models.VisionCapabilityDetail{}, err
 	}
+	catalog, ok, err := s.GetCatalog(ctx)
+	if err != nil {
+		return models.VisionCapabilityDetail{}, err
+	}
 	status, err := s.GetStatus(ctx)
 	if err != nil {
 		return models.VisionCapabilityDetail{}, err
@@ -75,11 +79,15 @@ func (s *Service) Detail(ctx context.Context) (models.VisionCapabilityDetail, er
 	if err != nil {
 		return models.VisionCapabilityDetail{}, err
 	}
-	return models.VisionCapabilityDetail{
+	detail := models.VisionCapabilityDetail{
 		Config:       config,
 		Runtime:      status,
 		RecentEvents: events,
-	}, nil
+	}
+	if ok {
+		detail.Catalog = &catalog
+	}
+	return detail, nil
 }
 
 func (s *Service) RecentEvents(ctx context.Context, limit int) ([]models.Event, error) {

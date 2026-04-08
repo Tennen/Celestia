@@ -140,6 +140,14 @@ func (s *RuntimeService) SaveVisionCapabilityConfig(ctx context.Context, config 
 	return detail, nil
 }
 
+func (s *RuntimeService) RefreshVisionEntityCatalog(ctx context.Context, req models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error) {
+	item, err := s.runtime.Vision.RefreshCatalog(ctx, req)
+	if err != nil {
+		return models.VisionEntityCatalog{}, statusError(http.StatusBadRequest, err)
+	}
+	return item, nil
+}
+
 func (s *RuntimeService) ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
 	item, err := s.runtime.Vision.ReportStatus(ctx, report)
 	if err != nil {

@@ -113,6 +113,115 @@ func TestSaveConfigSeedsCameraStateAndSyncs(t *testing.T) {
 	}
 }
 
+func TestRefreshCatalogPersistsSupportedEntities(t *testing.T) {
+	ctx := context.Background()
+	store := newVisionTestStore(t)
+	registrySvc := registry.New(store)
+	stateSvc := state.New(store)
+	bus := eventbus.New()
+	service := New(store, registrySvc, stateSvc, bus)
+
+	service.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.Method != http.MethodGet {
+				t.Fatalf("catalog method = %s, want GET", req.Method)
+			}
+			if req.URL.Path != visionEntityCatalogPath {
+				t.Fatalf("catalog path = %s, want %s", req.URL.Path, visionEntityCatalogPath)
+			}
+			body := `{
+				"schema_version":"celestia.vision.catalog.v1",
+				"service_version":"1.2.0",
+				"model_name":"yolo11m-coco",
+				"fetched_at":"2026-04-08T09:15:00Z",
+				"entities":[
+					{"kind":"label","value":"cat","display_name":"Cat"},
+					{"kind":"label","value":"dog","display_name":"Dog"}
+				]
+			}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+
+	catalog, err := service.RefreshCatalog(ctx, models.VisionEntityCatalogRefreshRequest{
+		ServiceURL: "http://vision.example/",
+	})
+	if err != nil {
+		t.Fatalf("RefreshCatalog() error = %v", err)
+	}
+	if catalog.ServiceURL != "http://vision.example" {
+		t.Fatalf("catalog service_url = %q, want http://vision.example", catalog.ServiceURL)
+	}
+	if catalog.ModelName != "yolo11m-coco" {
+		t.Fatalf("catalog model_name = %q, want yolo11m-coco", catalog.ModelName)
+	}
+	if len(catalog.Entities) != 2 {
+		t.Fatalf("catalog entities len = %d, want 2", len(catalog.Entities))
+	}
+
+	persisted, ok, err := service.GetCatalog(ctx)
+	if err != nil {
+		t.Fatalf("GetCatalog() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("catalog missing after RefreshCatalog()")
+	}
+	if persisted.Entities[0].Value != "cat" {
+		t.Fatalf("first entity value = %q, want cat", persisted.Entities[0].Value)
+	}
+}
+
+func TestSaveConfigRejectsEntityNotInCatalog(t *testing.T) {
+	ctx := context.Background()
+	store := newVisionTestStore(t)
+	registrySvc := registry.New(store)
+	stateSvc := state.New(store)
+	bus := eventbus.New()
+	service := New(store, registrySvc, stateSvc, bus)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+	if err := store.UpsertVisionCatalog(ctx, models.VisionEntityCatalog{
+		ServiceURL:    "http://vision.example",
+		SchemaVersion: "celestia.vision.catalog.v1",
+		FetchedAt:     time.Now().UTC(),
+		Entities: []models.VisionEntityDescriptor{
+			{Kind: "label", Value: "cat", DisplayName: "Cat"},
+		},
+	}); err != nil {
+		t.Fatalf("UpsertVisionCatalog() error = %v", err)
+	}
+
+	_, err := service.SaveConfig(ctx, models.VisionCapabilityConfig{
+		ServiceURL:         "http://vision.example",
+		RecognitionEnabled: true,
+		Rules: []models.VisionRule{
+			{
+				ID:                 "feeder-zone",
+				Name:               "Feeder Zone",
+				Enabled:            true,
+				CameraDeviceID:     camera.ID,
+				RecognitionEnabled: true,
+				RTSPSource:         models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
+				EntitySelector:     models.VisionEntitySelector{Kind: "label", Value: "dog"},
+				Zone:               models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("SaveConfig() error = nil, want unsupported entity error")
+	}
+	if !strings.Contains(err.Error(), "not advertised") {
+		t.Fatalf("SaveConfig() error = %v, want unsupported entity validation", err)
+	}
+}
+
 func TestReportEventsProjectsDeviceStateChange(t *testing.T) {
 	ctx := context.Background()
 	store := newVisionTestStore(t)

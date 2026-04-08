@@ -56,6 +56,9 @@ func (g *stubGateway) GetPluginLogs(_ context.Context, _ string) (gatewayapi.Plu
 func (g *stubGateway) SaveVisionCapabilityConfig(_ context.Context, _ models.VisionCapabilityConfig) (models.CapabilityDetail, error) {
 	return models.CapabilityDetail{}, nil
 }
+func (g *stubGateway) RefreshVisionEntityCatalog(_ context.Context, _ models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error) {
+	return models.VisionEntityCatalog{}, nil
+}
 func (g *stubGateway) ReportVisionCapabilityStatus(_ context.Context, _ models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
 	return models.VisionCapabilityStatus{}, nil
 }

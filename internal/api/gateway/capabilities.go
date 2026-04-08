@@ -33,6 +33,15 @@ func (s *HTTPService) SaveVisionCapabilityConfig(ctx context.Context, config mod
 	return out, nil
 }
 
+func (s *HTTPService) RefreshVisionEntityCatalog(ctx context.Context, req models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error) {
+	var out models.VisionEntityCatalog
+	path := fmt.Sprintf("/api/v1/capabilities/%s/entities/refresh", models.VisionCapabilityID)
+	if err := s.request(ctx, http.MethodPost, path, nil, req, &out, ""); err != nil {
+		return models.VisionEntityCatalog{}, err
+	}
+	return out, nil
+}
+
 func (s *HTTPService) ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
 	var out models.VisionCapabilityStatus
 	path := fmt.Sprintf("/api/v1/capabilities/%s/status", models.VisionCapabilityID)

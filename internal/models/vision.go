@@ -9,6 +9,12 @@ type VisionEntitySelector struct {
 	Value string `json:"value"`
 }
 
+type VisionEntityDescriptor struct {
+	Kind        string `json:"kind"`
+	Value       string `json:"value"`
+	DisplayName string `json:"display_name,omitempty"`
+}
+
 type VisionZoneBox struct {
 	X      float64 `json:"x"`
 	Y      float64 `json:"y"`
@@ -37,6 +43,19 @@ type VisionCapabilityConfig struct {
 	RecognitionEnabled bool         `json:"recognition_enabled"`
 	Rules              []VisionRule `json:"rules,omitempty"`
 	UpdatedAt          time.Time    `json:"updated_at"`
+}
+
+type VisionEntityCatalog struct {
+	ServiceURL     string                   `json:"service_url"`
+	SchemaVersion  string                   `json:"schema_version"`
+	ServiceVersion string                   `json:"service_version,omitempty"`
+	ModelName      string                   `json:"model_name,omitempty"`
+	FetchedAt      time.Time                `json:"fetched_at"`
+	Entities       []VisionEntityDescriptor `json:"entities"`
+}
+
+type VisionEntityCatalogRefreshRequest struct {
+	ServiceURL string `json:"service_url,omitempty"`
 }
 
 type VisionCapabilityStatus struct {
@@ -79,6 +98,14 @@ type VisionServiceEvent struct {
 
 type VisionServiceEventBatch struct {
 	Events []VisionServiceEvent `json:"events"`
+}
+
+type VisionServiceEntityCatalog struct {
+	SchemaVersion  string                   `json:"schema_version"`
+	ServiceVersion string                   `json:"service_version,omitempty"`
+	ModelName      string                   `json:"model_name,omitempty"`
+	FetchedAt      time.Time                `json:"fetched_at"`
+	Entities       []VisionEntityDescriptor `json:"entities"`
 }
 
 type VisionServiceSyncPayload struct {
