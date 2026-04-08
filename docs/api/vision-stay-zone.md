@@ -4,6 +4,8 @@ Back to the [API index](../api.md).
 
 The vision stay-zone capability is exposed in the capability inventory under id `vision_entity_stay_zone`.
 
+If you are implementing the downstream Vision Service itself, use the dedicated [Vision Service Integration Contract](vision-service-contract.md). This document remains the Gateway-side capability API reference.
+
 ## Get Capability Detail
 
 `GET /api/v1/capabilities/vision_entity_stay_zone`
