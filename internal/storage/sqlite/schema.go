@@ -31,6 +31,25 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			created_at text not null,
 			updated_at text not null
 		)`,
+		`create table if not exists vision_capability_config (
+			capability_id text primary key,
+			service_url text not null default '',
+			recognition_enabled integer not null default 0,
+			rules_json text not null default '[]',
+			updated_at text not null
+		)`,
+		`create table if not exists vision_capability_status (
+			capability_id text primary key,
+			status text not null,
+			message text not null default '',
+			service_version text not null default '',
+			last_synced_at text,
+			last_reported_at text,
+			last_event_at text,
+			runtime_json text not null default '{}',
+			sync_error text not null default '',
+			updated_at text not null
+		)`,
 		`create table if not exists devices (
 			device_id text primary key,
 			plugin_id text not null,

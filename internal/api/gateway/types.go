@@ -13,6 +13,8 @@ type Service interface {
 
 	ListCatalogPlugins(ctx context.Context) ([]models.CatalogPlugin, error)
 	ListPlugins(ctx context.Context) ([]models.PluginRuntimeView, error)
+	ListCapabilities(ctx context.Context) ([]models.Capability, error)
+	GetCapability(ctx context.Context, id string) (models.CapabilityDetail, error)
 	InstallPlugin(ctx context.Context, req InstallPluginRequest) (models.PluginInstallRecord, error)
 	UpdatePluginConfig(ctx context.Context, req UpdatePluginConfigRequest) (models.PluginInstallRecord, error)
 	EnablePlugin(ctx context.Context, pluginID string) error
@@ -20,6 +22,9 @@ type Service interface {
 	DiscoverPlugin(ctx context.Context, pluginID string) error
 	DeletePlugin(ctx context.Context, pluginID string) error
 	GetPluginLogs(ctx context.Context, pluginID string) (PluginLogsView, error)
+	SaveVisionCapabilityConfig(ctx context.Context, config models.VisionCapabilityConfig) (models.CapabilityDetail, error)
+	ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error)
+	ReportVisionCapabilityEvents(ctx context.Context, batch models.VisionServiceEventBatch) error
 
 	ListAutomations(ctx context.Context) ([]models.Automation, error)
 	SaveAutomation(ctx context.Context, automation models.Automation) (models.Automation, error)

@@ -50,6 +50,25 @@ func (s *RuntimeService) ListPlugins(ctx context.Context) ([]models.PluginRuntim
 	return views, nil
 }
 
+func (s *RuntimeService) ListCapabilities(ctx context.Context) ([]models.Capability, error) {
+	items, err := s.runtime.Capability.List(ctx)
+	if err != nil {
+		return nil, statusError(http.StatusInternalServerError, err)
+	}
+	return items, nil
+}
+
+func (s *RuntimeService) GetCapability(ctx context.Context, id string) (models.CapabilityDetail, error) {
+	item, ok, err := s.runtime.Capability.Get(ctx, id)
+	if err != nil {
+		return models.CapabilityDetail{}, statusError(http.StatusInternalServerError, err)
+	}
+	if !ok {
+		return models.CapabilityDetail{}, statusError(http.StatusNotFound, errors.New("capability not found"))
+	}
+	return item, nil
+}
+
 func (s *RuntimeService) InstallPlugin(ctx context.Context, req InstallPluginRequest) (models.PluginInstallRecord, error) {
 	record, err := s.runtime.PluginMgr.Install(ctx, req.toPluginInstallRequest())
 	if err != nil {
@@ -103,6 +122,37 @@ func (s *RuntimeService) GetPluginLogs(_ context.Context, pluginID string) (Plug
 		PluginID: pluginID,
 		Logs:     s.runtime.PluginMgr.GetLogs(pluginID),
 	}, nil
+}
+
+func (s *RuntimeService) SaveVisionCapabilityConfig(ctx context.Context, config models.VisionCapabilityConfig) (models.CapabilityDetail, error) {
+	item, err := s.runtime.Vision.SaveConfig(ctx, config)
+	if err != nil {
+		return models.CapabilityDetail{}, statusError(http.StatusBadRequest, err)
+	}
+	detail, ok, err := s.runtime.Capability.Get(ctx, models.VisionCapabilityID)
+	if err != nil {
+		return models.CapabilityDetail{}, statusError(http.StatusInternalServerError, err)
+	}
+	if !ok {
+		return models.CapabilityDetail{}, statusError(http.StatusNotFound, errors.New("capability not found"))
+	}
+	detail.Vision = &item
+	return detail, nil
+}
+
+func (s *RuntimeService) ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
+	item, err := s.runtime.Vision.ReportStatus(ctx, report)
+	if err != nil {
+		return models.VisionCapabilityStatus{}, statusError(http.StatusBadRequest, err)
+	}
+	return item, nil
+}
+
+func (s *RuntimeService) ReportVisionCapabilityEvents(ctx context.Context, batch models.VisionServiceEventBatch) error {
+	if err := s.runtime.Vision.ReportEvents(ctx, batch); err != nil {
+		return statusError(http.StatusBadRequest, err)
+	}
+	return nil
 }
 
 func (s *RuntimeService) ListAutomations(ctx context.Context) ([]models.Automation, error) {
@@ -360,6 +410,9 @@ func (s *RuntimeService) executeDeviceCommand(ctx context.Context, actor string,
 }
 
 func (s *RuntimeService) deviceView(ctx context.Context, device models.Device, state models.DeviceStateSnapshot) (models.DeviceView, error) {
+	if s.runtime.Vision != nil {
+		device = s.runtime.Vision.EnrichDevice(device)
+	}
 	view := s.runtime.Controls.BuildView(device, state)
 	devicePref, _, err := s.runtime.Store.GetDevicePreference(ctx, device.ID)
 	if err != nil {

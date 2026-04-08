@@ -1,6 +1,7 @@
 import type {
   Automation,
   AuditRecord,
+  CapabilitySummary,
   CatalogPlugin,
   DashboardSummary,
   DeviceView,
@@ -15,12 +16,13 @@ export type StatusBanner = {
   text: string;
 };
 
-export type AppSection = 'overview' | 'plugins' | 'automations' | 'devices' | 'activity';
+export type AppSection = 'overview' | 'plugins' | 'capabilities' | 'devices' | 'activity';
 
 export type LoadState = {
   dashboard: DashboardSummary | null;
   catalog: CatalogPlugin[];
   plugins: PluginRuntimeView[];
+  capabilities: CapabilitySummary[];
   automations: Automation[];
   devices: DeviceView[];
   events: EventRecord[];
@@ -35,6 +37,7 @@ export const emptyLoadState = (): LoadState => ({
   dashboard: null,
   catalog: [],
   plugins: [],
+  capabilities: [],
   automations: [],
   devices: [],
   events: [],

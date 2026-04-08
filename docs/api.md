@@ -213,6 +213,277 @@ Response:
 }
 ```
 
+### Capabilities
+
+Gateway now exposes a Core-owned capability layer for higher-level control-plane features.
+
+Current built-in capability ids:
+
+- `automation`
+- `vision_entity_stay_zone`
+
+`automation` still uses the dedicated `/api/v1/automations` CRUD routes below, but it is also surfaced through the capability inventory so the Admin UI can treat it as a first-class module.
+
+#### List Capabilities
+
+`GET /api/v1/capabilities`
+
+Response:
+
+```json
+[
+  {
+    "id": "automation",
+    "kind": "automation",
+    "name": "Automations",
+    "description": "Core-owned state-change automations that execute device actions.",
+    "enabled": true,
+    "status": "healthy",
+    "summary": {
+      "total": 3,
+      "enabled_count": 2,
+      "last_triggered_at": "2026-04-08T09:30:00Z"
+    },
+    "updated_at": "2026-04-08T09:30:00Z"
+  },
+  {
+    "id": "vision_entity_stay_zone",
+    "kind": "vision_entity_stay_zone",
+    "name": "Vision Stay Zone Recognition",
+    "description": "Gateway-managed stay-zone control plane for independent vision processing services.",
+    "enabled": true,
+    "status": "healthy",
+    "summary": {
+      "service_url": "http://127.0.0.1:8090",
+      "rule_count": 2,
+      "enabled_rule_count": 2,
+      "last_event_at": "2026-04-08T09:28:11Z",
+      "last_synced_at": "2026-04-08T09:20:00Z"
+    },
+    "updated_at": "2026-04-08T09:28:11Z"
+  }
+]
+```
+
+#### Get Capability Detail
+
+`GET /api/v1/capabilities/{capability_id}`
+
+Example response for `vision_entity_stay_zone`:
+
+```json
+{
+  "id": "vision_entity_stay_zone",
+  "kind": "vision_entity_stay_zone",
+  "name": "Vision Stay Zone Recognition",
+  "description": "Gateway-managed stay-zone control plane for independent vision processing services.",
+  "enabled": true,
+  "status": "healthy",
+  "summary": {
+    "service_url": "http://127.0.0.1:8090",
+    "rule_count": 1,
+    "enabled_rule_count": 1
+  },
+  "updated_at": "2026-04-08T09:20:00Z",
+  "vision": {
+    "config": {
+      "service_url": "http://127.0.0.1:8090",
+      "recognition_enabled": true,
+      "rules": [
+        {
+          "id": "feeder-zone",
+          "name": "Feeder Zone",
+          "enabled": true,
+          "camera_device_id": "hikvision:camera:entry-1",
+          "recognition_enabled": true,
+          "rtsp_source": {
+            "url": "rtsp://user:pass@camera/stream"
+          },
+          "entity_selector": {
+            "kind": "label",
+            "value": "cat"
+          },
+          "zone": {
+            "x": 0.12,
+            "y": 0.28,
+            "width": 0.34,
+            "height": 0.22
+          },
+          "stay_threshold_seconds": 5
+        }
+      ],
+      "updated_at": "2026-04-08T09:20:00Z"
+    },
+    "runtime": {
+      "status": "healthy",
+      "message": "vision config synced",
+      "service_version": "1.2.0",
+      "last_synced_at": "2026-04-08T09:20:00Z",
+      "last_reported_at": "2026-04-08T09:25:00Z",
+      "last_event_at": "2026-04-08T09:28:11Z",
+      "runtime": {
+        "active_streams": 1
+      },
+      "sync_error": "",
+      "updated_at": "2026-04-08T09:28:11Z"
+    },
+    "recent_events": []
+  }
+}
+```
+
+#### Save Vision Capability Config
+
+`PUT /api/v1/capabilities/vision_entity_stay_zone`
+
+Request body:
+
+```json
+{
+  "service_url": "http://127.0.0.1:8090",
+  "recognition_enabled": true,
+  "rules": [
+    {
+      "id": "feeder-zone",
+      "name": "Feeder Zone",
+      "enabled": true,
+      "camera_device_id": "hikvision:camera:entry-1",
+      "recognition_enabled": true,
+      "rtsp_source": {
+        "url": "rtsp://user:pass@camera/stream"
+      },
+      "entity_selector": {
+        "kind": "label",
+        "value": "cat"
+      },
+      "zone": {
+        "x": 0.12,
+        "y": 0.28,
+        "width": 0.34,
+        "height": 0.22
+      },
+      "stay_threshold_seconds": 5
+    }
+  ]
+}
+```
+
+Response: HTTP `200` with the persisted `CapabilityDetail` for `vision_entity_stay_zone`.
+
+Gateway is the source of truth for this config. It persists the config first, then attempts to push a normalized copy to the external Vision Service at:
+
+- `PUT {service_url}/api/v1/capabilities/vision_entity_stay_zone`
+
+The pushed payload is a stable control-plane structure:
+
+```json
+{
+  "schema_version": "celestia.vision.control.v1",
+  "sent_at": "2026-04-08T09:20:00Z",
+  "recognition_enabled": true,
+  "callbacks": {
+    "status_path": "/api/v1/capabilities/vision_entity_stay_zone/status",
+    "event_path": "/api/v1/capabilities/vision_entity_stay_zone/events"
+  },
+  "rules": [
+    {
+      "id": "feeder-zone",
+      "name": "Feeder Zone",
+      "enabled": true,
+      "camera": {
+        "device_id": "hikvision:camera:entry-1",
+        "plugin_id": "hikvision",
+        "vendor_device_id": "192.0.2.10:8000:ch1",
+        "name": "Patio Camera",
+        "entry_id": "entry-1"
+      },
+      "rtsp_source": {
+        "url": "rtsp://user:pass@camera/stream"
+      },
+      "entity_selector": {
+        "kind": "label",
+        "value": "cat"
+      },
+      "zone": {
+        "x": 0.12,
+        "y": 0.28,
+        "width": 0.34,
+        "height": 0.22
+      },
+      "stay_threshold_seconds": 5
+    }
+  ]
+}
+```
+
+If the Vision Service is unreachable, Gateway still persists the config and returns a degraded `runtime.status` plus `runtime.sync_error`.
+
+#### Report Vision Service Status
+
+`POST /api/v1/capabilities/vision_entity_stay_zone/status`
+
+This endpoint is intended for the external Vision Service to report runtime health:
+
+```json
+{
+  "status": "healthy",
+  "message": "tracking 1 stream",
+  "service_version": "1.2.0",
+  "reported_at": "2026-04-08T09:25:00Z",
+  "runtime": {
+    "active_streams": 1
+  }
+}
+```
+
+Response: HTTP `200` with the persisted `VisionCapabilityStatus`.
+
+#### Report Vision Events
+
+`POST /api/v1/capabilities/vision_entity_stay_zone/events`
+
+Request body:
+
+```json
+{
+  "events": [
+    {
+      "event_id": "vision-evt-1",
+      "rule_id": "feeder-zone",
+      "camera_device_id": "hikvision:camera:entry-1",
+      "status": "threshold_met",
+      "observed_at": "2026-04-08T09:28:11Z",
+      "dwell_seconds": 6,
+      "entity_value": "cat",
+      "metadata": {
+        "track_id": "trk-7"
+      }
+    }
+  ]
+}
+```
+
+Supported `status` values:
+
+- `threshold_met`
+- `cleared`
+
+On each reported event, Gateway does two things:
+
+1. Appends a structured `device.event.occurred` event with `payload.capability_id = "vision_entity_stay_zone"`.
+2. Projects the event into the owning camera's persisted device state and emits a `device.state.changed` event so existing automations can react without any Vision-engine coupling.
+
+For each vision rule, Gateway maintains these projected camera state keys:
+
+- `vision_rule_<rule_id>_match_count`
+- `vision_rule_<rule_id>_active`
+- `vision_rule_<rule_id>_last_event_at`
+- `vision_rule_<rule_id>_last_entity_value`
+- `vision_rule_<rule_id>_last_dwell_seconds`
+- `vision_rule_<rule_id>_last_status`
+
+`threshold_met` increments `vision_rule_<rule_id>_match_count`, which lets existing state-change automations trigger on recurring detections.
+
 ### Automations
 
 These routes stay under `/api/v1` and let the admin UI manage Core-owned state-change automations.
@@ -860,6 +1131,12 @@ Core-generated automation execution events use:
 
 - `automation.triggered`
 - `automation.failed`
+
+Capability runtime health changes use:
+
+- `capability.status.changed`
+
+Vision detection reports arrive as `device.event.occurred` with `payload.capability_id = "vision_entity_stay_zone"` and are also projected into the camera's `device.state.changed` stream.
 
 ### Event Stream
 

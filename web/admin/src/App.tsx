@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import {
   Activity,
   Home,
+  Layers3,
   PlugZap,
   RefreshCw,
   Smartphone,
-  Workflow,
 } from 'lucide-react';
-import { AutomationWorkspace } from './components/admin/AutomationWorkspace';
 import { ActivitySection } from './components/admin/ActivitySection';
+import { CapabilityWorkspace } from './components/admin/CapabilityWorkspace';
 import { DeviceWorkspace } from './components/admin/DeviceWorkspace';
 import { OverviewSection } from './components/admin/OverviewSection';
 import { PluginWorkspace } from './components/admin/PluginWorkspace';
@@ -32,7 +32,7 @@ function App() {
     error,
     catalog,
     plugins,
-    automations,
+    capabilities,
     devices,
     events,
     audits,
@@ -86,7 +86,7 @@ function App() {
   const sectionLabel: Record<AppSection, string> = {
     overview: 'Overview',
     plugins: 'Plugins',
-    automations: 'Automations',
+    capabilities: 'Capabilities',
     devices: 'Devices',
     activity: 'Activity',
   };
@@ -99,7 +99,7 @@ function App() {
   }> = [
     { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0, icon: Home },
     { id: 'plugins', label: 'Plugins', count: catalog.length, icon: PlugZap },
-    { id: 'automations', label: 'Automations', count: automations.length, icon: Workflow },
+    { id: 'capabilities', label: 'Capabilities', count: capabilities.length, icon: Layers3 },
     { id: 'devices', label: 'Devices', count: devices.length, icon: Smartphone },
     { id: 'activity', label: 'Activity', count: events.length + audits.length, icon: Activity },
   ];
@@ -252,7 +252,7 @@ function App() {
                 />
               ) : null}
 
-              {activeSection === 'automations' ? <AutomationWorkspace /> : null}
+              {activeSection === 'capabilities' ? <CapabilityWorkspace /> : null}
 
               {activeSection === 'devices' ? <DeviceWorkspace /> : null}
 

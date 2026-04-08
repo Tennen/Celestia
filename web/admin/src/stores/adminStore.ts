@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   fetchAutomations,
   fetchAudits,
+  fetchCapabilities,
   fetchCatalogPlugins,
   fetchDashboard,
   fetchDevices,
@@ -41,10 +42,11 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
     try {
       const deviceSearch = getDeviceSearchRef();
-      const [dashboard, rawCatalog, rawPlugins, rawAutomations, rawDevices, rawEvents, rawAudits] = await Promise.all([
+      const [dashboard, rawCatalog, rawPlugins, rawCapabilities, rawAutomations, rawDevices, rawEvents, rawAudits] = await Promise.all([
         fetchDashboard(),
         fetchCatalogPlugins(),
         fetchPlugins(),
+        fetchCapabilities(),
         fetchAutomations(),
         fetchDevices(deviceSearch),
         fetchEvents(80),
@@ -63,6 +65,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         dashboard,
         catalog,
         plugins,
+        capabilities: asArray(rawCapabilities).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
         automations: asArray(rawAutomations).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
         devices,
         events: asArray(rawEvents),
@@ -98,6 +101,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     source.addEventListener('device.state.changed', onEvent);
     source.addEventListener('device.event.occurred', onEvent);
     source.addEventListener('plugin.lifecycle.changed', onEvent);
+    source.addEventListener('capability.status.changed', onEvent);
     source.addEventListener('automation.triggered', onEvent);
     source.addEventListener('automation.failed', onEvent);
     source.onerror = () => source.close();

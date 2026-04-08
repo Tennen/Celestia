@@ -1,6 +1,7 @@
 export type RiskLevel = 'low' | 'medium' | 'high';
 export type PluginStatus = 'installed' | 'enabled' | 'disabled';
 export type HealthState = 'unknown' | 'healthy' | 'degraded' | 'unhealthy' | 'stopped';
+export type CapabilityKind = 'automation' | 'vision_entity_stay_zone';
 export type DeviceKind =
   | 'light'
   | 'switch'
@@ -121,6 +122,81 @@ export type PluginRuntimeView = {
   recent_logs?: string[];
   process_pid?: number;
   listen_addr?: string;
+};
+
+export type CapabilitySummary = {
+  id: string;
+  kind: CapabilityKind;
+  name: string;
+  description: string;
+  enabled: boolean;
+  status: HealthState;
+  summary?: Record<string, unknown>;
+  updated_at: string;
+};
+
+export type AutomationCapabilityDetail = {
+  total: number;
+  enabled_count: number;
+  last_triggered_at?: string | null;
+};
+
+export type VisionEntitySelector = {
+  kind: string;
+  value: string;
+};
+
+export type VisionZoneBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type VisionRTSPSource = {
+  url: string;
+};
+
+export type VisionRule = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  camera_device_id: string;
+  recognition_enabled: boolean;
+  rtsp_source: VisionRTSPSource;
+  entity_selector: VisionEntitySelector;
+  zone: VisionZoneBox;
+  stay_threshold_seconds: number;
+};
+
+export type VisionCapabilityConfig = {
+  service_url: string;
+  recognition_enabled: boolean;
+  rules: VisionRule[];
+  updated_at: string;
+};
+
+export type VisionCapabilityStatus = {
+  status: HealthState;
+  message?: string;
+  service_version?: string;
+  last_synced_at?: string | null;
+  last_reported_at?: string | null;
+  last_event_at?: string | null;
+  runtime?: Record<string, unknown>;
+  sync_error?: string;
+  updated_at: string;
+};
+
+export type VisionCapabilityDetail = {
+  config: VisionCapabilityConfig;
+  runtime: VisionCapabilityStatus;
+  recent_events?: EventRecord[];
+};
+
+export type CapabilityDetail = CapabilitySummary & {
+  automation?: AutomationCapabilityDetail | null;
+  vision?: VisionCapabilityDetail | null;
 };
 
 export type Device = {

@@ -34,6 +34,12 @@ func (g *stubGateway) ListCatalogPlugins(_ context.Context) ([]models.CatalogPlu
 func (g *stubGateway) ListPlugins(_ context.Context) ([]models.PluginRuntimeView, error) {
 	return nil, nil
 }
+func (g *stubGateway) ListCapabilities(_ context.Context) ([]models.Capability, error) {
+	return nil, nil
+}
+func (g *stubGateway) GetCapability(_ context.Context, _ string) (models.CapabilityDetail, error) {
+	return models.CapabilityDetail{}, nil
+}
 func (g *stubGateway) InstallPlugin(_ context.Context, _ gatewayapi.InstallPluginRequest) (models.PluginInstallRecord, error) {
 	return models.PluginInstallRecord{}, nil
 }
@@ -46,6 +52,15 @@ func (g *stubGateway) DiscoverPlugin(_ context.Context, _ string) error { return
 func (g *stubGateway) DeletePlugin(_ context.Context, _ string) error   { return nil }
 func (g *stubGateway) GetPluginLogs(_ context.Context, _ string) (gatewayapi.PluginLogsView, error) {
 	return gatewayapi.PluginLogsView{}, nil
+}
+func (g *stubGateway) SaveVisionCapabilityConfig(_ context.Context, _ models.VisionCapabilityConfig) (models.CapabilityDetail, error) {
+	return models.CapabilityDetail{}, nil
+}
+func (g *stubGateway) ReportVisionCapabilityStatus(_ context.Context, _ models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
+	return models.VisionCapabilityStatus{}, nil
+}
+func (g *stubGateway) ReportVisionCapabilityEvents(_ context.Context, _ models.VisionServiceEventBatch) error {
+	return nil
 }
 func (g *stubGateway) ListAutomations(_ context.Context) ([]models.Automation, error) {
 	return nil, nil

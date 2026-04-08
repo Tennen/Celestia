@@ -182,3 +182,71 @@ func scanOAuthSession(scanner interface{ Scan(...any) error }) (models.OAuthSess
 	}
 	return session, nil
 }
+
+func scanVisionConfig(scanner interface{ Scan(...any) error }) (models.VisionCapabilityConfig, error) {
+	var (
+		capabilityID       string
+		config             models.VisionCapabilityConfig
+		recognitionEnabled int
+		rulesJSON          string
+		updatedAt          string
+	)
+	if err := scanner.Scan(&capabilityID, &config.ServiceURL, &recognitionEnabled, &rulesJSON, &updatedAt); err != nil {
+		return models.VisionCapabilityConfig{}, err
+	}
+	config.RecognitionEnabled = recognitionEnabled == 1
+	if err := parseJSON(rulesJSON, &config.Rules); err != nil {
+		return models.VisionCapabilityConfig{}, err
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, updatedAt)
+	if err != nil {
+		return models.VisionCapabilityConfig{}, err
+	}
+	config.UpdatedAt = parsed.UTC()
+	return config, nil
+}
+
+func scanVisionStatus(scanner interface{ Scan(...any) error }) (models.VisionCapabilityStatus, error) {
+	var (
+		capabilityID   string
+		status         models.VisionCapabilityStatus
+		lastSyncedAt   sql.NullString
+		lastReportedAt sql.NullString
+		lastEventAt    sql.NullString
+		runtimeJSON    string
+		updatedAt      string
+	)
+	if err := scanner.Scan(
+		&capabilityID,
+		&status.Status,
+		&status.Message,
+		&status.ServiceVersion,
+		&lastSyncedAt,
+		&lastReportedAt,
+		&lastEventAt,
+		&runtimeJSON,
+		&status.SyncError,
+		&updatedAt,
+	); err != nil {
+		return models.VisionCapabilityStatus{}, err
+	}
+	if err := parseJSON(runtimeJSON, &status.Runtime); err != nil {
+		return models.VisionCapabilityStatus{}, err
+	}
+	var err error
+	if status.LastSyncedAt, err = parseNullableTime(lastSyncedAt); err != nil {
+		return models.VisionCapabilityStatus{}, err
+	}
+	if status.LastReportedAt, err = parseNullableTime(lastReportedAt); err != nil {
+		return models.VisionCapabilityStatus{}, err
+	}
+	if status.LastEventAt, err = parseNullableTime(lastEventAt); err != nil {
+		return models.VisionCapabilityStatus{}, err
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, updatedAt)
+	if err != nil {
+		return models.VisionCapabilityStatus{}, err
+	}
+	status.UpdatedAt = parsed.UTC()
+	return status, nil
+}

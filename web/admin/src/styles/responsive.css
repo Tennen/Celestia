@@ -8,7 +8,9 @@
   .workspace,
   .workspace__body,
   .workspace__panel,
+  .capability-workspace,
   .plugin-workspace,
+  .vision-rule-layout,
   .overview-panel,
   .overview-panel__main,
   .explorer-card,
@@ -53,5 +55,14 @@
 
   .control-card__meta {
     @apply w-full justify-between;
+  }
+
+  .capability-workspace,
+  .vision-rule-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .zone-editor__coords {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

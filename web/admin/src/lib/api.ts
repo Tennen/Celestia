@@ -1,6 +1,8 @@
 import type {
   Automation,
   AuditRecord,
+  CapabilityDetail,
+  CapabilitySummary,
   CatalogPlugin,
   CommandResult,
   DashboardSummary,
@@ -72,8 +74,23 @@ export async function fetchPlugins() {
   return request<PluginRuntimeView[]>('/plugins');
 }
 
+export async function fetchCapabilities() {
+  return request<CapabilitySummary[]>('/capabilities');
+}
+
 export async function fetchAutomations() {
   return request<Automation[]>('/automations');
+}
+
+export async function fetchCapability(capabilityId: string) {
+  return request<CapabilityDetail>(`/capabilities/${capabilityId}`);
+}
+
+export async function saveVisionCapabilityConfig(config: import('./types').VisionCapabilityConfig) {
+  return request<CapabilityDetail>('/capabilities/vision_entity_stay_zone', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
 }
 
 export async function installPlugin(payload: {

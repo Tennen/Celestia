@@ -31,15 +31,16 @@ const (
 type EventType string
 
 const (
-	EventDeviceDiscovered     EventType = "device.discovered"
-	EventDeviceStateChanged   EventType = "device.state.changed"
-	EventDeviceOccurred       EventType = "device.event.occurred"
-	EventDeviceCommandAccept  EventType = "device.command.accepted"
-	EventDeviceCommandFailed  EventType = "device.command.failed"
-	EventPluginHealthChanged  EventType = "plugin.health.changed"
-	EventPluginLifecycleState EventType = "plugin.lifecycle.changed"
-	EventAutomationTriggered  EventType = "automation.triggered"
-	EventAutomationFailed     EventType = "automation.failed"
+	EventDeviceDiscovered        EventType = "device.discovered"
+	EventDeviceStateChanged      EventType = "device.state.changed"
+	EventDeviceOccurred          EventType = "device.event.occurred"
+	EventDeviceCommandAccept     EventType = "device.command.accepted"
+	EventDeviceCommandFailed     EventType = "device.command.failed"
+	EventPluginHealthChanged     EventType = "plugin.health.changed"
+	EventPluginLifecycleState    EventType = "plugin.lifecycle.changed"
+	EventCapabilityStatusChanged EventType = "capability.status.changed"
+	EventAutomationTriggered     EventType = "automation.triggered"
+	EventAutomationFailed        EventType = "automation.failed"
 )
 
 type DeviceKind string

@@ -5,6 +5,7 @@ import (
 
 	"github.com/chentianyu/celestia/internal/core/audit"
 	"github.com/chentianyu/celestia/internal/core/automation"
+	"github.com/chentianyu/celestia/internal/core/capability"
 	"github.com/chentianyu/celestia/internal/core/control"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	oauthsvc "github.com/chentianyu/celestia/internal/core/oauth"
@@ -12,6 +13,7 @@ import (
 	"github.com/chentianyu/celestia/internal/core/policy"
 	"github.com/chentianyu/celestia/internal/core/registry"
 	"github.com/chentianyu/celestia/internal/core/state"
+	"github.com/chentianyu/celestia/internal/core/vision"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/storage"
 )
@@ -23,10 +25,12 @@ type Runtime struct {
 	State      *state.Service
 	Audit      *audit.Service
 	Automation *automation.Service
+	Capability *capability.Service
 	Controls   *control.Service
 	Policy     *policy.Service
 	OAuth      *oauthsvc.Service
 	PluginMgr  *pluginmgr.Manager
+	Vision     *vision.Service
 }
 
 func New(store storage.Store) *Runtime {
@@ -36,17 +40,21 @@ func New(store storage.Store) *Runtime {
 	policySvc := policy.New()
 	auditSvc := audit.New(store)
 	pluginMgr := pluginmgr.New(store, registrySvc, stateSvc, bus)
+	visionSvc := vision.New(store, registrySvc, stateSvc, bus)
+	automationSvc := automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr)
 	return &Runtime{
 		Store:      store,
 		EventBus:   bus,
 		Registry:   registrySvc,
 		State:      stateSvc,
 		Audit:      auditSvc,
-		Automation: automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr),
+		Automation: automationSvc,
+		Capability: capability.New(automationSvc, visionSvc),
 		Controls:   control.New(),
 		Policy:     policySvc,
 		OAuth:      oauthsvc.New(store),
 		PluginMgr:  pluginMgr,
+		Vision:     visionSvc,
 	}
 }
 

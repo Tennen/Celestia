@@ -19,6 +19,11 @@ type Store interface {
 	ListAutomations(context.Context) ([]models.Automation, error)
 	DeleteAutomation(context.Context, string) error
 
+	UpsertVisionConfig(context.Context, models.VisionCapabilityConfig) error
+	GetVisionConfig(context.Context) (models.VisionCapabilityConfig, bool, error)
+	UpsertVisionStatus(context.Context, models.VisionCapabilityStatus) error
+	GetVisionStatus(context.Context) (models.VisionCapabilityStatus, bool, error)
+
 	UpsertDevice(context.Context, models.Device) error
 	GetDevice(context.Context, string) (models.Device, bool, error)
 	ListDevices(context.Context, DeviceFilter) ([]models.Device, error)
