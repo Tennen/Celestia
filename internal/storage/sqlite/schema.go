@@ -1,6 +1,9 @@
 package sqlite
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 func (s *Store) EnsureSchema(ctx context.Context) error {
 	stmts := []string{
@@ -35,6 +38,7 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			capability_id text primary key,
 			service_url text not null default '',
 			recognition_enabled integer not null default 0,
+			event_capture_retention_hours integer not null default 168,
 			rules_json text not null default '[]',
 			updated_at text not null
 		)`,
@@ -108,6 +112,18 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			allowed integer not null,
 			created_at text not null
 		)`,
+		`create table if not exists vision_event_captures (
+			capture_id text primary key,
+			event_id text not null,
+			rule_id text not null default '',
+			camera_device_id text not null default '',
+			phase text not null,
+			captured_at text not null,
+			content_type text not null,
+			size_bytes integer not null default 0,
+			metadata_json text not null default '{}',
+			image_data blob not null
+		)`,
 		`create table if not exists oauth_sessions (
 			id text primary key,
 			provider text not null,
@@ -133,6 +149,8 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 		`create index if not exists idx_device_control_preferences_device on device_control_preferences(device_id)`,
 		`create index if not exists idx_automations_enabled on automations(enabled, updated_at desc)`,
 		`create index if not exists idx_events_plugin_ts on events(plugin_id, ts desc)`,
+		`create unique index if not exists idx_vision_event_captures_event_phase on vision_event_captures(event_id, phase)`,
+		`create index if not exists idx_vision_event_captures_captured_at on vision_event_captures(captured_at desc)`,
 		`create index if not exists idx_audits_created_at on audits(created_at desc)`,
 		`create unique index if not exists idx_oauth_sessions_provider_state on oauth_sessions(provider, state)`,
 	}
@@ -140,6 +158,16 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
 			return err
 		}
+	}
+	if err := s.addColumnIfMissing(ctx, "alter table vision_capability_config add column event_capture_retention_hours integer not null default 168"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) addColumnIfMissing(ctx context.Context, stmt string) error {
+	if _, err := s.db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
 	}
 	return nil
 }

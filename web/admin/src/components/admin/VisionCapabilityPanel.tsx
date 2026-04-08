@@ -12,6 +12,7 @@ import { useAdminStore } from '../../stores/adminStore';
 import type { CapabilityDetail, CapabilitySummary, DeviceView, HealthState, VisionCapabilityConfig, VisionRule } from '../../lib/types';
 import { CardHeading } from './shared/CardHeading';
 import { SelectableListItem } from './shared/SelectableListItem';
+import { VisionEventCaptureGallery, visionEventCapturesFromPayload } from './VisionEventCaptureGallery';
 import { VisionRuleEditorCard } from './VisionRuleEditorCard';
 
 type Props = {
@@ -195,6 +196,22 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
           </div>
 
           <div className="automation-field">
+            <label>Event Capture Retention Hours</label>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={draft.event_capture_retention_hours}
+              onChange={(event) =>
+                updateDraft((current) => ({
+                  ...current,
+                  event_capture_retention_hours: Math.max(1, Number(event.target.value) || 1),
+                }))
+              }
+            />
+          </div>
+
+          <div className="automation-field">
             <div className="button-row">
               <label>Supported Entities</label>
               <Button
@@ -355,6 +372,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
                         <p className="muted">
                           {String(event.payload?.entity_value ?? 'entity')} · dwell {String(event.payload?.dwell_seconds ?? 0)}s
                         </p>
+                        <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(event.payload)} />
                       </article>
                     ))
                   ) : (

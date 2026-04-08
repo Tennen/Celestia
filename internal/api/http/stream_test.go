@@ -65,6 +65,12 @@ func (g *stubGateway) ReportVisionCapabilityStatus(_ context.Context, _ models.V
 func (g *stubGateway) ReportVisionCapabilityEvents(_ context.Context, _ models.VisionServiceEventBatch) error {
 	return nil
 }
+func (g *stubGateway) ReportVisionCapabilityEvidence(_ context.Context, _ models.VisionServiceEventCaptureBatch) error {
+	return nil
+}
+func (g *stubGateway) GetVisionEventCapture(_ context.Context, _ string) (models.VisionEventCaptureAsset, error) {
+	return models.VisionEventCaptureAsset{}, nil
+}
 func (g *stubGateway) ListAutomations(_ context.Context) ([]models.Automation, error) {
 	return nil, nil
 }

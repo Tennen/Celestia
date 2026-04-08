@@ -26,6 +26,8 @@ type Service interface {
 	RefreshVisionEntityCatalog(ctx context.Context, req models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error)
 	ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error)
 	ReportVisionCapabilityEvents(ctx context.Context, batch models.VisionServiceEventBatch) error
+	ReportVisionCapabilityEvidence(ctx context.Context, batch models.VisionServiceEventCaptureBatch) error
+	GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error)
 
 	ListAutomations(ctx context.Context) ([]models.Automation, error)
 	SaveAutomation(ctx context.Context, automation models.Automation) (models.Automation, error)

@@ -15,17 +15,19 @@ func (s *Store) UpsertVisionConfig(ctx context.Context, config models.VisionCapa
 	}
 	_, err = s.db.ExecContext(ctx, `
 		insert into vision_capability_config(
-			capability_id, service_url, recognition_enabled, rules_json, updated_at
-		) values (?, ?, ?, ?, ?)
+			capability_id, service_url, recognition_enabled, event_capture_retention_hours, rules_json, updated_at
+		) values (?, ?, ?, ?, ?, ?)
 		on conflict(capability_id) do update set
 			service_url=excluded.service_url,
 			recognition_enabled=excluded.recognition_enabled,
+			event_capture_retention_hours=excluded.event_capture_retention_hours,
 			rules_json=excluded.rules_json,
 			updated_at=excluded.updated_at
 	`,
 		models.VisionCapabilityID,
 		strings.TrimSpace(config.ServiceURL),
 		boolToInt(config.RecognitionEnabled),
+		config.EventCaptureRetentionHours,
 		rulesJSON,
 		config.UpdatedAt.UTC().Format(time.RFC3339Nano),
 	)
@@ -34,7 +36,7 @@ func (s *Store) UpsertVisionConfig(ctx context.Context, config models.VisionCapa
 
 func (s *Store) GetVisionConfig(ctx context.Context) (models.VisionCapabilityConfig, bool, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select capability_id, service_url, recognition_enabled, rules_json, updated_at
+		select capability_id, service_url, recognition_enabled, event_capture_retention_hours, rules_json, updated_at
 		from vision_capability_config where capability_id = ?
 	`, models.VisionCapabilityID)
 	if err != nil {

@@ -4,6 +4,8 @@ import "time"
 
 const VisionCapabilityID = "vision_entity_stay_zone"
 
+const DefaultVisionEventCaptureRetentionHours = 168
+
 type VisionEntitySelector struct {
 	Kind  string `json:"kind"`
 	Value string `json:"value"`
@@ -39,10 +41,11 @@ type VisionRule struct {
 }
 
 type VisionCapabilityConfig struct {
-	ServiceURL         string       `json:"service_url"`
-	RecognitionEnabled bool         `json:"recognition_enabled"`
-	Rules              []VisionRule `json:"rules,omitempty"`
-	UpdatedAt          time.Time    `json:"updated_at"`
+	ServiceURL                 string       `json:"service_url"`
+	RecognitionEnabled         bool         `json:"recognition_enabled"`
+	EventCaptureRetentionHours int          `json:"event_capture_retention_hours"`
+	Rules                      []VisionRule `json:"rules,omitempty"`
+	UpdatedAt                  time.Time    `json:"updated_at"`
 }
 
 type VisionEntityCatalog struct {
@@ -100,6 +103,47 @@ type VisionServiceEventBatch struct {
 	Events []VisionServiceEvent `json:"events"`
 }
 
+type VisionEventCapturePhase string
+
+const (
+	VisionEventCapturePhaseStart  VisionEventCapturePhase = "start"
+	VisionEventCapturePhaseMiddle VisionEventCapturePhase = "middle"
+	VisionEventCapturePhaseEnd    VisionEventCapturePhase = "end"
+)
+
+type VisionEventCapture struct {
+	CaptureID      string                  `json:"capture_id"`
+	EventID        string                  `json:"event_id"`
+	RuleID         string                  `json:"rule_id,omitempty"`
+	CameraDeviceID string                  `json:"camera_device_id,omitempty"`
+	Phase          VisionEventCapturePhase `json:"phase"`
+	CapturedAt     time.Time               `json:"captured_at"`
+	ContentType    string                  `json:"content_type"`
+	SizeBytes      int                     `json:"size_bytes"`
+	Metadata       map[string]any          `json:"metadata,omitempty"`
+}
+
+type VisionEventCaptureAsset struct {
+	Capture VisionEventCapture `json:"capture"`
+	Data    []byte             `json:"-"`
+}
+
+type VisionServiceEventCapture struct {
+	CaptureID      string                  `json:"capture_id,omitempty"`
+	EventID        string                  `json:"event_id"`
+	RuleID         string                  `json:"rule_id,omitempty"`
+	CameraDeviceID string                  `json:"camera_device_id,omitempty"`
+	Phase          VisionEventCapturePhase `json:"phase"`
+	CapturedAt     time.Time               `json:"captured_at"`
+	ContentType    string                  `json:"content_type,omitempty"`
+	ImageBase64    string                  `json:"image_base64"`
+	Metadata       map[string]any          `json:"metadata,omitempty"`
+}
+
+type VisionServiceEventCaptureBatch struct {
+	Captures []VisionServiceEventCapture `json:"captures"`
+}
+
 type VisionServiceEntityCatalog struct {
 	SchemaVersion  string                   `json:"schema_version"`
 	ServiceVersion string                   `json:"service_version,omitempty"`
@@ -117,8 +161,9 @@ type VisionServiceSyncPayload struct {
 }
 
 type VisionServiceSyncCallbacks struct {
-	StatusPath string `json:"status_path"`
-	EventPath  string `json:"event_path"`
+	StatusPath   string `json:"status_path"`
+	EventPath    string `json:"event_path"`
+	EvidencePath string `json:"evidence_path"`
 }
 
 type VisionServiceRule struct {

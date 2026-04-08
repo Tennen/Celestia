@@ -9,7 +9,7 @@ Important:
 - The current integration is HTTP + JSON, not gRPC.
 - Gateway is the source of truth for configuration.
 - Gateway does not proxy RTSP, does not process frames, and does not depend on the Vision engine's implementation details.
-- The Vision Service is responsible for consuming RTSP, running recognition, maintaining dwell logic, and calling Gateway back with status and structured events.
+- The Vision Service is responsible for consuming RTSP, running recognition, maintaining dwell logic, and calling Gateway back with status, structured events, and event evidence screenshots.
 
 ## Roles
 
@@ -19,6 +19,7 @@ Important:
 - Push a normalized configuration payload to the Vision Service.
 - Receive service status callbacks.
 - Receive structured recognition events.
+- Receive screenshot evidence tied to specific recognition events.
 - Project recognition results into Gateway events and camera state for downstream automation and notification flows.
 
 ### Vision Service Responsibilities
@@ -30,6 +31,7 @@ Important:
 - Track dwell duration for each configured rule.
 - Report service health and runtime status back to Gateway.
 - Report threshold-crossing events back to Gateway.
+- Report start / middle / end screenshots back to Gateway for persisted event evidence.
 
 ## Transport
 
@@ -48,8 +50,10 @@ Current base paths:
   `POST {gateway_base}{status_path}`
 - Vision Service -> Gateway event callback:
   `POST {gateway_base}{event_path}`
+- Vision Service -> Gateway evidence callback:
+  `POST {gateway_base}{evidence_path}`
 
-The `status_path` and `event_path` are supplied by Gateway inside the sync payload, so the Vision Service should not hardcode them beyond basic routing support.
+The `status_path`, `event_path`, and `evidence_path` are supplied by Gateway inside the sync payload, so the Vision Service should not hardcode them beyond basic routing support.
 
 ## 0. Entity Catalog Discovery: Gateway -> Vision Service
 
@@ -122,7 +126,8 @@ Request body:
   "recognition_enabled": true,
   "callbacks": {
     "status_path": "/api/v1/capabilities/vision_entity_stay_zone/status",
-    "event_path": "/api/v1/capabilities/vision_entity_stay_zone/events"
+    "event_path": "/api/v1/capabilities/vision_entity_stay_zone/events",
+    "evidence_path": "/api/v1/capabilities/vision_entity_stay_zone/evidence"
   },
   "rules": [
     {
@@ -170,6 +175,8 @@ Request body:
   Relative Gateway callback path for service status updates.
 - `callbacks.event_path`
   Relative Gateway callback path for recognition events.
+- `callbacks.evidence_path`
+  Relative Gateway callback path for screenshot evidence uploads.
 - `rules`
   Full desired rule set, not a patch.
   The Vision Service should reconcile its internal runtime to exactly this list.
@@ -319,6 +326,7 @@ Request body:
 - `event_id`
   Optional event identifier from the Vision Service.
   Recommended: globally unique per emitted event.
+  Required if the Vision Service later uploads screenshot evidence for this event.
 - `rule_id`
   Required Gateway rule id from the current synced config.
 - `camera_device_id`
@@ -374,7 +382,83 @@ The Vision Service should collapse its internal tracking into the rule-level eve
 
 If multiple matching entities exist simultaneously, the service should still emit rule-level `threshold_met` / `cleared` transitions rather than raw per-frame detections.
 
-## 4. Gateway Side Effects
+## 4. Evidence Callback: Vision Service -> Gateway
+
+### Request
+
+`POST {gateway_base}{evidence_path}`
+
+Request body:
+
+```json
+{
+  "captures": [
+    {
+      "capture_id": "vision-evt-1:start",
+      "event_id": "vision-evt-1",
+      "rule_id": "feeder-zone",
+      "camera_device_id": "hikvision:camera:entry-1",
+      "phase": "start",
+      "captured_at": "2026-04-08T09:28:05Z",
+      "content_type": "image/jpeg",
+      "image_base64": "/9j/4AAQSk..."
+    },
+    {
+      "capture_id": "vision-evt-1:middle",
+      "event_id": "vision-evt-1",
+      "rule_id": "feeder-zone",
+      "camera_device_id": "hikvision:camera:entry-1",
+      "phase": "middle",
+      "captured_at": "2026-04-08T09:28:08Z",
+      "content_type": "image/jpeg",
+      "image_base64": "/9j/4AAQSk..."
+    },
+    {
+      "capture_id": "vision-evt-1:end",
+      "event_id": "vision-evt-1",
+      "rule_id": "feeder-zone",
+      "camera_device_id": "hikvision:camera:entry-1",
+      "phase": "end",
+      "captured_at": "2026-04-08T09:28:11Z",
+      "content_type": "image/jpeg",
+      "image_base64": "/9j/4AAQSk..."
+    }
+  ]
+}
+```
+
+### Fields
+
+- `captures`
+  Non-empty batch of event screenshots.
+- `capture_id`
+  Optional stable screenshot identifier.
+  If omitted, Gateway derives one from `event_id` and `phase`.
+- `event_id`
+  Required previously accepted recognition `event_id`.
+- `rule_id`
+  Optional redundancy field; if provided it must match the persisted event.
+- `camera_device_id`
+  Optional redundancy field; if provided it must match the persisted event camera.
+- `phase`
+  One of:
+  - `start`
+  - `middle`
+  - `end`
+- `captured_at`
+  Screenshot timestamp from the Vision Service.
+- `content_type`
+  Optional image MIME type, for example `image/jpeg`.
+- `image_base64`
+  Required base64-encoded screenshot bytes.
+
+### Behavior
+
+- Gateway persists the screenshot bytes in Core-owned storage.
+- Gateway associates each screenshot with the referenced event record.
+- Gateway enforces screenshot retention using its own configured persistence window.
+
+## 5. Gateway Side Effects
 
 For each accepted event callback, Gateway currently does two things:
 
@@ -405,7 +489,9 @@ Both statuses update:
 - `vision_rule_<rule_id>_last_dwell_seconds`
 - `vision_rule_<rule_id>_last_status`
 
-## 5. Failure Handling
+For each accepted evidence callback, Gateway persists the uploaded screenshots and exposes them back on the matching event record for admin review.
+
+## 6. Failure Handling
 
 ### Config Sync Failure
 
@@ -420,7 +506,7 @@ Its runtime state should always be derived from the most recent successful sync 
 
 ### Callback Failure
 
-If Gateway returns non-`2xx` on status or event callbacks:
+If Gateway returns non-`2xx` on status, event, or evidence callbacks:
 
 - The Vision Service should log the failure.
 - The Vision Service should retry based on its own retry policy.
@@ -432,7 +518,12 @@ Practical guidance for the Vision Service:
 - use a unique `event_id` if your runtime needs stable correlation
 - avoid blind replay storms for already-delivered events
 
-## 6. Minimal Downstream Checklist
+For evidence retries:
+
+- keep `event_id` stable
+- upload at most one screenshot per phase (`start`, `middle`, `end`) unless intentionally replacing the prior upload
+
+## 7. Minimal Downstream Checklist
 
 To be considered compatible with the current Gateway contract, the Vision Service must:
 
@@ -444,9 +535,10 @@ To be considered compatible with the current Gateway contract, the Vision Servic
 6. Apply zone and dwell logic per rule.
 7. POST runtime health to Gateway using the provided `status_path`.
 8. POST structured `threshold_met` / `cleared` batches to Gateway using the provided `event_path`.
-9. Avoid repeated `threshold_met` emission for the same active stay episode.
+9. POST screenshot evidence batches to Gateway using the provided `evidence_path`.
+10. Avoid repeated `threshold_met` emission for the same active stay episode.
 
-## 7. Schema Reference
+## 8. Schema Reference
 
 The canonical Go structs in this repository are:
 
@@ -459,3 +551,5 @@ The canonical Go structs in this repository are:
   - `VisionServiceStatusReport`
   - `VisionServiceEvent`
   - `VisionServiceEventBatch`
+  - `VisionServiceEventCapture`
+  - `VisionServiceEventCaptureBatch`

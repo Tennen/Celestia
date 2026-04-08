@@ -18,6 +18,7 @@ const (
 	visionConfigSyncPath          = "/api/v1/capabilities/" + models.VisionCapabilityID
 	visionStatusCallbackPath      = "/api/v1/capabilities/" + models.VisionCapabilityID + "/status"
 	visionEventCallbackPath       = "/api/v1/capabilities/" + models.VisionCapabilityID + "/events"
+	visionEvidenceCallbackPath    = "/api/v1/capabilities/" + models.VisionCapabilityID + "/evidence"
 )
 
 type Service struct {
@@ -108,5 +109,5 @@ func (s *Service) RecentEvents(ctx context.Context, limit int) ([]models.Event, 
 			break
 		}
 	}
-	return out, nil
+	return s.EnrichEvents(ctx, out)
 }

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -42,12 +43,18 @@ type Store interface {
 	ListDeviceControlPreferences(context.Context, string) ([]models.DeviceControlPreference, error)
 
 	AppendEvent(context.Context, models.Event) error
+	GetEvent(context.Context, string) (models.Event, bool, error)
 	ListEvents(context.Context, EventFilter) ([]models.Event, error)
 	CountEvents(context.Context) (int, error)
 
 	AppendAudit(context.Context, models.AuditRecord) error
 	ListAudits(context.Context, AuditFilter) ([]models.AuditRecord, error)
 	CountAudits(context.Context) (int, error)
+
+	UpsertVisionEventCapture(context.Context, models.VisionEventCaptureAsset) error
+	GetVisionEventCapture(context.Context, string) (models.VisionEventCaptureAsset, bool, error)
+	ListVisionEventCaptures(context.Context, []string) (map[string][]models.VisionEventCapture, error)
+	DeleteVisionEventCapturesBefore(context.Context, time.Time) error
 
 	UpsertOAuthSession(context.Context, models.OAuthSession) error
 	GetOAuthSession(context.Context, string) (models.OAuthSession, bool, error)

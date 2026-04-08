@@ -29,9 +29,10 @@ func (s *Service) EnrichDevice(device models.Device) models.Device {
 
 func defaultConfig() models.VisionCapabilityConfig {
 	return models.VisionCapabilityConfig{
-		RecognitionEnabled: false,
-		Rules:              []models.VisionRule{},
-		UpdatedAt:          time.Time{},
+		RecognitionEnabled:         false,
+		EventCaptureRetentionHours: models.DefaultVisionEventCaptureRetentionHours,
+		Rules:                      []models.VisionRule{},
+		UpdatedAt:                  time.Time{},
 	}
 }
 

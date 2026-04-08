@@ -178,6 +178,7 @@ export type VisionRule = {
 export type VisionCapabilityConfig = {
   service_url: string;
   recognition_enabled: boolean;
+  event_capture_retention_hours: number;
   rules: VisionRule[];
   updated_at: string;
 };
@@ -291,6 +292,18 @@ export type EventRecord = {
   device_id?: string;
   ts: string;
   payload?: Record<string, unknown>;
+};
+
+export type VisionEventCapture = {
+  capture_id: string;
+  event_id: string;
+  rule_id?: string;
+  camera_device_id?: string;
+  phase: 'start' | 'middle' | 'end';
+  captured_at: string;
+  content_type: string;
+  size_bytes: number;
+  metadata?: Record<string, unknown>;
 };
 
 export type AuditRecord = {

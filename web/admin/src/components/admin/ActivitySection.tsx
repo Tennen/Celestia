@@ -4,6 +4,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
 import { formatTime, prettyJson } from '../../lib/utils';
 import type { AuditRecord, EventRecord } from '../../lib/types';
+import { VisionEventCaptureGallery, visionEventCapturesFromPayload } from './VisionEventCaptureGallery';
 
 type Props = {
   events: EventRecord[];
@@ -30,6 +31,7 @@ export function ActivitySection({ events, audits }: Props) {
                     <span>{formatTime(event.ts)}</span>
                   </div>
                   <strong>{event.device_id || event.plugin_id || 'system'}</strong>
+                  <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(event.payload)} />
                   <pre className="log-box log-box--wrap">{prettyJson(event.payload ?? {})}</pre>
                 </article>
               ))}

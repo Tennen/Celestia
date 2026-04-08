@@ -91,6 +91,9 @@ func TestSaveConfigSeedsCameraStateAndSyncs(t *testing.T) {
 	if len(synced.Rules) != 1 {
 		t.Fatalf("synced rules len = %d, want 1", len(synced.Rules))
 	}
+	if synced.Callbacks.EvidencePath != visionEvidenceCallbackPath {
+		t.Fatalf("evidence path = %q, want %q", synced.Callbacks.EvidencePath, visionEvidenceCallbackPath)
+	}
 	if synced.Rules[0].Camera.EntryID != "entry-1" {
 		t.Fatalf("camera entry_id = %q, want entry-1", synced.Rules[0].Camera.EntryID)
 	}

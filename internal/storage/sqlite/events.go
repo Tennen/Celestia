@@ -21,6 +21,21 @@ func (s *Store) AppendEvent(ctx context.Context, event models.Event) error {
 	return err
 }
 
+func (s *Store) GetEvent(ctx context.Context, id string) (models.Event, bool, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select id, type, plugin_id, device_id, ts, payload_json from events where id = ?
+	`, strings.TrimSpace(id))
+	if err != nil {
+		return models.Event{}, false, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return models.Event{}, false, nil
+	}
+	event, err := scanEvent(rows)
+	return event, err == nil, err
+}
+
 func (s *Store) ListEvents(ctx context.Context, filter storage.EventFilter) ([]models.Event, error) {
 	limit := filter.Limit
 	if limit <= 0 {

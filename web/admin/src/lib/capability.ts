@@ -8,6 +8,7 @@ export function defaultVisionConfig(): VisionCapabilityConfig {
   return {
     service_url: '',
     recognition_enabled: false,
+    event_capture_retention_hours: 168,
     rules: [],
     updated_at: '',
   };

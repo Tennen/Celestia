@@ -3,7 +3,9 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -54,4 +56,37 @@ func (s *HTTPService) ReportVisionCapabilityStatus(ctx context.Context, report m
 func (s *HTTPService) ReportVisionCapabilityEvents(ctx context.Context, batch models.VisionServiceEventBatch) error {
 	path := fmt.Sprintf("/api/v1/capabilities/%s/events", models.VisionCapabilityID)
 	return s.request(ctx, http.MethodPost, path, nil, batch, nil, "")
+}
+
+func (s *HTTPService) ReportVisionCapabilityEvidence(ctx context.Context, batch models.VisionServiceEventCaptureBatch) error {
+	path := fmt.Sprintf("/api/v1/capabilities/%s/evidence", models.VisionCapabilityID)
+	return s.request(ctx, http.MethodPost, path, nil, batch, nil, "")
+}
+
+func (s *HTTPService) GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error) {
+	path := fmt.Sprintf("/api/v1/capabilities/%s/captures/%s", models.VisionCapabilityID, url.PathEscape(captureID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.baseURL+path, nil)
+	if err != nil {
+		return models.VisionEventCaptureAsset{}, err
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return models.VisionEventCaptureAsset{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return models.VisionEventCaptureAsset{}, fmt.Errorf("request failed with %d", resp.StatusCode)
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.VisionEventCaptureAsset{}, err
+	}
+	return models.VisionEventCaptureAsset{
+		Capture: models.VisionEventCapture{
+			CaptureID:   captureID,
+			ContentType: resp.Header.Get("Content-Type"),
+			SizeBytes:   len(data),
+		},
+		Data: data,
+	}, nil
 }

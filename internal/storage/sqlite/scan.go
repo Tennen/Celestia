@@ -188,13 +188,15 @@ func scanVisionConfig(scanner interface{ Scan(...any) error }) (models.VisionCap
 		capabilityID       string
 		config             models.VisionCapabilityConfig
 		recognitionEnabled int
+		retentionHours     int
 		rulesJSON          string
 		updatedAt          string
 	)
-	if err := scanner.Scan(&capabilityID, &config.ServiceURL, &recognitionEnabled, &rulesJSON, &updatedAt); err != nil {
+	if err := scanner.Scan(&capabilityID, &config.ServiceURL, &recognitionEnabled, &retentionHours, &rulesJSON, &updatedAt); err != nil {
 		return models.VisionCapabilityConfig{}, err
 	}
 	config.RecognitionEnabled = recognitionEnabled == 1
+	config.EventCaptureRetentionHours = retentionHours
 	if err := parseJSON(rulesJSON, &config.Rules); err != nil {
 		return models.VisionCapabilityConfig{}, err
 	}

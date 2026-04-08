@@ -30,6 +30,7 @@ Response:
     "config": {
       "service_url": "http://127.0.0.1:8090",
       "recognition_enabled": true,
+      "event_capture_retention_hours": 168,
       "rules": [
         {
           "id": "feeder-zone",
@@ -135,6 +136,7 @@ Request body:
 {
   "service_url": "http://127.0.0.1:8090",
   "recognition_enabled": true,
+  "event_capture_retention_hours": 168,
   "rules": [
     {
       "id": "feeder-zone",
@@ -174,6 +176,8 @@ If Gateway already has a fetched entity catalog for the same `service_url`, it v
 3. bind camera, RTSP source, zone, and stay threshold
 4. save and sync the full rule set downstream
 
+`event_capture_retention_hours` is Gateway-owned persistence policy for screenshots uploaded later by the Vision Service. It is not used by the Vision engine itself; Gateway applies it when storing and serving evidence images.
+
 The pushed payload is a stable control-plane structure:
 
 ```json
@@ -183,7 +187,8 @@ The pushed payload is a stable control-plane structure:
   "recognition_enabled": true,
   "callbacks": {
     "status_path": "/api/v1/capabilities/vision_entity_stay_zone/status",
-    "event_path": "/api/v1/capabilities/vision_entity_stay_zone/events"
+    "event_path": "/api/v1/capabilities/vision_entity_stay_zone/events",
+    "evidence_path": "/api/v1/capabilities/vision_entity_stay_zone/evidence"
   },
   "rules": [
     {
@@ -268,6 +273,8 @@ Supported `status` values:
 - `threshold_met`
 - `cleared`
 
+If the Vision Service will later upload screenshots for this event, it should set a stable `event_id`.
+
 On each reported event, Gateway does two things:
 
 1. Appends a structured `device.event.occurred` event with `payload.capability_id = "vision_entity_stay_zone"`.
@@ -283,3 +290,66 @@ For each vision rule, Gateway maintains these projected camera state keys:
 - `vision_rule_<rule_id>_last_status`
 
 `threshold_met` increments `vision_rule_<rule_id>_match_count`, which lets existing state-change automations trigger on recurring detections.
+
+## Report Vision Event Evidence
+
+`POST /api/v1/capabilities/vision_entity_stay_zone/evidence`
+
+This endpoint is intended for the external Vision Service to persist screenshots tied to a previously accepted vision event.
+
+Request body:
+
+```json
+{
+  "captures": [
+    {
+      "capture_id": "vision-evt-1:start",
+      "event_id": "vision-evt-1",
+      "rule_id": "feeder-zone",
+      "camera_device_id": "hikvision:camera:entry-1",
+      "phase": "start",
+      "captured_at": "2026-04-08T09:28:05Z",
+      "content_type": "image/jpeg",
+      "image_base64": "/9j/4AAQSk..."
+    },
+    {
+      "capture_id": "vision-evt-1:middle",
+      "event_id": "vision-evt-1",
+      "rule_id": "feeder-zone",
+      "camera_device_id": "hikvision:camera:entry-1",
+      "phase": "middle",
+      "captured_at": "2026-04-08T09:28:08Z",
+      "content_type": "image/jpeg",
+      "image_base64": "/9j/4AAQSk..."
+    },
+    {
+      "capture_id": "vision-evt-1:end",
+      "event_id": "vision-evt-1",
+      "rule_id": "feeder-zone",
+      "camera_device_id": "hikvision:camera:entry-1",
+      "phase": "end",
+      "captured_at": "2026-04-08T09:28:11Z",
+      "content_type": "image/jpeg",
+      "image_base64": "/9j/4AAQSk..."
+    }
+  ]
+}
+```
+
+Supported `phase` values:
+
+- `start`
+- `middle`
+- `end`
+
+Response: HTTP `200` with `{ "ok": true }`.
+
+Gateway stores the image bytes in Core-owned persistence, applies the configured retention window, and exposes the stored screenshot metadata back on the matching event record as `payload.captures`.
+
+## Get Vision Event Capture
+
+`GET /api/v1/capabilities/vision_entity_stay_zone/captures/{captureID}`
+
+Response: raw image bytes with the persisted image `Content-Type`.
+
+Admin uses this route to render screenshots attached to specific vision events.

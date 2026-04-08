@@ -62,6 +62,10 @@ export function getApiBase() {
   return API_BASE;
 }
 
+export function visionCaptureURL(captureId: string) {
+  return `${API_BASE}/capabilities/vision_entity_stay_zone/captures/${encodeURIComponent(captureId)}`;
+}
+
 export async function fetchDashboard() {
   return request<DashboardSummary>('/dashboard');
 }

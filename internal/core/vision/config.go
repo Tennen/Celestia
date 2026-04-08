@@ -25,6 +25,9 @@ func (s *Service) SaveConfig(ctx context.Context, config models.VisionCapability
 	if err := s.store.UpsertVisionConfig(ctx, normalized); err != nil {
 		return models.VisionCapabilityDetail{}, err
 	}
+	if err := s.deleteExpiredCaptures(ctx, normalized); err != nil {
+		return models.VisionCapabilityDetail{}, err
+	}
 	if err := s.reconcileDeviceStates(ctx, normalized); err != nil {
 		return models.VisionCapabilityDetail{}, err
 	}
@@ -52,6 +55,7 @@ func (s *Service) SaveConfig(ctx context.Context, config models.VisionCapability
 func (s *Service) normalizeConfig(ctx context.Context, config models.VisionCapabilityConfig) (models.VisionCapabilityConfig, error) {
 	now := time.Now().UTC()
 	config.ServiceURL = normalizeServiceURL(config.ServiceURL)
+	config.EventCaptureRetentionHours = normalizeCaptureRetentionHours(config.EventCaptureRetentionHours)
 	config.UpdatedAt = now
 	if config.Rules == nil {
 		config.Rules = []models.VisionRule{}
@@ -74,6 +78,13 @@ func (s *Service) normalizeConfig(ctx context.Context, config models.VisionCapab
 	})
 	config.Rules = normalizedRules
 	return config, nil
+}
+
+func normalizeCaptureRetentionHours(value int) int {
+	if value <= 0 {
+		return models.DefaultVisionEventCaptureRetentionHours
+	}
+	return value
 }
 
 func (s *Service) normalizeRule(ctx context.Context, rule models.VisionRule, idx int) (models.VisionRule, error) {
@@ -283,8 +294,9 @@ func (s *Service) buildSyncPayload(ctx context.Context, config models.VisionCapa
 		SentAt:             time.Now().UTC(),
 		RecognitionEnabled: config.RecognitionEnabled,
 		Callbacks: models.VisionServiceSyncCallbacks{
-			StatusPath: visionStatusCallbackPath,
-			EventPath:  visionEventCallbackPath,
+			StatusPath:   visionStatusCallbackPath,
+			EventPath:    visionEventCallbackPath,
+			EvidencePath: visionEvidenceCallbackPath,
 		},
 		Rules: rules,
 	}, nil

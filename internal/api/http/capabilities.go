@@ -84,3 +84,30 @@ func (s *Server) handleVisionCapabilityEvents(w http.ResponseWriter, r *http.Req
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
+
+func (s *Server) handleVisionCapabilityEvidence(w http.ResponseWriter, r *http.Request) {
+	var batch models.VisionServiceEventCaptureBatch
+	if err := json.NewDecoder(r.Body).Decode(&batch); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := s.gateway.ReportVisionCapabilityEvidence(r.Context(), batch); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleVisionCapture(w http.ResponseWriter, r *http.Request) {
+	asset, err := s.gateway.GetVisionEventCapture(r.Context(), r.PathValue("captureID"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if asset.Capture.ContentType != "" {
+		w.Header().Set("Content-Type", asset.Capture.ContentType)
+	}
+	w.Header().Set("Cache-Control", "private, max-age=60")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(asset.Data)
+}
