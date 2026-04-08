@@ -1,66 +1,14 @@
-# Capabilities And Automations API
+# Vision Stay Zone Capability API
 
 Back to the [API index](../api.md).
 
-These routes stay under `/api/v1` and cover the core-owned capability inventory plus automation management.
+The vision stay-zone capability is exposed in the capability inventory under id `vision_entity_stay_zone`.
 
-## Capabilities
+## Get Capability Detail
 
-Gateway now exposes a Core-owned capability layer for higher-level control-plane features.
-
-Current built-in capability ids:
-
-- `automation`
-- `vision_entity_stay_zone`
-
-`automation` still uses the dedicated `/api/v1/automations` CRUD routes below, but it is also surfaced through the capability inventory so the Admin UI can treat it as a first-class module.
-
-### List Capabilities
-
-`GET /api/v1/capabilities`
+`GET /api/v1/capabilities/vision_entity_stay_zone`
 
 Response:
-
-```json
-[
-  {
-    "id": "automation",
-    "kind": "automation",
-    "name": "Automations",
-    "description": "Core-owned state-change automations that execute device actions.",
-    "enabled": true,
-    "status": "healthy",
-    "summary": {
-      "total": 3,
-      "enabled_count": 2,
-      "last_triggered_at": "2026-04-08T09:30:00Z"
-    },
-    "updated_at": "2026-04-08T09:30:00Z"
-  },
-  {
-    "id": "vision_entity_stay_zone",
-    "kind": "vision_entity_stay_zone",
-    "name": "Vision Stay Zone Recognition",
-    "description": "Gateway-managed stay-zone control plane for independent vision processing services.",
-    "enabled": true,
-    "status": "healthy",
-    "summary": {
-      "service_url": "http://127.0.0.1:8090",
-      "rule_count": 2,
-      "enabled_rule_count": 2,
-      "last_event_at": "2026-04-08T09:28:11Z",
-      "last_synced_at": "2026-04-08T09:20:00Z"
-    },
-    "updated_at": "2026-04-08T09:28:11Z"
-  }
-]
-```
-
-### Get Capability Detail
-
-`GET /api/v1/capabilities/{capability_id}`
-
-Example response for `vision_entity_stay_zone`:
 
 ```json
 {
@@ -123,7 +71,7 @@ Example response for `vision_entity_stay_zone`:
 }
 ```
 
-### Save Vision Capability Config
+## Save Vision Capability Config
 
 `PUT /api/v1/capabilities/vision_entity_stay_zone`
 
@@ -209,7 +157,7 @@ The pushed payload is a stable control-plane structure:
 
 If the Vision Service is unreachable, Gateway still persists the config and returns a degraded `runtime.status` plus `runtime.sync_error`.
 
-### Report Vision Service Status
+## Report Vision Service Status
 
 `POST /api/v1/capabilities/vision_entity_stay_zone/status`
 
@@ -229,7 +177,7 @@ This endpoint is intended for the external Vision Service to report runtime heal
 
 Response: HTTP `200` with the persisted `VisionCapabilityStatus`.
 
-### Report Vision Events
+## Report Vision Events
 
 `POST /api/v1/capabilities/vision_entity_stay_zone/events`
 
@@ -274,125 +222,3 @@ For each vision rule, Gateway maintains these projected camera state keys:
 - `vision_rule_<rule_id>_last_status`
 
 `threshold_met` increments `vision_rule_<rule_id>_match_count`, which lets existing state-change automations trigger on recurring detections.
-
-## Automations
-
-These routes stay under `/api/v1` and let the admin UI manage Core-owned state-change automations.
-
-Each automation has:
-
-- one or more `conditions`
-- exactly one `type: "state_changed"` condition; that single state-change condition starts the automation
-- zero or more `type: "current_state"` conditions combined by `condition_logic` as extra runtime gates
-- an optional daily time window
-- one or more actions executed against existing devices
-
-Supported match operators:
-
-- `any` for `type: "state_changed"` condition `from`
-- `equals`
-- `not_equals`
-- `in`
-- `not_in`
-- `exists`
-- `missing`
-
-Condition shapes:
-
-- `type: "state_changed"` uses `from` and `to`
-- `type: "current_state"` uses `match` against the latest persisted device state
-
-Requests with zero or multiple `state_changed` conditions are rejected.
-
-For `in` and `not_in`, `value` must be a JSON array. This allows one rule to match transitions like `D -> A/B/C` on the same state key.
-
-`time_window.start` and `time_window.end` use `HH:MM` in the gateway's local timezone. Ranges that cross midnight are supported.
-
-### List Automations
-
-`GET /api/v1/automations`
-
-Response:
-
-```json
-[
-  {
-    "id": "automation-1",
-    "name": "Washer Done Voice Push",
-    "enabled": true,
-    "condition_logic": "all",
-    "conditions": [
-      {
-        "type": "state_changed",
-        "device_id": "haier:washer:home:washer-1",
-        "state_key": "phase",
-        "from": {
-          "operator": "not_equals",
-          "value": "ready"
-        },
-        "to": {
-          "operator": "in",
-          "value": ["ready", "dry_done", "wash_done"]
-        }
-      },
-      {
-        "type": "current_state",
-        "device_id": "haier:washer:home:washer-1",
-        "state_key": "machine_status",
-        "match": {
-          "operator": "equals",
-          "value": "idle"
-        }
-      }
-    ],
-    "time_window": {
-      "start": "08:00",
-      "end": "23:00"
-    },
-    "actions": [
-      {
-        "device_id": "xiaomi:cn:speaker-1",
-        "label": "Suggested · Voice push",
-        "action": "push_voice_message",
-        "params": {
-          "message": "洗衣机已结束",
-          "volume": 55
-        }
-      }
-    ],
-    "last_triggered_at": "2026-04-03T10:20:00Z",
-    "last_run_status": "succeeded",
-    "last_error": "",
-    "created_at": "2026-04-03T09:50:00Z",
-    "updated_at": "2026-04-03T10:20:00Z"
-  }
-]
-```
-
-### Create Automation
-
-`POST /api/v1/automations`
-
-Request body: the automation payload without a required `id`. Core assigns one when missing.
-
-Response: HTTP `200` with the persisted `Automation`.
-
-### Update Automation
-
-`PUT /api/v1/automations/{automation_id}`
-
-Request body: the automation payload. The path `automation_id` wins over any body `id`.
-
-Response: HTTP `200` with the persisted `Automation`.
-
-### Delete Automation
-
-`DELETE /api/v1/automations/{automation_id}`
-
-Response:
-
-```json
-{
-  "ok": true
-}
-```

@@ -51,7 +51,9 @@ Command endpoints accept an optional `X-Actor` header. When omitted:
 ## Domain Index
 
 - [Runtime And Plugin Management API](api/runtime-plugins.md): `/api/v1` health, dashboard, plugin catalog, install state, and plugin lifecycle operations
-- [Capabilities And Automations API](api/capabilities-automations.md): `/api/v1` capability inventory, vision stay-zone control plane, and automation CRUD
+- [Capabilities Inventory API](api/capabilities.md): `/api/v1/capabilities` inventory and capability-specific entrypoints
+- [Automation Capability API](api/automation.md): `automation` capability behavior and `/api/v1/automations` CRUD
+- [Vision Stay Zone Capability API](api/vision-stay-zone.md): `vision_entity_stay_zone` capability detail, config sync, status, and event ingestion
 - [Device Query, Control, and Preferences](api/devices.md): `/api/v1/devices`, `/api/external/v1/devices`, and admin-side device/control preferences
 - [AI Agent API](api/ai.md): `/api/ai/v1` semantic device lookup and command execution
 - [Events And Audit API](api/events-audit.md): event history, SSE stream, and audit history
