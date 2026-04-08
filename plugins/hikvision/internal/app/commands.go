@@ -11,6 +11,13 @@ import (
 )
 
 func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req models.CommandRequest) (map[string]any, string, error) {
+	if p.config.Mode == RuntimeModeCloud {
+		return p.executeCloudCommand(ctx, runtime, req)
+	}
+	return p.executeLANCommand(ctx, runtime, req)
+}
+
+func (p *Plugin) executeLANCommand(ctx context.Context, runtime *entryRuntime, req models.CommandRequest) (map[string]any, string, error) {
 	params := req.Params
 	switch req.Action {
 	case "ptz_move":
@@ -138,11 +145,120 @@ func (p *Plugin) executeCommand(ctx context.Context, runtime *entryRuntime, req 
 	}
 }
 
+func (p *Plugin) executeCloudCommand(ctx context.Context, runtime *entryRuntime, req models.CommandRequest) (map[string]any, string, error) {
+	params := req.Params
+	switch req.Action {
+	case "ptz_move":
+		direction := strings.ToLower(stringParam(params, "direction"))
+		if direction == "" {
+			return nil, "", errors.New("direction is required")
+		}
+		return p.cloudPTZMove(ctx, runtime, direction, intParam(params, "speed", runtime.Config.PTZDefaultSpeed), intParam(params, "duration_ms", runtime.Config.PTZStepMS))
+	case "ptz_stop":
+		direction := strings.ToLower(stringParam(params, "direction"))
+		if direction == "" {
+			return nil, "", errors.New("direction is required")
+		}
+		return p.cloudPTZStop(ctx, runtime, direction, intParam(params, "speed", runtime.Config.PTZDefaultSpeed))
+	case "ptz_up":
+		return p.shortPTZ(ctx, runtime, "up")
+	case "ptz_down":
+		return p.shortPTZ(ctx, runtime, "down")
+	case "ptz_left":
+		return p.shortPTZ(ctx, runtime, "left")
+	case "ptz_right":
+		return p.shortPTZ(ctx, runtime, "right")
+	case "stream_rtsp_url":
+		return p.handleStreamRTSPURL(runtime)
+	case "playback_open", "playback_control", "playback_play", "playback_pause", "playback_seek", "playback_close", "list_recordings", "ptz_zoom_in", "ptz_zoom_out":
+		return nil, "", fmt.Errorf("%s is not supported in hikvision cloud mode", req.Action)
+	default:
+		return nil, "", fmt.Errorf("unsupported action %q", req.Action)
+	}
+}
+
 func (p *Plugin) shortPTZ(ctx context.Context, runtime *entryRuntime, direction string) (map[string]any, string, error) {
+	if p.config.Mode == RuntimeModeCloud {
+		return p.cloudPTZMove(ctx, runtime, direction, runtime.Config.PTZDefaultSpeed, runtime.Config.PTZStepMS)
+	}
 	if err := runtime.Client.PTZMove(ctx, direction, runtime.Config.PTZDefaultSpeed, runtime.Config.PTZStepMS); err != nil {
 		return nil, "", err
 	}
 	return nil, "ptz move accepted", nil
+}
+
+func (p *Plugin) cloudPTZMove(ctx context.Context, runtime *entryRuntime, direction string, speed, durationMS int) (map[string]any, string, error) {
+	command, err := cloudPTZCommand(direction)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := p.ensureCloudPTZAvailable(runtime); err != nil {
+		return nil, "", err
+	}
+	if speed < 1 {
+		speed = runtime.Config.PTZDefaultSpeed
+	}
+	if speed > 10 {
+		speed = 10
+	}
+	if durationMS < 50 {
+		durationMS = runtime.Config.PTZStepMS
+	}
+	if err := p.cloud.PTZMove(ctx, runtime.Config.DeviceSerial, command, speed, time.Duration(durationMS)*time.Millisecond); err != nil {
+		return nil, "", err
+	}
+	return nil, "ptz move accepted", nil
+}
+
+func (p *Plugin) cloudPTZStop(ctx context.Context, runtime *entryRuntime, direction string, speed int) (map[string]any, string, error) {
+	command, err := cloudPTZCommand(direction)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := p.ensureCloudPTZAvailable(runtime); err != nil {
+		return nil, "", err
+	}
+	if speed < 1 {
+		speed = runtime.Config.PTZDefaultSpeed
+	}
+	if speed > 10 {
+		speed = 10
+	}
+	if err := p.cloud.PTZStop(ctx, runtime.Config.DeviceSerial, command, speed); err != nil {
+		return nil, "", err
+	}
+	return nil, "ptz stop accepted", nil
+}
+
+func (p *Plugin) ensureCloudPTZAvailable(runtime *entryRuntime) error {
+	if runtime == nil {
+		return errors.New("device runtime is unavailable")
+	}
+	if runtime.ControlBlocked != "" {
+		return errors.New(runtime.ControlBlocked)
+	}
+	if runtime.Config.DeviceSerial == "" {
+		return errors.New("device_serial is required for cloud PTZ")
+	}
+	if p.cloud == nil {
+		return errors.New("ezviz cloud auth is not configured")
+	}
+	return nil
+}
+
+func cloudPTZCommand(direction string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(direction)) {
+	case "up":
+		return "UP", nil
+	case "down":
+		return "DOWN", nil
+	case "left":
+		return "LEFT", nil
+	case "right":
+		return "RIGHT", nil
+	default:
+		return "", fmt.Errorf("unsupported PTZ direction %q in cloud mode", direction)
+	}
 }
 
 func (p *Plugin) playbackControl(

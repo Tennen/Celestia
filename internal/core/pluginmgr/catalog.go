@@ -157,29 +157,43 @@ func BuiltinCatalog() []models.CatalogPlugin {
 		{
 			ID:          "hikvision",
 			Name:        "Hikvision EZVIZ Plugin",
-			Description: "Hikvision/EZVIZ local-LAN HCNetSDK integration with PTZ, playback, and recording timeline support. Celestia runs it natively on linux/arm64 and falls back to a Dockerized runtime on other platforms.",
+			Description: "Hikvision/EZVIZ plugin with LAN HCNetSDK mode plus Ezviz cloud mode for camera inventory, RTSP-assisted viewing, and PTZ. Cloud mode runs like the other plugins; LAN mode uses native linux/arm64 or Docker fallback elsewhere.",
 			BinaryName:  "hikvision-plugin",
 			Manifest: models.PluginManifest{
 				ID:           "hikvision",
 				Name:         "Hikvision EZVIZ Plugin",
-				Version:      "0.2.0",
+				Version:      "0.3.0",
 				Vendor:       "hikvision",
-				Capabilities: []string{"discover", "state", "command", "events", "real_lan_sdk", "ptz", "playback", "recordings"},
+				Capabilities: []string{"discover", "state", "command", "events", "real_lan_sdk", "real_cloud", "ptz", "playback", "recordings", "stream"},
 				Metadata:     hikvisionCatalogMetadata(),
 				ConfigSchema: map[string]any{
 					"type": "object",
 					"default": map[string]any{
+						"mode": "lan",
+						"cloud": map[string]any{
+							"username":           "<ezviz-username>",
+							"password":           "<ezviz-password>",
+							"api_url":            "apiieu.ezvizlife.com",
+							"session_id":         "<optional-ezviz-session-id>",
+							"refresh_session_id": "<optional-ezviz-refresh-session-id>",
+							"user_name":          "<optional-ezviz-user-name>",
+						},
 						"sdk_lib_dir": hikvisionSDKLibDirDefault(),
 						"entries": []map[string]any{
 							{
 								"name":                 "front-door",
+								"device_serial":        "<ezviz-device-serial-for-cloud-ptz>",
 								"host":                 "192.168.1.100",
 								"port":                 8000,
 								"username":             "admin",
 								"password":             "<hikvision-password>",
 								"channel":              1,
+								"rtsp_url":             "<optional-full-rtsp-url>",
+								"rtsp_host":            "<optional-rtsp-host-override>",
 								"rtsp_port":            554,
 								"rtsp_path":            "/Streaming/Channels/{channel}01",
+								"rtsp_username":        "<optional-rtsp-username-override>",
+								"rtsp_password":        "<optional-rtsp-password-override>",
 								"ptz_default_speed":    4,
 								"ptz_step_ms":          400,
 								"sdk_lib_dir_override": "<optional-sdk-lib-dir-override>",
@@ -188,14 +202,23 @@ func BuiltinCatalog() []models.CatalogPlugin {
 						"poll_interval_seconds": 30,
 					},
 					"properties": map[string]any{
+						"mode": map[string]any{
+							"type":        "string",
+							"default":     "lan",
+							"description": "Plugin runtime mode. Use `lan` for direct HCNetSDK access to local cameras. Use `cloud` for Ezviz cloud discovery/PTZ plus RTSP viewing without Docker launcher fallback.",
+						},
+						"cloud": map[string]any{
+							"type":        "object",
+							"description": "Optional Ezviz cloud credentials/session. In `cloud` mode, username/password unlock cloud discovery and PTZ. Without these fields, cameras remain view-only when RTSP is configured.",
+						},
 						"sdk_lib_dir": map[string]any{
 							"type":        "string",
-							"description": "Default HCNetSDK library directory for the current gateway runtime. Native linux/arm64 installs use a local SDK path; Docker fallback uses the in-container path.",
+							"description": "Default HCNetSDK library directory for `lan` mode. Native linux/arm64 installs use a local SDK path; Docker fallback uses the in-container path.",
 							"default":     hikvisionSDKLibDirDefault(),
 						},
 						"entries": map[string]any{
 							"type":        "array",
-							"description": "Real Hikvision/EZVIZ LAN camera entries. Each entry requires host, port, username, password, and channel.",
+							"description": "Camera entries. `lan` mode requires host, username, password, and channel. `cloud` mode accepts `device_serial` for Ezviz PTZ and can use `rtsp_url` or RTSP host/credentials for video.",
 						},
 						"poll_interval_seconds": map[string]any{
 							"type":    "number",

@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/chentianyu/celestia/internal/models"
 )
 
 func cloneMap(input map[string]any) map[string]any {
@@ -89,4 +91,30 @@ func parseISOTime(value string) (time.Time, error) {
 		return parsed, nil
 	}
 	return time.Parse("2006-01-02T15:04:05", value)
+}
+
+func cloneSnapshot(in models.DeviceStateSnapshot) models.DeviceStateSnapshot {
+	out := in
+	out.State = cloneMap(in.State)
+	return out
+}
+
+func boolParam(state map[string]any, key string) bool {
+	value, ok := state[key]
+	if !ok {
+		return false
+	}
+	if typed, ok := value.(bool); ok {
+		return typed
+	}
+	return false
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

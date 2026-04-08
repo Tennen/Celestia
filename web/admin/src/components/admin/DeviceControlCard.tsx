@@ -86,7 +86,9 @@ export function DeviceControlCard({
   onValueControl,
 }: Props) {
   const prefBusy = busy === `control-pref-${deviceId}.${control.id}`;
-  const toggleBusy = toggleDisabled;
+  const isDisabled = control.disabled === true;
+  const disabledReason = control.disabled_reason?.trim() ?? '';
+  const toggleBusy = toggleDisabled || isDisabled;
   const actionBusy = busy === `action-${deviceId}.${control.id}`;
   const valueBusy = busy === `value-${deviceId}.${control.id}`;
   const defaultLabel = control.default_label ?? control.label;
@@ -139,7 +141,7 @@ export function DeviceControlCard({
                 className="select"
                 value={valueDraft}
                 onChange={(event) => onValueChange(event.target.value)}
-                disabled={valueBusy}
+                disabled={valueBusy || isDisabled}
               >
                 <option value="" disabled>
                   Select a mode
@@ -150,10 +152,11 @@ export function DeviceControlCard({
                   </option>
                 ))}
               </select>
-              <Button variant="secondary" onClick={() => onValueControl(valueDraft)} disabled={valueBusy || valueDraft.trim() === ''}>
+              <Button variant="secondary" onClick={() => onValueControl(valueDraft)} disabled={valueBusy || isDisabled || valueDraft.trim() === ''}>
                 Apply
               </Button>
             </div>
+            {disabledReason ? <p className="muted">{disabledReason}</p> : null}
           </div>
         );
       case 'number':
@@ -167,12 +170,14 @@ export function DeviceControlCard({
                 max={control.max}
                 step={control.step}
                 onChange={(event) => onValueChange(event.target.value)}
+                disabled={valueBusy || isDisabled}
               />
-              <Button variant="secondary" onClick={() => onValueControl(parsedNumber)} disabled={valueBusy || !canApplyNumber}>
+              <Button variant="secondary" onClick={() => onValueControl(parsedNumber)} disabled={valueBusy || isDisabled || !canApplyNumber}>
                 Apply
               </Button>
             </div>
             {numberHint(control) ? <p className="muted">{numberHint(control)}</p> : null}
+            {disabledReason ? <p className="muted">{disabledReason}</p> : null}
           </div>
         );
       default:
@@ -261,9 +266,9 @@ export function DeviceControlCard({
                 size="sm"
                 className="control-card__icon-button control-card__icon-button--play"
                 onClick={onAction}
-                disabled={actionBusy}
+                disabled={actionBusy || isDisabled}
                 aria-label={`Run ${control.label}`}
-                title="Run action"
+                title={disabledReason || 'Run action'}
               >
                 <Play />
               </Button>
@@ -288,6 +293,9 @@ export function DeviceControlCard({
       </div>
 
       {showControlBody ? renderControlBody() : null}
+      {showControlBody && (control.kind === 'toggle' || control.kind === 'action') && disabledReason ? (
+        <p className="muted">{disabledReason}</p>
+      ) : null}
 
     </div>
   );

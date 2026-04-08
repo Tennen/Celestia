@@ -35,12 +35,17 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 function extractHikvisionRuntimeHint(plugin: import('../../lib/types').CatalogPlugin | null) {
   if (plugin?.id !== 'hikvision' || !isObjectRecord(plugin.manifest.metadata)) return null;
   const metadata = plugin.manifest.metadata;
-  const runtimeMode = typeof metadata.runtime_mode === 'string' ? metadata.runtime_mode : '';
+  const runtimeMode = typeof metadata.lan_runtime_mode === 'string'
+    ? metadata.lan_runtime_mode
+    : typeof metadata.runtime_mode === 'string'
+      ? metadata.runtime_mode
+      : '';
+  const cloudRuntimeMode = typeof metadata.cloud_runtime_mode === 'string' ? metadata.cloud_runtime_mode : 'native';
   const runtimePlatform = typeof metadata.runtime_platform === 'string' ? metadata.runtime_platform : '';
   const nativePlatform = typeof metadata.native_platform === 'string' ? metadata.native_platform : 'linux/arm64';
   const sdkLibDir = typeof metadata.sdk_lib_dir_default === 'string' ? metadata.sdk_lib_dir_default : '';
   if (!runtimeMode || !runtimePlatform) return null;
-  return { runtimeMode, runtimePlatform, nativePlatform, sdkLibDir };
+  return { runtimeMode, cloudRuntimeMode, runtimePlatform, nativePlatform, sdkLibDir };
 }
 
 export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
@@ -165,17 +170,22 @@ export function PluginWorkspace({ oauthActive, onConnectXiaomiOAuth }: Props) {
                     <div className="plugin-auth-guide">
                       <div className="plugin-auth-guide__header">
                         <Badge tone={hikvisionRuntimeHint.runtimeMode === 'native' ? 'good' : 'accent'}>
-                          {hikvisionRuntimeHint.runtimeMode === 'native' ? 'Native Runtime' : 'Docker Fallback'}
+                          {hikvisionRuntimeHint.runtimeMode === 'native' ? 'LAN Native' : 'LAN Docker'}
                         </Badge>
                         <strong>
                           {hikvisionRuntimeHint.runtimeMode === 'native'
-                            ? 'This gateway installs Hikvision like the other plugins.'
-                            : 'This gateway keeps the normal install flow but runs Hikvision through Docker.'}
+                            ? 'LAN mode runs natively here, and cloud mode runs directly as a normal plugin.'
+                            : 'LAN mode falls back to Docker here, but cloud mode still runs directly as a normal plugin.'}
                         </strong>
                       </div>
                       <p className="muted">
-                        Current platform <code>{hikvisionRuntimeHint.runtimePlatform}</code>. Native HCNetSDK runtime
-                        is enabled only on <code>{hikvisionRuntimeHint.nativePlatform}</code>.
+                        Current platform <code>{hikvisionRuntimeHint.runtimePlatform}</code>. LAN HCNetSDK runtime is
+                        enabled only on <code>{hikvisionRuntimeHint.nativePlatform}</code>, while Ezviz cloud mode uses
+                        the regular plugin server path on every platform.
+                      </p>
+                      <p className="muted">
+                        Set <code>mode</code> to <code>cloud</code> to avoid the Docker launcher and use Ezviz API
+                        discovery/PTZ. Leave it on <code>lan</code> for direct HCNetSDK playback and recording access.
                       </p>
                       {hikvisionRuntimeHint.sdkLibDir ? (
                         <p className="muted">

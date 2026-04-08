@@ -10,11 +10,16 @@ import (
 const (
 	hikvisionNativePlatform   = "linux/arm64"
 	hikvisionContainerSDKPath = "/opt/celestia/sdk/lib/arm64"
+	hikvisionConfigModeCloud  = "cloud"
+	hikvisionLauncherMode     = "launcher"
+	hikvisionServerMode       = "server"
 )
 
 func hikvisionCatalogMetadata() map[string]any {
 	return map[string]any{
 		"runtime_mode":        hikvisionRuntimeMode(),
+		"lan_runtime_mode":    hikvisionRuntimeMode(),
+		"cloud_runtime_mode":  "native",
 		"runtime_platform":    runtime.GOOS + "/" + runtime.GOARCH,
 		"native_platform":     hikvisionNativePlatform,
 		"native_supported":    hikvisionNativeSupported(),
@@ -76,4 +81,38 @@ func hikvisionSDKLibDirDefaultFor(goos, goarch, override string, dirExists func(
 		return filepath.Join("plugins", "hikvision", "sdk", "lib", "arm64")
 	}
 	return hikvisionContainerSDKPath
+}
+
+func hikvisionExtraEnv(pluginID string, config map[string]any) []string {
+	if pluginID != "hikvision" || !hikvisionUsesCloudMode(config) {
+		return nil
+	}
+	return []string{"CELESTIA_HIKVISION_PLUGIN_MODE=" + hikvisionServerMode}
+}
+
+func hikvisionUsesCloudMode(config map[string]any) bool {
+	if config == nil {
+		return false
+	}
+	mode, _ := config["mode"].(string)
+	return strings.EqualFold(strings.TrimSpace(mode), hikvisionConfigModeCloud)
+}
+
+func hikvisionProcessModeForConfig(pluginID string, config map[string]any) string {
+	if pluginID != "hikvision" {
+		return ""
+	}
+	if hikvisionUsesCloudMode(config) {
+		return hikvisionServerMode
+	}
+	if hikvisionNativeSupported() {
+		return hikvisionServerMode
+	}
+	return hikvisionLauncherMode
+}
+
+func hikvisionRestartRequiredForConfig(pluginID string, current, next map[string]any) bool {
+	currentMode := hikvisionProcessModeForConfig(pluginID, current)
+	nextMode := hikvisionProcessModeForConfig(pluginID, next)
+	return currentMode != "" && nextMode != "" && currentMode != nextMode
 }

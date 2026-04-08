@@ -134,6 +134,7 @@ func (m *Manager) UpdateConfig(ctx context.Context, pluginID string, config map[
 	runtime := m.runtimes[pluginID]
 	running := runtime != nil && runtime.running && runtime.client != nil
 	m.mu.RUnlock()
+	restartRequired := hikvisionRestartRequiredForConfig(pluginID, record.Config, config)
 
 	if running {
 		payload, err := pluginapi.EncodeStruct(config)
@@ -148,18 +149,39 @@ func (m *Manager) UpdateConfig(ctx context.Context, pluginID string, config map[
 		if valid, ok := validMap["valid"].(bool); ok && !valid {
 			return models.PluginInstallRecord{}, fmt.Errorf("plugin config invalid: %v", validMap["error"])
 		}
-		if _, err := runtime.client.Setup(ctx, payload); err != nil {
-			runtime.lastError = err.Error()
-			runtime.health.Status = models.HealthStateDegraded
-			runtime.health.Message = err.Error()
-			runtime.health.CheckedAt = time.Now().UTC()
-			return models.PluginInstallRecord{}, err
+		if !restartRequired {
+			if _, err := runtime.client.Setup(ctx, payload); err != nil {
+				runtime.lastError = err.Error()
+				runtime.health.Status = models.HealthStateDegraded
+				runtime.health.Message = err.Error()
+				runtime.health.CheckedAt = time.Now().UTC()
+				return models.PluginInstallRecord{}, err
+			}
 		}
 	}
 
 	record, err = m.persistPluginConfig(ctx, pluginID, config)
 	if err != nil {
 		return models.PluginInstallRecord{}, err
+	}
+
+	if running && restartRequired {
+		m.stopProcess(pluginID)
+		if err := m.Enable(ctx, pluginID); err != nil {
+			runtime.lastError = err.Error()
+			runtime.health.Status = models.HealthStateDegraded
+			runtime.health.Message = err.Error()
+			runtime.health.CheckedAt = time.Now().UTC()
+			return models.PluginInstallRecord{}, err
+		}
+		updated, ok, err := m.store.GetPluginRecord(ctx, pluginID)
+		if err != nil {
+			return models.PluginInstallRecord{}, err
+		}
+		if ok {
+			return updated, nil
+		}
+		return record, nil
 	}
 
 	if running {

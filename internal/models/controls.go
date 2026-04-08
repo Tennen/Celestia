@@ -45,35 +45,39 @@ type DeviceControlCommand struct {
 
 // DeviceControlSpec is plugin-declared control metadata persisted inside device metadata.
 type DeviceControlSpec struct {
-	ID         string                `json:"id"`
-	Kind       DeviceControlKind     `json:"kind"`
-	Label      string                `json:"label"`
-	StateKey   string                `json:"state_key,omitempty"`
-	Min        *float64              `json:"min,omitempty"`
-	Max        *float64              `json:"max,omitempty"`
-	Step       *float64              `json:"step,omitempty"`
-	Unit       string                `json:"unit,omitempty"`
-	Options    []DeviceControlOption `json:"options,omitempty"`
-	Command    *DeviceControlCommand `json:"command,omitempty"`
-	OnCommand  *DeviceControlCommand `json:"on_command,omitempty"`
-	OffCommand *DeviceControlCommand `json:"off_command,omitempty"`
+	ID             string                `json:"id"`
+	Kind           DeviceControlKind     `json:"kind"`
+	Label          string                `json:"label"`
+	Disabled       bool                  `json:"disabled,omitempty"`
+	DisabledReason string                `json:"disabled_reason,omitempty"`
+	StateKey       string                `json:"state_key,omitempty"`
+	Min            *float64              `json:"min,omitempty"`
+	Max            *float64              `json:"max,omitempty"`
+	Step           *float64              `json:"step,omitempty"`
+	Unit           string                `json:"unit,omitempty"`
+	Options        []DeviceControlOption `json:"options,omitempty"`
+	Command        *DeviceControlCommand `json:"command,omitempty"`
+	OnCommand      *DeviceControlCommand `json:"on_command,omitempty"`
+	OffCommand     *DeviceControlCommand `json:"off_command,omitempty"`
 }
 
 type DeviceControl struct {
-	ID           string                `json:"id"`
-	Kind         DeviceControlKind     `json:"kind"`
-	Label        string                `json:"label"`
-	DefaultLabel string                `json:"default_label,omitempty"`
-	Alias        string                `json:"alias,omitempty"`
-	State        *bool                 `json:"state,omitempty"`
-	Value        any                   `json:"value,omitempty"`
-	Min          *float64              `json:"min,omitempty"`
-	Max          *float64              `json:"max,omitempty"`
-	Step         *float64              `json:"step,omitempty"`
-	Unit         string                `json:"unit,omitempty"`
-	Options      []DeviceControlOption `json:"options,omitempty"`
-	Command      *DeviceControlCommand `json:"command,omitempty"`
-	Visible      bool                  `json:"visible"`
+	ID             string                `json:"id"`
+	Kind           DeviceControlKind     `json:"kind"`
+	Label          string                `json:"label"`
+	DefaultLabel   string                `json:"default_label,omitempty"`
+	Alias          string                `json:"alias,omitempty"`
+	Disabled       bool                  `json:"disabled,omitempty"`
+	DisabledReason string                `json:"disabled_reason,omitempty"`
+	State          *bool                 `json:"state,omitempty"`
+	Value          any                   `json:"value,omitempty"`
+	Min            *float64              `json:"min,omitempty"`
+	Max            *float64              `json:"max,omitempty"`
+	Step           *float64              `json:"step,omitempty"`
+	Unit           string                `json:"unit,omitempty"`
+	Options        []DeviceControlOption `json:"options,omitempty"`
+	Command        *DeviceControlCommand `json:"command,omitempty"`
+	Visible        bool                  `json:"visible"`
 }
 
 type DeviceControlPreference struct {

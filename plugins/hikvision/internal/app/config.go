@@ -10,7 +10,7 @@ import (
 	"unicode"
 
 	"github.com/chentianyu/celestia/internal/pluginutil"
-	"github.com/chentianyu/celestia/plugins/hikvision/internal/client"
+	lanclient "github.com/chentianyu/celestia/plugins/hikvision/internal/client"
 )
 
 const (
@@ -22,18 +22,20 @@ const (
 	minStreamIdleTimeoutSeconds     = 10
 )
 
-type Config struct {
-	PollIntervalSeconds int
-	Entries             []client.CameraConfig
-}
-
 func parseConfig(cfg map[string]any) (Config, error) {
 	if cfg == nil {
 		return Config{}, errors.New("config is required")
 	}
+
+	mode := parseRuntimeMode(cfg)
 	poll := pluginutil.Int(cfg["poll_interval_seconds"], defaultPollIntervalSeconds)
 	if poll < minPollIntervalSeconds {
 		poll = minPollIntervalSeconds
+	}
+
+	cloudCfg, err := parseCloudConfig(cfg)
+	if err != nil {
+		return Config{}, err
 	}
 
 	sdkLibDefault := strings.TrimSpace(pluginutil.String(cfg["sdk_lib_dir"], ""))
@@ -49,21 +51,54 @@ func parseConfig(cfg map[string]any) (Config, error) {
 		return Config{}, errors.New("entries is required")
 	}
 
-	entries := make([]client.CameraConfig, 0, len(entryMaps))
+	entries := make([]EntryConfig, 0, len(entryMaps))
 	for idx, entryMap := range entryMaps {
-		entry, err := parseEntryConfig(entryMap, idx, sdkLibDefault)
+		entry, err := parseEntryConfig(entryMap, idx, mode, sdkLibDefault)
 		if err != nil {
 			return Config{}, err
 		}
 		entries = append(entries, entry)
 	}
 
-	assignEntryIDs(entries)
+	assignEntryIDs(mode, entries)
 	sort.SliceStable(entries, func(i, j int) bool {
 		return entries[i].EntryID < entries[j].EntryID
 	})
 
-	return Config{PollIntervalSeconds: poll, Entries: entries}, nil
+	return Config{
+		Mode:                mode,
+		PollIntervalSeconds: poll,
+		Cloud:               cloudCfg,
+		Entries:             entries,
+	}, nil
+}
+
+func parseRuntimeMode(cfg map[string]any) RuntimeMode {
+	switch strings.ToLower(strings.TrimSpace(pluginutil.String(cfg["mode"], ""))) {
+	case string(RuntimeModeCloud):
+		return RuntimeModeCloud
+	case string(RuntimeModeLAN):
+		return RuntimeModeLAN
+	default:
+		return RuntimeModeLAN
+	}
+}
+
+func parseCloudConfig(cfg map[string]any) (CloudConfig, error) {
+	raw, _ := cfg["cloud"].(map[string]any)
+	cloudCfg := CloudConfig{
+		Username:         pluginutil.String(raw["username"], ""),
+		Password:         pluginutil.String(raw["password"], ""),
+		APIURL:           pluginutil.String(raw["api_url"], ""),
+		SessionID:        pluginutil.String(raw["session_id"], ""),
+		RefreshSessionID: pluginutil.String(raw["refresh_session_id"], ""),
+		UserName:         pluginutil.String(raw["user_name"], ""),
+	}.Sanitized()
+
+	if cloudCfg.HasCredentials() || cloudCfg.HasSession() || strings.TrimSpace(cloudCfg.APIURL) != "" {
+		return cloudCfg, nil
+	}
+	return CloudConfig{}, nil
 }
 
 func defaultSDKLibDir() string {
@@ -84,56 +119,55 @@ func defaultSDKLibDir() string {
 }
 
 func readEntryMaps(cfg map[string]any) ([]map[string]any, error) {
-	entries, ok := cfg["entries"]
-	if ok {
+	if entries, ok := cfg["entries"]; ok {
 		out := mapSlice(entries)
 		if len(out) == 0 {
 			return nil, errors.New("entries must be an array of objects")
 		}
 		return out, nil
 	}
-	if strings.TrimSpace(pluginutil.String(cfg["host"], "")) == "" {
+	if strings.TrimSpace(pluginutil.String(cfg["host"], "")) == "" &&
+		strings.TrimSpace(pluginutil.String(cfg["device_serial"], "")) == "" &&
+		strings.TrimSpace(pluginutil.String(cfg["rtsp_url"], "")) == "" {
 		return nil, nil
 	}
 	return []map[string]any{cfg}, nil
 }
 
-func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (client.CameraConfig, error) {
+func parseEntryConfig(raw map[string]any, idx int, mode RuntimeMode, sdkLibDefault string) (EntryConfig, error) {
 	host := strings.TrimSpace(pluginutil.String(raw["host"], ""))
+	rtspHost := strings.TrimSpace(pluginutil.String(raw["rtsp_host"], ""))
 	username := strings.TrimSpace(pluginutil.String(raw["username"], ""))
 	password := pluginutil.String(raw["password"], "")
-	if host == "" {
-		return client.CameraConfig{}, fmt.Errorf("entries[%d].host is required", idx)
-	}
-	if username == "" {
-		return client.CameraConfig{}, fmt.Errorf("entries[%d].username is required", idx)
-	}
-	if password == "" {
-		return client.CameraConfig{}, fmt.Errorf("entries[%d].password is required", idx)
-	}
-	port := pluginutil.Int(raw["port"], client.DefaultSDKPort)
+	rtspUsername := strings.TrimSpace(pluginutil.String(raw["rtsp_username"], ""))
+	rtspPassword := pluginutil.String(raw["rtsp_password"], "")
+	deviceSerial := strings.TrimSpace(pluginutil.String(raw["device_serial"], ""))
+	rtspURL := strings.TrimSpace(pluginutil.String(raw["rtsp_url"], ""))
+
+	port := pluginutil.Int(raw["port"], lanclient.DefaultSDKPort)
 	if port <= 0 {
-		port = client.DefaultSDKPort
+		port = lanclient.DefaultSDKPort
 	}
-	channel := pluginutil.Int(raw["channel"], client.DefaultChannel)
+	channel := pluginutil.Int(raw["channel"], lanclient.DefaultChannel)
 	if channel <= 0 {
-		channel = client.DefaultChannel
+		channel = lanclient.DefaultChannel
 	}
-	rtspPort := pluginutil.Int(raw["rtsp_port"], client.DefaultRTSPPort)
+	rtspPort := pluginutil.Int(raw["rtsp_port"], lanclient.DefaultRTSPPort)
 	if rtspPort <= 0 {
-		rtspPort = client.DefaultRTSPPort
+		rtspPort = lanclient.DefaultRTSPPort
 	}
-	rtspPath := strings.TrimSpace(pluginutil.String(raw["rtsp_path"], client.DefaultRTSPPath))
+	rtspPath := strings.TrimSpace(pluginutil.String(raw["rtsp_path"], lanclient.DefaultRTSPPath))
 	if rtspPath == "" {
-		rtspPath = client.DefaultRTSPPath
+		rtspPath = lanclient.DefaultRTSPPath
 	}
-	ptzSpeed := pluginutil.Int(raw["ptz_default_speed"], client.DefaultPTZSpeed)
-	if ptzSpeed < 1 || ptzSpeed > 7 {
-		ptzSpeed = client.DefaultPTZSpeed
+
+	ptzSpeed := pluginutil.Int(raw["ptz_default_speed"], lanclient.DefaultPTZSpeed)
+	if ptzSpeed < 1 || ptzSpeed > 10 {
+		ptzSpeed = lanclient.DefaultPTZSpeed
 	}
-	ptzStepMS := pluginutil.Int(raw["ptz_step_ms"], client.DefaultPTZStepMS)
+	ptzStepMS := pluginutil.Int(raw["ptz_step_ms"], lanclient.DefaultPTZStepMS)
 	if ptzStepMS < 50 {
-		ptzStepMS = client.DefaultPTZStepMS
+		ptzStepMS = lanclient.DefaultPTZStepMS
 	}
 
 	sdkLibDir := strings.TrimSpace(pluginutil.String(raw["sdk_lib_dir"], ""))
@@ -144,13 +178,17 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (client
 	case sdkLibDir == "":
 		sdkLibDir = sdkLibDefault
 	}
-	if strings.TrimSpace(sdkLibDir) == "" {
-		return client.CameraConfig{}, fmt.Errorf("entries[%d].sdk_lib_dir is required", idx)
-	}
 
 	name := strings.TrimSpace(pluginutil.String(raw["name"], ""))
 	if name == "" {
-		name = fmt.Sprintf("%s-ch%d", host, channel)
+		switch {
+		case deviceSerial != "":
+			name = deviceSerial
+		case host != "":
+			name = fmt.Sprintf("%s-ch%d", host, channel)
+		default:
+			name = fmt.Sprintf("camera-%d", idx+1)
+		}
 	}
 
 	maxStreamSessions := pluginutil.Int(raw["max_stream_sessions"], defaultMaxStreamSessions)
@@ -169,37 +207,58 @@ func parseEntryConfig(raw map[string]any, idx int, sdkLibDefault string) (client
 		streamIdleTimeout = minStreamIdleTimeoutSeconds
 	}
 
-	webrtcNATIP := strings.TrimSpace(pluginutil.String(raw["webrtc_nat_ip"], ""))
-	webrtcInterface := strings.TrimSpace(pluginutil.String(raw["webrtc_interface"], ""))
-
-	entry := client.CameraConfig{
+	entry := EntryConfig{
 		Name:                     name,
+		DeviceSerial:             deviceSerial,
 		Host:                     host,
 		Port:                     port,
 		Username:                 username,
 		Password:                 password,
 		Channel:                  channel,
+		RTSPURL:                  rtspURL,
+		RTSPHost:                 firstNonEmpty(rtspHost, host),
 		RTSPPort:                 rtspPort,
 		RTSPPath:                 rtspPath,
+		RTSPUsername:             firstNonEmpty(rtspUsername, username),
+		RTSPPassword:             firstNonEmpty(rtspPassword, password),
 		PTZDefaultSpeed:          ptzSpeed,
 		PTZStepMS:                ptzStepMS,
 		SDKLibDir:                sdkLibDir,
 		MaxStreamSessions:        maxStreamSessions,
 		StreamIdleTimeoutSeconds: streamIdleTimeout,
-		WebRTCNATIP:              webrtcNATIP,
-		WebRTCInterface:          webrtcInterface,
+		WebRTCNATIP:              strings.TrimSpace(pluginutil.String(raw["webrtc_nat_ip"], "")),
+		WebRTCInterface:          strings.TrimSpace(pluginutil.String(raw["webrtc_interface"], "")),
+	}
+
+	switch mode {
+	case RuntimeModeLAN:
+		if host == "" {
+			return EntryConfig{}, fmt.Errorf("entries[%d].host is required in lan mode", idx)
+		}
+		if username == "" {
+			return EntryConfig{}, fmt.Errorf("entries[%d].username is required in lan mode", idx)
+		}
+		if password == "" {
+			return EntryConfig{}, fmt.Errorf("entries[%d].password is required in lan mode", idx)
+		}
+		if strings.TrimSpace(sdkLibDir) == "" {
+			return EntryConfig{}, fmt.Errorf("entries[%d].sdk_lib_dir is required in lan mode", idx)
+		}
+	case RuntimeModeCloud:
+		if deviceSerial == "" && rtspURL == "" && host == "" && rtspHost == "" {
+			return EntryConfig{}, fmt.Errorf("entries[%d] requires device_serial or RTSP settings in cloud mode", idx)
+		}
+	default:
+		return EntryConfig{}, fmt.Errorf("unsupported hikvision mode %q", mode)
 	}
 	return entry, nil
 }
 
-func assignEntryIDs(entries []client.CameraConfig) {
+func assignEntryIDs(mode RuntimeMode, entries []EntryConfig) {
 	usedEntries := map[string]int{}
 	usedDevices := map[string]int{}
 	for idx := range entries {
-		base := sanitizeID(fmt.Sprintf("%s-%d-ch%d", entries[idx].Host, entries[idx].Port, entries[idx].Channel))
-		if base == "" {
-			base = sanitizeID(entries[idx].Name)
-		}
+		base := entryIdentityBase(mode, entries[idx])
 		if base == "" {
 			base = fmt.Sprintf("camera-%d", idx+1)
 		}
@@ -208,6 +267,17 @@ func assignEntryIDs(entries []client.CameraConfig) {
 		deviceBase := fmt.Sprintf("hikvision:camera:%s", entryID)
 		entries[idx].DeviceID = uniqueID(deviceBase, usedDevices)
 	}
+}
+
+func entryIdentityBase(mode RuntimeMode, entry EntryConfig) string {
+	if mode == RuntimeModeCloud && strings.TrimSpace(entry.DeviceSerial) != "" {
+		return sanitizeID(entry.DeviceSerial)
+	}
+	base := sanitizeID(fmt.Sprintf("%s-%d-ch%d", entry.Host, entry.Port, entry.Channel))
+	if base != "" {
+		return base
+	}
+	return sanitizeID(entry.Name)
 }
 
 func uniqueID(base string, used map[string]int) string {
@@ -239,8 +309,7 @@ func sanitizeID(input string) string {
 		builder.WriteRune('-')
 		lastDash = true
 	}
-	output := strings.Trim(builder.String(), "-")
-	return output
+	return strings.Trim(builder.String(), "-")
 }
 
 func mapSlice(value any) []map[string]any {

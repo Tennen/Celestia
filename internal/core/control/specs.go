@@ -30,10 +30,12 @@ func controlSpecs(device models.Device, state models.DeviceStateSnapshot) []cont
 
 func buildControlSpec(spec models.DeviceControlSpec, state models.DeviceStateSnapshot) (controlSpec, bool) {
 	view := models.DeviceControl{
-		ID:      spec.ID,
-		Kind:    spec.Kind,
-		Label:   firstNonEmpty(spec.Label, spec.ID),
-		Visible: true,
+		ID:             spec.ID,
+		Kind:           spec.Kind,
+		Label:          firstNonEmpty(spec.Label, spec.ID),
+		Disabled:       spec.Disabled,
+		DisabledReason: spec.DisabledReason,
+		Visible:        true,
 	}
 	switch spec.Kind {
 	case models.DeviceControlKindToggle:

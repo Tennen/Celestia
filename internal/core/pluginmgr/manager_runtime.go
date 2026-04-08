@@ -51,6 +51,7 @@ func (m *Manager) Enable(ctx context.Context, pluginID string) error {
 		"CELESTIA_PLUGIN_PORT="+port,
 		coreapi.EnvCoreAddr+"="+coreAddr,
 	)
+	cmd.Env = append(cmd.Env, hikvisionExtraEnv(pluginID, record.Config)...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()

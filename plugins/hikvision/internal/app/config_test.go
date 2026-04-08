@@ -122,11 +122,11 @@ func TestParseConfig_StreamSessionMinEnforcement(t *testing.T) {
 	cfg, err := parseConfig(map[string]any{
 		"entries": []any{
 			map[string]any{
-				"host":                          "192.168.1.10",
-				"username":                      "admin",
-				"password":                      "secret",
-				"max_stream_sessions":           0,
-				"stream_idle_timeout_seconds":   5,
+				"host":                        "192.168.1.10",
+				"username":                    "admin",
+				"password":                    "secret",
+				"max_stream_sessions":         0,
+				"stream_idle_timeout_seconds": 5,
 			},
 		},
 	})
@@ -185,5 +185,43 @@ func TestParseConfig_StreamSessionExplicitValues(t *testing.T) {
 	}
 	if entry.StreamIdleTimeoutSeconds != 120 {
 		t.Errorf("StreamIdleTimeoutSeconds = %d, want 120", entry.StreamIdleTimeoutSeconds)
+	}
+}
+
+func TestParseConfig_CloudModeAcceptsDeviceSerialWithoutCloudAuth(t *testing.T) {
+	cfg, err := parseConfig(map[string]any{
+		"mode": "cloud",
+		"entries": []any{
+			map[string]any{
+				"device_serial": "J12345678",
+				"rtsp_url":      "rtsp://viewer:secret@example.invalid/live",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseConfig() error = %v", err)
+	}
+	if cfg.Mode != RuntimeModeCloud {
+		t.Fatalf("Mode = %q, want cloud", cfg.Mode)
+	}
+	if cfg.Entries[0].DeviceSerial != "J12345678" {
+		t.Fatalf("DeviceSerial = %q, want J12345678", cfg.Entries[0].DeviceSerial)
+	}
+	if cfg.Cloud.HasAuth() {
+		t.Fatal("cloud auth should be empty when not configured")
+	}
+}
+
+func TestParseConfig_CloudModeRequiresIdentityOrRTSP(t *testing.T) {
+	_, err := parseConfig(map[string]any{
+		"mode": "cloud",
+		"entries": []any{
+			map[string]any{
+				"name": "camera-without-identity",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected parseConfig to fail without device_serial or RTSP settings in cloud mode")
 	}
 }

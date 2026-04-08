@@ -155,6 +155,9 @@ func buildAIDeviceCatalog(device models.Device, view models.DeviceView, specs []
 }
 
 func buildAICommand(control models.DeviceControl, spec models.DeviceControlSpec, actionCounts map[string]int) (aiResolvedCommand, bool) {
+	if control.Disabled || spec.Disabled {
+		return aiResolvedCommand{}, false
+	}
 	commandView := AICommand{
 		Name:    firstNonEmpty(control.Label, spec.Label, spec.ID),
 		Aliases: aiCommandAliases(control, spec, actionCounts),

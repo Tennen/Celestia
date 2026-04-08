@@ -245,6 +245,8 @@ export type DeviceControl = {
   label: string;
   default_label?: string;
   alias?: string;
+  disabled?: boolean;
+  disabled_reason?: string;
   state?: boolean | null;
   value?: string | number | boolean | null;
   min?: number;

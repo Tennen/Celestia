@@ -59,3 +59,40 @@ func TestHikvisionSDKLibDirDefaultFor(t *testing.T) {
 		})
 	}
 }
+
+func TestHikvisionUsesCloudMode(t *testing.T) {
+	if !hikvisionUsesCloudMode(map[string]any{"mode": "cloud"}) {
+		t.Fatal("hikvisionUsesCloudMode(cloud) = false, want true")
+	}
+	if hikvisionUsesCloudMode(map[string]any{"mode": "lan"}) {
+		t.Fatal("hikvisionUsesCloudMode(lan) = true, want false")
+	}
+	if hikvisionUsesCloudMode(nil) {
+		t.Fatal("hikvisionUsesCloudMode(nil) = true, want false")
+	}
+}
+
+func TestHikvisionExtraEnv(t *testing.T) {
+	env := hikvisionExtraEnv("hikvision", map[string]any{"mode": "cloud"})
+	if len(env) != 1 || env[0] != "CELESTIA_HIKVISION_PLUGIN_MODE=server" {
+		t.Fatalf("hikvisionExtraEnv(cloud) = %#v, want server override", env)
+	}
+	if env := hikvisionExtraEnv("hikvision", map[string]any{"mode": "lan"}); len(env) != 0 {
+		t.Fatalf("hikvisionExtraEnv(lan) = %#v, want empty", env)
+	}
+}
+
+func TestHikvisionProcessModeForConfig(t *testing.T) {
+	if got := hikvisionProcessModeForConfig("hikvision", map[string]any{"mode": "cloud"}); got != hikvisionServerMode {
+		t.Fatalf("hikvisionProcessModeForConfig(cloud) = %q, want %q", got, hikvisionServerMode)
+	}
+}
+
+func TestHikvisionRestartRequiredForConfig(t *testing.T) {
+	current := map[string]any{"mode": "lan"}
+	next := map[string]any{"mode": "cloud"}
+	want := !hikvisionNativeSupported()
+	if got := hikvisionRestartRequiredForConfig("hikvision", current, next); got != want {
+		t.Fatalf("hikvisionRestartRequiredForConfig(lan->cloud) = %v, want %v", got, want)
+	}
+}

@@ -107,6 +107,40 @@ func TestBuildAIDeviceCatalog_SkipsSharedActionAlias(t *testing.T) {
 	}
 }
 
+func TestBuildAIDeviceCatalog_SkipsDisabledControls(t *testing.T) {
+	device := models.Device{ID: "hikvision:camera:1", Name: "Front Door"}
+	view := models.DeviceView{
+		Device: models.Device{ID: device.ID, Name: "Front Door"},
+		Controls: []models.DeviceControl{
+			{
+				ID:             "ptz-up",
+				Kind:           models.DeviceControlKindAction,
+				Label:          "PTZ Up",
+				Disabled:       true,
+				DisabledReason: "configure cloud.username and cloud.password to enable Ezviz PTZ control",
+			},
+		},
+	}
+	specs := []models.DeviceControlSpec{
+		{
+			ID:             "ptz-up",
+			Kind:           models.DeviceControlKindAction,
+			Label:          "PTZ Up",
+			Disabled:       true,
+			DisabledReason: "configure cloud.username and cloud.password to enable Ezviz PTZ control",
+			Command: &models.DeviceControlCommand{
+				Action: "ptz_move",
+				Params: map[string]any{"direction": "up"},
+			},
+		},
+	}
+
+	catalog := buildAIDeviceCatalog(device, view, specs)
+	if len(catalog.device.Commands) != 0 {
+		t.Fatalf("commands len = %d, want 0 for disabled controls", len(catalog.device.Commands))
+	}
+}
+
 func TestResolveAIDevice_AmbiguousAlias(t *testing.T) {
 	catalogs := []aiDeviceCatalog{
 		{device: AIDevice{ID: "dev-1", Name: "Kitchen Lamp"}, model: models.Device{Room: "Kitchen"}},

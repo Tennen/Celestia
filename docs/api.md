@@ -728,6 +728,11 @@ Clients should continue to compare against `state.state[key]` using the raw valu
 - `select` with `value`, `options`, and `command`
 - `number` with `value`, optional `min` / `max` / `step`, and `command`
 
+Controls may also include:
+
+- `disabled: true` when the control is intentionally exposed but not executable in the current runtime state
+- `disabled_reason` with a human-readable explanation, for example when a Hikvision cloud camera has RTSP configured for viewing but Ezviz PTZ credentials or vendor permission are missing
+
 For `select` and `number` controls, clients should call the generic device command endpoint using the embedded `command.action` and `command.value_param`.
 
 Search behavior for `q` matches:
@@ -787,6 +792,8 @@ Optional header:
 - `X-Actor: your-client-name`
 
 Response shape matches the toggle endpoint.
+
+If the referenced control is currently disabled, the endpoint returns an error instead of silently falling back to a raw device command.
 
 ### Send Advanced Command
 
@@ -908,6 +915,8 @@ The AI catalog is intentionally minimal:
 - fixed/default command params only when they matter for semantic disambiguation
 
 The AI catalog is generated from device control metadata. To invoke vendor-specific commands that are not declared as controls, use the raw `action` form on the AI command endpoint.
+
+Disabled quick controls are omitted from the AI catalog.
 
 ### List AI Devices
 

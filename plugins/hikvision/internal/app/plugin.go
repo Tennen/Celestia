@@ -6,40 +6,19 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/pluginruntime"
-	"github.com/chentianyu/celestia/plugins/hikvision/internal/client"
+	lanclient "github.com/chentianyu/celestia/plugins/hikvision/internal/client"
+	ezvizcloud "github.com/chentianyu/celestia/plugins/hikvision/internal/cloud"
 	"github.com/google/uuid"
 )
 
 const (
 	pluginID      = "hikvision"
-	pluginVersion = "0.2.0"
+	pluginVersion = "0.3.0"
 )
-
-type Plugin struct {
-	mu          sync.RWMutex
-	config      Config
-	entries     map[string]*entryRuntime
-	deviceIndex map[string]string
-	events      chan models.Event
-	cancel      context.CancelFunc
-	started     bool
-	lastError   string
-	lastSyncAt  time.Time
-}
-
-type entryRuntime struct {
-	Config    client.CameraConfig
-	Device    models.Device
-	Client    client.CameraClient
-	LastState models.DeviceStateSnapshot
-	Connected bool
-	LastError string
-}
 
 func New() *Plugin {
 	return &Plugin{
@@ -61,6 +40,7 @@ func (p *Plugin) Manifest() models.PluginManifest {
 			"command",
 			"events",
 			"real_lan_sdk",
+			"real_cloud",
 			"ptz",
 			"playback",
 			"recordings",
@@ -84,18 +64,27 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	entries := make(map[string]*entryRuntime, len(parsed.Entries))
 	deviceIndex := make(map[string]string, len(parsed.Entries))
 	for _, item := range parsed.Entries {
-		device := buildDevice(item)
-		snapshot := buildState(item, client.CameraStatus{Connected: false}, "not connected")
+		controlBlocked := p.controlBlockedReason(parsed, item, nil, "")
+		device := buildDevice(parsed.Mode, item, nil, controlBlocked)
+		state := initialState(parsed, item, controlBlocked)
 		entry := &entryRuntime{
-			Config:    item,
-			Device:    device,
-			Client:    client.NewCameraClient(),
-			LastState: snapshot,
-			Connected: false,
-			LastError: "not connected",
+			Config:         item,
+			Device:         device,
+			LastState:      state,
+			Connected:      false,
+			LastError:      stringParam(state.State, "last_error"),
+			ControlBlocked: controlBlocked,
+		}
+		if parsed.Mode == RuntimeModeLAN {
+			entry.Client = lanclient.NewCameraClient()
 		}
 		entries[item.EntryID] = entry
 		deviceIndex[item.DeviceID] = item.EntryID
+	}
+
+	var cloudSession *ezvizcloud.Session
+	if parsed.Mode == RuntimeModeCloud && parsed.Cloud.HasAuth() {
+		cloudSession = ezvizcloud.NewSession(parsed.Cloud, nil)
 	}
 
 	previous := p.entryRuntimes()
@@ -103,11 +92,15 @@ func (p *Plugin) Setup(_ context.Context, cfg map[string]any) error {
 	p.config = parsed
 	p.entries = entries
 	p.deviceIndex = deviceIndex
+	p.cloud = cloudSession
 	p.lastError = ""
 	p.lastSyncAt = time.Time{}
 	p.mu.Unlock()
 
 	for _, runtime := range previous {
+		if runtime.Client == nil {
+			continue
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		_ = runtime.Client.Disconnect(ctx)
 		cancel()
@@ -159,13 +152,14 @@ func (p *Plugin) Stop(_ context.Context) error {
 	p.started = false
 	p.mu.Unlock()
 
-	runtimes := p.entryRuntimes()
-	for _, runtime := range runtimes {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = runtime.Client.Disconnect(ctx)
-		cancel()
-		state := buildState(runtime.Config, client.CameraStatus{Connected: false}, "plugin stopped")
-		p.applyState(runtime.Config.EntryID, state, true)
+	for _, runtime := range p.entryRuntimes() {
+		if runtime.Client != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_ = runtime.Client.Disconnect(ctx)
+			cancel()
+		}
+		state := initialState(p.config, runtime.Config, runtime.ControlBlocked)
+		p.applyState(runtime.Config.EntryID, state, false)
 	}
 	p.setLastError("")
 	return nil
@@ -176,10 +170,14 @@ func (p *Plugin) HealthCheck(_ context.Context) models.PluginHealth {
 	started := p.started
 	lastError := p.lastError
 	lastSync := p.lastSyncAt
+	mode := p.config.Mode
 	p.mu.RUnlock()
 
 	status := models.HealthStateHealthy
-	message := "hikvision sessions active"
+	message := "hikvision sync active"
+	if mode == RuntimeModeCloud {
+		message = "ezviz cloud sync active"
+	}
 	if !started {
 		status = models.HealthStateStopped
 		message = "plugin idle"
@@ -216,7 +214,11 @@ func (p *Plugin) GetDeviceState(ctx context.Context, deviceID string) (models.De
 	if !ok {
 		return models.DeviceStateSnapshot{}, errors.New("device not found")
 	}
-	if err := p.refreshEntry(ctx, entryID); err != nil {
+	if p.config.Mode == RuntimeModeCloud {
+		if err := p.refreshAll(ctx); err != nil {
+			p.setLastError(err.Error())
+		}
+	} else if err := p.refreshLocalEntry(ctx, entryID); err != nil {
 		p.setLastError(err.Error())
 	}
 	p.mu.RLock()
@@ -254,7 +256,7 @@ func (p *Plugin) ExecuteCommand(ctx context.Context, req models.CommandRequest) 
 		})
 		return models.CommandResponse{}, err
 	}
-	if err := p.refreshEntry(ctx, entryID); err != nil {
+	if err := p.refreshAfterCommand(ctx, entryID); err != nil {
 		p.setLastError(err.Error())
 	}
 
@@ -289,51 +291,22 @@ func (p *Plugin) Events() <-chan models.Event {
 	return p.events
 }
 
-func (p *Plugin) refreshAll(ctx context.Context) error {
-	entryIDs := p.entryIDs()
-	if len(entryIDs) == 0 {
-		return errors.New("no configured cameras")
+func (p *Plugin) refreshAfterCommand(ctx context.Context, entryID string) error {
+	if p.config.Mode == RuntimeModeCloud {
+		return p.refreshAll(ctx)
 	}
-	var errs []string
-	for _, entryID := range entryIDs {
-		if err := p.refreshEntry(ctx, entryID); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", entryID, err))
-		}
-	}
-	if len(errs) > 0 {
-		return errors.New(strings.Join(errs, "; "))
-	}
-	return nil
+	return p.refreshLocalEntry(ctx, entryID)
 }
 
-func (p *Plugin) refreshEntry(ctx context.Context, entryID string) error {
-	p.mu.RLock()
-	runtime := p.entries[entryID]
-	if runtime == nil {
-		p.mu.RUnlock()
-		return errors.New("entry not found")
+func (p *Plugin) refreshAll(ctx context.Context) error {
+	switch p.config.Mode {
+	case RuntimeModeLAN:
+		return p.refreshAllLocal(ctx)
+	case RuntimeModeCloud:
+		return p.refreshAllCloud(ctx)
+	default:
+		return fmt.Errorf("unsupported hikvision mode %q", p.config.Mode)
 	}
-	cfg := runtime.Config
-	cam := runtime.Client
-	connected := runtime.Connected
-	p.mu.RUnlock()
-
-	if !connected {
-		if _, err := cam.Connect(ctx, cfg); err != nil {
-			state := buildState(cfg, client.CameraStatus{Connected: false}, err.Error())
-			p.applyState(entryID, state, true)
-			return err
-		}
-	}
-	status, err := cam.Status(ctx)
-	if err != nil {
-		state := buildState(cfg, client.CameraStatus{Connected: false}, err.Error())
-		p.applyState(entryID, state, true)
-		return err
-	}
-	state := buildState(cfg, status, "")
-	p.applyState(entryID, state, false)
-	return nil
 }
 
 func (p *Plugin) applyState(entryID string, snapshot models.DeviceStateSnapshot, hasError bool) {
@@ -371,17 +344,23 @@ func (p *Plugin) applyState(entryID string, snapshot models.DeviceStateSnapshot,
 	}
 }
 
+func (p *Plugin) updateRuntimeDevice(entryID string, device models.Device, cloudInfo *ezvizcloud.DeviceInfo, controlBlocked string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	runtime := p.entries[entryID]
+	if runtime == nil {
+		return
+	}
+	runtime.Device = device
+	runtime.CloudDevice = cloudInfo
+	runtime.ControlBlocked = controlBlocked
+}
+
 func (p *Plugin) emitEvent(event models.Event) {
 	select {
 	case p.events <- event:
 	default:
 	}
-}
-
-func (p *Plugin) entryByID(entryID string) *entryRuntime {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.entries[entryID]
 }
 
 func (p *Plugin) entryRuntimes() []*entryRuntime {
@@ -425,10 +404,8 @@ func (p *Plugin) snapshot() ([]models.Device, []models.DeviceStateSnapshot) {
 	devices := make([]models.Device, 0, len(p.entries))
 	states := make([]models.DeviceStateSnapshot, 0, len(p.entries))
 	for _, runtime := range p.entries {
-		device := runtime.Device
-		state := cloneSnapshot(runtime.LastState)
-		devices = append(devices, device)
-		states = append(states, state)
+		devices = append(devices, runtime.Device)
+		states = append(states, cloneSnapshot(runtime.LastState))
 	}
 	sort.SliceStable(devices, func(i, j int) bool {
 		return devices[i].ID < devices[j].ID
@@ -445,19 +422,32 @@ func (p *Plugin) setLastError(value string) {
 	p.mu.Unlock()
 }
 
-func cloneSnapshot(in models.DeviceStateSnapshot) models.DeviceStateSnapshot {
-	out := in
-	out.State = cloneMap(in.State)
-	return out
+func initialState(cfg Config, entry EntryConfig, controlBlocked string) models.DeviceStateSnapshot {
+	switch cfg.Mode {
+	case RuntimeModeLAN:
+		return buildLocalState(entry, lanclient.CameraStatus{Connected: false}, "not connected")
+	case RuntimeModeCloud:
+		return buildCloudState(entry, nil, cfg.Cloud.HasAuth(), controlBlocked, "")
+	default:
+		return models.DeviceStateSnapshot{}
+	}
 }
 
-func boolParam(state map[string]any, key string) bool {
-	value, ok := state[key]
-	if !ok {
-		return false
+func (p *Plugin) controlBlockedReason(cfg Config, entry EntryConfig, info *ezvizcloud.DeviceInfo, lastError string) string {
+	if cfg.Mode != RuntimeModeCloud {
+		return ""
 	}
-	if typed, ok := value.(bool); ok {
-		return typed
+	if lastError != "" {
+		return lastError
 	}
-	return false
+	if entry.DeviceSerial == "" {
+		return "configure device_serial to enable Ezviz PTZ control"
+	}
+	if !cfg.Cloud.HasAuth() {
+		return "configure cloud.username and cloud.password to enable Ezviz PTZ control"
+	}
+	if info != nil && !info.PTZSupported() {
+		return "PTZ is not exposed by the Ezviz cloud for this camera"
+	}
+	return ""
 }

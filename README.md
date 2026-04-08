@@ -8,7 +8,7 @@ Celestia is a monorepo for a process-isolated home gateway written in Go with a 
 - Phase 1: Xiaomi MIoT cloud integration with multi-account, multi-region, aquarium control, and speaker text push
 - Phase 2: Petkit cloud integration with feeder/litter/fountain support
 - Phase 3: Haier hOn washer integration with model capability matrices
-- Phase 4: Hikvision/EZVIZ local LAN integration with HCNetSDK PTZ and playback
+- Phase 4: Hikvision/EZVIZ LAN HCNetSDK plus Ezviz cloud camera integration
 
 ## Local Commands
 
@@ -35,7 +35,7 @@ Each vendor plugin now expects real cloud credentials. The admin UI ships JSON t
 - Petkit: `username`, `password`, `region`, `timezone`
 - Petkit: optional `compat` overrides for `passport_base_url`, `china_base_url`, `api_version`, `client_header`, `user_agent`, and related app-signature fields when Petkit changes its mobile app contract
 - Haier: `email`, `password` or `refresh_token`, plus optional `mobile_id` and `timezone`
-- Hikvision: `sdk_lib_dir` plus `entries[]` with `host`, `port`, `username`, `password`, `channel`, and optional `rtsp_*` / `ptz_*` / `sdk_lib_dir_override`
+- Hikvision: `mode`, optional `cloud` auth/session fields, and `entries[]`; `lan` mode uses `host` / `username` / `password` / `channel`, while `cloud` mode uses `device_serial` for Ezviz PTZ and RTSP fields for viewing
 
 If credentials are missing or invalid, plugin enablement fails explicitly instead of falling back to demo devices.
 
@@ -96,13 +96,15 @@ For the non-OAuth path, you can also supply an already extracted Xiaomi cloud se
   - then a single-device refresh reloads attributes/statistics/maintenance for the targeted washer
 - State-change events are emitted on explicit single-device refresh paths, such as post-command refreshes. The background poll keeps the plugin's internal cache fresh but does not currently emit per-device change events for every polling diff.
 
-### Hikvision EZVIZ (Native on linux/arm64, Docker fallback elsewhere)
+### Hikvision EZVIZ (LAN SDK + Ezviz Cloud)
 
-- The Hikvision plugin uses HCNetSDK arm64 shared libraries.
-- On `linux/arm64`, Celestia now installs and runs `hikvision-plugin` like the other plugins. The root `make build` target and root `Dockerfile` build an SDK-enabled binary for that platform and expose the bundled SDK under `/opt/celestia/sdk/lib/arm64` in the gateway image.
-- On non-`linux/arm64` environments, the same install flow still works, but `hikvision-plugin` falls back to launcher mode and starts the dedicated Hikvision Docker runtime.
-- Hikvision device identity is now derived from `host` + `port` + `channel`, so renaming an entry updates the existing device instead of leaving the old name behind as a stale row.
-- The standalone Docker runtime remains available. `plugins/hikvision/Dockerfile` still builds the server-mode image for independent container execution, and `CELESTIA_HIKVISION_PLUGIN_MODE=launcher` can be used to force the Docker path even on `linux/arm64`.
+- `mode: lan` keeps the existing HCNetSDK path for direct Hikvision LAN access, PTZ, playback, and recording timeline support.
+- `mode: cloud` adds Ezviz cloud login, camera inventory refresh, and cloud PTZ up/down/left/right. Cloud mode runs as the regular plugin server on every platform and does not require the Docker launcher.
+- LAN mode still uses HCNetSDK arm64 shared libraries. On `linux/arm64`, Celestia runs `hikvision-plugin` directly. On non-`linux/arm64` environments, LAN mode still falls back to launcher mode and starts the dedicated Hikvision Docker runtime.
+- Cloud mode is intentionally narrower than LAN SDK mode: it supports camera sync, RTSP-assisted viewing, and PTZ arrows only. Playback timeline, recording listing, and zoom commands remain LAN-only.
+- If Ezviz cloud auth is missing or the account does not expose PTZ for a camera, the admin keeps the camera visible for streaming but disables the PTZ controls with a reason. RTSP video still works when `rtsp_url` or RTSP host/credential fields are configured.
+- Hikvision cloud device identity is derived from `device_serial` when present. LAN identity remains `host` + `port` + `channel`, so renaming an entry updates the existing device instead of leaving stale rows behind.
+- The standalone Docker runtime remains available for LAN mode. `plugins/hikvision/Dockerfile` still builds the SDK-enabled server image, and `CELESTIA_HIKVISION_PLUGIN_MODE=launcher` can be used to force the Docker path.
 - Build the standalone plugin image from repository root:
 
 ```bash
@@ -114,11 +116,12 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
   - `CELESTIA_HIKVISION_DOCKER_PLATFORM` (for example `linux/arm64`)
   - `CELESTIA_HIKVISION_DOCKER_NETWORK` (for example `bridge` or `host`)
   - `CELESTIA_HIKVISION_SDK_LIB_DIR` (optional override for the HCNetSDK library directory used by the current runtime)
-  - `CELESTIA_HIKVISION_PLUGIN_MODE` (`launcher` to force Docker fallback, `server` only for native linux/arm64 SDK builds or the standalone plugin container)
-- Plugin config draft example:
+  - `CELESTIA_HIKVISION_PLUGIN_MODE` (`launcher` to force Docker fallback for LAN mode, `server` to force direct plugin serving)
+- LAN config draft example:
 
 ```json
 {
+  "mode": "lan",
   "sdk_lib_dir": "/opt/celestia/sdk/lib/arm64",
   "entries": [
     {
@@ -133,7 +136,28 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
   "poll_interval_seconds": 30
 }
 ```
-- The plugin directly uses HCNetSDK in-process, maps each configured camera entry to `camera_like`, supports PTZ movement and playback commands, and emits state/command events back to Core.
+
+- Cloud config draft example:
+
+```json
+{
+  "mode": "cloud",
+  "cloud": {
+    "username": "<ezviz-username>",
+    "password": "<ezviz-password>"
+  },
+  "entries": [
+    {
+      "name": "front-door",
+      "device_serial": "<ezviz-device-serial>",
+      "rtsp_url": "rtsp://viewer:password@192.168.1.100:554/Streaming/Channels/101"
+    }
+  ],
+  "poll_interval_seconds": 30
+}
+```
+
+- The plugin now routes Hikvision behavior through explicit `lan` / `cloud` runtime layering under `plugins/hikvision/internal/app`, `internal/client`, and `internal/cloud`, while still emitting the same Core-facing device/state/event model.
 
 ## Implementation References
 
@@ -164,7 +188,7 @@ These repositories are reference material for protocol and behavior research, no
 - `plugins/xiaomi`: Xiaomi MIoT plugin process. `internal/app` owns plugin RPC behavior, `internal/cloud` owns cloud auth and MIoT requests, `internal/mapper` turns MIoT models into unified capabilities, and `internal/spec` caches MIoT spec data.
 - `plugins/petkit`: Petkit plugin process. `internal/app` contains auth, sync, mapping, command dispatch, BLE relay handling, and runtime config persistence.
 - `plugins/haier`: Haier hOn plugin process. `internal/app` contains auth, appliance discovery, capability derivation, command mapping, refresh, and token persistence.
-- `plugins/hikvision`: Hikvision/EZVIZ plugin process. `cmd/main.go` is the single plugin entrypoint and auto-selects native server mode on linux/arm64 SDK builds, with launcher mode plus Docker fallback elsewhere unless explicitly overridden. `internal/app` hosts config validation, direct HCNetSDK lifecycle/login/command handling, state polling, PTZ/playback command mapping, and runtime events. `plugins/hikvision/Dockerfile` packages the HCNetSDK runtime.
+- `plugins/hikvision`: Hikvision/EZVIZ plugin process. `cmd/main.go` remains the single entrypoint; `cloud` mode runs through the normal plugin server path, while `lan` mode auto-selects native server mode on linux/arm64 SDK builds and launcher mode plus Docker fallback elsewhere unless explicitly overridden. `internal/app` owns runtime orchestration, `internal/client` owns HCNetSDK LAN access, `internal/cloud` owns Ezviz auth/device/PTZ transport, and `plugins/hikvision/Dockerfile` packages the HCNetSDK runtime for LAN fallback.
 - `proto`: plugin protocol definition.
 - `web/admin`: Vite/React admin console that consumes only the gateway HTTP API.
 - `docs`: repository Markdown docs, including API references.

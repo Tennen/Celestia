@@ -34,13 +34,6 @@ func main() {
 func run() error {
 	mode := resolvePluginMode(os.Getenv(modeEnv), runtime.GOOS, runtime.GOARCH, sdkRuntimeEnabled)
 	if mode == modeServer {
-		if !nativeServerCapable(runtime.GOOS, runtime.GOARCH, sdkRuntimeEnabled) {
-			return fmt.Errorf(
-				"hikvision server mode requires linux/arm64 with a binary built using -tags hikvision_sdk, current platform is %s/%s",
-				runtime.GOOS,
-				runtime.GOARCH,
-			)
-		}
 		return pluginruntime.Serve(app.New())
 	}
 	return runLauncher()

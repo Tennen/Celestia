@@ -67,6 +67,9 @@ func (s *Service) ResolveToggle(device models.Device, state models.DeviceStateSn
 		if item.view.Kind != models.DeviceControlKindToggle || item.view.ID != controlID {
 			continue
 		}
+		if item.view.Disabled {
+			return models.CommandRequest{}, disabledControlError(item.view)
+		}
 		command := item.onCommand
 		if !on {
 			command = item.offCommand
@@ -88,6 +91,9 @@ func (s *Service) ResolveAction(device models.Device, state models.DeviceStateSn
 		if item.view.Kind != models.DeviceControlKindAction || item.view.ID != controlID {
 			continue
 		}
+		if item.view.Disabled {
+			return models.CommandRequest{}, disabledControlError(item.view)
+		}
 		if item.command == nil || item.command.Action == "" {
 			return models.CommandRequest{}, fmt.Errorf("action %q is not executable", controlID)
 		}
@@ -98,6 +104,14 @@ func (s *Service) ResolveAction(device models.Device, state models.DeviceStateSn
 		}, nil
 	}
 	return models.CommandRequest{}, fmt.Errorf("action %q not found", controlID)
+}
+
+func disabledControlError(control models.DeviceControl) error {
+	reason := strings.TrimSpace(control.DisabledReason)
+	if reason == "" {
+		reason = "control is disabled"
+	}
+	return errors.New(reason)
 }
 
 func ParseCompoundControlID(value string) (string, string, error) {
