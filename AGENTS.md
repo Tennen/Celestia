@@ -128,6 +128,14 @@ Use these boundaries when deciding where code belongs:
 - Do not preload fake accounts, fake devices, or fake command presets that imply the backend is already connected.
 - UI examples may illustrate JSON structure, but they must not masquerade as runnable demo sessions.
 
+### Admin Page Architecture Rules
+
+- `web/admin/src/App.tsx` owns the global shell: left navigation, module header, and the single active workspace region.
+- Top-level workspaces such as plugins, devices, automations, and capabilities must render inside the shared workspace region and consume the available height instead of creating independent page shells.
+- Detail-heavy admin pages should follow the existing explorer/detail pattern: a fixed-height workspace with explicit `min-height: 0` boundaries, and any overflow handled by the shared `ScrollArea` component rather than browser-body scrolling.
+- When adding or changing a page with multiple panes, decide which pane owns scrolling and make that ownership explicit in layout classes. Do not rely on content height alone to make Radix scroll areas work.
+- New admin pages and substantial page refactors must verify scrolling on the main detail pane, especially on split layouts where one side is a list and the other side is an editor or event feed.
+
 ### Admin Theme Rules
 
 - The shared admin color system must be defined in `web/admin/src/styles/theme.css`. Reuse those CSS variables from other admin stylesheets instead of introducing new palette hex values or new tinted `rgba(...)` colors directly in component styles.

@@ -165,8 +165,8 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   };
 
   return (
-    <div className="capability-detail">
-      <Card>
+    <div className="capability-detail vision-capability-panel">
+      <Card className="vision-capability-panel__summary">
         <CardHeader>
           <CardHeading
             title="Vision Stay Zone Recognition"
@@ -304,8 +304,8 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
         </CardContent>
       </Card>
 
-      <div className="vision-rule-layout">
-        <Card className="explorer-card">
+      <div className="vision-rule-layout vision-capability-panel__body">
+        <Card className="explorer-card vision-rule-layout__list">
           <CardContent className="explorer-card__content pt-6">
             <div className="button-row">
               <Button onClick={addRule}>New Rule</Button>
@@ -337,7 +337,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
           </CardContent>
         </Card>
 
-        <ScrollArea className="detail-scroll">
+        <ScrollArea className="detail-scroll vision-rule-layout__detail">
           <div className="detail-stack">
             <VisionRuleEditorCard
               catalog={activeCatalog}
