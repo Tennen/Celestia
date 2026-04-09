@@ -166,6 +166,7 @@ export function AutomationWorkspace() {
                 <SelectableListItem
                   key={automation.id}
                   className={`table__row ${selectedAutomationId === automation.id ? 'is-selected' : ''}`}
+                  layout="stacked_badges"
                   onClick={() => loadDraft(automation)}
                   selected={selectedAutomationId === automation.id}
                   title={automation.name || automation.id}

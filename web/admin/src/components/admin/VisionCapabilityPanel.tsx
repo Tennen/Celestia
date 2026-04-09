@@ -222,6 +222,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
                   {draft?.rules.map((rule) => (
                     <SelectableListItem
                       key={rule.id}
+                      layout="stacked_badges"
                       selected={rule.id === selectedRuleId}
                       onClick={() => setSelectedRuleId(rule.id)}
                       title={rule.name || rule.id}

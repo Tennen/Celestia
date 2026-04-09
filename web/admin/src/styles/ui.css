@@ -130,6 +130,18 @@
     @apply min-w-0 space-y-1;
   }
 
+  .list-item__title {
+    @apply truncate;
+  }
+
+  .list-item__description {
+    @apply truncate text-xs text-muted-foreground;
+  }
+
+  .list-item__subrow {
+    @apply grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center;
+  }
+
   .list-item__support {
     @apply flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground;
   }
@@ -138,8 +150,16 @@
     @apply flex max-w-full flex-wrap items-center gap-1.5 sm:justify-end;
   }
 
+  .list-item__badges--compact {
+    @apply gap-1 justify-self-end;
+  }
+
   .list-item__badges > * {
     @apply max-w-full;
+  }
+
+  .list-item__badges--compact > * {
+    @apply px-1 py-px text-[7px];
   }
 
   .preview-list__item strong,
