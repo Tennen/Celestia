@@ -37,6 +37,16 @@ function normalizeVisionServiceURL(value: string) {
   return value.trim().replace(/\/+$/, '');
 }
 
+function recognitionRuleBadge(rule: VisionRule) {
+  if (!rule.enabled) {
+    return { label: 'disabled', tone: 'neutral' as const };
+  }
+  if (!rule.recognition_enabled) {
+    return { label: 'paused', tone: 'warn' as const };
+  }
+  return { label: 'active', tone: 'accent' as const };
+}
+
 export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   const { refreshAll } = useAdminStore();
   const cameraDevices = useMemo(
@@ -219,26 +229,24 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
               </p>
               <ScrollArea className="explorer-scroll">
                 <div className="list-stack">
-                  {draft?.rules.map((rule) => (
-                    <SelectableListItem
-                      key={rule.id}
-                      layout="stacked_badges"
-                      selected={rule.id === selectedRuleId}
-                      onClick={() => setSelectedRuleId(rule.id)}
-                      title={rule.name || rule.id}
-                      description={rule.camera_device_id || 'No camera selected'}
-                      badges={
-                        <>
-                          <Badge size="xs" tone={rule.enabled ? 'good' : 'neutral'}>
-                            {rule.enabled ? 'enabled' : 'disabled'}
+                  {draft?.rules.map((rule) => {
+                    const statusBadge = recognitionRuleBadge(rule);
+                    return (
+                      <SelectableListItem
+                        key={rule.id}
+                        layout="stacked_badges"
+                        selected={rule.id === selectedRuleId}
+                        onClick={() => setSelectedRuleId(rule.id)}
+                        title={rule.name || rule.id}
+                        description={rule.camera_device_id || 'No camera selected'}
+                        badges={
+                          <Badge size="xxs" tone={statusBadge.tone}>
+                            {statusBadge.label}
                           </Badge>
-                          <Badge size="xs" tone={rule.recognition_enabled ? 'accent' : 'neutral'}>
-                            {rule.recognition_enabled ? 'recognition on' : 'recognition off'}
-                          </Badge>
-                        </>
-                      }
-                    />
-                  ))}
+                        }
+                      />
+                    );
+                  })}
                   {draft?.rules.length === 0 ? <div className="detail">No recognition rules configured yet.</div> : null}
                 </div>
               </ScrollArea>

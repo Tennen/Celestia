@@ -33,6 +33,19 @@ function automationDraftKey(automationId: string) {
   return automationId ? `automation:${automationId}` : 'automation:new';
 }
 
+function automationStatusBadge(automation: Automation) {
+  if (!automation.enabled) {
+    return { label: 'disabled', tone: 'neutral' as const };
+  }
+  if (automation.last_run_status === 'failed') {
+    return { label: 'failed', tone: 'bad' as const };
+  }
+  if (automation.last_run_status === 'succeeded') {
+    return { label: 'succeeded', tone: 'good' as const };
+  }
+  return { label: 'idle', tone: 'neutral' as const };
+}
+
 export function AutomationWorkspace() {
   const { automations, devices, refreshAll, reportError } = useAdminStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -162,36 +175,25 @@ export function AutomationWorkspace() {
           </div>
           <ScrollArea className="explorer-scroll">
             <div className="list-stack">
-              {automations.map((automation) => (
-                <SelectableListItem
-                  key={automation.id}
-                  className={`table__row ${selectedAutomationId === automation.id ? 'is-selected' : ''}`}
-                  layout="stacked_badges"
-                  onClick={() => loadDraft(automation)}
-                  selected={selectedAutomationId === automation.id}
-                  title={automation.name || automation.id}
-                  description={getStateChangedConditionDeviceId(automation) || 'No state-change condition'}
-                  badges={
-                    <>
-                      <Badge tone={automation.enabled ? 'good' : 'neutral'} size="xs">
-                        {automation.enabled ? 'enabled' : 'disabled'}
+              {automations.map((automation) => {
+                const statusBadge = automationStatusBadge(automation);
+                return (
+                  <SelectableListItem
+                    key={automation.id}
+                    className={`table__row ${selectedAutomationId === automation.id ? 'is-selected' : ''}`}
+                    layout="stacked_badges"
+                    onClick={() => loadDraft(automation)}
+                    selected={selectedAutomationId === automation.id}
+                    title={automation.name || automation.id}
+                    description={getStateChangedConditionDeviceId(automation) || 'No state-change condition'}
+                    badges={
+                      <Badge tone={statusBadge.tone} size="xxs">
+                        {statusBadge.label}
                       </Badge>
-                      <Badge
-                        size="xs"
-                        tone={
-                          automation.last_run_status === 'failed'
-                            ? 'bad'
-                            : automation.last_run_status === 'succeeded'
-                              ? 'good'
-                              : 'neutral'
-                        }
-                      >
-                        {automation.last_run_status ?? 'idle'}
-                      </Badge>
-                    </>
-                  }
-                />
-              ))}
+                    }
+                  />
+                );
+              })}
               {automations.length === 0 ? <div className="detail">No automations configured yet.</div> : null}
             </div>
           </ScrollArea>

@@ -158,10 +158,6 @@
     @apply max-w-full;
   }
 
-  .list-item__badges--compact > * {
-    @apply px-1 py-px text-[7px];
-  }
-
   .preview-list__item strong,
   .plugin-list__meta strong,
   .table__row strong {
