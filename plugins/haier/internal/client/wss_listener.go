@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -104,22 +103,9 @@ func (l *WssListener) SendCommand(ctx context.Context, deviceID string, params m
 		return errors.New("uws wss: connection not available, cannot send command")
 	}
 
-	cmdList := make([]map[string]any, 0, len(params))
-	for name, value := range params {
-		cmdList = append(cmdList, map[string]any{
-			"name":  name,
-			"value": value,
-		})
-	}
-
-	msg := wssMessage{
-		AgClientID: agClientID,
-		Topic:      "BatchCmdReq",
-		Content: map[string]any{
-			"deviceId": deviceID,
-			"sn":       uuid.NewString(),
-			"cmdList":  cmdList,
-		},
+	msg, err := buildWSSBatchCommandMessage(agClientID, deviceID, params)
+	if err != nil {
+		return err
 	}
 	if err := wsjson.Write(ctx, conn, msg); err != nil {
 		return fmt.Errorf("uws wss send command: %w", err)

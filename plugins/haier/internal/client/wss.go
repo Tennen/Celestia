@@ -65,6 +65,50 @@ func buildWSSConnectURL(gatewayURL, accessToken string) (string, string, error) 
 	return fmt.Sprintf("%s/userag?token=%s&agClientId=%s", gatewayURL, accessToken, accessToken), accessToken, nil
 }
 
+func buildWSSBatchCommandMessage(agClientID, deviceID string, params map[string]any) (wssMessage, error) {
+	agClientID = strings.TrimSpace(agClientID)
+	deviceID = strings.TrimSpace(deviceID)
+	if agClientID == "" {
+		return wssMessage{}, fmt.Errorf("uws wss: missing agClientId")
+	}
+	if deviceID == "" {
+		return wssMessage{}, fmt.Errorf("uws wss: missing deviceId")
+	}
+	if len(params) == 0 {
+		return wssMessage{}, fmt.Errorf("uws wss: missing command params")
+	}
+
+	cmdArgs := make(map[string]any, len(params))
+	for key, value := range params {
+		if trimmed := strings.TrimSpace(key); trimmed != "" {
+			cmdArgs[trimmed] = value
+		}
+	}
+	if len(cmdArgs) == 0 {
+		return wssMessage{}, fmt.Errorf("uws wss: missing command params")
+	}
+
+	sn := randomHex(32)
+	return wssMessage{
+		AgClientID: agClientID,
+		Topic:      "BatchCmdReq",
+		Content: map[string]any{
+			"trace": randomHex(32),
+			"sn":    sn,
+			"data": []map[string]any{
+				{
+					"sn":           sn,
+					"index":        0,
+					"delaySeconds": 0,
+					"subSn":        sn + ":0",
+					"deviceId":     deviceID,
+					"cmdArgs":      cmdArgs,
+				},
+			},
+		},
+	}, nil
+}
+
 // wssMessage is the envelope for all WebSocket messages.
 type wssMessage struct {
 	AgClientID string         `json:"agClientId"`

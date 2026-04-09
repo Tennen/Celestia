@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -60,6 +61,13 @@ func firstNonEmpty(values ...string) string {
 func randomHex(n int) string {
 	const chars = "abcdef0123456789"
 	b := make([]byte, n)
+	raw := make([]byte, n)
+	if _, err := rand.Read(raw); err == nil {
+		for i := range b {
+			b[i] = chars[int(raw[i])%len(chars)]
+		}
+		return string(b)
+	}
 	for i := range b {
 		b[i] = chars[time.Now().UnixNano()%int64(len(chars))]
 	}

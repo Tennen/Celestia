@@ -65,6 +65,76 @@ func TestBuildWSSConnectURL_MissingAccessToken(t *testing.T) {
 	}
 }
 
+func TestBuildWSSBatchCommandMessage_UsesHACommandShape(t *testing.T) {
+	msg, err := buildWSSBatchCommandMessage("access-token", "device-123", map[string]any{
+		"machMode": "0",
+		"prCode":   "7",
+	})
+	if err != nil {
+		t.Fatalf("buildWSSBatchCommandMessage failed: %v", err)
+	}
+	if msg.AgClientID != "access-token" {
+		t.Fatalf("AgClientID = %q, want access-token", msg.AgClientID)
+	}
+	if msg.Topic != "BatchCmdReq" {
+		t.Fatalf("Topic = %q, want BatchCmdReq", msg.Topic)
+	}
+	trace, _ := msg.Content["trace"].(string)
+	if len(trace) != 32 {
+		t.Fatalf("trace len = %d, want 32", len(trace))
+	}
+	sn, _ := msg.Content["sn"].(string)
+	if len(sn) != 32 {
+		t.Fatalf("sn len = %d, want 32", len(sn))
+	}
+
+	data, ok := msg.Content["data"].([]map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T, want []map[string]any", msg.Content["data"])
+	}
+	if len(data) != 1 {
+		t.Fatalf("data len = %d, want 1", len(data))
+	}
+	entry := data[0]
+	if entry["sn"] != sn {
+		t.Fatalf("entry sn = %#v, want %q", entry["sn"], sn)
+	}
+	if entry["index"] != 0 {
+		t.Fatalf("entry index = %#v, want 0", entry["index"])
+	}
+	if entry["delaySeconds"] != 0 {
+		t.Fatalf("entry delaySeconds = %#v, want 0", entry["delaySeconds"])
+	}
+	if entry["subSn"] != sn+":0" {
+		t.Fatalf("entry subSn = %#v, want %q", entry["subSn"], sn+":0")
+	}
+	if entry["deviceId"] != "device-123" {
+		t.Fatalf("entry deviceId = %#v, want device-123", entry["deviceId"])
+	}
+	cmdArgs, ok := entry["cmdArgs"].(map[string]any)
+	if !ok {
+		t.Fatalf("cmdArgs type = %T, want map[string]any", entry["cmdArgs"])
+	}
+	if cmdArgs["machMode"] != "0" || cmdArgs["prCode"] != "7" {
+		t.Fatalf("cmdArgs = %#v", cmdArgs)
+	}
+	if _, ok := msg.Content["cmdList"]; ok {
+		t.Fatal("did not expect legacy cmdList payload")
+	}
+}
+
+func TestBuildWSSBatchCommandMessage_RequiresInputs(t *testing.T) {
+	if _, err := buildWSSBatchCommandMessage("", "device-123", map[string]any{"machMode": "0"}); err == nil {
+		t.Fatal("expected error for missing agClientId")
+	}
+	if _, err := buildWSSBatchCommandMessage("access-token", "", map[string]any{"machMode": "0"}); err == nil {
+		t.Fatal("expected error for missing deviceId")
+	}
+	if _, err := buildWSSBatchCommandMessage("access-token", "device-123", nil); err == nil {
+		t.Fatal("expected error for missing params")
+	}
+}
+
 // encodeWSSDeviceUpdate encodes a deviceID + attributes into the GenMsgDown/DigitalModel
 // wire format: base64(JSON{dev, args: base64(gzip(JSON{attributes}))})
 func encodeWSSDeviceUpdate(deviceID string, attrs map[string]string) (string, error) {

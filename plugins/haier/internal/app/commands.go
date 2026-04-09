@@ -9,7 +9,7 @@ import (
 )
 
 // commandForRequest translates a CommandRequest into a flat params map
-// suitable for WSS BatchCmdReq cmdList entries.
+// suitable for WSS BatchCmdReq cmdArgs payloads.
 func commandForRequest(device *applianceRuntime, req models.CommandRequest) (map[string]any, error) {
 	if device == nil {
 		return nil, errors.New("device not found")
