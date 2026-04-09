@@ -41,6 +41,13 @@ For `device.state.changed`, Core enriches the payload before publishing it to SS
 - `payload.previous_state` is the last persisted snapshot for that device
 - `payload.changed_keys` lists the keys whose values changed
 
+Device inventory lifecycle events use:
+
+- `device.discovered`
+- `device.updated`
+
+When a plugin emits either inventory event with `payload.device`, Core updates the persisted device registry before the event is published. `device.updated` is the path used for runtime changes to device metadata such as `online`, name, or capability metadata that are not represented inside `device.state.changed`.
+
 Core-generated automation execution events use:
 
 - `automation.triggered`

@@ -75,9 +75,76 @@ func TestSyncDevicesRemovesStaleDevices(t *testing.T) {
 	}
 }
 
+func TestConsumeEventsUpsertsDeviceFromPayload(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "celestia.db")
+	store, err := sqlitestore.New(dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.New() error = %v", err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+	if err := store.EnsureSchema(ctx); err != nil {
+		t.Fatalf("EnsureSchema() error = %v", err)
+	}
+
+	registrySvc := registry.New(store)
+	stateSvc := state.New(store)
+	manager := New(store, registrySvc, stateSvc, eventbus.New())
+	device := models.Device{
+		ID:             "haier:washer:primary:washer-1",
+		PluginID:       "haier",
+		VendorDeviceID: "washer-1",
+		Kind:           models.DeviceKindWasher,
+		Name:           "Laundry Room",
+		Online:         false,
+	}
+	if err := registrySvc.Upsert(ctx, []models.Device{device}); err != nil {
+		t.Fatalf("Upsert() error = %v", err)
+	}
+	runtime := &managedPlugin{
+		record: models.PluginInstallRecord{PluginID: "haier"},
+		client: &fakePluginClient{
+			streamEvents: []models.Event{{
+				ID:       "evt-1",
+				Type:     models.EventDeviceUpdated,
+				PluginID: "haier",
+				DeviceID: device.ID,
+				TS:       time.Now().UTC(),
+				Payload: map[string]any{
+					"device": models.Device{
+						ID:             device.ID,
+						PluginID:       "haier",
+						VendorDeviceID: "washer-1",
+						Kind:           models.DeviceKindWasher,
+						Name:           "Laundry Room",
+						Online:         true,
+					},
+				},
+			}},
+		},
+		logs: newLogBuffer(32),
+	}
+
+	manager.consumeEvents(ctx, runtime)
+
+	updated, ok, err := store.GetDevice(ctx, device.ID)
+	if err != nil {
+		t.Fatalf("GetDevice() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("device not found after consumeEvents")
+	}
+	if !updated.Online {
+		t.Fatal("device online = false, want true")
+	}
+}
+
 type fakePluginClient struct {
-	discoveries [][]models.Device
-	discoverIdx int
+	discoveries  [][]models.Device
+	discoverIdx  int
+	streamEvents []models.Event
 }
 
 func (f *fakePluginClient) GetManifest(context.Context, *emptypb.Empty, ...grpc.CallOption) (*structpb.Struct, error) {
@@ -137,13 +204,20 @@ func (f *fakePluginClient) ExecuteCommand(context.Context, *structpb.Struct, ...
 }
 
 func (f *fakePluginClient) StreamEvents(context.Context, *emptypb.Empty, ...grpc.CallOption) (pluginapi.PluginStreamEventsClient, error) {
-	return &fakeStreamEventsClient{}, nil
+	return &fakeStreamEventsClient{events: f.streamEvents}, nil
 }
 
 type fakeStreamEventsClient struct {
 	grpc.ClientStream
+	events []models.Event
+	index  int
 }
 
 func (f *fakeStreamEventsClient) Recv() (*structpb.Struct, error) {
-	return nil, io.EOF
+	if f.index >= len(f.events) {
+		return nil, io.EOF
+	}
+	event := f.events[f.index]
+	f.index++
+	return pluginapi.EncodeStruct(event)
 }

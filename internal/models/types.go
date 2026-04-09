@@ -32,6 +32,7 @@ type EventType string
 
 const (
 	EventDeviceDiscovered        EventType = "device.discovered"
+	EventDeviceUpdated           EventType = "device.updated"
 	EventDeviceStateChanged      EventType = "device.state.changed"
 	EventDeviceOccurred          EventType = "device.event.occurred"
 	EventDeviceCommandAccept     EventType = "device.command.accepted"

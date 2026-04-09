@@ -118,6 +118,23 @@ func (m *Manager) consumeEvents(ctx context.Context, runtime *managedPlugin) {
 		if event.PluginID == "" {
 			event.PluginID = runtime.record.PluginID
 		}
+		if event.Type == models.EventDeviceDiscovered || event.Type == models.EventDeviceUpdated {
+			if device, ok, err := decodeEventDevicePayload(event.Payload); err != nil {
+				runtime.logs.Append("device payload decode error: " + err.Error())
+			} else if ok {
+				if device.ID == "" {
+					device.ID = event.DeviceID
+				}
+				if device.PluginID == "" {
+					device.PluginID = event.PluginID
+				}
+				if device.ID == "" {
+					runtime.logs.Append("device payload missing device_id")
+				} else if err := m.registry.Upsert(context.Background(), []models.Device{device}); err != nil {
+					runtime.logs.Append("persist device error: " + err.Error())
+				}
+			}
+		}
 		if statePayload, ok := event.Payload["state"].(map[string]any); ok && event.DeviceID != "" {
 			previousState, _, err := m.state.Get(context.Background(), event.DeviceID)
 			if err != nil {
@@ -144,6 +161,25 @@ func (m *Manager) consumeEvents(ctx context.Context, runtime *managedPlugin) {
 		}
 		m.bus.Publish(event)
 	}
+}
+
+func decodeEventDevicePayload(payload map[string]any) (models.Device, bool, error) {
+	if payload == nil {
+		return models.Device{}, false, nil
+	}
+	raw, ok := payload["device"]
+	if !ok || raw == nil {
+		return models.Device{}, false, nil
+	}
+	body, err := json.Marshal(raw)
+	if err != nil {
+		return models.Device{}, false, err
+	}
+	var device models.Device
+	if err := json.Unmarshal(body, &device); err != nil {
+		return models.Device{}, false, err
+	}
+	return device, true, nil
 }
 
 func (m *Manager) healthLoop(runtime *managedPlugin) {

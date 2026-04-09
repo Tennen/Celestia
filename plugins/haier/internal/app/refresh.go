@@ -22,6 +22,7 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 	}
 	log.Printf("haier: poll refresh start accounts=%d", len(runtimes))
 	previousDevices := p.deviceSnapshotMap()
+	previousRegistry := p.deviceMapSnapshot()
 	nextDevices := map[string]*applianceRuntime{}
 	var firstErr error
 	successes := 0
@@ -38,6 +39,7 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 		account.LastError = ""
 		account.LastSync = time.Now().UTC()
 	}
+	deviceEvents := buildDeviceSyncEvents(previousRegistry, nextDevices)
 	events := buildStateChangeEvents(previousDevices, nextDevices)
 	p.mu.Lock()
 	p.devices = nextDevices
@@ -47,15 +49,19 @@ func (p *Plugin) refreshAll(ctx context.Context) error {
 	} else {
 		p.lastError = ""
 	}
+	for _, event := range deviceEvents {
+		p.emitLocked(event)
+	}
 	for _, event := range events {
 		p.emitLocked(event)
 	}
 	p.mu.Unlock()
 	log.Printf(
-		"haier: poll refresh complete accounts=%d successes=%d devices=%d state_events=%d wss_connected=%t",
+		"haier: poll refresh complete accounts=%d successes=%d devices=%d device_events=%d state_events=%d wss_connected=%t",
 		len(runtimes),
 		successes,
 		len(nextDevices),
+		len(deviceEvents),
 		len(events),
 		p.allWSSConnected(),
 	)
