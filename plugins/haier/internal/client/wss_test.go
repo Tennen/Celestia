@@ -46,6 +46,25 @@ func TestGetWSSGatewayURL_Success(t *testing.T) {
 	}
 }
 
+func TestBuildWSSConnectURL_UsesAccessTokenForAgClientID(t *testing.T) {
+	url, agClientID, err := buildWSSConnectURL("wss://gw.haier.local/ws", "access-token")
+	if err != nil {
+		t.Fatalf("buildWSSConnectURL failed: %v", err)
+	}
+	if agClientID != "access-token" {
+		t.Fatalf("agClientID = %q, want access-token", agClientID)
+	}
+	if url != "wss://gw.haier.local/ws/userag?token=access-token&agClientId=access-token" {
+		t.Fatalf("url = %q", url)
+	}
+}
+
+func TestBuildWSSConnectURL_MissingAccessToken(t *testing.T) {
+	if _, _, err := buildWSSConnectURL("wss://gw.haier.local/ws", " "); err == nil {
+		t.Fatal("expected error for missing access token")
+	}
+}
+
 // encodeWSSDeviceUpdate encodes a deviceID + attributes into the GenMsgDown/DigitalModel
 // wire format: base64(JSON{dev, args: base64(gzip(JSON{attributes}))})
 func encodeWSSDeviceUpdate(deviceID string, attrs map[string]string) (string, error) {

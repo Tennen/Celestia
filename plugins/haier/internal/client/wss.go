@@ -16,7 +16,7 @@ const uwsWSSGatewayURL = "https://uws.haier.net/gmsWS/wsag/assign"
 
 // getWSSGatewayURL fetches the WebSocket gateway address for this account.
 // POST body: {"clientId": "<clientId>", "token": "<accessToken>"}
-// WSS URL format: {agAddr}/userag?token={accessToken}&agClientId={clientId}
+// WSS URL format: {agAddr}/userag?token={accessToken}&agClientId={accessToken}
 func (c *UWSClient) getWSSGatewayURL(ctx context.Context) (string, error) {
 	body := map[string]any{
 		"clientId": c.cfg.ClientID,
@@ -55,6 +55,14 @@ func (c *UWSClient) getWSSGatewayURL(ctx context.Context) (string, error) {
 	addr = strings.Replace(addr, "http://", "wss://", 1)
 	addr = strings.Replace(addr, "https://", "wss://", 1)
 	return addr, nil
+}
+
+func buildWSSConnectURL(gatewayURL, accessToken string) (string, string, error) {
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return "", "", fmt.Errorf("uws wss: missing access token")
+	}
+	return fmt.Sprintf("%s/userag?token=%s&agClientId=%s", gatewayURL, accessToken, accessToken), accessToken, nil
 }
 
 // wssMessage is the envelope for all WebSocket messages.

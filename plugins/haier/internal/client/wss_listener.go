@@ -22,14 +22,15 @@ const (
 
 // WssListener manages the Haier UWS WebSocket connection for one account.
 type WssListener struct {
-	mu        sync.Mutex
-	client    *UWSClient
-	deviceIDs []string
-	onUpdate  func(deviceID string, attributes map[string]string)
-	started   bool
-	connected bool
-	conn      *websocket.Conn
-	stopCh    chan struct{}
+	mu         sync.Mutex
+	client     *UWSClient
+	deviceIDs  []string
+	onUpdate   func(deviceID string, attributes map[string]string)
+	agClientID string
+	started    bool
+	connected  bool
+	conn       *websocket.Conn
+	stopCh     chan struct{}
 }
 
 func NewWssListener(
@@ -66,6 +67,7 @@ func (l *WssListener) Stop() {
 	}
 	l.started = false
 	l.connected = false
+	l.agClientID = ""
 	conn := l.conn
 	l.conn = nil
 	close(l.stopCh)
@@ -95,10 +97,10 @@ func (l *WssListener) SendCommand(ctx context.Context, deviceID string, params m
 	l.mu.Lock()
 	connected := l.connected
 	conn := l.conn
-	clientID := l.client.cfg.ClientID
+	agClientID := l.agClientID
 	l.mu.Unlock()
 
-	if !connected || conn == nil {
+	if !connected || conn == nil || agClientID == "" {
 		return errors.New("uws wss: connection not available, cannot send command")
 	}
 
@@ -111,7 +113,7 @@ func (l *WssListener) SendCommand(ctx context.Context, deviceID string, params m
 	}
 
 	msg := wssMessage{
-		AgClientID: clientID,
+		AgClientID: agClientID,
 		Topic:      "BatchCmdReq",
 		Content: map[string]any{
 			"deviceId": deviceID,
@@ -166,8 +168,10 @@ func (l *WssListener) connect(ctx context.Context) error {
 	}
 
 	accessToken := l.client.auth.AccessToken
-	clientID := l.client.cfg.ClientID
-	wsURL := fmt.Sprintf("%s/userag?token=%s&agClientId=%s", gatewayURL, accessToken, clientID)
+	wsURL, agClientID, err := buildWSSConnectURL(gatewayURL, accessToken)
+	if err != nil {
+		return err
+	}
 
 	connCtx, cancel := context.WithTimeout(ctx, wssConnectTimeout)
 	conn, _, err := websocket.Dial(connCtx, wsURL, nil)
@@ -179,6 +183,7 @@ func (l *WssListener) connect(ctx context.Context) error {
 
 	l.mu.Lock()
 	l.conn = conn
+	l.agClientID = agClientID
 	deviceIDs := make([]string, len(l.deviceIDs))
 	copy(deviceIDs, l.deviceIDs)
 	l.mu.Unlock()
@@ -186,7 +191,7 @@ func (l *WssListener) connect(ctx context.Context) error {
 
 	// Subscribe to bound device updates.
 	subMsg := wssMessage{
-		AgClientID: clientID,
+		AgClientID: agClientID,
 		Topic:      "BoundDevs",
 		Content: map[string]any{
 			"devs": deviceIDs,
@@ -195,6 +200,7 @@ func (l *WssListener) connect(ctx context.Context) error {
 	if err := wsjson.Write(ctx, conn, subMsg); err != nil {
 		l.mu.Lock()
 		l.conn = nil
+		l.agClientID = ""
 		l.connected = false
 		l.mu.Unlock()
 		return fmt.Errorf("uws wss subscribe: %w", err)
@@ -206,7 +212,7 @@ func (l *WssListener) connect(ctx context.Context) error {
 
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 	defer cancelHeartbeat()
-	go l.sendHeartbeats(heartbeatCtx, conn, clientID)
+	go l.sendHeartbeats(heartbeatCtx, conn, agClientID)
 
 	for {
 		select {
@@ -224,6 +230,7 @@ func (l *WssListener) connect(ctx context.Context) error {
 			l.mu.Lock()
 			l.connected = false
 			l.conn = nil
+			l.agClientID = ""
 			l.mu.Unlock()
 			log.Printf("haier: WSS disconnected account=%s err=%v", accountName, err)
 			return fmt.Errorf("uws wss read: %w", err)

@@ -12,8 +12,14 @@ import (
 
 const uwsRefreshURL = "https://zj.haier.net/api-gw/oauthserver/account/v1/refreshToken"
 
-// Authenticate exchanges the refreshToken for an accessToken and stores it in memory.
+const uwsTokenRefreshLeadTime = 5 * time.Minute
+
+// Authenticate ensures an accessToken is available and refreshes it only when
+// the current token is missing or near expiry.
 func (c *UWSClient) Authenticate(ctx context.Context) error {
+	if c.auth.AccessToken != "" && !c.auth.ExpiresAt.IsZero() && time.Until(c.auth.ExpiresAt) > uwsTokenRefreshLeadTime {
+		return nil
+	}
 	return c.refreshAccessToken(ctx)
 }
 

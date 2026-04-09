@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"pgregory.net/rapid"
 )
@@ -134,6 +135,30 @@ func TestAuthenticate_MissingAccessToken(t *testing.T) {
 	}
 }
 
+func TestAuthenticate_UsesCachedAccessTokenWhenStillValid(t *testing.T) {
+	c := &UWSClient{
+		cfg: AccountConfig{ClientID: "client1", RefreshToken: "old-refresh"},
+		auth: uwsAuthState{
+			AccessToken:  "cached-access-token",
+			RefreshToken: "old-refresh",
+			ExpiresAt:    time.Now().Add(30 * time.Minute),
+		},
+		client: &http.Client{
+			Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				t.Fatal("Authenticate should not refresh an access token that is still valid")
+				return nil, nil
+			}),
+		},
+	}
+
+	if err := c.Authenticate(context.Background()); err != nil {
+		t.Fatalf("Authenticate failed: %v", err)
+	}
+	if c.auth.AccessToken != "cached-access-token" {
+		t.Fatalf("accessToken = %q, want cached-access-token", c.auth.AccessToken)
+	}
+}
+
 // TestAuthenticate_Property2_TokenParseRoundTrip is Property 2:
 // For any valid HAier refresh response JSON with accountToken and refreshToken fields,
 // parsing extracts both fields correctly.
@@ -169,4 +194,10 @@ func TestAuthenticate_Property2_TokenParseRoundTrip(t *testing.T) {
 			t.Fatalf("refreshToken mismatch: want %q got %q", refreshToken, c.auth.RefreshToken)
 		}
 	})
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
