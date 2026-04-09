@@ -157,6 +157,19 @@ export function cameraLabel(device: DeviceView) {
   return `${device.device.name} (${device.device.id})`;
 }
 
+export function capabilityDisplayName(
+  capability: Pick<CapabilitySummary, 'id' | 'name'> | string | null | undefined,
+) {
+  const capabilityId = typeof capability === 'string' ? capability : capability?.id;
+  if (capabilityId === 'vision_entity_stay_zone') {
+    return 'Recognition';
+  }
+  if (typeof capability === 'string') {
+    return capability;
+  }
+  return capability?.name ?? '';
+}
+
 export function summaryNumber(capability: CapabilitySummary | null | undefined, key: string) {
   const value = capability?.summary?.[key];
   return typeof value === 'number' ? value : 0;

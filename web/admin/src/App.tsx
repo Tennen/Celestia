@@ -17,7 +17,7 @@ import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
 import { getApiBase } from './lib/api';
-import { summaryNumber } from './lib/capability';
+import { capabilityDisplayName, summaryNumber } from './lib/capability';
 import type { AppSection } from './lib/admin';
 import { cn } from './lib/utils';
 import { useAdminStore, setAutoSelectHandlers, setDeviceSearchProvider } from './stores/adminStore';
@@ -242,7 +242,7 @@ function App() {
                       )}
                       onClick={() => openCapability(capability.id)}
                     >
-                      <span className="sidemenu__subbutton-label">{capability.name}</span>
+                      <span className="sidemenu__subbutton-label">{capabilityDisplayName(capability)}</span>
                       <Badge
                         tone={
                           activeSection === 'capabilities' && selectedCapability?.id === capability.id ? 'accent' : 'neutral'
@@ -323,7 +323,7 @@ function App() {
               ) : null}
               {activeSection === 'capabilities' && selectedCapability ? (
                 <span>
-                  Capability <strong>{selectedCapability.name}</strong>
+                  Capability <strong>{capabilityDisplayName(selectedCapability)}</strong>
                 </span>
               ) : null}
             </div>

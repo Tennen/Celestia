@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
 import { Section } from '../ui/section';
@@ -18,6 +18,7 @@ import { deleteAutomation, saveAutomation } from '../../lib/api';
 import { formatTime } from '../../lib/utils';
 import { useAdminStore } from '../../stores/adminStore';
 import type { Automation } from '../../lib/types';
+import { useRetainedDraft } from '../../hooks/useRetainedDraft';
 import { ActionsEditor } from './automation/ActionsEditor';
 import { ConditionsEditor } from './automation/ConditionsEditor';
 import { TimeWindowEditor } from './automation/TimeWindowEditor';
@@ -28,70 +29,68 @@ function buildActionParamDrafts(actions: Automation['actions']) {
   return Object.fromEntries(actions.map((action, index) => [index, prettyActionParams(action.params)]));
 }
 
-type EditorState = {
-  selectedId: string;
-  draft: Automation | null;
-  actionParamDrafts: Record<number, string>;
-};
-
-function createDraftState(draft: Automation, selectedId = ''): EditorState {
-  return {
-    selectedId,
-    draft,
-    actionParamDrafts: buildActionParamDrafts(draft.actions),
-  };
-}
-
-function createAutomationState(automation: Automation): EditorState {
-  return createDraftState(cloneAutomation(automation), automation.id);
-}
-
-function createInitialEditorState(automations: Automation[], devices: import('../../lib/types').DeviceView[]): EditorState {
-  if (automations.length > 0) {
-    return createAutomationState(automations[0]);
-  }
-  if (devices.length > 0) {
-    return createDraftState(defaultAutomation(devices));
-  }
-  return { selectedId: '', draft: null, actionParamDrafts: {} };
+function automationDraftKey(automationId: string) {
+  return automationId ? `automation:${automationId}` : 'automation:new';
 }
 
 export function AutomationWorkspace() {
   const { automations, devices, refreshAll, reportError } = useAdminStore();
-  const [editorState, setEditorState] = useState<EditorState>(() =>
-    createInitialEditorState(automations, devices),
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [actionParamDrafts, setActionParamDrafts] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState('');
-  const { selectedId, draft, actionParamDrafts } = editorState;
 
-  const loadDraft = (automation: Automation) => {
-    setEditorState(createAutomationState(automation));
-  };
-
-  const startNewAutomation = () => {
-    setEditorState(createDraftState(defaultAutomation(devices)));
-  };
+  const defaultDraft = useMemo(() => defaultAutomation(devices), [devices]);
+  const selectedAutomation =
+    selectedId === null
+      ? automations[0] ?? null
+      : selectedId
+        ? automations.find((automation) => automation.id === selectedId) ?? null
+        : null;
+  const selectedAutomationId = selectedAutomation?.id ?? '';
+  const draftSource = selectedAutomation ?? defaultDraft;
+  const {
+    draft,
+    replaceDraft,
+    revision,
+    setDraft,
+  } = useRetainedDraft<Automation>({
+    source: draftSource,
+    sourceKey: automationDraftKey(selectedAutomationId),
+    clone: cloneAutomation,
+  });
 
   useEffect(() => {
-    setEditorState((current) => {
-      if (!current.draft) {
-        return createInitialEditorState(automations, devices);
+    setSelectedId((current) => {
+      if (current === null) {
+        if (automations.length > 0) {
+          return automations[0].id;
+        }
+        return devices.length > 0 ? '' : null;
       }
-      if (!current.selectedId) {
+      if (!current) {
         return current;
       }
-      if (automations.some((automation) => automation.id === current.selectedId)) {
-        return current;
-      }
-      return createInitialEditorState(automations, devices);
+      return automations.some((automation) => automation.id === current) ? current : '';
     });
   }, [automations, devices]);
 
+  useEffect(() => {
+    setActionParamDrafts(draft ? buildActionParamDrafts(draft.actions) : {});
+  }, [draft, revision]);
+
+  const loadDraft = (automation: Automation) => {
+    setSelectedId(automation.id);
+    replaceDraft(automation, automationDraftKey(automation.id));
+  };
+
+  const startNewAutomation = () => {
+    const nextDraft = defaultAutomation(devices);
+    setSelectedId('');
+    replaceDraft(nextDraft, automationDraftKey(''));
+  };
+
   const updateDraft = (updater: (current: Automation) => Automation) => {
-    setEditorState((current) => ({
-      ...current,
-      draft: current.draft ? updater(cloneAutomation(current.draft)) : current.draft,
-    }));
+    setDraft(updater);
   };
 
   const handleSave = async () => {
@@ -104,7 +103,8 @@ export function AutomationWorkspace() {
         params: parseActionParams(actionParamDrafts[index] ?? prettyActionParams(action.params)),
       }));
       const saved = await saveAutomation(payload);
-      setEditorState(createAutomationState(saved));
+      setSelectedId(saved.id);
+      replaceDraft(saved, automationDraftKey(saved.id));
       await refreshAll();
     } catch (error) {
       reportError(error instanceof Error ? error.message : 'Failed to save automation');
@@ -114,19 +114,16 @@ export function AutomationWorkspace() {
   };
 
   const handleDelete = async () => {
-    if (!selectedId) {
+    if (!selectedAutomationId) {
       startNewAutomation();
       return;
     }
     setBusy('delete');
     try {
-      await deleteAutomation(selectedId);
-      setEditorState(
-        createInitialEditorState(
-          automations.filter((automation) => automation.id !== selectedId),
-          devices,
-        ),
-      );
+      await deleteAutomation(selectedAutomationId);
+      const nextDraft = defaultAutomation(devices);
+      setSelectedId('');
+      replaceDraft(nextDraft, automationDraftKey(''));
       await refreshAll();
     } catch (error) {
       reportError(error instanceof Error ? error.message : 'Failed to delete automation');
@@ -136,11 +133,8 @@ export function AutomationWorkspace() {
   };
 
   const applyActionTemplate = (index: number, template: AutomationActionTemplate | null) => {
-    setEditorState((current) => {
-      if (!current.draft) {
-        return current;
-      }
-      const actions = [...current.draft.actions];
+    updateDraft((current) => {
+      const actions = [...current.actions];
       const previous = actions[index];
       actions[index] = {
         ...previous,
@@ -148,13 +142,13 @@ export function AutomationWorkspace() {
         action: template?.action ?? previous.action,
         params: template?.params ?? previous.params ?? {},
       };
+      setActionParamDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [index]: prettyActionParams(template?.params ?? actions[index].params),
+      }));
       return {
         ...current,
-        draft: { ...current.draft, actions },
-        actionParamDrafts: {
-          ...current.actionParamDrafts,
-          [index]: prettyActionParams(template?.params ?? actions[index].params),
-        },
+        actions,
       };
     });
   };
@@ -171,9 +165,9 @@ export function AutomationWorkspace() {
               {automations.map((automation) => (
                 <SelectableListItem
                   key={automation.id}
-                  className={`table__row ${selectedId === automation.id ? 'is-selected' : ''}`}
+                  className={`table__row ${selectedAutomationId === automation.id ? 'is-selected' : ''}`}
                   onClick={() => loadDraft(automation)}
-                  selected={selectedId === automation.id}
+                  selected={selectedAutomationId === automation.id}
                   title={automation.name || automation.id}
                   description={getStateChangedConditionDeviceId(automation) || 'No state-change condition'}
                   badges={
@@ -208,7 +202,7 @@ export function AutomationWorkspace() {
           <Card>
             <CardHeader>
               <CardHeading
-                title={selectedId ? 'Automation Editor' : 'New Automation'}
+                title={selectedAutomationId ? 'Automation Editor' : 'New Automation'}
                 description="Define one or more event/state conditions, optionally limit them by time, then execute actions on existing devices."
                 aside={
                   draft ? (
@@ -240,55 +234,47 @@ export function AutomationWorkspace() {
             <CardContent className="stack">
               {draft ? (
                 <div className="automation-editor">
-                <div className="automation-summary">
-                  <div className="automation-field">
-                    <label>Name</label>
-                    <Input
-                      value={draft.name}
-                      onChange={(e) => updateDraft((current) => ({ ...current, name: e.target.value }))}
-                      placeholder="Haier washer done"
-                    />
+                  <div className="automation-summary">
+                    <div className="automation-field">
+                      <label>Name</label>
+                      <Input
+                        value={draft.name}
+                        onChange={(event) => updateDraft((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="Haier washer done"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <ConditionsEditor draft={draft} devices={devices} onChange={updateDraft} />
-                <TimeWindowEditor draft={draft} onChange={updateDraft} />
-                <ActionsEditor
-                  draft={draft}
-                  devices={devices}
-                  actionParamDrafts={actionParamDrafts}
-                  onChange={updateDraft}
-                  onParamDraftChange={(index, value) =>
-                    setEditorState((current) => ({
-                      ...current,
-                      actionParamDrafts: { ...current.actionParamDrafts, [index]: value },
-                    }))
-                  }
-                  onApplyTemplate={applyActionTemplate}
-                  onResetParamDrafts={(actions) =>
-                    setEditorState((current) => ({
-                      ...current,
-                      actionParamDrafts: buildActionParamDrafts(actions),
-                    }))
-                  }
-                />
+                  <ConditionsEditor draft={draft} devices={devices} onChange={updateDraft} />
+                  <TimeWindowEditor draft={draft} onChange={updateDraft} />
+                  <ActionsEditor
+                    draft={draft}
+                    devices={devices}
+                    actionParamDrafts={actionParamDrafts}
+                    onChange={updateDraft}
+                    onParamDraftChange={(index, value) =>
+                      setActionParamDrafts((current) => ({ ...current, [index]: value }))
+                    }
+                    onApplyTemplate={applyActionTemplate}
+                    onResetParamDrafts={(actions) => setActionParamDrafts(buildActionParamDrafts(actions))}
+                  />
 
-                <div className="button-row">
-                  <Button onClick={() => void handleSave()} disabled={busy === 'save'}>
-                    Save Automation
-                  </Button>
-                  <Button variant="secondary" onClick={startNewAutomation}>
-                    Reset Draft
-                  </Button>
-                  <Button variant="danger" onClick={() => void handleDelete()} disabled={busy === 'delete'}>
-                    {selectedId ? 'Delete Automation' : 'Discard Draft'}
-                  </Button>
-                </div>
+                  <div className="button-row">
+                    <Button onClick={() => void handleSave()} disabled={busy === 'save'}>
+                      Save Automation
+                    </Button>
+                    <Button variant="secondary" onClick={startNewAutomation}>
+                      Reset Draft
+                    </Button>
+                    <Button variant="danger" onClick={() => void handleDelete()} disabled={busy === 'delete'}>
+                      {selectedAutomationId ? 'Delete Automation' : 'Discard Draft'}
+                    </Button>
+                  </div>
 
-                <div className="runtime-metadata">
-                  {draft.last_triggered_at ? <p>Last run {formatTime(draft.last_triggered_at)}</p> : <p>No executions yet.</p>}
-                  {draft.last_error ? <p className="muted">Last error: {draft.last_error}</p> : null}
-                </div>
+                  <div className="runtime-metadata">
+                    {draft.last_triggered_at ? <p>Last run {formatTime(draft.last_triggered_at)}</p> : <p>No executions yet.</p>}
+                    {draft.last_error ? <p className="muted">Last error: {draft.last_error}</p> : null}
+                  </div>
                 </div>
               ) : (
                 <p className="muted">Loading automation editor…</p>

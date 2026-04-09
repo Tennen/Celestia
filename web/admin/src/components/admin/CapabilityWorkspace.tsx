@@ -1,4 +1,5 @@
 import { Card, CardContent } from '../ui/card';
+import { capabilityDisplayName } from '../../lib/capability';
 import { useAdminStore } from '../../stores/adminStore';
 import { AutomationWorkspace } from './AutomationWorkspace';
 import { VisionCapabilityPanel } from './VisionCapabilityPanel';
@@ -33,7 +34,7 @@ export function CapabilityWorkspace({ selectedCapabilityId }: Props) {
   return (
     <Card>
       <CardContent className="pt-6">
-        <p className="muted">{selectedCapability.name} does not have an admin workspace yet.</p>
+        <p className="muted">{capabilityDisplayName(selectedCapability)} does not have an admin workspace yet.</p>
       </CardContent>
     </Card>
   );

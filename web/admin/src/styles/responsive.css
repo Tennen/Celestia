@@ -65,6 +65,19 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .vision-toolbar,
+  .recognition-settings-modal__aside {
+    @apply flex-wrap;
+  }
+
+  .admin-modal {
+    padding: 0.75rem;
+  }
+
+  .admin-modal__card {
+    max-height: calc(100vh - 1.5rem);
+  }
+
   .zone-editor__coords {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
