@@ -33,6 +33,11 @@ export type LoadState = {
   error: string | null;
 };
 
+type RemoteLoadState = Pick<
+  LoadState,
+  'dashboard' | 'catalog' | 'plugins' | 'capabilities' | 'automations' | 'devices' | 'events' | 'audits'
+>;
+
 export const emptyLoadState = (): LoadState => ({
   dashboard: null,
   catalog: [],
@@ -54,6 +59,55 @@ export function asArray<T>(value: T[] | null | undefined): T[] {
 
 export function compareText(a: string, b: string) {
   return a.localeCompare(b, 'en');
+}
+
+function isJsonEqual(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function reuseEqualValue<T>(current: T, next: T) {
+  return isJsonEqual(current, next) ? current : next;
+}
+
+function mergeStableList<T>(current: T[], next: T[], getKey: (item: T) => string) {
+  if (!current.length) {
+    return next;
+  }
+
+  const indexed = new Map(current.map((item) => [getKey(item), item]));
+  let changed = current.length !== next.length;
+  const merged = next.map((item) => {
+    const previous = indexed.get(getKey(item));
+    if (previous && isJsonEqual(previous, item)) {
+      return previous;
+    }
+    changed = true;
+    return item;
+  });
+
+  if (!changed) {
+    for (let index = 0; index < current.length; index += 1) {
+      if (current[index] !== merged[index]) {
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return changed ? merged : current;
+}
+
+export function mergeLoadStateData(current: LoadState, next: RemoteLoadState): RemoteLoadState {
+  return {
+    dashboard: reuseEqualValue(current.dashboard, next.dashboard),
+    catalog: mergeStableList(current.catalog, next.catalog, (item) => item.id),
+    plugins: mergeStableList(current.plugins, next.plugins, (item) => item.record.plugin_id),
+    capabilities: mergeStableList(current.capabilities, next.capabilities, (item) => item.id),
+    automations: mergeStableList(current.automations, next.automations, (item) => item.id),
+    devices: mergeStableList(current.devices, next.devices, (item) => item.device.id),
+    events: mergeStableList(current.events, next.events, (item) => item.id),
+    audits: mergeStableList(current.audits, next.audits, (item) => item.id),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

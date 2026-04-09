@@ -10,6 +10,7 @@ import { Section } from '../ui/section';
 import { asArray } from '../../lib/admin';
 import { applyToggleOverrides } from '../../lib/control-state';
 import { buildCommandSuggestions } from '../../lib/command-suggestions';
+import type { DeviceView } from '../../lib/types';
 import { useAdminStore } from '../../stores/adminStore';
 import { useDeviceStore } from '../../stores/deviceStore';
 import { DeviceAdvancedCommandSection } from './DeviceAdvancedCommandSection';
@@ -17,6 +18,28 @@ import { DeviceQuickControlsPanel } from './DeviceQuickControlsPanel';
 import { StreamViewerPanel } from './StreamViewerPanel';
 import { CardHeading } from './shared/CardHeading';
 import { SelectableListItem } from './shared/SelectableListItem';
+
+type DeviceEditorDraft = {
+  deviceAlias: string;
+  controlAliases: Record<string, string>;
+  controlValues: Record<string, string>;
+};
+
+function buildDeviceEditorDraft(device: DeviceView): DeviceEditorDraft {
+  const controlAliases: Record<string, string> = {};
+  const controlValues: Record<string, string> = {};
+  for (const control of device.controls ?? []) {
+    controlAliases[control.id] = control.alias ?? '';
+    if (control.kind === 'select' || control.kind === 'number') {
+      controlValues[control.id] = control.value === null || control.value === undefined ? '' : String(control.value);
+    }
+  }
+  return {
+    deviceAlias: device.device.alias ?? '',
+    controlAliases,
+    controlValues,
+  };
+}
 
 export function DeviceWorkspace() {
   const { devices, refreshAll } = useAdminStore();
@@ -45,12 +68,12 @@ export function DeviceWorkspace() {
   } = useDeviceStore();
 
   const selectedDevice = devices.find((d) => d.device.id === selectedDeviceId) ?? null;
-
   const [deviceAliasDraft, setDeviceAliasDraft] = useState('');
   const [editingDeviceAlias, setEditingDeviceAlias] = useState(false);
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
   const [controlDrafts, setControlDrafts] = useState<Record<string, string>>({});
   const [summaryCollapsed, setSummaryCollapsed] = useState(true);
+  const selectedDeviceKey = selectedDevice?.device.id ?? '';
 
   const displayDevice = useMemo(
     () => applyToggleOverrides(selectedDevice, toggleOverrides),
@@ -61,26 +84,19 @@ export function DeviceWorkspace() {
   useEffect(() => {
     if (!selectedDevice) {
       setDeviceAliasDraft('');
-      setEditingDeviceAlias(false);
       setAliasDrafts({});
       setControlDrafts({});
+      setEditingDeviceAlias(false);
+      setSummaryCollapsed(true);
       return;
     }
-    const nextAliasDrafts: Record<string, string> = {};
-    const nextControlDrafts: Record<string, string> = {};
-    setDeviceAliasDraft(selectedDevice.device.alias ?? '');
+    const draft = buildDeviceEditorDraft(selectedDevice);
+    setDeviceAliasDraft(draft.deviceAlias);
+    setAliasDrafts(draft.controlAliases);
+    setControlDrafts(draft.controlValues);
     setEditingDeviceAlias(false);
     setSummaryCollapsed(true);
-    for (const control of selectedDevice.controls ?? []) {
-      nextAliasDrafts[control.id] = control.alias ?? '';
-      if (control.kind === 'select' || control.kind === 'number') {
-        nextControlDrafts[control.id] =
-          control.value === null || control.value === undefined ? '' : String(control.value);
-      }
-    }
-    setAliasDrafts(nextAliasDrafts);
-    setControlDrafts(nextControlDrafts);
-  }, [selectedDevice]);
+  }, [selectedDeviceKey]);
 
   const commandSuggestions = useMemo(
     () => (selectedDevice ? buildCommandSuggestions(selectedDevice) : []),
@@ -108,7 +124,11 @@ export function DeviceWorkspace() {
 
   const onDeviceAliasKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') { event.preventDefault(); saveDeviceAlias(); return; }
-    if (event.key === 'Escape') { event.preventDefault(); setDeviceAliasDraft(savedDeviceAlias); setEditingDeviceAlias(false); }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setDeviceAliasDraft(savedDeviceAlias);
+      setEditingDeviceAlias(false);
+    }
   };
 
   return (

@@ -10,7 +10,7 @@ import {
   fetchPlugins,
   getApiBase,
 } from '../lib/api';
-import { asArray, compareText, emptyLoadState, POLL_MS } from '../lib/admin';
+import { asArray, compareText, emptyLoadState, mergeLoadStateData, POLL_MS } from '../lib/admin';
 import type { LoadState } from '../lib/admin';
 
 type AdminActions = {
@@ -61,20 +61,22 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         compareText(a.device.name || a.device.id, b.device.name || b.device.id),
       );
 
-      set({
-        dashboard,
-        catalog,
-        plugins,
-        capabilities: asArray(rawCapabilities).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
-        automations: asArray(rawAutomations).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
-        devices,
-        events: asArray(rawEvents),
-        audits: asArray(rawAudits),
+      set((current) => ({
+        ...mergeLoadStateData(current, {
+          dashboard,
+          catalog,
+          plugins,
+          capabilities: asArray(rawCapabilities).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
+          automations: asArray(rawAutomations).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
+          devices,
+          events: asArray(rawEvents),
+          audits: asArray(rawAudits),
+        }),
         loading: false,
         refreshing: false,
         hasLoaded: true,
         error: null,
-      });
+      }));
 
       // Auto-select first plugin/device if nothing selected or selection gone
       autoSelectPlugin(catalog);
