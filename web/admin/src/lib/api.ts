@@ -13,6 +13,7 @@ import type {
   PluginRuntimeView,
   XiaomiOAuthStartResponse,
 } from './types';
+import { normalizeCapabilityDetail, normalizeVisionEntityCatalog } from './capability';
 
 const RAW_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const API_BASE = RAW_BASE.replace(/\/+$/, '');
@@ -87,23 +88,29 @@ export async function fetchAutomations() {
 }
 
 export async function fetchCapability(capabilityId: string) {
-  return request<CapabilityDetail>(`/capabilities/${capabilityId}`);
+  const detail = await request<CapabilityDetail>(`/capabilities/${capabilityId}`);
+  return normalizeCapabilityDetail(detail);
 }
 
 export async function saveVisionCapabilityConfig(config: import('./types').VisionCapabilityConfig) {
-  return request<CapabilityDetail>('/capabilities/vision_entity_stay_zone', {
+  const detail = await request<CapabilityDetail>('/capabilities/vision_entity_stay_zone', {
     method: 'PUT',
     body: JSON.stringify(config),
   });
+  return normalizeCapabilityDetail(detail);
 }
 
 export async function refreshVisionEntityCatalog(
   payload: import('./types').VisionEntityCatalogRefreshRequest,
 ) {
-  return request<import('./types').VisionEntityCatalog>('/capabilities/vision_entity_stay_zone/entities/refresh', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  const catalog = await request<import('./types').VisionEntityCatalog>(
+    '/capabilities/vision_entity_stay_zone/entities/refresh',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+  return normalizeVisionEntityCatalog(catalog);
 }
 
 export async function installPlugin(payload: {

@@ -1,4 +1,28 @@
-import type { CapabilitySummary, DeviceView, VisionCapabilityConfig, VisionRule } from './types';
+import type {
+  CapabilityDetail,
+  CapabilitySummary,
+  DeviceView,
+  VisionCapabilityConfig,
+  VisionEntityCatalog,
+  VisionEntityDescriptor,
+  VisionRule,
+} from './types';
+
+function readString(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
+function readBoolean(value: unknown, fallback = false) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function readNumber(value: unknown, fallback = 0) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function asArray<T>(value: T[] | null | undefined) {
+  return Array.isArray(value) ? value : [];
+}
 
 export function cloneVisionConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -11,6 +35,97 @@ export function defaultVisionConfig(): VisionCapabilityConfig {
     event_capture_retention_hours: 168,
     rules: [],
     updated_at: '',
+  };
+}
+
+function normalizeVisionEntityDescriptor(
+  entity: Partial<VisionEntityDescriptor> | null | undefined,
+): VisionEntityDescriptor | null {
+  const kind = readString(entity?.kind);
+  const value = readString(entity?.value);
+  if (!kind || !value) {
+    return null;
+  }
+  return {
+    kind,
+    value,
+    display_name: readString(entity?.display_name) || undefined,
+  };
+}
+
+function normalizeVisionRule(rule: Partial<VisionRule> | null | undefined, index: number): VisionRule {
+  return {
+    id: readString(rule?.id) || `vision-rule-${index + 1}`,
+    name: readString(rule?.name),
+    enabled: readBoolean(rule?.enabled),
+    camera_device_id: readString(rule?.camera_device_id),
+    recognition_enabled: readBoolean(rule?.recognition_enabled),
+    rtsp_source: {
+      url: readString(rule?.rtsp_source?.url),
+    },
+    entity_selector: {
+      kind: readString(rule?.entity_selector?.kind) || 'label',
+      value: readString(rule?.entity_selector?.value),
+    },
+    zone: {
+      x: readNumber(rule?.zone?.x, 0.2),
+      y: readNumber(rule?.zone?.y, 0.2),
+      width: readNumber(rule?.zone?.width, 0.4),
+      height: readNumber(rule?.zone?.height, 0.4),
+    },
+    stay_threshold_seconds: Math.max(1, readNumber(rule?.stay_threshold_seconds, 5)),
+  };
+}
+
+export function normalizeVisionConfig(
+  config: Partial<VisionCapabilityConfig> | null | undefined,
+): VisionCapabilityConfig {
+  return {
+    service_url: readString(config?.service_url),
+    recognition_enabled: readBoolean(config?.recognition_enabled),
+    event_capture_retention_hours: Math.max(1, readNumber(config?.event_capture_retention_hours, 168)),
+    rules: asArray(config?.rules).map((rule, index) => normalizeVisionRule(rule, index)),
+    updated_at: readString(config?.updated_at),
+  };
+}
+
+export function normalizeVisionEntityCatalog(
+  catalog: Partial<VisionEntityCatalog> | null | undefined,
+): VisionEntityCatalog | null {
+  if (!catalog) {
+    return null;
+  }
+  return {
+    service_url: readString(catalog.service_url),
+    schema_version: readString(catalog.schema_version),
+    service_version: readString(catalog.service_version) || undefined,
+    model_name: readString(catalog.model_name) || undefined,
+    fetched_at: readString(catalog.fetched_at),
+    entities: asArray(catalog.entities)
+      .map((entity) => normalizeVisionEntityDescriptor(entity))
+      .filter((entity): entity is VisionEntityDescriptor => entity !== null),
+  };
+}
+
+export function normalizeCapabilityDetail(detail: CapabilityDetail): CapabilityDetail {
+  if (!detail.vision) {
+    return detail;
+  }
+  return {
+    ...detail,
+    vision: {
+      ...detail.vision,
+      config: normalizeVisionConfig(detail.vision.config),
+      runtime: {
+        ...detail.vision.runtime,
+        runtime:
+          detail.vision.runtime?.runtime && typeof detail.vision.runtime.runtime === 'object'
+            ? detail.vision.runtime.runtime
+            : undefined,
+      },
+      catalog: normalizeVisionEntityCatalog(detail.vision.catalog),
+      recent_events: asArray(detail.vision.recent_events),
+    },
   };
 }
 

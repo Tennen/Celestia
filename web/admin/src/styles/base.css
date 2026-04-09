@@ -73,6 +73,46 @@
     @apply border-primary/50 bg-primary/15 text-white shadow-lg shadow-primary/10;
   }
 
+  .sidemenu__group {
+    @apply flex flex-col gap-2;
+  }
+
+  .sidemenu__button--group {
+    @apply gap-2 px-2 py-2;
+  }
+
+  .sidemenu__button-main {
+    @apply flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 py-1 text-left;
+  }
+
+  .sidemenu__disclosure {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900/70 px-3 text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .sidemenu__disclosure svg {
+    @apply transition-transform;
+  }
+
+  .sidemenu__disclosure.is-open svg {
+    @apply rotate-180;
+  }
+
+  .sidemenu__submenu {
+    @apply ml-4 flex flex-col gap-2 border-l border-slate-800/85 pl-3;
+  }
+
+  .sidemenu__subbutton {
+    @apply flex items-center justify-between gap-3 rounded-xl border border-transparent bg-transparent px-3 py-2 text-left text-sm text-slate-300 transition hover:border-slate-800 hover:bg-slate-900/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary;
+  }
+
+  .sidemenu__subbutton.is-active {
+    @apply border-primary/35 bg-primary/10 text-white;
+  }
+
+  .sidemenu__subbutton-label {
+    @apply truncate;
+  }
+
   .sidemenu__footer {
     @apply mt-auto justify-between border-t border-slate-800 pt-4;
   }

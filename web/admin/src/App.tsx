@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Activity,
+  ChevronDown,
   Home,
   Layers3,
   PlugZap,
@@ -16,7 +17,9 @@ import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
 import { getApiBase } from './lib/api';
+import { summaryNumber } from './lib/capability';
 import type { AppSection } from './lib/admin';
+import { cn } from './lib/utils';
 import { useAdminStore, setAutoSelectHandlers, setDeviceSearchProvider } from './stores/adminStore';
 import { usePluginStore } from './stores/pluginStore';
 import { useDeviceStore } from './stores/deviceStore';
@@ -24,6 +27,8 @@ import { useXiaomiOAuth } from './hooks/useXiaomiOAuth';
 
 function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('overview');
+  const [activeCapabilityId, setActiveCapabilityId] = useState('');
+  const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(true);
 
   const {
     loading,
@@ -83,6 +88,16 @@ function App() {
     useDeviceStore.getState().pruneOverrides(devices);
   }, [devices]);
 
+  useEffect(() => {
+    if (!capabilities.length) {
+      setActiveCapabilityId('');
+      return;
+    }
+    setActiveCapabilityId((current) =>
+      capabilities.some((capability) => capability.id === current) ? current : capabilities[0].id,
+    );
+  }, [capabilities]);
+
   const sectionLabel: Record<AppSection, string> = {
     overview: 'Overview',
     plugins: 'Plugins',
@@ -91,7 +106,7 @@ function App() {
     activity: 'Activity',
   };
 
-  const sectionItems: Array<{
+  const primarySectionItems: Array<{
     id: AppSection;
     label: string;
     count: number;
@@ -99,18 +114,45 @@ function App() {
   }> = [
     { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0, icon: Home },
     { id: 'plugins', label: 'Plugins', count: catalog.length, icon: PlugZap },
-    { id: 'capabilities', label: 'Capabilities', count: capabilities.length, icon: Layers3 },
+  ];
+
+  const trailingSectionItems: Array<{
+    id: AppSection;
+    label: string;
+    count: number;
+    icon: typeof Home;
+  }> = [
     { id: 'devices', label: 'Devices', count: devices.length, icon: Smartphone },
     { id: 'activity', label: 'Activity', count: events.length + audits.length, icon: Activity },
   ];
 
   const selectedCatalogPlugin = catalog.find((p) => p.id === selectedPluginId) ?? null;
   const selectedDevice = devices.find((d) => d.device.id === selectedDeviceId) ?? null;
+  const selectedCapability = capabilities.find((capability) => capability.id === activeCapabilityId) ?? capabilities[0] ?? null;
   const runtimeBadgeTone = !hasLoaded && loading ? 'accent' : error ? 'bad' : 'good';
   const runtimeBadgeText = !hasLoaded && loading ? 'Connecting' : error ? 'Attention' : 'Stable';
   const runtimeHeaderText = !hasLoaded && loading ? 'Connecting' : error ? 'Needs Attention' : 'Runtime Stable';
   const isRefreshing = loading || refreshing;
   const splitSection = activeSection !== 'overview';
+
+  const openSection = (sectionId: AppSection) => {
+    setActiveSection(sectionId);
+    if (sectionId === 'capabilities') {
+      setCapabilitiesExpanded(true);
+      if (!selectedCapability && capabilities[0]) {
+        setActiveCapabilityId(capabilities[0].id);
+      }
+    }
+  };
+
+  const openCapability = (capabilityId: string) => {
+    setCapabilitiesExpanded(true);
+    setActiveCapabilityId(capabilityId);
+    setActiveSection('capabilities');
+  };
+
+  const capabilityItemCount = (capability: (typeof capabilities)[number]) =>
+    capability.kind === 'automation' ? summaryNumber(capability, 'total') : summaryNumber(capability, 'rule_count');
 
   return (
     <div className="shell shell--app">
@@ -137,14 +179,93 @@ function App() {
             </div>
           </div>
           <nav className="sidemenu__nav">
-            {sectionItems.map((section) => {
+            {primarySectionItems.map((section) => {
               const Icon = section.icon;
               return (
                 <button
                   key={section.id}
                   type="button"
                   className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
-                  onClick={() => setActiveSection(section.id)}
+                  onClick={() => openSection(section.id)}
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon className="h-4 w-4" />
+                    {section.label}
+                  </span>
+                  <Badge
+                    tone={activeSection === section.id ? 'accent' : 'neutral'}
+                    size="xs"
+                    className="min-w-6 tabular-nums"
+                  >
+                    {section.count}
+                  </Badge>
+                </button>
+              );
+            })}
+
+            <div className={cn('sidemenu__group', activeSection === 'capabilities' && 'is-active')}>
+              <div className={cn('sidemenu__button', activeSection === 'capabilities' && 'is-active', 'sidemenu__button--group')}>
+                <button type="button" className="sidemenu__button-main" onClick={() => openSection('capabilities')}>
+                  <span className="flex items-center gap-3">
+                    <Layers3 className="h-4 w-4" />
+                    Capabilities
+                  </span>
+                  <Badge
+                    tone={activeSection === 'capabilities' ? 'accent' : 'neutral'}
+                    size="xs"
+                    className="min-w-6 tabular-nums"
+                  >
+                    {capabilities.length}
+                  </Badge>
+                </button>
+                <button
+                  type="button"
+                  className={cn('sidemenu__disclosure', capabilitiesExpanded && 'is-open')}
+                  aria-label={capabilitiesExpanded ? 'Collapse capabilities' : 'Expand capabilities'}
+                  aria-expanded={capabilitiesExpanded}
+                  onClick={() => setCapabilitiesExpanded((current) => !current)}
+                  disabled={capabilities.length === 0}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+
+              {capabilitiesExpanded ? (
+                <div className="sidemenu__submenu">
+                  {capabilities.map((capability) => (
+                    <button
+                      key={capability.id}
+                      type="button"
+                      className={cn(
+                        'sidemenu__subbutton',
+                        activeSection === 'capabilities' && selectedCapability?.id === capability.id && 'is-active',
+                      )}
+                      onClick={() => openCapability(capability.id)}
+                    >
+                      <span className="sidemenu__subbutton-label">{capability.name}</span>
+                      <Badge
+                        tone={
+                          activeSection === 'capabilities' && selectedCapability?.id === capability.id ? 'accent' : 'neutral'
+                        }
+                        size="xs"
+                        className="min-w-6 tabular-nums"
+                      >
+                        {capabilityItemCount(capability)}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {trailingSectionItems.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
+                  onClick={() => openSection(section.id)}
                 >
                   <span className="flex items-center gap-3">
                     <Icon className="h-4 w-4" />
@@ -200,6 +321,11 @@ function App() {
                   Device <strong>{selectedDevice.device.name}</strong>
                 </span>
               ) : null}
+              {activeSection === 'capabilities' && selectedCapability ? (
+                <span>
+                  Capability <strong>{selectedCapability.name}</strong>
+                </span>
+              ) : null}
             </div>
           </header>
 
@@ -252,7 +378,9 @@ function App() {
                 />
               ) : null}
 
-              {activeSection === 'capabilities' ? <CapabilityWorkspace /> : null}
+              {activeSection === 'capabilities' ? (
+                <CapabilityWorkspace selectedCapabilityId={selectedCapability?.id ?? ''} />
+              ) : null}
 
               {activeSection === 'devices' ? <DeviceWorkspace /> : null}
 
