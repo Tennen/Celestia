@@ -58,6 +58,8 @@ export function VisionRuleEditorCard({
 }: Props) {
   const entityOptions = selectedRule ? buildEntityOptions(catalog, selectedRule) : [];
   const canUseCatalog = Boolean(selectedRule && catalog && !catalogMismatch && entityOptions.length > 0);
+  const selectedCameraDevice =
+    selectedRule ? cameraDevices.find((device) => device.device.id === selectedRule.camera_device_id) ?? null : null;
 
   return (
     <Card>
@@ -265,6 +267,7 @@ export function VisionRuleEditorCard({
             <div className="automation-field">
               <label>Zone Selection</label>
               <ZoneBoxEditor
+                cameraDevice={selectedCameraDevice}
                 value={selectedRule.zone}
                 onChange={(zone) => onUpdateRule(selectedRule.id, (current) => ({ ...current, zone }))}
               />
