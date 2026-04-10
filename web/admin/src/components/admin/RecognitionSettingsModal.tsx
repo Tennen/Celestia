@@ -4,23 +4,28 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
-import { ScrollArea } from '../ui/scroll-area';
 import { Switch } from '../ui/switch';
 import { formatTime, prettyJson } from '../../lib/utils';
-import type { HealthState, VisionCapabilityConfig, VisionCapabilityStatus, VisionEntityCatalog } from '../../lib/types';
+import type { HealthState, VisionCapabilityStatus, VisionEntityCatalog } from '../../lib/types';
 import { CardHeading } from './shared/CardHeading';
 
+type RecognitionSettingsDraft = {
+  event_capture_retention_hours: number;
+  recognition_enabled: boolean;
+  service_url: string;
+};
+
 type Props = {
-  busy: '' | 'load' | 'refresh_entities' | 'save';
+  busy: '' | 'load' | 'refresh_entities' | 'save_rule' | 'save_settings';
   catalog: VisionEntityCatalog | null;
   catalogMatchesDraft: boolean;
-  draft: VisionCapabilityConfig;
+  draft: RecognitionSettingsDraft;
   normalizedDraftServiceURL: string;
   onOpenChange: (open: boolean) => void;
   onRefreshEntities: () => void;
   onResetDraft: () => void;
   onSave: () => void;
-  onUpdateDraft: (updater: (current: VisionCapabilityConfig) => VisionCapabilityConfig) => void;
+  onUpdateDraft: (updater: (current: RecognitionSettingsDraft) => RecognitionSettingsDraft) => void;
   open: boolean;
   runtime: VisionCapabilityStatus | undefined;
   status: HealthState;
@@ -95,7 +100,7 @@ export function RecognitionSettingsModal({
             }
           />
         </CardHeader>
-        <ScrollArea className="admin-modal__scroll">
+        <div className="admin-modal__scroll">
           <CardContent className="stack recognition-settings-modal__content">
             <div className="automation-field">
               <label>Recognition Service Address</label>
@@ -194,15 +199,15 @@ export function RecognitionSettingsModal({
             ) : null}
 
             <div className="button-row recognition-settings-modal__actions">
-              <Button onClick={onSave} disabled={busy === 'save'}>
-                Save Recognition Settings
+              <Button onClick={onSave} disabled={busy === 'save_settings'}>
+                {busy === 'save_settings' ? 'Saving…' : 'Save Recognition Settings'}
               </Button>
               <Button variant="secondary" onClick={onResetDraft}>
                 Reset Draft
               </Button>
             </div>
           </CardContent>
-        </ScrollArea>
+        </div>
       </Card>
     </div>
   );

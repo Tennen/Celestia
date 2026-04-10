@@ -13,9 +13,11 @@ type Props = {
   catalogMismatch: boolean;
   cameraDevices: DeviceView[];
   loading: boolean;
+  onSaveRule: () => void;
   onRemoveRule: (ruleId: string) => void;
   onSelectRuleId: (ruleId: string) => void;
   onUpdateRule: (ruleId: string, updater: (current: VisionRule) => VisionRule) => void;
+  saving: boolean;
   selectedRule: VisionRule | null;
 };
 
@@ -51,9 +53,11 @@ export function VisionRuleEditorCard({
   catalogMismatch,
   cameraDevices,
   loading,
+  onSaveRule,
   onRemoveRule,
   onSelectRuleId,
   onUpdateRule,
+  saving,
   selectedRule,
 }: Props) {
   const entityOptions = selectedRule ? buildEntityOptions(catalog, selectedRule) : [];
@@ -75,6 +79,9 @@ export function VisionRuleEditorCard({
                 <Badge size="xs" tone={selectedRule.enabled ? 'good' : 'neutral'}>
                   {selectedRule.enabled ? 'enabled' : 'disabled'}
                 </Badge>
+                <Button variant="secondary" size="sm" onClick={onSaveRule} disabled={saving || loading}>
+                  {saving ? 'Saving…' : 'Save Rule'}
+                </Button>
                 <Button variant="danger" size="sm" onClick={() => onRemoveRule(selectedRule.id)}>
                   Delete Rule
                 </Button>
