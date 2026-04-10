@@ -165,6 +165,8 @@ Request body:
 
 Response: HTTP `200` with the persisted `CapabilityDetail` for `vision_entity_stay_zone`.
 
+When the selected camera already exposes an `rtsp_url` in its current device state or metadata, clients may omit `rtsp_source.url` from the request. Gateway resolves that RTSP URL during normalization, persists the resolved value, and syncs the fully populated rule downstream. If the camera does not expose RTSP and the rule is enabled for recognition, save is rejected explicitly.
+
 Gateway is the source of truth for this config. It persists the config first, then attempts to push a normalized copy to the external Vision Service at:
 
 - `PUT {service_url}/api/v1/capabilities/vision_entity_stay_zone`
@@ -173,7 +175,7 @@ If Gateway already has a fetched entity catalog for the same `service_url`, it v
 
 1. refresh current recognizable entities from the Vision Service
 2. choose `cat` or another advertised entity
-3. bind camera, RTSP source, zone, and stay threshold
+3. bind camera, zone, stay threshold, and the target entity; Gateway resolves RTSP from the selected camera when available
 4. save and sync the full rule set downstream
 
 `event_capture_retention_hours` is Gateway-owned persistence policy for screenshots uploaded later by the Vision Service. It is not used by the Vision engine itself; Gateway applies it when storing and serving evidence images.

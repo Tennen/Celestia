@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeCapabilityDetail, normalizeVisionEntityCatalog } from './capability';
-import type { CapabilityDetail, VisionCapabilityConfig, VisionEntityCatalog } from './types';
+import { cameraRTSPSourceURL, normalizeCapabilityDetail, normalizeVisionEntityCatalog } from './capability';
+import type { CapabilityDetail, DeviceView, VisionCapabilityConfig, VisionEntityCatalog } from './types';
 
 describe('capability normalization', () => {
   it('fills missing vision arrays in capability detail payloads', () => {
@@ -49,5 +49,32 @@ describe('capability normalization', () => {
     });
 
     expect(catalog?.entities).toEqual([{ kind: 'label', value: 'cat', display_name: 'Cat' }]);
+  });
+
+  it('derives the camera RTSP source from device state before falling back to metadata', () => {
+    const device = {
+      device: {
+        id: 'camera-1',
+        plugin_id: 'hikvision',
+        vendor_device_id: 'vendor-camera-1',
+        kind: 'camera_like',
+        name: 'Entry Camera',
+        online: true,
+        capabilities: ['stream'],
+        metadata: {
+          rtsp_url: 'rtsp://metadata-user:metadata-pass@camera/metadata',
+        },
+      },
+      state: {
+        device_id: 'camera-1',
+        plugin_id: 'hikvision',
+        ts: '2026-04-10T00:00:00Z',
+        state: {
+          rtsp_url: 'rtsp://state-user:state-pass@camera/live',
+        },
+      },
+    } as DeviceView;
+
+    expect(cameraRTSPSourceURL(device)).toBe('rtsp://state-user:state-pass@camera/live');
   });
 });

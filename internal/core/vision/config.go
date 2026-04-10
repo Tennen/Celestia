@@ -114,6 +114,13 @@ func (s *Service) normalizeRule(ctx context.Context, rule models.VisionRule, idx
 		return models.VisionRule{}, fmt.Errorf("vision rule %q camera %q is not camera_like", rule.ID, device.ID)
 	}
 	rule.RTSPSource.URL = strings.TrimSpace(rule.RTSPSource.URL)
+	if rule.RTSPSource.URL == "" {
+		resolvedRTSPURL, err := s.resolveCameraRTSPSource(ctx, device)
+		if err != nil {
+			return models.VisionRule{}, err
+		}
+		rule.RTSPSource.URL = resolvedRTSPURL
+	}
 	if rule.RTSPSource.URL == "" && rule.Enabled && rule.RecognitionEnabled {
 		return models.VisionRule{}, fmt.Errorf("vision rule %q rtsp_source.url is required", rule.ID)
 	}
@@ -133,6 +140,33 @@ func (s *Service) normalizeRule(ctx context.Context, rule models.VisionRule, idx
 		return models.VisionRule{}, fmt.Errorf("vision rule %q zone must have positive width and height", rule.ID)
 	}
 	return rule, nil
+}
+
+func (s *Service) resolveCameraRTSPSource(ctx context.Context, device models.Device) (string, error) {
+	snapshot, ok, err := s.state.Get(ctx, device.ID)
+	if err != nil {
+		return "", err
+	}
+	if ok {
+		if rtspURL := mapString(snapshot.State, "rtsp_url"); rtspURL != "" {
+			return rtspURL, nil
+		}
+	}
+	if rtspURL := mapString(device.Metadata, "rtsp_url"); rtspURL != "" {
+		return rtspURL, nil
+	}
+	return "", nil
+}
+
+func mapString(values map[string]any, key string) string {
+	if values == nil {
+		return ""
+	}
+	raw, ok := values[key].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(raw)
 }
 
 func normalizeZone(zone models.VisionZoneBox) models.VisionZoneBox {

@@ -198,7 +198,22 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
           <Card className="explorer-card vision-rule-layout__list">
             <CardContent className="explorer-card__content pt-6">
               <div className="vision-toolbar">
-                <Button onClick={addRule}>New Rule</Button>
+                <div className="button-row">
+                  <Button onClick={addRule}>New Rule</Button>
+                  <Button onClick={() => void handleSave()} disabled={busy === 'save' || busy === 'load'}>
+                    {busy === 'save' ? 'Saving…' : 'Save Changes'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setSettingsOpen(true)}
+                    aria-label="Open recognition settings"
+                    title="Recognition settings"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Recognition Settings</span>
+                  </Button>
+                </div>
                 <div className="vision-toolbar__actions">
                   <Badge tone={summary?.status === 'healthy' ? 'good' : summary?.status === 'stopped' ? 'neutral' : 'warn'} size="xs">
                     {summary?.status ?? 'unknown'}
@@ -212,16 +227,6 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
                       <CircleAlert className="h-4 w-4" />
                     </span>
                   ) : null}
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => setSettingsOpen(true)}
-                    aria-label="Open recognition settings"
-                    title="Recognition settings"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
               <p className="muted vision-toolbar__support">

@@ -1,9 +1,9 @@
+import { cameraRTSPSourceURL, cameraLabel } from '../../lib/capability';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
 import { Switch } from '../ui/switch';
-import { cameraLabel } from '../../lib/capability';
 import type { DeviceView, VisionEntityCatalog, VisionEntityDescriptor, VisionRule } from '../../lib/types';
 import { CardHeading } from './shared/CardHeading';
 import { ZoneBoxEditor } from './ZoneBoxEditor';
@@ -60,6 +60,8 @@ export function VisionRuleEditorCard({
   const canUseCatalog = Boolean(selectedRule && catalog && !catalogMismatch && entityOptions.length > 0);
   const selectedCameraDevice =
     selectedRule ? cameraDevices.find((device) => device.device.id === selectedRule.camera_device_id) ?? null : null;
+  const resolvedRTSPSourceURL = cameraRTSPSourceURL(selectedCameraDevice);
+  const displayedRTSPSourceURL = selectedRule?.rtsp_source.url || resolvedRTSPSourceURL;
 
   return (
     <Card>
@@ -115,12 +117,17 @@ export function VisionRuleEditorCard({
                 <select
                   className="select"
                   value={selectedRule.camera_device_id}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const nextCameraDevice = cameraDevices.find((device) => device.device.id === event.target.value) ?? null;
                     onUpdateRule(selectedRule.id, (current) => ({
                       ...current,
                       camera_device_id: event.target.value,
-                    }))
-                  }
+                      rtsp_source: {
+                        ...current.rtsp_source,
+                        url: cameraRTSPSourceURL(nextCameraDevice),
+                      },
+                    }));
+                  }}
                 >
                   {cameraDevices.map((device) => (
                     <option key={device.device.id} value={device.device.id}>
@@ -156,82 +163,51 @@ export function VisionRuleEditorCard({
               <p className="muted">Refresh supported entities from the Vision Service to pick a recognized label such as cat.</p>
             ) : null}
             {catalog && !catalogMismatch && entityOptions.length === 0 ? (
-              <p className="muted">The current Vision Service catalog is empty, so entity selection falls back to manual entry.</p>
+              <p className="muted">The current Vision Service catalog is empty, so there are no recognized entities to select yet.</p>
             ) : null}
 
-            {canUseCatalog ? (
-              <>
-                <div className="automation-field-grid">
-                  <div className="automation-field">
-                    <label>Recognizable Entity</label>
-                    <select
-                      className="select"
-                      value={entityOptionValue(selectedRule.entity_selector.kind, selectedRule.entity_selector.value)}
-                      onChange={(event) => {
-                        const next = parseEntityOptionValue(event.target.value);
-                        onUpdateRule(selectedRule.id, (current) => ({
-                          ...current,
-                          entity_selector: { kind: next.kind || 'label', value: next.value },
-                        }));
-                      }}
-                    >
-                      <option value={entityOptionValue('label', '')}>Select entity</option>
-                      {entityOptions.map((entity) => (
-                        <option key={entityOptionValue(entity.kind, entity.value)} value={entityOptionValue(entity.kind, entity.value)}>
-                          {entity.display_name || entity.value}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="automation-field">
-                    <label>Selector Kind</label>
-                    <Input value={selectedRule.entity_selector.kind || 'label'} readOnly />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="automation-field-grid">
-                <div className="automation-field">
-                  <label>Entity Selector Kind</label>
-                  <Input
-                    value={selectedRule.entity_selector.kind}
-                    onChange={(event) =>
-                      onUpdateRule(selectedRule.id, (current) => ({
-                        ...current,
-                        entity_selector: { ...current.entity_selector, kind: event.target.value },
-                      }))
-                    }
-                    placeholder="label"
-                  />
-                </div>
-                <div className="automation-field">
-                  <label>Entity Selector Value</label>
-                  <Input
-                    value={selectedRule.entity_selector.value}
-                    onChange={(event) =>
-                      onUpdateRule(selectedRule.id, (current) => ({
-                        ...current,
-                        entity_selector: { ...current.entity_selector, value: event.target.value },
-                      }))
-                    }
-                    placeholder="cat"
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="automation-field">
-              <label>RTSP Source URL</label>
-              <Input
-                value={selectedRule.rtsp_source.url}
-                onChange={(event) =>
+              <label>Recognizable Entity</label>
+              <select
+                className="select"
+                disabled={!canUseCatalog}
+                value={entityOptionValue(selectedRule.entity_selector.kind, selectedRule.entity_selector.value)}
+                onChange={(event) => {
+                  const next = parseEntityOptionValue(event.target.value);
                   onUpdateRule(selectedRule.id, (current) => ({
                     ...current,
-                    rtsp_source: { ...current.rtsp_source, url: event.target.value },
-                  }))
-                }
-                placeholder="rtsp://user:password@camera-host:554/stream"
+                    entity_selector: { kind: next.kind || 'label', value: next.value },
+                  }));
+                }}
+              >
+                <option value={entityOptionValue('label', '')}>
+                  {canUseCatalog ? 'Select entity' : 'Refresh supported entities before choosing an entity'}
+                </option>
+                {entityOptions.map((entity) => (
+                  <option key={entityOptionValue(entity.kind, entity.value)} value={entityOptionValue(entity.kind, entity.value)}>
+                    {entity.display_name || entity.value}
+                  </option>
+                ))}
+              </select>
+              <p className="muted">
+                {canUseCatalog
+                  ? 'Entity choices come from the current Vision Service model catalog.'
+                  : 'Configure the Vision Service and refresh its supported entities before selecting a target entity.'}
+              </p>
+            </div>
+
+            <div className="automation-field">
+              <label>Resolved RTSP Source</label>
+              <Input
+                value={displayedRTSPSourceURL}
+                placeholder="Resolved automatically from the selected camera stream"
+                readOnly
               />
+              <p className="muted">
+                {displayedRTSPSourceURL
+                  ? 'Gateway will sync this camera-derived RTSP URL to the downstream Vision Service.'
+                  : 'Selected camera does not currently expose an RTSP URL. Configure the camera stream first.'}
+              </p>
             </div>
 
             <div className="automation-field-grid automation-field-grid--compact">

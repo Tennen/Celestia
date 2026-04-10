@@ -116,6 +116,107 @@ func TestSaveConfigSeedsCameraStateAndSyncs(t *testing.T) {
 	}
 }
 
+func TestSaveConfigDerivesRTSPSourceFromCameraState(t *testing.T) {
+	ctx := context.Background()
+	store := newVisionTestStore(t)
+	registrySvc := registry.New(store)
+	stateSvc := state.New(store)
+	bus := eventbus.New()
+	service := New(store, registrySvc, stateSvc, bus)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+	const cameraRTSP = "rtsp://viewer:secret@camera/live"
+	if err := stateSvc.Upsert(ctx, []models.DeviceStateSnapshot{{
+		DeviceID: camera.ID,
+		PluginID: camera.PluginID,
+		TS:       time.Now().UTC(),
+		State: map[string]any{
+			"rtsp_url": cameraRTSP,
+		},
+	}}); err != nil {
+		t.Fatalf("state.Upsert() error = %v", err)
+	}
+
+	var synced models.VisionServiceSyncPayload
+	service.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if err := json.NewDecoder(req.Body).Decode(&synced); err != nil {
+				t.Fatalf("decode sync payload error = %v", err)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("{}")),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+
+	detail, err := service.SaveConfig(ctx, models.VisionCapabilityConfig{
+		ServiceURL:         "http://vision.example",
+		RecognitionEnabled: true,
+		Rules: []models.VisionRule{
+			{
+				ID:                 "Feeder Zone",
+				Name:               "Feeder Zone",
+				Enabled:            true,
+				CameraDeviceID:     camera.ID,
+				RecognitionEnabled: true,
+				EntitySelector:     models.VisionEntitySelector{Kind: "label", Value: "cat"},
+				Zone:               models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+
+	if detail.Config.Rules[0].RTSPSource.URL != cameraRTSP {
+		t.Fatalf("detail rtsp_source.url = %q, want %q", detail.Config.Rules[0].RTSPSource.URL, cameraRTSP)
+	}
+	if synced.Rules[0].RTSPSource.URL != cameraRTSP {
+		t.Fatalf("synced rtsp_source.url = %q, want %q", synced.Rules[0].RTSPSource.URL, cameraRTSP)
+	}
+}
+
+func TestSaveConfigRejectsMissingRTSPSourceWhenCameraHasNoRTSP(t *testing.T) {
+	ctx := context.Background()
+	store := newVisionTestStore(t)
+	registrySvc := registry.New(store)
+	stateSvc := state.New(store)
+	bus := eventbus.New()
+	service := New(store, registrySvc, stateSvc, bus)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+
+	_, err := service.SaveConfig(ctx, models.VisionCapabilityConfig{
+		ServiceURL:         "http://vision.example",
+		RecognitionEnabled: true,
+		Rules: []models.VisionRule{
+			{
+				ID:                 "Feeder Zone",
+				Name:               "Feeder Zone",
+				Enabled:            true,
+				CameraDeviceID:     camera.ID,
+				RecognitionEnabled: true,
+				EntitySelector:     models.VisionEntitySelector{Kind: "label", Value: "cat"},
+				Zone:               models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("SaveConfig() error = nil, want rtsp_source validation error")
+	}
+	if !strings.Contains(err.Error(), "rtsp_source.url is required") {
+		t.Fatalf("SaveConfig() error = %v, want rtsp_source validation error", err)
+	}
+}
+
 func TestRefreshCatalogPersistsSupportedEntities(t *testing.T) {
 	ctx := context.Background()
 	store := newVisionTestStore(t)

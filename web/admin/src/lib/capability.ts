@@ -24,6 +24,12 @@ function asArray<T>(value: T[] | null | undefined) {
   return Array.isArray(value) ? value : [];
 }
 
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 export function cloneVisionConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -137,7 +143,7 @@ export function createVisionRule(cameras: DeviceView[], index: number): VisionRu
     camera_device_id: cameras[0]?.device.id ?? '',
     recognition_enabled: true,
     rtsp_source: {
-      url: '',
+      url: cameraRTSPSourceURL(cameras[0]),
     },
     entity_selector: {
       kind: 'label',
@@ -155,6 +161,12 @@ export function createVisionRule(cameras: DeviceView[], index: number): VisionRu
 
 export function cameraLabel(device: DeviceView) {
   return `${device.device.name} (${device.device.id})`;
+}
+
+export function cameraRTSPSourceURL(device: DeviceView | null | undefined) {
+  const state = readRecord(device?.state?.state);
+  const metadata = readRecord(device?.device?.metadata);
+  return readString(state?.rtsp_url) || readString(metadata?.rtsp_url);
 }
 
 export function capabilityDisplayName(
