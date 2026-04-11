@@ -169,7 +169,8 @@ func BuiltinCatalog() []models.CatalogPlugin {
 				ConfigSchema: map[string]any{
 					"type": "object",
 					"default": map[string]any{
-						"mode": "lan",
+						"mode":                  "lan",
+						"stream_rtsp_transport": "udp",
 						"cloud": map[string]any{
 							"username":           "<ezviz-username>",
 							"password":           "<ezviz-password>",
@@ -206,6 +207,12 @@ func BuiltinCatalog() []models.CatalogPlugin {
 							"type":        "string",
 							"default":     "lan",
 							"description": "Plugin runtime mode. Use `lan` for direct HCNetSDK access to local cameras. Use `cloud` for Ezviz cloud discovery/PTZ plus RTSP viewing without Docker launcher fallback.",
+						},
+						"stream_rtsp_transport": map[string]any{
+							"type":        "string",
+							"default":     "udp",
+							"enum":        []string{"udp", "tcp"},
+							"description": "Transport used by Core when it opens the camera RTSP stream for Admin live preview. Keep `udp` for default behavior, or switch to `tcp` when preview shows green blocks or unstable video.",
 						},
 						"cloud": map[string]any{
 							"type":        "object",

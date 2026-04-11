@@ -122,6 +122,7 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
 ```json
 {
   "mode": "lan",
+  "stream_rtsp_transport": "udp",
   "sdk_lib_dir": "/opt/celestia/sdk/lib/arm64",
   "entries": [
     {
@@ -142,6 +143,7 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
 ```json
 {
   "mode": "cloud",
+  "stream_rtsp_transport": "udp",
   "cloud": {
     "username": "<ezviz-username>",
     "password": "<ezviz-password>"
@@ -156,6 +158,8 @@ docker buildx build --platform linux/arm64 -f plugins/hikvision/Dockerfile -t ce
   "poll_interval_seconds": 30
 }
 ```
+
+- `stream_rtsp_transport` controls how Core opens the RTSP session for Admin live preview. Use `tcp` when camera preview over UDP shows green blocks, tearing, or unstable playback.
 
 - The plugin now routes Hikvision behavior through explicit `lan` / `cloud` runtime layering under `plugins/hikvision/internal/app`, `internal/client`, and `internal/cloud`, while still emitting the same Core-facing device/state/event model.
 

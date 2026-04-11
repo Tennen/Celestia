@@ -294,3 +294,23 @@ func TestHandleStreamOffer_ResponseShape(t *testing.T) {
 		t.Fatal("expected error field in response")
 	}
 }
+
+func TestStreamRTSPTransportFromConfig(t *testing.T) {
+	tests := []struct {
+		name   string
+		config map[string]any
+		want   string
+	}{
+		{name: "default missing", config: nil, want: "udp"},
+		{name: "default invalid", config: map[string]any{streamRTSPTransportConfigKey: "quic"}, want: "udp"},
+		{name: "tcp override", config: map[string]any{streamRTSPTransportConfigKey: "tcp"}, want: "tcp"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := streamRTSPTransportFromConfig(tt.config).String(); got != tt.want {
+				t.Fatalf("streamRTSPTransportFromConfig(%v) = %q, want %q", tt.config, got, tt.want)
+			}
+		})
+	}
+}

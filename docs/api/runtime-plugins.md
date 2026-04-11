@@ -133,6 +133,27 @@ Request body:
 
 Response: HTTP `200` with the updated `PluginInstallRecord`.
 
+For camera plugins, Core-owned config may include transport hints that the Admin relay uses directly. For example, Hikvision accepts:
+
+```json
+{
+  "config": {
+    "mode": "lan",
+    "stream_rtsp_transport": "tcp",
+    "entries": [
+      {
+        "name": "front-door",
+        "host": "192.168.1.100",
+        "username": "admin",
+        "password": "<hikvision-password>"
+      }
+    ]
+  }
+}
+```
+
+`stream_rtsp_transport` supports `udp` (default) and `tcp`. Switching to `tcp` is useful when Admin live preview shows macroblocking, green frames, or unstable playback over UDP.
+
 ## Enable / Disable / Discover / Delete Plugin
 
 `POST /api/v1/plugins/{plugin_id}/enable`
