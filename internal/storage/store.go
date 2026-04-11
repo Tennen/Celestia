@@ -75,6 +75,9 @@ type StateFilter struct {
 type EventFilter struct {
 	PluginID string
 	DeviceID string
+	Type     models.EventType
+	BeforeTS *time.Time
+	BeforeID string
 	Limit    int
 }
 

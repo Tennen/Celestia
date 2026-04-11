@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/chentianyu/celestia/internal/core/vision"
 	"github.com/chentianyu/celestia/internal/models"
 )
 
@@ -30,6 +31,17 @@ func (s *RuntimeService) RefreshVisionEntityCatalog(ctx context.Context, req mod
 		return models.VisionEntityCatalog{}, statusError(http.StatusBadRequest, err)
 	}
 	return item, nil
+}
+
+func (s *RuntimeService) ListVisionRuleEvents(ctx context.Context, ruleID string, limit int) ([]models.Event, error) {
+	items, err := s.runtime.Vision.RuleEvents(ctx, ruleID, limit)
+	if err != nil {
+		if errors.Is(err, vision.ErrVisionRuleNotFound) {
+			return nil, statusError(http.StatusNotFound, err)
+		}
+		return nil, statusError(http.StatusBadRequest, err)
+	}
+	return items, nil
 }
 
 func (s *RuntimeService) GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error) {

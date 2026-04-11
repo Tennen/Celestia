@@ -223,6 +223,57 @@ The synced websocket control payload is:
 
 If the Vision Service is unreachable, Gateway still persists the config and returns a degraded `runtime.status` plus `runtime.sync_error`. The background runtime keeps retrying the websocket connection and re-sends model selection plus `sync_config` after reconnect.
 
+## List Rule Event History
+
+`GET /api/v1/capabilities/vision_entity_stay_zone/rules/{ruleID}/events`
+
+Optional query parameters:
+
+- `limit` (default `50`)
+
+Response:
+
+```json
+[
+  {
+    "id": "vision-recent",
+    "type": "device.event.occurred",
+    "plugin_id": "hikvision",
+    "device_id": "hikvision:camera:entry-1",
+    "ts": "2026-04-11T08:28:11Z",
+    "payload": {
+      "source": "capability:vision_entity_stay_zone",
+      "capability_id": "vision_entity_stay_zone",
+      "rule_id": "feeder-zone",
+      "rule_name": "Feeder Zone",
+      "event_status": "threshold_met",
+      "dwell_seconds": 6,
+      "entity_value": "cat",
+      "capture_count": 3,
+      "captures": [
+        {
+          "capture_id": "vision-recent:start",
+          "event_id": "vision-recent",
+          "rule_id": "feeder-zone",
+          "camera_device_id": "hikvision:camera:entry-1",
+          "phase": "start",
+          "captured_at": "2026-04-11T08:28:09Z",
+          "content_type": "image/jpeg",
+          "size_bytes": 48123
+        }
+      ]
+    }
+  }
+]
+```
+
+Important behavior:
+
+- Gateway returns persisted `device.event.occurred` records for the requested rule only.
+- Results are ordered newest-first.
+- History is limited to the configured `event_capture_retention_hours` window so rule history and evidence expiration stay aligned in Admin.
+- If stored evidence exists for a returned event, Gateway enriches the event payload with `capture_count` and `captures`.
+
 ## Vision Service Event Ingestion
 
 Gateway no longer exposes REST endpoints for Vision Service status, event, or evidence callbacks.

@@ -113,6 +113,12 @@ export async function refreshVisionEntityCatalog(
   return normalizeVisionEntityCatalog(catalog);
 }
 
+export async function fetchVisionRuleEvents(ruleId: string, limit = 50) {
+  return request<EventRecord[]>(
+    `/capabilities/vision_entity_stay_zone/rules/${encodeURIComponent(ruleId)}/events?limit=${limit}`,
+  );
+}
+
 export async function installPlugin(payload: {
   plugin_id: string;
   binary_path?: string;

@@ -53,11 +53,25 @@ func (s *Store) ListEvents(ctx context.Context, filter storage.EventFilter) ([]m
 		clauses = append(clauses, "device_id = ?")
 		args = append(args, filter.DeviceID)
 	}
+	if filter.Type != "" {
+		clauses = append(clauses, "type = ?")
+		args = append(args, filter.Type)
+	}
+	if filter.BeforeTS != nil {
+		beforeTS := filter.BeforeTS.UTC().Format(time.RFC3339Nano)
+		if beforeID := strings.TrimSpace(filter.BeforeID); beforeID != "" {
+			clauses = append(clauses, "(ts < ? or (ts = ? and id < ?))")
+			args = append(args, beforeTS, beforeTS, beforeID)
+		} else {
+			clauses = append(clauses, "ts < ?")
+			args = append(args, beforeTS)
+		}
+	}
 	query := `select id, type, plugin_id, device_id, ts, payload_json from events`
 	if len(clauses) > 0 {
 		query += " where " + strings.Join(clauses, " and ")
 	}
-	query += " order by ts desc limit ?"
+	query += " order by ts desc, id desc limit ?"
 	args = append(args, limit)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {

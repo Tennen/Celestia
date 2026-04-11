@@ -93,24 +93,3 @@ func (s *Service) Detail(ctx context.Context) (models.VisionCapabilityDetail, er
 	}
 	return detail, nil
 }
-
-func (s *Service) RecentEvents(ctx context.Context, limit int) ([]models.Event, error) {
-	items, err := s.store.ListEvents(ctx, storage.EventFilter{Limit: max(limit*6, 60)})
-	if err != nil {
-		return nil, err
-	}
-	out := make([]models.Event, 0, min(limit, len(items)))
-	for _, item := range items {
-		if item.Type != models.EventDeviceOccurred {
-			continue
-		}
-		if capabilityID, _ := item.Payload["capability_id"].(string); capabilityID != models.VisionCapabilityID {
-			continue
-		}
-		out = append(out, item)
-		if len(out) >= limit {
-			break
-		}
-	}
-	return s.EnrichEvents(ctx, out)
-}

@@ -61,7 +61,8 @@
   }
 
   .capability-workspace,
-  .vision-rule-layout {
+  .vision-rule-layout,
+  .vision-history-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -59,6 +59,8 @@ Capability runtime health changes use:
 
 Vision detection reports arrive as `device.event.occurred` with `payload.capability_id = "vision_entity_stay_zone"` and are also projected into the camera's `device.state.changed` stream.
 
+For rule-scoped persisted vision history in Admin, prefer `GET /api/v1/capabilities/vision_entity_stay_zone/rules/{ruleID}/events` from the [Vision Stay Zone Capability API](vision-stay-zone.md).
+
 If Gateway has persisted screenshot evidence for a vision event, that same event record is enriched on read with:
 
 - `payload.capture_count`

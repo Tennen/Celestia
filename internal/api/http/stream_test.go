@@ -59,6 +59,9 @@ func (g *stubGateway) SaveVisionCapabilityConfig(_ context.Context, _ models.Vis
 func (g *stubGateway) RefreshVisionEntityCatalog(_ context.Context, _ models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error) {
 	return models.VisionEntityCatalog{}, nil
 }
+func (g *stubGateway) ListVisionRuleEvents(_ context.Context, _ string, _ int) ([]models.Event, error) {
+	return nil, nil
+}
 func (g *stubGateway) GetVisionEventCapture(_ context.Context, _ string) (models.VisionEventCaptureAsset, error) {
 	return models.VisionEventCaptureAsset{}, nil
 }

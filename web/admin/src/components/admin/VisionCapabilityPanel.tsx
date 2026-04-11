@@ -11,7 +11,6 @@ import {
   createVisionRule,
   defaultVisionConfig,
 } from '../../lib/capability';
-import { formatTime } from '../../lib/utils';
 import { useAdminStore } from '../../stores/adminStore';
 import type {
   CapabilityDetail,
@@ -24,9 +23,8 @@ import type {
 import { useRetainedDraft } from '../../hooks/useRetainedDraft';
 import { RecognitionSettingsModal } from './RecognitionSettingsModal';
 import { SelectableListItem } from './shared/SelectableListItem';
-import { VisionEventCaptureGallery, visionEventCapturesFromPayload } from './VisionEventCaptureGallery';
+import { VisionRuleEventHistoryPanel } from './VisionRuleEventHistoryPanel';
 import { VisionRuleEditorCard } from './VisionRuleEditorCard';
-import { CardHeading } from './shared/CardHeading';
 
 type VisionRulesDraft = {
   rules: VisionRule[];
@@ -106,6 +104,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   );
   const [detail, setDetail] = useState<CapabilityDetail | null>(null);
   const [selectedRuleId, setSelectedRuleId] = useState('');
+  const [detailView, setDetailView] = useState<'editor' | 'history'>('editor');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState<'load' | 'save_rule' | 'save_settings' | 'refresh_entities' | ''>('load');
   const ruleDraftState = useRetainedDraft<VisionRulesDraft>({
@@ -151,7 +150,6 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
 
   const runtime = detail?.vision?.runtime;
   const catalog = detail?.vision?.catalog ?? null;
-  const recentEvents = detail?.vision?.recent_events ?? [];
   const persistedConfig = detail?.vision?.config ?? defaultVisionConfig();
   const settingsDraft = settingsDraftState.draft ?? settingsDraftFromConfig(persistedConfig);
   const ruleDraft = ruleDraftState.draft ?? { rules: persistedConfig.rules };
@@ -162,6 +160,12 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   const activeCatalog = catalogMatchesSaved ? catalog : null;
   const selectedRule = ruleDraft.rules.find((rule: VisionRule) => rule.id === selectedRuleId) ?? null;
   const recognitionConfigured = Boolean(normalizedSavedServiceWSURL);
+
+  useEffect(() => {
+    if (!selectedRule) {
+      setDetailView('editor');
+    }
+  }, [selectedRule]);
 
   const updateRuleDraft = (updater: (current: VisionRulesDraft) => VisionRulesDraft) => {
     ruleDraftState.setDraft(updater);
@@ -186,6 +190,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
       rules: [...current.rules, rule],
     }));
     setSelectedRuleId(rule.id);
+    setDetailView('editor');
   };
 
   const removeRule = (ruleId: string) => {
@@ -194,6 +199,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
       rules: nextRules,
     }));
     setSelectedRuleId(ensureSelection(selectedRuleId === ruleId ? '' : selectedRuleId, nextRules));
+    setDetailView('editor');
   };
 
   const handleRefreshEntities = async () => {
@@ -333,54 +339,38 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
 
           <ScrollArea className="detail-scroll vision-rule-layout__detail">
             <div className="detail-stack">
-              <VisionRuleEditorCard
-                catalog={activeCatalog}
-                catalogMismatch={Boolean(catalog && !catalogMatchesSaved)}
-                cameraDevices={cameraDevices}
-                loading={busy === 'load'}
-                onSaveRule={() => void handleSaveRule()}
-                onRemoveRule={removeRule}
-                onSelectRuleId={setSelectedRuleId}
-                onUpdateRule={(ruleId, updater) =>
-                  updateRuleDraft((current) => ({
-                    rules: current.rules.map((rule: VisionRule) => (rule.id === ruleId ? updater({ ...rule }) : rule)),
-                  }))
-                }
-                saving={busy === 'save_rule'}
-                selectedRule={selectedRule}
-              />
-
-              <Card>
-                <CardHeader>
-                  <CardHeading
-                    title="Recent Recognition Events"
-                    description="Structured events reported by the external recognition service and attached to the Core event bus."
-                  />
-                </CardHeader>
-                <CardContent className="stack">
-                  <div className="vision-event-feed">
-                    {recentEvents.length > 0 ? (
-                      recentEvents.map((event) => (
-                        <article key={event.id} className="vision-event-card">
-                          <div className="feed__meta">
-                            <Badge tone="accent" size="sm">
-                              {String(event.payload?.event_status ?? event.type)}
-                            </Badge>
-                            <span>{formatTime(event.ts)}</span>
-                          </div>
-                          <strong>{String(event.payload?.rule_name ?? event.device_id ?? 'recognition event')}</strong>
-                          <p className="muted">
-                            {String(event.payload?.entity_value ?? 'entity')} · dwell {String(event.payload?.dwell_seconds ?? 0)}s
-                          </p>
-                          <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(event.payload)} />
-                        </article>
-                      ))
-                    ) : (
-                      <p className="muted">No recognition events received yet.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              {detailView === 'editor' ? (
+                <VisionRuleEditorCard
+                  catalog={activeCatalog}
+                  catalogMismatch={Boolean(catalog && !catalogMatchesSaved)}
+                  cameraDevices={cameraDevices}
+                  loading={busy === 'load'}
+                  onSaveRule={() => void handleSaveRule()}
+                  onRemoveRule={removeRule}
+                  onSelectRuleId={setSelectedRuleId}
+                  onUpdateRule={(ruleId, updater) =>
+                    updateRuleDraft((current) => ({
+                      rules: current.rules.map((rule: VisionRule) => (rule.id === ruleId ? updater({ ...rule }) : rule)),
+                    }))
+                  }
+                  onViewHistory={() => setDetailView('history')}
+                  saving={busy === 'save_rule'}
+                  selectedRule={selectedRule}
+                />
+              ) : selectedRule ? (
+                <VisionRuleEventHistoryPanel
+                  onBack={() => setDetailView('editor')}
+                  onError={onError}
+                  rule={selectedRule}
+                  updatedAtKey={summary?.updated_at ?? ''}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="muted">Select or create a rule to inspect its persisted event history.</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </ScrollArea>
         </div>

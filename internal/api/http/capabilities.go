@@ -60,6 +60,15 @@ func (s *Server) handleRefreshVisionEntityCatalog(w http.ResponseWriter, r *http
 	writeJSON(w, http.StatusOK, item)
 }
 
+func (s *Server) handleVisionRuleEvents(w http.ResponseWriter, r *http.Request) {
+	items, err := s.gateway.ListVisionRuleEvents(r.Context(), r.PathValue("ruleID"), parseLimit(r.URL.Query().Get("limit"), 50))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 func (s *Server) handleVisionCapture(w http.ResponseWriter, r *http.Request) {
 	asset, err := s.gateway.GetVisionEventCapture(r.Context(), r.PathValue("captureID"))
 	if err != nil {

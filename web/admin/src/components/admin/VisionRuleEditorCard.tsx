@@ -1,3 +1,6 @@
+import * as Collapsible from '@radix-ui/react-collapsible';
+import { useEffect, useState } from 'react';
+import { ChevronDown, History } from 'lucide-react';
 import { cameraRTSPSourceURL, cameraLabel } from '../../lib/capability';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -17,6 +20,7 @@ type Props = {
   onRemoveRule: (ruleId: string) => void;
   onSelectRuleId: (ruleId: string) => void;
   onUpdateRule: (ruleId: string, updater: (current: VisionRule) => VisionRule) => void;
+  onViewHistory: (ruleId: string) => void;
   saving: boolean;
   selectedRule: VisionRule | null;
 };
@@ -34,6 +38,11 @@ function parseEntityOptionValue(value: string) {
 
 function hasEntity(options: VisionEntityDescriptor[], rule: VisionRule) {
   return options.some((item) => item.kind === rule.entity_selector.kind && item.value === rule.entity_selector.value);
+}
+
+function zoneSummary(rule: VisionRule) {
+  const { x, y, width, height } = rule.zone;
+  return `x ${Math.round(x * 100)}% · y ${Math.round(y * 100)}% · width ${Math.round(width * 100)}% · height ${Math.round(height * 100)}%`;
 }
 
 function buildEntityOptions(catalog: VisionEntityCatalog | null, selectedRule: VisionRule) {
@@ -57,15 +66,21 @@ export function VisionRuleEditorCard({
   onRemoveRule,
   onSelectRuleId,
   onUpdateRule,
+  onViewHistory,
   saving,
   selectedRule,
 }: Props) {
+  const [zoneEditorCollapsed, setZoneEditorCollapsed] = useState(true);
   const entityOptions = selectedRule ? buildEntityOptions(catalog, selectedRule) : [];
   const canUseCatalog = Boolean(selectedRule && catalog && !catalogMismatch && entityOptions.length > 0);
   const selectedCameraDevice =
     selectedRule ? cameraDevices.find((device) => device.device.id === selectedRule.camera_device_id) ?? null : null;
   const resolvedRTSPSourceURL = cameraRTSPSourceURL(selectedCameraDevice);
   const displayedRTSPSourceURL = selectedRule?.rtsp_source.url || resolvedRTSPSourceURL;
+
+  useEffect(() => {
+    setZoneEditorCollapsed(true);
+  }, [selectedRule?.id]);
 
   return (
     <Card>
@@ -79,6 +94,10 @@ export function VisionRuleEditorCard({
                 <Badge size="xs" tone={selectedRule.enabled ? 'good' : 'neutral'}>
                   {selectedRule.enabled ? 'enabled' : 'disabled'}
                 </Badge>
+                <Button variant="secondary" size="sm" onClick={() => onViewHistory(selectedRule.id)}>
+                  <History className="h-4 w-4" />
+                  <span>Event History</span>
+                </Button>
                 <Button variant="secondary" size="sm" onClick={onSaveRule} disabled={saving || loading}>
                   {saving ? 'Saving…' : 'Save Rule'}
                 </Button>
@@ -248,12 +267,27 @@ export function VisionRuleEditorCard({
             </div>
 
             <div className="automation-field">
-              <label>Zone Selection</label>
-              <ZoneBoxEditor
-                cameraDevice={selectedCameraDevice}
-                value={selectedRule.zone}
-                onChange={(zone) => onUpdateRule(selectedRule.id, (current) => ({ ...current, zone }))}
-              />
+              <Collapsible.Root open={!zoneEditorCollapsed} onOpenChange={(open) => setZoneEditorCollapsed(!open)}>
+                <div className="vision-zone-editor__header">
+                  <label>Zone Selection</label>
+                  <Collapsible.Trigger asChild>
+                    <Button type="button" variant="secondary" size="sm" className="collapse-toggle">
+                      <span>{zoneEditorCollapsed ? 'Show Zone Editor' : 'Hide Zone Editor'}</span>
+                      <ChevronDown className={`collapse-toggle__icon ${!zoneEditorCollapsed ? 'is-expanded' : ''}`} />
+                    </Button>
+                  </Collapsible.Trigger>
+                </div>
+                <p className="muted">
+                  {zoneSummary(selectedRule)}. Live RTSP preview stays disconnected until you expand the editor.
+                </p>
+                <Collapsible.Content className="pt-3">
+                  <ZoneBoxEditor
+                    cameraDevice={selectedCameraDevice}
+                    value={selectedRule.zone}
+                    onChange={(zone) => onUpdateRule(selectedRule.id, (current) => ({ ...current, zone }))}
+                  />
+                </Collapsible.Content>
+              </Collapsible.Root>
             </div>
           </>
         ) : (

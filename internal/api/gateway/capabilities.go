@@ -44,6 +44,23 @@ func (s *HTTPService) RefreshVisionEntityCatalog(ctx context.Context, req models
 	return out, nil
 }
 
+func (s *HTTPService) ListVisionRuleEvents(ctx context.Context, ruleID string, limit int) ([]models.Event, error) {
+	var out []models.Event
+	query := url.Values{}
+	if limit > 0 {
+		query.Set("limit", fmt.Sprintf("%d", limit))
+	}
+	path := fmt.Sprintf(
+		"/api/v1/capabilities/%s/rules/%s/events",
+		models.VisionCapabilityID,
+		url.PathEscape(ruleID),
+	)
+	if err := s.get(ctx, path, query, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (s *HTTPService) GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error) {
 	path := fmt.Sprintf("/api/v1/capabilities/%s/captures/%s", models.VisionCapabilityID, url.PathEscape(captureID))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.baseURL+path, nil)
