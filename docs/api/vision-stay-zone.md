@@ -4,7 +4,7 @@ Back to the [API index](../api.md).
 
 The vision stay-zone capability is exposed in the capability inventory under id `vision_entity_stay_zone`.
 
-If you are implementing the downstream Vision Service itself, use the dedicated [Vision Service Integration Contract](vision-service-contract.md). This document remains the Gateway-side capability API reference.
+If you are implementing the downstream Vision Service itself, use the dedicated [Vision Service Integration Contract](vision-service-contract.md). This document is the Gateway-side capability API reference.
 
 ## Get Capability Detail
 
@@ -21,14 +21,18 @@ Response:
   "enabled": true,
   "status": "healthy",
   "summary": {
-    "service_url": "http://127.0.0.1:8090",
+    "service_ws_url": "ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone",
+    "model_name": "custom-pets.pt",
     "rule_count": 1,
-    "enabled_rule_count": 1
+    "enabled_rule_count": 1,
+    "last_event_at": "2026-04-11T08:28:11Z",
+    "last_synced_at": "2026-04-11T08:20:00Z"
   },
-  "updated_at": "2026-04-08T09:20:00Z",
+  "updated_at": "2026-04-11T08:28:11Z",
   "vision": {
     "config": {
-      "service_url": "http://127.0.0.1:8090",
+      "service_ws_url": "ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone",
+      "model_name": "custom-pets.pt",
       "recognition_enabled": true,
       "event_capture_retention_hours": 168,
       "rules": [
@@ -54,27 +58,27 @@ Response:
           "stay_threshold_seconds": 5
         }
       ],
-      "updated_at": "2026-04-08T09:20:00Z"
+      "updated_at": "2026-04-11T08:20:00Z"
     },
     "runtime": {
       "status": "healthy",
-      "message": "vision config synced",
-      "service_version": "1.2.0",
-      "last_synced_at": "2026-04-08T09:20:00Z",
-      "last_reported_at": "2026-04-08T09:25:00Z",
-      "last_event_at": "2026-04-08T09:28:11Z",
+      "message": "tracking 1 stream(s) across 1 rule(s)",
+      "service_version": "0.1.0",
+      "last_synced_at": "2026-04-11T08:20:00Z",
+      "last_reported_at": "2026-04-11T08:25:00Z",
+      "last_event_at": "2026-04-11T08:28:11Z",
       "runtime": {
         "active_streams": 1
       },
       "sync_error": "",
-      "updated_at": "2026-04-08T09:28:11Z"
+      "updated_at": "2026-04-11T08:28:11Z"
     },
     "catalog": {
-      "service_url": "http://127.0.0.1:8090",
+      "service_ws_url": "ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone",
       "schema_version": "celestia.vision.catalog.v1",
-      "service_version": "1.2.0",
-      "model_name": "yolo11m-coco",
-      "fetched_at": "2026-04-08T09:18:00Z",
+      "service_version": "0.1.0",
+      "model_name": "custom-pets.pt",
+      "fetched_at": "2026-04-11T08:18:00Z",
       "entities": [
         {
           "kind": "label",
@@ -96,21 +100,24 @@ Request body:
 
 ```json
 {
-  "service_url": "http://127.0.0.1:8090"
+  "service_ws_url": "ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone",
+  "model_name": "custom-pets.pt"
 }
 ```
 
-`service_url` is optional when the capability already has a saved Vision Service address. Gateway uses this route to fetch the current model-supported recognizable entity list before rules are configured.
+- `service_ws_url` is optional when the capability already has a saved websocket endpoint.
+- `model_name` is optional. When omitted, Gateway uses the saved configured model for the same endpoint when available; otherwise it asks the Vision Service for the current/default runtime model.
+- Gateway fetches the entity catalog over the Vision Service websocket protocol. It does not use REST for catalog refresh.
 
 Response:
 
 ```json
 {
-  "service_url": "http://127.0.0.1:8090",
+  "service_ws_url": "ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone",
   "schema_version": "celestia.vision.catalog.v1",
-  "service_version": "1.2.0",
-  "model_name": "yolo11m-coco",
-  "fetched_at": "2026-04-08T09:18:00Z",
+  "service_version": "0.1.0",
+  "model_name": "custom-pets.pt",
+  "fetched_at": "2026-04-11T08:18:00Z",
   "entities": [
     {
       "kind": "label",
@@ -134,7 +141,8 @@ Request body:
 
 ```json
 {
-  "service_url": "http://127.0.0.1:8090",
+  "service_ws_url": "ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone",
+  "model_name": "custom-pets.pt",
   "recognition_enabled": true,
   "event_capture_retention_hours": 168,
   "rules": [
@@ -165,33 +173,23 @@ Request body:
 
 Response: HTTP `200` with the persisted `CapabilityDetail` for `vision_entity_stay_zone`.
 
-When the selected camera already exposes an `rtsp_url` in its current device state or metadata, clients may omit `rtsp_source.url` from the request. Gateway resolves that RTSP URL during normalization, persists the resolved value, and syncs the fully populated rule downstream. If the camera does not expose RTSP and the rule is enabled for recognition, save is rejected explicitly.
+Important behavior:
 
-Gateway is the source of truth for this config. It persists the config first, then attempts to push a normalized copy to the external Vision Service at:
+- `service_ws_url` must be a full `ws://` or `wss://` endpoint including the websocket path.
+- `model_name` is optional. When present, Gateway sends `select_model` before `sync_config` and re-applies that selection after reconnects.
+- Gateway persists the config first, then syncs the full desired state to the Vision Service over the websocket session.
+- Gateway starts and maintains that websocket session during runtime init, so recognition does not depend on Admin interaction to establish the connection.
+- When the selected camera already exposes an `rtsp_url` in device state or metadata, clients may omit `rtsp_source.url`. Gateway resolves and persists it before sync.
+- If the camera does not expose RTSP and the rule is enabled for recognition, save is rejected explicitly.
+- If Gateway already has a fetched catalog for the same websocket endpoint and configured model, it validates each `entity_selector` against that catalog before accepting the config.
 
-- `PUT {service_url}/api/v1/capabilities/vision_entity_stay_zone`
-
-If Gateway already has a fetched entity catalog for the same `service_url`, it validates each `entity_selector` against that catalog before accepting the config. This lets the admin flow follow the intended sequence:
-
-1. refresh current recognizable entities from the Vision Service
-2. choose `cat` or another advertised entity
-3. bind camera, zone, stay threshold, and the target entity; Gateway resolves RTSP from the selected camera when available
-4. save and sync the full rule set downstream
-
-`event_capture_retention_hours` is Gateway-owned persistence policy for screenshots uploaded later by the Vision Service. It is not used by the Vision engine itself; Gateway applies it when storing and serving evidence images.
-
-The pushed payload is a stable control-plane structure:
+The synced websocket control payload is:
 
 ```json
 {
-  "schema_version": "celestia.vision.control.v1",
-  "sent_at": "2026-04-08T09:20:00Z",
+  "schema_version": "celestia.vision.control.ws.v1",
+  "sent_at": "2026-04-11T08:20:00Z",
   "recognition_enabled": true,
-  "callbacks": {
-    "status_path": "/api/v1/capabilities/vision_entity_stay_zone/status",
-    "event_path": "/api/v1/capabilities/vision_entity_stay_zone/events",
-    "evidence_path": "/api/v1/capabilities/vision_entity_stay_zone/evidence"
-  },
   "rules": [
     {
       "id": "feeder-zone",
@@ -223,135 +221,24 @@ The pushed payload is a stable control-plane structure:
 }
 ```
 
-If the Vision Service is unreachable, Gateway still persists the config and returns a degraded `runtime.status` plus `runtime.sync_error`.
+If the Vision Service is unreachable, Gateway still persists the config and returns a degraded `runtime.status` plus `runtime.sync_error`. The background runtime keeps retrying the websocket connection and re-sends model selection plus `sync_config` after reconnect.
 
-## Report Vision Service Status
+## Vision Service Event Ingestion
 
-`POST /api/v1/capabilities/vision_entity_stay_zone/status`
+Gateway no longer exposes REST endpoints for Vision Service status, event, or evidence callbacks.
 
-This endpoint is intended for the external Vision Service to report runtime health:
+The Vision Service must use the websocket protocol in [vision-service-contract.md](vision-service-contract.md) to deliver:
 
-```json
-{
-  "status": "healthy",
-  "message": "tracking 1 stream",
-  "service_version": "1.2.0",
-  "reported_at": "2026-04-08T09:25:00Z",
-  "runtime": {
-    "active_streams": 1
-  }
-}
-```
+- `runtime_status`
+- `rule_events`
+- `evidence`
 
-Response: HTTP `200` with the persisted `VisionCapabilityStatus`.
+Gateway consumes those websocket messages, projects state changes into device state, appends Core events, and persists evidence images.
 
-## Report Vision Events
-
-`POST /api/v1/capabilities/vision_entity_stay_zone/events`
-
-Request body:
-
-```json
-{
-  "events": [
-    {
-      "event_id": "vision-evt-1",
-      "rule_id": "feeder-zone",
-      "camera_device_id": "hikvision:camera:entry-1",
-      "status": "threshold_met",
-      "observed_at": "2026-04-08T09:28:11Z",
-      "dwell_seconds": 6,
-      "entity_value": "cat",
-      "metadata": {
-        "track_id": "trk-7"
-      }
-    }
-  ]
-}
-```
-
-Supported `status` values:
-
-- `threshold_met`
-- `cleared`
-
-If the Vision Service will later upload screenshots for this event, it should set a stable `event_id`.
-
-On each reported event, Gateway does two things:
-
-1. Appends a structured `device.event.occurred` event with `payload.capability_id = "vision_entity_stay_zone"`.
-2. Projects the event into the owning camera's persisted device state and emits a `device.state.changed` event so existing automations can react without any Vision-engine coupling.
-
-For each vision rule, Gateway maintains these projected camera state keys:
-
-- `vision_rule_<rule_id>_match_count`
-- `vision_rule_<rule_id>_active`
-- `vision_rule_<rule_id>_last_event_at`
-- `vision_rule_<rule_id>_last_entity_value`
-- `vision_rule_<rule_id>_last_dwell_seconds`
-- `vision_rule_<rule_id>_last_status`
-
-`threshold_met` increments `vision_rule_<rule_id>_match_count`, which lets existing state-change automations trigger on recurring detections.
-
-## Report Vision Event Evidence
-
-`POST /api/v1/capabilities/vision_entity_stay_zone/evidence`
-
-This endpoint is intended for the external Vision Service to persist screenshots tied to a previously accepted vision event.
-
-Request body:
-
-```json
-{
-  "captures": [
-    {
-      "capture_id": "vision-evt-1:start",
-      "event_id": "vision-evt-1",
-      "rule_id": "feeder-zone",
-      "camera_device_id": "hikvision:camera:entry-1",
-      "phase": "start",
-      "captured_at": "2026-04-08T09:28:05Z",
-      "content_type": "image/jpeg",
-      "image_base64": "/9j/4AAQSk..."
-    },
-    {
-      "capture_id": "vision-evt-1:middle",
-      "event_id": "vision-evt-1",
-      "rule_id": "feeder-zone",
-      "camera_device_id": "hikvision:camera:entry-1",
-      "phase": "middle",
-      "captured_at": "2026-04-08T09:28:08Z",
-      "content_type": "image/jpeg",
-      "image_base64": "/9j/4AAQSk..."
-    },
-    {
-      "capture_id": "vision-evt-1:end",
-      "event_id": "vision-evt-1",
-      "rule_id": "feeder-zone",
-      "camera_device_id": "hikvision:camera:entry-1",
-      "phase": "end",
-      "captured_at": "2026-04-08T09:28:11Z",
-      "content_type": "image/jpeg",
-      "image_base64": "/9j/4AAQSk..."
-    }
-  ]
-}
-```
-
-Supported `phase` values:
-
-- `start`
-- `middle`
-- `end`
-
-Response: HTTP `200` with `{ "ok": true }`.
-
-Gateway stores the image bytes in Core-owned persistence, applies the configured retention window, and exposes the stored screenshot metadata back on the matching event record as `payload.captures`.
-
-## Get Vision Event Capture
+## Get Evidence Capture
 
 `GET /api/v1/capabilities/vision_entity_stay_zone/captures/{captureID}`
 
-Response: raw image bytes with the persisted image `Content-Type`.
+Response: the raw capture bytes with `Content-Type` set from the stored evidence asset.
 
-Admin uses this route to render screenshots attached to specific vision events.
+Gateway expires stored captures according to `event_capture_retention_hours`.

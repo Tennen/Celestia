@@ -59,15 +59,6 @@ func (g *stubGateway) SaveVisionCapabilityConfig(_ context.Context, _ models.Vis
 func (g *stubGateway) RefreshVisionEntityCatalog(_ context.Context, _ models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error) {
 	return models.VisionEntityCatalog{}, nil
 }
-func (g *stubGateway) ReportVisionCapabilityStatus(_ context.Context, _ models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
-	return models.VisionCapabilityStatus{}, nil
-}
-func (g *stubGateway) ReportVisionCapabilityEvents(_ context.Context, _ models.VisionServiceEventBatch) error {
-	return nil
-}
-func (g *stubGateway) ReportVisionCapabilityEvidence(_ context.Context, _ models.VisionServiceEventCaptureBatch) error {
-	return nil
-}
 func (g *stubGateway) GetVisionEventCapture(_ context.Context, _ string) (models.VisionEventCaptureAsset, error) {
 	return models.VisionEventCaptureAsset{}, nil
 }

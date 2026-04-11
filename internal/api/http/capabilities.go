@@ -34,7 +34,8 @@ func (s *Server) handleUpdateVisionCapability(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	config.ServiceURL = strings.TrimSpace(config.ServiceURL)
+	config.ServiceWSURL = strings.TrimSpace(config.ServiceWSURL)
+	config.ModelName = strings.TrimSpace(config.ModelName)
 	item, err := s.gateway.SaveVisionCapabilityConfig(r.Context(), config)
 	if err != nil {
 		writeServiceError(w, err)
@@ -49,53 +50,14 @@ func (s *Server) handleRefreshVisionEntityCatalog(w http.ResponseWriter, r *http
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	req.ServiceURL = strings.TrimSpace(req.ServiceURL)
+	req.ServiceWSURL = strings.TrimSpace(req.ServiceWSURL)
+	req.ModelName = strings.TrimSpace(req.ModelName)
 	item, err := s.gateway.RefreshVisionEntityCatalog(r.Context(), req)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
-}
-
-func (s *Server) handleVisionCapabilityStatus(w http.ResponseWriter, r *http.Request) {
-	var report models.VisionServiceStatusReport
-	if err := json.NewDecoder(r.Body).Decode(&report); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	item, err := s.gateway.ReportVisionCapabilityStatus(r.Context(), report)
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, item)
-}
-
-func (s *Server) handleVisionCapabilityEvents(w http.ResponseWriter, r *http.Request) {
-	var batch models.VisionServiceEventBatch
-	if err := json.NewDecoder(r.Body).Decode(&batch); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	if err := s.gateway.ReportVisionCapabilityEvents(r.Context(), batch); err != nil {
-		writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-}
-
-func (s *Server) handleVisionCapabilityEvidence(w http.ResponseWriter, r *http.Request) {
-	var batch models.VisionServiceEventCaptureBatch
-	if err := json.NewDecoder(r.Body).Decode(&batch); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	if err := s.gateway.ReportVisionCapabilityEvidence(r.Context(), batch); err != nil {
-		writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleVisionCapture(w http.ResponseWriter, r *http.Request) {

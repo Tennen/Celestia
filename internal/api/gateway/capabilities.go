@@ -44,25 +44,6 @@ func (s *HTTPService) RefreshVisionEntityCatalog(ctx context.Context, req models
 	return out, nil
 }
 
-func (s *HTTPService) ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
-	var out models.VisionCapabilityStatus
-	path := fmt.Sprintf("/api/v1/capabilities/%s/status", models.VisionCapabilityID)
-	if err := s.request(ctx, http.MethodPost, path, nil, report, &out, ""); err != nil {
-		return models.VisionCapabilityStatus{}, err
-	}
-	return out, nil
-}
-
-func (s *HTTPService) ReportVisionCapabilityEvents(ctx context.Context, batch models.VisionServiceEventBatch) error {
-	path := fmt.Sprintf("/api/v1/capabilities/%s/events", models.VisionCapabilityID)
-	return s.request(ctx, http.MethodPost, path, nil, batch, nil, "")
-}
-
-func (s *HTTPService) ReportVisionCapabilityEvidence(ctx context.Context, batch models.VisionServiceEventCaptureBatch) error {
-	path := fmt.Sprintf("/api/v1/capabilities/%s/evidence", models.VisionCapabilityID)
-	return s.request(ctx, http.MethodPost, path, nil, batch, nil, "")
-}
-
 func (s *HTTPService) GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error) {
 	path := fmt.Sprintf("/api/v1/capabilities/%s/captures/%s", models.VisionCapabilityID, url.PathEscape(captureID))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.baseURL+path, nil)

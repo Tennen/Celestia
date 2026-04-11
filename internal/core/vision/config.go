@@ -1,11 +1,8 @@
 package vision
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -54,7 +51,8 @@ func (s *Service) SaveConfig(ctx context.Context, config models.VisionCapability
 
 func (s *Service) normalizeConfig(ctx context.Context, config models.VisionCapabilityConfig) (models.VisionCapabilityConfig, error) {
 	now := time.Now().UTC()
-	config.ServiceURL = normalizeServiceURL(config.ServiceURL)
+	config.ServiceWSURL = normalizeServiceWSURL(config.ServiceWSURL)
+	config.ModelName = normalizeModelName(config.ModelName)
 	config.EventCaptureRetentionHours = normalizeCaptureRetentionHours(config.EventCaptureRetentionHours)
 	config.UpdatedAt = now
 	if config.Rules == nil {
@@ -250,46 +248,22 @@ func (s *Service) syncConfig(ctx context.Context, config models.VisionCapability
 		status.SyncError = ""
 		return status, nil
 	}
-	if config.ServiceURL == "" {
+	if config.ServiceWSURL == "" {
 		status.Status = models.HealthStateDegraded
-		status.Message = "vision service address not configured"
-		status.SyncError = "service_url is required to sync enabled vision rules"
+		status.Message = "vision service websocket URL not configured"
+		status.SyncError = "service_ws_url is required to sync enabled vision rules"
 		return status, nil
 	}
-	payload, err := s.buildSyncPayload(ctx, config)
-	if err != nil {
+	if err := validateServiceWSURL(config.ServiceWSURL); err != nil {
 		status.Status = models.HealthStateDegraded
 		status.Message = err.Error()
 		status.SyncError = err.Error()
 		return status, nil
 	}
-	body, err := json.Marshal(payload)
+	status, err = s.session.SyncConfig(ctx, config)
 	if err != nil {
 		return models.VisionCapabilityStatus{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, config.ServiceURL+visionConfigSyncPath, bytes.NewReader(body))
-	if err != nil {
-		return models.VisionCapabilityStatus{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.client.Do(req)
-	if err != nil {
-		status.Status = models.HealthStateDegraded
-		status.Message = "vision config sync failed"
-		status.SyncError = err.Error()
-		return status, nil
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		status.Status = models.HealthStateDegraded
-		status.Message = fmt.Sprintf("vision config sync failed with status %d", resp.StatusCode)
-		status.SyncError = status.Message
-		return status, nil
-	}
-	status.Status = models.HealthStateHealthy
-	status.Message = "vision config synced"
-	status.SyncError = ""
-	status.LastSyncedAt = &now
 	return status, nil
 }
 
@@ -324,14 +298,9 @@ func (s *Service) buildSyncPayload(ctx context.Context, config models.VisionCapa
 		})
 	}
 	return models.VisionServiceSyncPayload{
-		SchemaVersion:      "celestia.vision.control.v1",
+		SchemaVersion:      visionControlSchemaVersion,
 		SentAt:             time.Now().UTC(),
 		RecognitionEnabled: config.RecognitionEnabled,
-		Callbacks: models.VisionServiceSyncCallbacks{
-			StatusPath:   visionStatusCallbackPath,
-			EventPath:    visionEventCallbackPath,
-			EvidencePath: visionEvidenceCallbackPath,
-		},
-		Rules: rules,
+		Rules:              rules,
 	}, nil
 }

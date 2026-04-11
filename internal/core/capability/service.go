@@ -116,7 +116,8 @@ func (s *Service) visionDetail(ctx context.Context) (models.CapabilityDetail, bo
 		return models.CapabilityDetail{}, false, err
 	}
 	summary := map[string]any{
-		"service_url":        visionDetail.Config.ServiceURL,
+		"service_ws_url":     visionDetail.Config.ServiceWSURL,
+		"model_name":         visionDetail.Config.ModelName,
 		"rule_count":         len(visionDetail.Config.Rules),
 		"enabled_rule_count": enabledRuleCount(visionDetail.Config.Rules),
 		"last_event_at":      visionDetail.Runtime.LastEventAt,
@@ -125,7 +126,8 @@ func (s *Service) visionDetail(ctx context.Context) (models.CapabilityDetail, bo
 	if visionDetail.Catalog != nil {
 		summary["entity_count"] = len(visionDetail.Catalog.Entities)
 		summary["catalog_fetched_at"] = visionDetail.Catalog.FetchedAt
-		summary["catalog_service_url"] = visionDetail.Catalog.ServiceURL
+		summary["catalog_service_ws_url"] = visionDetail.Catalog.ServiceWSURL
+		summary["catalog_model_name"] = visionDetail.Catalog.ModelName
 	}
 	detail := models.CapabilityDetail{
 		Capability: models.Capability{

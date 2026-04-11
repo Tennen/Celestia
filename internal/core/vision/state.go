@@ -29,6 +29,8 @@ func (s *Service) EnrichDevice(device models.Device) models.Device {
 
 func defaultConfig() models.VisionCapabilityConfig {
 	return models.VisionCapabilityConfig{
+		ServiceWSURL:               "",
+		ModelName:                  "",
 		RecognitionEnabled:         false,
 		EventCaptureRetentionHours: models.DefaultVisionEventCaptureRetentionHours,
 		Rules:                      []models.VisionRule{},
@@ -45,7 +47,7 @@ func defaultStatus(config models.VisionCapabilityConfig) models.VisionCapability
 	}
 	if config.RecognitionEnabled {
 		status.Status = models.HealthStateUnknown
-		status.Message = "vision capability awaiting service status"
+		status.Message = "vision capability awaiting websocket session"
 	}
 	return status
 }

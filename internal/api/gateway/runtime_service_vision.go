@@ -32,28 +32,6 @@ func (s *RuntimeService) RefreshVisionEntityCatalog(ctx context.Context, req mod
 	return item, nil
 }
 
-func (s *RuntimeService) ReportVisionCapabilityStatus(ctx context.Context, report models.VisionServiceStatusReport) (models.VisionCapabilityStatus, error) {
-	item, err := s.runtime.Vision.ReportStatus(ctx, report)
-	if err != nil {
-		return models.VisionCapabilityStatus{}, statusError(http.StatusBadRequest, err)
-	}
-	return item, nil
-}
-
-func (s *RuntimeService) ReportVisionCapabilityEvents(ctx context.Context, batch models.VisionServiceEventBatch) error {
-	if err := s.runtime.Vision.ReportEvents(ctx, batch); err != nil {
-		return statusError(http.StatusBadRequest, err)
-	}
-	return nil
-}
-
-func (s *RuntimeService) ReportVisionCapabilityEvidence(ctx context.Context, batch models.VisionServiceEventCaptureBatch) error {
-	if err := s.runtime.Vision.ReportEvidence(ctx, batch); err != nil {
-		return statusError(http.StatusBadRequest, err)
-	}
-	return nil
-}
-
 func (s *RuntimeService) GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error) {
 	item, ok, err := s.runtime.Vision.GetCaptureAsset(ctx, captureID)
 	if err != nil {

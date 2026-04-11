@@ -176,7 +176,8 @@ export type VisionRule = {
 };
 
 export type VisionCapabilityConfig = {
-  service_url: string;
+  service_ws_url: string;
+  model_name?: string;
   recognition_enabled: boolean;
   event_capture_retention_hours: number;
   rules: VisionRule[];
@@ -184,7 +185,7 @@ export type VisionCapabilityConfig = {
 };
 
 export type VisionEntityCatalog = {
-  service_url: string;
+  service_ws_url: string;
   schema_version: string;
   service_version?: string;
   model_name?: string;
@@ -193,7 +194,8 @@ export type VisionEntityCatalog = {
 };
 
 export type VisionEntityCatalogRefreshRequest = {
-  service_url?: string;
+  service_ws_url?: string;
+  model_name?: string;
 };
 
 export type VisionCapabilityStatus = {

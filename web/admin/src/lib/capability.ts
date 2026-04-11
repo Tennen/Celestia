@@ -36,7 +36,8 @@ export function cloneVisionConfig<T>(value: T): T {
 
 export function defaultVisionConfig(): VisionCapabilityConfig {
   return {
-    service_url: '',
+    service_ws_url: '',
+    model_name: '',
     recognition_enabled: false,
     event_capture_retention_hours: 168,
     rules: [],
@@ -87,7 +88,8 @@ export function normalizeVisionConfig(
   config: Partial<VisionCapabilityConfig> | null | undefined,
 ): VisionCapabilityConfig {
   return {
-    service_url: readString(config?.service_url),
+    service_ws_url: readString(config?.service_ws_url),
+    model_name: readString(config?.model_name) || undefined,
     recognition_enabled: readBoolean(config?.recognition_enabled),
     event_capture_retention_hours: Math.max(1, readNumber(config?.event_capture_retention_hours, 168)),
     rules: asArray(config?.rules).map((rule, index) => normalizeVisionRule(rule, index)),
@@ -102,7 +104,7 @@ export function normalizeVisionEntityCatalog(
     return null;
   }
   return {
-    service_url: readString(catalog.service_url),
+    service_ws_url: readString(catalog.service_ws_url),
     schema_version: readString(catalog.schema_version),
     service_version: readString(catalog.service_version) || undefined,
     model_name: readString(catalog.model_name) || undefined,

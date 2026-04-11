@@ -41,7 +41,8 @@ type VisionRule struct {
 }
 
 type VisionCapabilityConfig struct {
-	ServiceURL                 string       `json:"service_url"`
+	ServiceWSURL               string       `json:"service_ws_url"`
+	ModelName                  string       `json:"model_name,omitempty"`
 	RecognitionEnabled         bool         `json:"recognition_enabled"`
 	EventCaptureRetentionHours int          `json:"event_capture_retention_hours"`
 	Rules                      []VisionRule `json:"rules,omitempty"`
@@ -49,7 +50,7 @@ type VisionCapabilityConfig struct {
 }
 
 type VisionEntityCatalog struct {
-	ServiceURL     string                   `json:"service_url"`
+	ServiceWSURL   string                   `json:"service_ws_url"`
 	SchemaVersion  string                   `json:"schema_version"`
 	ServiceVersion string                   `json:"service_version,omitempty"`
 	ModelName      string                   `json:"model_name,omitempty"`
@@ -58,7 +59,8 @@ type VisionEntityCatalog struct {
 }
 
 type VisionEntityCatalogRefreshRequest struct {
-	ServiceURL string `json:"service_url,omitempty"`
+	ServiceWSURL string `json:"service_ws_url,omitempty"`
+	ModelName    string `json:"model_name,omitempty"`
 }
 
 type VisionCapabilityStatus struct {
@@ -153,17 +155,10 @@ type VisionServiceEntityCatalog struct {
 }
 
 type VisionServiceSyncPayload struct {
-	SchemaVersion      string                     `json:"schema_version"`
-	SentAt             time.Time                  `json:"sent_at"`
-	RecognitionEnabled bool                       `json:"recognition_enabled"`
-	Callbacks          VisionServiceSyncCallbacks `json:"callbacks"`
-	Rules              []VisionServiceRule        `json:"rules"`
-}
-
-type VisionServiceSyncCallbacks struct {
-	StatusPath   string `json:"status_path"`
-	EventPath    string `json:"event_path"`
-	EvidencePath string `json:"evidence_path"`
+	SchemaVersion      string              `json:"schema_version"`
+	SentAt             time.Time           `json:"sent_at"`
+	RecognitionEnabled bool                `json:"recognition_enabled"`
+	Rules              []VisionServiceRule `json:"rules"`
 }
 
 type VisionServiceRule struct {

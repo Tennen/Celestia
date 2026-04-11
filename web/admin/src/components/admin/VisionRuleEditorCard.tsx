@@ -162,8 +162,8 @@ export function VisionRuleEditorCard({
 
             {catalogMismatch ? (
               <p className="muted">
-                Supported entities were fetched from {catalog?.service_url}. Refresh the catalog again for the current Vision Service
-                address before saving rules.
+                Supported entities were fetched from {catalog?.service_ws_url}. Refresh the catalog again for the current Vision
+                Service websocket URL and model before saving rules.
               </p>
             ) : null}
             {!catalog && !catalogMismatch ? (

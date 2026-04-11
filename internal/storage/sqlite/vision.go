@@ -25,7 +25,7 @@ func (s *Store) UpsertVisionConfig(ctx context.Context, config models.VisionCapa
 			updated_at=excluded.updated_at
 	`,
 		models.VisionCapabilityID,
-		strings.TrimSpace(config.ServiceURL),
+		strings.TrimSpace(config.ServiceWSURL),
 		boolToInt(config.RecognitionEnabled),
 		config.EventCaptureRetentionHours,
 		rulesJSON,
@@ -68,7 +68,7 @@ func (s *Store) UpsertVisionCatalog(ctx context.Context, catalog models.VisionEn
 			fetched_at=excluded.fetched_at
 	`,
 		models.VisionCapabilityID,
-		strings.TrimSpace(catalog.ServiceURL),
+		strings.TrimSpace(catalog.ServiceWSURL),
 		strings.TrimSpace(catalog.SchemaVersion),
 		strings.TrimSpace(catalog.ServiceVersion),
 		strings.TrimSpace(catalog.ModelName),

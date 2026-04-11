@@ -2,10 +2,9 @@ package vision
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -14,7 +13,6 @@ import (
 )
 
 const (
-	visionEntityCatalogPath          = "/api/v1/capabilities/" + models.VisionCapabilityID + "/entities"
 	visionEntityCatalogSchemaVersion = "celestia.vision.catalog.v1"
 )
 
@@ -23,11 +21,15 @@ func (s *Service) GetCatalog(ctx context.Context) (models.VisionEntityCatalog, b
 }
 
 func (s *Service) RefreshCatalog(ctx context.Context, req models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error) {
-	serviceURL, err := s.resolveCatalogServiceURL(ctx, req.ServiceURL)
+	serviceWSURL, err := s.resolveCatalogServiceWSURL(ctx, req.ServiceWSURL)
 	if err != nil {
 		return models.VisionEntityCatalog{}, err
 	}
-	catalog, err := s.fetchCatalog(ctx, serviceURL)
+	modelName, err := s.resolveCatalogModelName(ctx, serviceWSURL, req)
+	if err != nil {
+		return models.VisionEntityCatalog{}, err
+	}
+	catalog, err := s.fetchCatalog(ctx, serviceWSURL, modelName)
 	if err != nil {
 		return models.VisionEntityCatalog{}, err
 	}
@@ -37,43 +39,54 @@ func (s *Service) RefreshCatalog(ctx context.Context, req models.VisionEntityCat
 	return catalog, nil
 }
 
-func (s *Service) resolveCatalogServiceURL(ctx context.Context, rawURL string) (string, error) {
-	serviceURL := normalizeServiceURL(rawURL)
-	if serviceURL != "" {
-		return serviceURL, nil
+func (s *Service) resolveCatalogServiceWSURL(ctx context.Context, rawURL string) (string, error) {
+	serviceWSURL := normalizeServiceWSURL(rawURL)
+	if serviceWSURL != "" {
+		if err := validateServiceWSURL(serviceWSURL); err != nil {
+			return "", err
+		}
+		return serviceWSURL, nil
 	}
 	config, err := s.GetConfig(ctx)
 	if err != nil {
 		return "", err
 	}
-	if config.ServiceURL == "" {
-		return "", errors.New("vision service_url is required to fetch supported entities")
+	if config.ServiceWSURL == "" {
+		return "", errors.New("vision service_ws_url is required to fetch supported entities")
 	}
-	return config.ServiceURL, nil
+	if err := validateServiceWSURL(config.ServiceWSURL); err != nil {
+		return "", err
+	}
+	return config.ServiceWSURL, nil
 }
 
-func (s *Service) fetchCatalog(ctx context.Context, serviceURL string) (models.VisionEntityCatalog, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serviceURL+visionEntityCatalogPath, nil)
-	if err != nil {
-		return models.VisionEntityCatalog{}, err
+func (s *Service) resolveCatalogModelName(
+	ctx context.Context,
+	serviceWSURL string,
+	req models.VisionEntityCatalogRefreshRequest,
+) (string, error) {
+	if normalized := normalizeModelName(req.ModelName); normalized != "" {
+		return normalized, nil
 	}
-	resp, err := s.client.Do(req)
+	config, err := s.GetConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	if req.ServiceWSURL != "" && normalizeServiceWSURL(req.ServiceWSURL) != normalizeServiceWSURL(config.ServiceWSURL) {
+		return "", nil
+	}
+	return normalizeModelName(config.ModelName), nil
+}
+
+func (s *Service) fetchCatalog(ctx context.Context, serviceWSURL, modelName string) (models.VisionEntityCatalog, error) {
+	catalog, err := s.session.FetchCatalog(ctx, serviceWSURL, modelName)
 	if err != nil {
 		return models.VisionEntityCatalog{}, fmt.Errorf("vision entity catalog fetch failed: %w", err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return models.VisionEntityCatalog{}, fmt.Errorf("vision entity catalog fetch failed with status %d", resp.StatusCode)
-	}
-
-	var payload models.VisionServiceEntityCatalog
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return models.VisionEntityCatalog{}, fmt.Errorf("decode vision entity catalog: %w", err)
-	}
-	return normalizeCatalog(serviceURL, payload)
+	return catalog, nil
 }
 
-func normalizeCatalog(serviceURL string, payload models.VisionServiceEntityCatalog) (models.VisionEntityCatalog, error) {
+func normalizeCatalog(serviceWSURL string, payload models.VisionServiceEntityCatalog) (models.VisionEntityCatalog, error) {
 	schemaVersion := strings.TrimSpace(payload.SchemaVersion)
 	if schemaVersion == "" {
 		schemaVersion = visionEntityCatalogSchemaVersion
@@ -83,10 +96,10 @@ func normalizeCatalog(serviceURL string, payload models.VisionServiceEntityCatal
 	}
 
 	catalog := models.VisionEntityCatalog{
-		ServiceURL:     normalizeServiceURL(serviceURL),
+		ServiceWSURL:   normalizeServiceWSURL(serviceWSURL),
 		SchemaVersion:  schemaVersion,
 		ServiceVersion: strings.TrimSpace(payload.ServiceVersion),
-		ModelName:      strings.TrimSpace(payload.ModelName),
+		ModelName:      normalizeModelName(payload.ModelName),
 		Entities:       make([]models.VisionEntityDescriptor, 0, len(payload.Entities)),
 	}
 	catalog.FetchedAt = payload.FetchedAt.UTC()
@@ -129,19 +142,43 @@ func normalizeCatalogEntity(item models.VisionEntityDescriptor) models.VisionEnt
 	return item
 }
 
-func normalizeServiceURL(value string) string {
+func normalizeServiceWSURL(value string) string {
 	return strings.TrimRight(strings.TrimSpace(value), "/")
 }
 
+func validateServiceWSURL(value string) error {
+	parsed, err := url.Parse(normalizeServiceWSURL(value))
+	if err != nil {
+		return fmt.Errorf("vision service_ws_url is invalid: %w", err)
+	}
+	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
+		return errors.New("vision service_ws_url must use ws or wss")
+	}
+	if strings.TrimSpace(parsed.Host) == "" {
+		return errors.New("vision service_ws_url host is required")
+	}
+	if strings.TrimSpace(parsed.Path) == "" || parsed.Path == "/" {
+		return errors.New("vision service_ws_url must include the websocket endpoint path")
+	}
+	return nil
+}
+
+func normalizeModelName(value string) string {
+	return strings.TrimSpace(value)
+}
+
 func (s *Service) validateConfigAgainstCatalog(ctx context.Context, config models.VisionCapabilityConfig) error {
-	if config.ServiceURL == "" {
+	if config.ServiceWSURL == "" {
 		return nil
 	}
 	catalog, ok, err := s.store.GetVisionCatalog(ctx)
 	if err != nil || !ok {
 		return err
 	}
-	if normalizeServiceURL(catalog.ServiceURL) != normalizeServiceURL(config.ServiceURL) {
+	if normalizeServiceWSURL(catalog.ServiceWSURL) != normalizeServiceWSURL(config.ServiceWSURL) {
+		return nil
+	}
+	if expectedModel := normalizeModelName(config.ModelName); expectedModel != "" && normalizeModelName(catalog.ModelName) != expectedModel {
 		return nil
 	}
 	if len(catalog.Entities) == 0 {

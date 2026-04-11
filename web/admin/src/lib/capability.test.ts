@@ -14,7 +14,7 @@ describe('capability normalization', () => {
       updated_at: '2026-04-09T00:00:00Z',
       vision: {
         config: {
-          service_url: 'http://127.0.0.1:8090',
+          service_ws_url: 'ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone',
           recognition_enabled: true,
           event_capture_retention_hours: 168,
           updated_at: '2026-04-09T00:00:00Z',
@@ -24,7 +24,7 @@ describe('capability normalization', () => {
           updated_at: '2026-04-09T00:00:00Z',
         },
         catalog: {
-          service_url: 'http://127.0.0.1:8090',
+          service_ws_url: 'ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone',
           schema_version: 'v1',
           fetched_at: '2026-04-09T00:00:00Z',
         } as VisionEntityCatalog,
@@ -38,7 +38,7 @@ describe('capability normalization', () => {
 
   it('drops malformed vision entities instead of surfacing undefined values to the UI', () => {
     const catalog = normalizeVisionEntityCatalog({
-      service_url: 'http://127.0.0.1:8090',
+      service_ws_url: 'ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone',
       schema_version: 'v1',
       fetched_at: '2026-04-09T00:00:00Z',
       entities: [

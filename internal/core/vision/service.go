@@ -2,8 +2,6 @@ package vision
 
 import (
 	"context"
-	"net/http"
-	"time"
 
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	"github.com/chentianyu/celestia/internal/core/registry"
@@ -15,10 +13,6 @@ import (
 const (
 	defaultVisionThresholdSeconds = 5
 	visionStatePrefix             = "vision_rule_"
-	visionConfigSyncPath          = "/api/v1/capabilities/" + models.VisionCapabilityID
-	visionStatusCallbackPath      = "/api/v1/capabilities/" + models.VisionCapabilityID + "/status"
-	visionEventCallbackPath       = "/api/v1/capabilities/" + models.VisionCapabilityID + "/events"
-	visionEvidenceCallbackPath    = "/api/v1/capabilities/" + models.VisionCapabilityID + "/evidence"
 )
 
 type Service struct {
@@ -26,18 +20,27 @@ type Service struct {
 	registry *registry.Service
 	state    *state.Service
 	bus      *eventbus.Bus
-	client   *http.Client
+	session  *sessionManager
 }
 
 func New(store storage.Store, registrySvc *registry.Service, stateSvc *state.Service, bus *eventbus.Bus) *Service {
-	return &Service{
+	service := &Service{
 		store:    store,
 		registry: registrySvc,
 		state:    stateSvc,
 		bus:      bus,
-		client: &http.Client{
-			Timeout: 5 * time.Second,
-		},
+	}
+	service.session = newSessionManager(service)
+	return service
+}
+
+func (s *Service) Init(ctx context.Context) error {
+	return s.session.Init(ctx)
+}
+
+func (s *Service) Close() {
+	if s.session != nil {
+		s.session.Close()
 	}
 }
 

@@ -192,7 +192,7 @@ func scanVisionConfig(scanner interface{ Scan(...any) error }) (models.VisionCap
 		rulesJSON          string
 		updatedAt          string
 	)
-	if err := scanner.Scan(&capabilityID, &config.ServiceURL, &recognitionEnabled, &retentionHours, &rulesJSON, &updatedAt); err != nil {
+	if err := scanner.Scan(&capabilityID, &config.ServiceWSURL, &recognitionEnabled, &retentionHours, &rulesJSON, &updatedAt); err != nil {
 		return models.VisionCapabilityConfig{}, err
 	}
 	config.RecognitionEnabled = recognitionEnabled == 1
@@ -217,7 +217,7 @@ func scanVisionCatalog(scanner interface{ Scan(...any) error }) (models.VisionEn
 	)
 	if err := scanner.Scan(
 		&capabilityID,
-		&catalog.ServiceURL,
+		&catalog.ServiceWSURL,
 		&catalog.SchemaVersion,
 		&catalog.ServiceVersion,
 		&catalog.ModelName,

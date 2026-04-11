@@ -59,12 +59,20 @@ func New(store storage.Store) *Runtime {
 }
 
 func (r *Runtime) Reconcile(ctx context.Context) error {
+	if r.Vision != nil {
+		if err := r.Vision.Init(ctx); err != nil {
+			return err
+		}
+	}
 	return r.PluginMgr.Reconcile(ctx)
 }
 
 func (r *Runtime) Shutdown(ctx context.Context) error {
 	if r.Automation != nil {
 		r.Automation.Close()
+	}
+	if r.Vision != nil {
+		r.Vision.Close()
 	}
 	return r.PluginMgr.Shutdown(ctx)
 }

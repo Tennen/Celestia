@@ -44,7 +44,8 @@ Response:
     "enabled": true,
     "status": "healthy",
     "summary": {
-      "service_url": "http://127.0.0.1:8090",
+      "service_ws_url": "ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone",
+      "model_name": "custom-pets.pt",
       "rule_count": 2,
       "enabled_rule_count": 2,
       "last_event_at": "2026-04-08T09:28:11Z",

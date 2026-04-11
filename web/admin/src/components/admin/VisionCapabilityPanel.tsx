@@ -13,7 +13,14 @@ import {
 } from '../../lib/capability';
 import { formatTime } from '../../lib/utils';
 import { useAdminStore } from '../../stores/adminStore';
-import type { CapabilityDetail, CapabilitySummary, DeviceView, VisionCapabilityConfig, VisionRule } from '../../lib/types';
+import type {
+  CapabilityDetail,
+  CapabilitySummary,
+  DeviceView,
+  VisionCapabilityConfig,
+  VisionEntityCatalog,
+  VisionRule,
+} from '../../lib/types';
 import { useRetainedDraft } from '../../hooks/useRetainedDraft';
 import { RecognitionSettingsModal } from './RecognitionSettingsModal';
 import { SelectableListItem } from './shared/SelectableListItem';
@@ -28,7 +35,8 @@ type VisionRulesDraft = {
 type RecognitionSettingsDraft = {
   event_capture_retention_hours: number;
   recognition_enabled: boolean;
-  service_url: string;
+  service_ws_url: string;
+  model_name: string;
 };
 
 type Props = {
@@ -43,8 +51,28 @@ function ensureSelection(currentId: string, rules: VisionRule[]) {
   return rules[0].id;
 }
 
-function normalizeVisionServiceURL(value: string) {
+function normalizeVisionServiceWSURL(value: string) {
   return value.trim().replace(/\/+$/, '');
+}
+
+function normalizeVisionModelName(value: string) {
+  return value.trim();
+}
+
+function catalogMatchesSelection(
+  catalog: VisionEntityCatalog | null,
+  serviceWSURL: string,
+  modelName: string,
+) {
+  if (!catalog) return false;
+  if (normalizeVisionServiceWSURL(catalog.service_ws_url) !== normalizeVisionServiceWSURL(serviceWSURL)) {
+    return false;
+  }
+  const normalizedModelName = normalizeVisionModelName(modelName);
+  if (!normalizedModelName) {
+    return true;
+  }
+  return normalizeVisionModelName(catalog.model_name ?? '') === normalizedModelName;
 }
 
 function cloneDraft<T>(value: T): T {
@@ -53,7 +81,8 @@ function cloneDraft<T>(value: T): T {
 
 function settingsDraftFromConfig(config: VisionCapabilityConfig): RecognitionSettingsDraft {
   return {
-    service_url: config.service_url,
+    service_ws_url: config.service_ws_url,
+    model_name: config.model_name ?? '',
     recognition_enabled: config.recognition_enabled,
     event_capture_retention_hours: config.event_capture_retention_hours,
   };
@@ -126,17 +155,13 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   const persistedConfig = detail?.vision?.config ?? defaultVisionConfig();
   const settingsDraft = settingsDraftState.draft ?? settingsDraftFromConfig(persistedConfig);
   const ruleDraft = ruleDraftState.draft ?? { rules: persistedConfig.rules };
-  const normalizedSavedServiceURL = normalizeVisionServiceURL(persistedConfig.service_url);
-  const normalizedDraftServiceURL = normalizeVisionServiceURL(settingsDraft.service_url);
-  const catalogMatchesDraft = Boolean(
-    catalog && normalizeVisionServiceURL(catalog.service_url) === normalizedDraftServiceURL,
-  );
-  const catalogMatchesSaved = Boolean(
-    catalog && normalizeVisionServiceURL(catalog.service_url) === normalizedSavedServiceURL,
-  );
+  const normalizedSavedServiceWSURL = normalizeVisionServiceWSURL(persistedConfig.service_ws_url);
+  const normalizedDraftServiceWSURL = normalizeVisionServiceWSURL(settingsDraft.service_ws_url);
+  const catalogMatchesDraft = catalogMatchesSelection(catalog, settingsDraft.service_ws_url, settingsDraft.model_name);
+  const catalogMatchesSaved = catalogMatchesSelection(catalog, persistedConfig.service_ws_url, persistedConfig.model_name ?? '');
   const activeCatalog = catalogMatchesSaved ? catalog : null;
-  const selectedRule = ruleDraft.rules.find((rule) => rule.id === selectedRuleId) ?? null;
-  const recognitionConfigured = Boolean(normalizedSavedServiceURL);
+  const selectedRule = ruleDraft.rules.find((rule: VisionRule) => rule.id === selectedRuleId) ?? null;
+  const recognitionConfigured = Boolean(normalizedSavedServiceWSURL);
 
   const updateRuleDraft = (updater: (current: VisionRulesDraft) => VisionRulesDraft) => {
     ruleDraftState.setDraft(updater);
@@ -149,7 +174,8 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   const addRule = () => {
     const rule = createVisionRule(cameraDevices, ruleDraft.rules.length);
     const preferredEntity =
-      activeCatalog?.entities.find((entity) => entity.kind === 'label' && entity.value === 'cat') ?? activeCatalog?.entities[0];
+      activeCatalog?.entities.find((entity: VisionEntityCatalog['entities'][number]) => entity.kind === 'label' && entity.value === 'cat') ??
+      activeCatalog?.entities[0];
     if (preferredEntity) {
       rule.entity_selector = {
         kind: preferredEntity.kind,
@@ -174,9 +200,10 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
     setBusy('refresh_entities');
     try {
       const nextCatalog = await refreshVisionEntityCatalog({
-        service_url: settingsDraft.service_url || persistedConfig.service_url || undefined,
+        service_ws_url: settingsDraft.service_ws_url || persistedConfig.service_ws_url || undefined,
+        model_name: settingsDraft.model_name || persistedConfig.model_name || undefined,
       });
-      setDetail((current) =>
+      setDetail((current: CapabilityDetail | null) =>
         current && current.vision
           ? {
               ...current,
@@ -276,11 +303,11 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
                 </div>
               </div>
               <p className="muted vision-toolbar__support">
-                {capabilityDisplayName(summary)} · {normalizedSavedServiceURL || 'Recognition service not configured'}
+                {capabilityDisplayName(summary)} · {normalizedSavedServiceWSURL || 'Recognition service not configured'}
               </p>
               <ScrollArea className="explorer-scroll">
                 <div className="list-stack">
-                  {ruleDraft.rules.map((rule) => {
+                  {ruleDraft.rules.map((rule: VisionRule) => {
                     const statusBadge = recognitionRuleBadge(rule);
                     return (
                       <SelectableListItem
@@ -316,7 +343,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
                 onSelectRuleId={setSelectedRuleId}
                 onUpdateRule={(ruleId, updater) =>
                   updateRuleDraft((current) => ({
-                    rules: current.rules.map((rule) => (rule.id === ruleId ? updater({ ...rule }) : rule)),
+                    rules: current.rules.map((rule: VisionRule) => (rule.id === ruleId ? updater({ ...rule }) : rule)),
                   }))
                 }
                 saving={busy === 'save_rule'}
@@ -365,7 +392,8 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
           catalog={catalog}
           catalogMatchesDraft={catalogMatchesDraft}
           draft={settingsDraft}
-          normalizedDraftServiceURL={normalizedDraftServiceURL}
+          normalizedDraftServiceWSURL={normalizedDraftServiceWSURL}
+          normalizedDraftModelName={normalizeVisionModelName(settingsDraft.model_name)}
           onOpenChange={setSettingsOpen}
           onRefreshEntities={() => void handleRefreshEntities()}
           onResetDraft={handleResetSettings}

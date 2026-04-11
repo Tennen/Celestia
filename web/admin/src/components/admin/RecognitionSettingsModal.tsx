@@ -12,7 +12,8 @@ import { CardHeading } from './shared/CardHeading';
 type RecognitionSettingsDraft = {
   event_capture_retention_hours: number;
   recognition_enabled: boolean;
-  service_url: string;
+  service_ws_url: string;
+  model_name: string;
 };
 
 type Props = {
@@ -20,7 +21,8 @@ type Props = {
   catalog: VisionEntityCatalog | null;
   catalogMatchesDraft: boolean;
   draft: RecognitionSettingsDraft;
-  normalizedDraftServiceURL: string;
+  normalizedDraftServiceWSURL: string;
+  normalizedDraftModelName: string;
   onOpenChange: (open: boolean) => void;
   onRefreshEntities: () => void;
   onResetDraft: () => void;
@@ -43,7 +45,8 @@ export function RecognitionSettingsModal({
   catalog,
   catalogMatchesDraft,
   draft,
-  normalizedDraftServiceURL,
+  normalizedDraftServiceWSURL,
+  normalizedDraftModelName,
   onOpenChange,
   onRefreshEntities,
   onResetDraft,
@@ -76,7 +79,7 @@ export function RecognitionSettingsModal({
         <CardHeader className="recognition-settings-modal__header">
           <CardHeading
             title="Recognition Settings"
-            description="Configure the recognition service endpoint, runtime sync behavior, and supported entity catalog."
+            description="Configure the recognition websocket endpoint, selected model, runtime sync behavior, and supported entity catalog."
             aside={
               <div className="recognition-settings-modal__aside">
                 <Badge tone={toneFromHealth(status)}>{status}</Badge>
@@ -103,11 +106,20 @@ export function RecognitionSettingsModal({
         <div className="admin-modal__scroll">
           <CardContent className="stack recognition-settings-modal__content">
             <div className="automation-field">
-              <label>Recognition Service Address</label>
+              <label>Recognition Service WebSocket URL</label>
               <Input
-                value={draft.service_url}
-                onChange={(event) => onUpdateDraft((current) => ({ ...current, service_url: event.target.value }))}
-                placeholder="http://127.0.0.1:8090"
+                value={draft.service_ws_url}
+                onChange={(event) => onUpdateDraft((current) => ({ ...current, service_ws_url: event.target.value }))}
+                placeholder="ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone"
+              />
+            </div>
+
+            <div className="automation-field">
+              <label>Selected Model</label>
+              <Input
+                value={draft.model_name}
+                onChange={(event) => onUpdateDraft((current) => ({ ...current, model_name: event.target.value }))}
+                placeholder="Leave blank to use the service default/current model"
               />
             </div>
 
@@ -137,14 +149,15 @@ export function RecognitionSettingsModal({
               {catalog ? (
                 <>
                   <p className="muted">
-                    Catalog from {catalog.service_url} · fetched{' '}
+                    Catalog from {catalog.service_ws_url} · fetched{' '}
                     {catalog.fetched_at ? formatTime(catalog.fetched_at) : 'unknown'} · model{' '}
-                    {catalog.model_name || runtime?.service_version || 'unknown'}
+                    {catalog.model_name || 'current/default'}
                   </p>
                   {!catalogMatchesDraft ? (
                     <p className="muted">
-                      Current draft points to {normalizedDraftServiceURL || 'no service address'}. Refresh again after updating
-                      the Recognition Service address so entity validation matches the target model.
+                      Current draft points to {normalizedDraftServiceWSURL || 'no websocket URL'} · model{' '}
+                      {normalizedDraftModelName || 'current/default'}. Refresh again after updating the websocket URL or model so
+                      entity validation matches the target runtime.
                     </p>
                   ) : null}
                   <div className="button-row">
