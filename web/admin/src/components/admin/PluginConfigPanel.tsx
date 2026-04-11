@@ -30,6 +30,7 @@ export function PluginConfigPanel({
   onInstall,
   onSaveConfig,
 }: Props) {
+  const scrollAreaClassName = 'h-[420px] max-h-[60vh] min-h-0 w-full';
   const defaultConfig = useMemo(() => getCatalogDefaultConfig(plugin), [plugin]);
   const properties = useMemo(() => {
     const schema = plugin.manifest.config_schema;
@@ -98,7 +99,7 @@ export function PluginConfigPanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <ScrollArea className="max-h-[420px]">
+          <ScrollArea className={scrollAreaClassName}>
             <pre className="log-box">{prettyJson(defaultConfig)}</pre>
           </ScrollArea>
         </CardContent>
@@ -111,7 +112,7 @@ export function PluginConfigPanel({
         </CardHeader>
         <CardContent className="stack">
           {properties.length > 0 ? (
-            <ScrollArea className="max-h-[420px] pr-4">
+            <ScrollArea className={`${scrollAreaClassName} pr-4`}>
               <div className="config-field-list">
                 {properties.map((property) => (
                   <div key={property.key} className="config-field-list__item">
