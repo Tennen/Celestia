@@ -22,6 +22,9 @@ func (s *RuntimeService) SaveVisionCapabilityConfig(ctx context.Context, config 
 	if !ok {
 		return models.CapabilityDetail{}, statusError(http.StatusNotFound, errors.New("capability not found"))
 	}
+	if detail.Vision != nil {
+		item.Catalog = detail.Vision.Catalog
+	}
 	detail.Vision = &item
 	return detail, nil
 }
