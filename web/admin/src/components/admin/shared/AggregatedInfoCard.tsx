@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '../../../lib/utils';
 
 export type AggregatedInfoCardItem = {
+  className?: string;
   label: string;
   title?: string;
   value: ReactNode;
@@ -22,7 +23,7 @@ export function AggregatedInfoCard({ className, items }: Props) {
       {items.map((item, index) => {
         const title = item.title ?? (typeof item.value === 'string' ? item.value : undefined);
         return (
-          <div key={`${item.label}-${index}`} className="aggregated-info-card__item">
+          <div key={`${item.label}-${index}`} className={cn('aggregated-info-card__item', item.className)}>
             <span className="aggregated-info-card__label">{item.label}</span>
             <strong className="aggregated-info-card__value" title={title}>
               {item.value}

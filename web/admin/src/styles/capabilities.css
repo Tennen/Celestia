@@ -406,20 +406,6 @@
   background: hsl(var(--muted));
 }
 
-.vision-history-detail__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.vision-history-detail__aside {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
 .vision-history-detail-card {
   display: flex;
   height: 100%;

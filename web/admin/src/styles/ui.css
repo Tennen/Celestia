@@ -228,10 +228,12 @@
   .aggregated-info-card {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
     overflow: hidden;
+    padding: 1px;
     border: 1px solid hsl(var(--border) / 0.9);
     border-radius: 1rem;
-    background: linear-gradient(180deg, hsl(var(--card)), hsl(var(--secondary) / 0.35));
+    background: hsl(var(--border) / 0.72);
   }
 
   .aggregated-info-card__item {
@@ -240,16 +242,11 @@
     flex-direction: column;
     gap: 0.2rem;
     padding: 0.75rem 0.9rem;
-    border-top: 1px solid hsl(var(--border) / 0.72);
-    border-left: 1px solid hsl(var(--border) / 0.72);
+    background: linear-gradient(180deg, hsl(var(--card)), hsl(var(--secondary) / 0.35));
   }
 
-  .aggregated-info-card__item:nth-child(-n + 2) {
-    border-top: 0;
-  }
-
-  .aggregated-info-card__item:nth-child(odd) {
-    border-left: 0;
+  .aggregated-info-card__item--full {
+    grid-column: 1 / -1;
   }
 
   .aggregated-info-card__label {

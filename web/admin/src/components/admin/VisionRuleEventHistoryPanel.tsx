@@ -8,7 +8,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import { visionEventCapturesFromPayload, VisionEventCaptureGallery } from './VisionEventCaptureGallery';
-import { AggregatedInfoCard, type AggregatedInfoCardItem } from './shared/AggregatedInfoCard';
+import { AggregatedInfoCard } from './shared/AggregatedInfoCard';
 import { CardHeading } from './shared/CardHeading';
 
 type Props = {
@@ -24,20 +24,6 @@ function readString(value: unknown, fallback = '') {
 
 function readNumber(value: unknown, fallback = 0) {
   return typeof value === 'number' ? value : fallback;
-}
-
-function readRecord(value: unknown) {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
-}
-
-function formatEntitySelector(value: unknown, fallback: VisionRule['entity_selector']) {
-  const selector = readRecord(value);
-  const kind = readString(selector?.kind, fallback.kind || 'label');
-  const entityValue = readString(selector?.value, fallback.value);
-  if (kind && entityValue) {
-    return `${kind}:${entityValue}`;
-  }
-  return entityValue || kind || 'unset';
 }
 
 type VisionHistoryEventListItemProps = {
@@ -117,28 +103,6 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   }, [events]);
 
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
-  const summaryItems: AggregatedInfoCardItem[] = [
-    {
-      label: 'Event ID',
-      value: selectedEvent?.id || 'No event selected',
-      title: selectedEvent?.id,
-    },
-    {
-      label: 'Camera',
-      value: selectedEvent?.device_id || rule.camera_device_id || 'unbound',
-      title: selectedEvent?.device_id || rule.camera_device_id || 'unbound',
-    },
-    {
-      label: 'Entity',
-      value: readString(selectedEvent?.payload?.entity_value, rule.entity_selector.value || 'unset'),
-      title: readString(selectedEvent?.payload?.entity_value, rule.entity_selector.value || 'unset'),
-    },
-    {
-      label: 'Entity Selector',
-      value: formatEntitySelector(selectedEvent?.payload?.entity_selector, rule.entity_selector),
-      title: formatEntitySelector(selectedEvent?.payload?.entity_selector, rule.entity_selector),
-    },
-  ];
 
   const refreshEvents = async () => {
     setBusy('refresh');
@@ -190,8 +154,6 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
         />
       </CardHeader>
       <CardContent className="vision-history-panel__content">
-        <AggregatedInfoCard items={summaryItems} />
-
         <div className="vision-history-layout">
           <ScrollArea className="vision-history-layout__list">
             <div className="vision-history-list">
@@ -222,27 +184,17 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                     title={readString(selectedEvent.payload?.event_status, selectedEvent.type)}
                     description={`${formatTime(selectedEvent.ts)} · ${readString(selectedEvent.payload?.entity_value, 'entity')}`}
                     aside={
-                      <div className="vision-history-detail__aside">
-                        <div className="vision-history-detail__badges">
-                          <Badge tone="accent" size="sm">
-                            {readString(selectedEvent.payload?.rule_name, rule.name || rule.id)}
-                          </Badge>
-                          <Badge tone="neutral" size="sm">
-                            {selectedEvent.device_id || 'no device'}
-                          </Badge>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          size="icon"
-                          aria-label="Delete Event"
-                          title="Delete Event"
-                          onClick={() => void deleteSelectedEvent()}
-                          disabled={busy !== ''}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="icon"
+                        aria-label="Delete Event"
+                        title="Delete Event"
+                        onClick={() => void deleteSelectedEvent()}
+                        disabled={busy !== ''}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     }
                   />
                 </CardHeader>
@@ -251,6 +203,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                     <AggregatedInfoCard
                       items={[
                         {
+                          className: 'aggregated-info-card__item--full',
                           label: 'Event ID',
                           value: selectedEvent.id,
                           title: selectedEvent.id,
