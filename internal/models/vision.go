@@ -98,6 +98,7 @@ type VisionServiceEvent struct {
 	ObservedAt     time.Time                `json:"observed_at"`
 	DwellSeconds   int                      `json:"dwell_seconds"`
 	EntityValue    string                   `json:"entity_value,omitempty"`
+	Entities       []VisionEntityDescriptor `json:"entities,omitempty"`
 	Metadata       map[string]any           `json:"metadata,omitempty"`
 }
 

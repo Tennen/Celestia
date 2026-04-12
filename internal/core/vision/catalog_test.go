@@ -116,3 +116,46 @@ func TestSaveConfigRejectsEntityNotInCatalog(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v, want unsupported entity validation", err)
 	}
 }
+
+func TestSaveConfigAllowsEmptyEntitySelectorWithCatalog(t *testing.T) {
+	ctx := context.Background()
+	service, registrySvc, _, store := newVisionTestService(t)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+	if err := store.UpsertVisionCatalog(ctx, models.VisionEntityCatalog{
+		ServiceWSURL:  wsURLFromHTTP("http://vision.example"),
+		SchemaVersion: visionEntityCatalogSchemaVersion,
+		ModelName:     "custom-pets.pt",
+		FetchedAt:     time.Now().UTC(),
+		Entities: []models.VisionEntityDescriptor{
+			{Kind: "label", Value: "cat", DisplayName: "Cat"},
+		},
+	}); err != nil {
+		t.Fatalf("UpsertVisionCatalog() error = %v", err)
+	}
+
+	detail, err := service.SaveConfig(ctx, models.VisionCapabilityConfig{
+		ServiceWSURL:       wsURLFromHTTP("http://vision.example"),
+		ModelName:          "custom-pets.pt",
+		RecognitionEnabled: false,
+		Rules: []models.VisionRule{{
+			ID:                 "feeder-zone",
+			Name:               "Feeder Zone",
+			Enabled:            true,
+			CameraDeviceID:     camera.ID,
+			RecognitionEnabled: true,
+			RTSPSource:         models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
+			EntitySelector:     models.VisionEntitySelector{Kind: "label", Value: ""},
+			Zone:               models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+	if detail.Config.Rules[0].EntitySelector.Value != "" {
+		t.Fatalf("entity_selector.value = %q, want empty wildcard", detail.Config.Rules[0].EntitySelector.Value)
+	}
+}

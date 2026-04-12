@@ -72,7 +72,7 @@ export function VisionRuleEditorCard({
 }: Props) {
   const [zoneEditorCollapsed, setZoneEditorCollapsed] = useState(true);
   const entityOptions = selectedRule ? buildEntityOptions(catalog, selectedRule) : [];
-  const canUseCatalog = Boolean(selectedRule && catalog && !catalogMismatch && entityOptions.length > 0);
+  const canUseSpecificEntities = Boolean(selectedRule && catalog && !catalogMismatch && entityOptions.length > 0);
   const selectedCameraDevice =
     selectedRule ? cameraDevices.find((device) => device.device.id === selectedRule.camera_device_id) ?? null : null;
   const resolvedRTSPSourceURL = cameraRTSPSourceURL(selectedCameraDevice);
@@ -87,7 +87,7 @@ export function VisionRuleEditorCard({
       <CardHeader>
         <CardHeading
           title={selectedRule ? selectedRule.name || 'Rule Editor' : 'Rule Editor'}
-          description="Bind a camera and RTSP source to a generic entity stay-zone rule. Gateway persists this config, validates against the fetched entity catalog when available, and pushes the normalized rule to the Vision Service."
+          description="Bind a camera and RTSP source to a generic entity stay-zone rule. Rules may either target one catalog entity or leave the selector empty so the Vision Service reports every recognized entity inside the zone."
           aside={
             selectedRule ? (
               <div className="automation-editor__meta">
@@ -186,17 +186,16 @@ export function VisionRuleEditorCard({
               </p>
             ) : null}
             {!catalog && !catalogMismatch ? (
-              <p className="muted">Refresh supported entities from the Vision Service to pick a recognized label such as cat.</p>
+              <p className="muted">You can save this rule for all entities now, or refresh supported entities to target one label such as cat.</p>
             ) : null}
             {catalog && !catalogMismatch && entityOptions.length === 0 ? (
-              <p className="muted">The current Vision Service catalog is empty, so there are no recognized entities to select yet.</p>
+              <p className="muted">The current Vision Service catalog is empty, so this rule can only run in all-entities mode right now.</p>
             ) : null}
 
             <div className="automation-field">
-              <label>Recognizable Entity</label>
+              <label>Target Entity</label>
               <select
                 className="select"
-                disabled={!canUseCatalog}
                 value={entityOptionValue(selectedRule.entity_selector.kind, selectedRule.entity_selector.value)}
                 onChange={(event) => {
                   const next = parseEntityOptionValue(event.target.value);
@@ -206,9 +205,7 @@ export function VisionRuleEditorCard({
                   }));
                 }}
               >
-                <option value={entityOptionValue('label', '')}>
-                  {canUseCatalog ? 'Select entity' : 'Refresh supported entities before choosing an entity'}
-                </option>
+                <option value={entityOptionValue(selectedRule.entity_selector.kind || 'label', '')}>All Entities In Zone</option>
                 {entityOptions.map((entity) => (
                   <option key={entityOptionValue(entity.kind, entity.value)} value={entityOptionValue(entity.kind, entity.value)}>
                     {entity.display_name || entity.value}
@@ -216,9 +213,11 @@ export function VisionRuleEditorCard({
                 ))}
               </select>
               <p className="muted">
-                {canUseCatalog
-                  ? 'Entity choices come from the current Vision Service model catalog.'
-                  : 'Configure the Vision Service and refresh its supported entities before selecting a target entity.'}
+                {selectedRule.entity_selector.value === ''
+                  ? 'Leave this empty to let the Vision Service report every recognized entity inside the zone.'
+                  : canUseSpecificEntities
+                    ? 'Specific entity choices come from the current Vision Service model catalog.'
+                    : 'Specific entity matching depends on the current Vision Service catalog. Refresh supported entities if you want to narrow this rule to one entity.'}
               </p>
             </div>
 

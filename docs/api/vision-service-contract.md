@@ -132,6 +132,18 @@ Sent when a rule transitions to `threshold_met` or `cleared`.
         "observed_at": "2026-04-11T08:00:10Z",
         "dwell_seconds": 5,
         "entity_value": "cat",
+        "entities": [
+          {
+            "kind": "label",
+            "value": "cat",
+            "display_name": "Cat"
+          },
+          {
+            "kind": "label",
+            "value": "dog",
+            "display_name": "Dog"
+          }
+        ],
         "metadata": {
           "track_id": "7"
         }
@@ -140,6 +152,14 @@ Sent when a rule transitions to `threshold_met` or `cleared`.
   }
 }
 ```
+
+`rule_events` entity semantics:
+
+- `entity_value` remains the backward-compatible primary entity identifier.
+- `entities` is optional, but when present it carries the complete set of recognized entities currently inside the configured zone for that emitted event.
+- When Gateway syncs a rule whose `entity_selector.value == ""`, Vision Service must treat that rule as "no class filter" and must not gate detections by entity class before dwell aggregation.
+- For wildcard rules, `threshold_met` and `cleared` events must include every in-zone recognized entity in `entities`.
+- Gateway uses `entities` for persisted history display and entity-based filtering in Admin, so Vision Service should keep the array stable, deduplicated by `kind + value`, and ordered by its primary/most relevant entity first.
 
 ### `evidence`
 
@@ -350,6 +370,7 @@ Important semantics:
 - rules missing from the new payload are stopped and removed.
 - `recognition_enabled=false` stops all recognition work cleanly.
 - rules only run while the WebSocket session remains connected.
+- `entity_selector.value == ""` means the rule is intentionally wildcarded. Vision Service must still honor the rule's zone and dwell threshold, but it must skip any class-level inclusion gate for that rule.
 
 ## Ordering Notes
 

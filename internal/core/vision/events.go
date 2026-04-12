@@ -120,6 +120,8 @@ func (s *Service) reportEvent(ctx context.Context, rule models.VisionRule, item 
 	if observedAt.IsZero() {
 		observedAt = time.Now().UTC()
 	}
+	reportedEntities := normalizeReportedEntities(item)
+	entityValue := primaryReportedEntityValue(reportedEntities, item.EntityValue)
 	nextState := applyReportedEvent(previous.State, rule, item, observedAt)
 	if err := s.state.Upsert(ctx, []models.DeviceStateSnapshot{{
 		DeviceID: device.ID,
@@ -143,10 +145,13 @@ func (s *Service) reportEvent(ctx context.Context, rule models.VisionRule, item 
 			"rule_name":       rule.Name,
 			"event_status":    item.Status,
 			"dwell_seconds":   item.DwellSeconds,
-			"entity_value":    strings.TrimSpace(item.EntityValue),
+			"entity_value":    entityValue,
 			"entity_selector": rule.EntitySelector,
 			"metadata":        cloneMap(item.Metadata),
 		},
+	}
+	if len(reportedEntities) > 0 {
+		deviceEvent.Payload["entities"] = reportedEntities
 	}
 	if err := s.store.AppendEvent(ctx, deviceEvent); err != nil {
 		return err

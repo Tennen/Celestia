@@ -66,8 +66,11 @@ For rule-scoped persisted vision history in Admin, use the Vision Stay Zone capa
 
 If Gateway has persisted screenshot evidence for a vision event, that same event record is enriched on read with:
 
+- `payload.entities`
 - `payload.capture_count`
 - `payload.captures`
+
+`payload.entities` is the Vision Service-reported set of recognized in-zone entities for that event. `payload.entity_value` remains the backward-compatible primary entity field.
 
 Each `payload.captures` item includes:
 

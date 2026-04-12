@@ -127,9 +127,6 @@ func (s *Service) normalizeRule(ctx context.Context, rule models.VisionRule, idx
 		rule.EntitySelector.Kind = "label"
 	}
 	rule.EntitySelector.Value = strings.TrimSpace(rule.EntitySelector.Value)
-	if rule.EntitySelector.Value == "" {
-		return models.VisionRule{}, fmt.Errorf("vision rule %q entity_selector.value is required", rule.ID)
-	}
 	if rule.StayThresholdSeconds <= 0 {
 		rule.StayThresholdSeconds = defaultVisionThresholdSeconds
 	}

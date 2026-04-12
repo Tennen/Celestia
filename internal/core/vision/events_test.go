@@ -107,3 +107,84 @@ func TestReportEventsProjectsDeviceStateChange(t *testing.T) {
 		}
 	}
 }
+
+func TestReportEventsPersistsReportedEntities(t *testing.T) {
+	ctx := context.Background()
+	service, registrySvc, stateSvc, store := newVisionTestService(t)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+	if err := store.UpsertVisionConfig(ctx, models.VisionCapabilityConfig{
+		RecognitionEnabled:         true,
+		EventCaptureRetentionHours: 168,
+		UpdatedAt:                  time.Now().UTC(),
+		Rules: []models.VisionRule{{
+			ID:                   "feeder-zone",
+			Name:                 "Feeder Zone",
+			Enabled:              true,
+			CameraDeviceID:       camera.ID,
+			RecognitionEnabled:   true,
+			RTSPSource:           models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
+			EntitySelector:       models.VisionEntitySelector{Kind: "label", Value: ""},
+			Zone:                 models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
+			StayThresholdSeconds: 5,
+		}},
+	}); err != nil {
+		t.Fatalf("UpsertVisionConfig() error = %v", err)
+	}
+
+	observedAt := time.Now().UTC()
+	if err := service.ReportEvents(ctx, models.VisionServiceEventBatch{
+		Events: []models.VisionServiceEvent{{
+			EventID:      "evt-multi",
+			RuleID:       "feeder-zone",
+			Status:       models.VisionServiceEventStatusThresholdMet,
+			ObservedAt:   observedAt,
+			DwellSeconds: 8,
+			Entities: []models.VisionEntityDescriptor{
+				{Kind: "label", Value: "cat", DisplayName: "Cat"},
+				{Kind: "label", Value: "dog", DisplayName: "Dog"},
+			},
+		}},
+	}); err != nil {
+		t.Fatalf("ReportEvents() error = %v", err)
+	}
+
+	snapshot, ok, err := stateSvc.Get(ctx, camera.ID)
+	if err != nil {
+		t.Fatalf("state.Get() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("camera state missing after ReportEvents()")
+	}
+	if snapshot.State["vision_rule_feeder-zone_last_entity_value"] != "Cat, Dog" {
+		t.Fatalf("last_entity_value = %#v, want \"Cat, Dog\"", snapshot.State["vision_rule_feeder-zone_last_entity_value"])
+	}
+
+	event, ok, err := store.GetEvent(ctx, "evt-multi")
+	if err != nil {
+		t.Fatalf("GetEvent() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("persisted event missing after ReportEvents()")
+	}
+	if event.Payload["entity_value"] != "cat" {
+		t.Fatalf("payload.entity_value = %#v, want cat", event.Payload["entity_value"])
+	}
+	entities, ok := event.Payload["entities"].([]any)
+	if !ok {
+		t.Fatalf("payload.entities type = %T, want []any", event.Payload["entities"])
+	}
+	if len(entities) != 2 {
+		t.Fatalf("payload.entities len = %d, want 2", len(entities))
+	}
+	first, ok := entities[0].(map[string]any)
+	if !ok {
+		t.Fatalf("first payload entity type = %T, want map[string]any", entities[0])
+	}
+	if first["value"] != "cat" || first["display_name"] != "Cat" {
+		t.Fatalf("first payload entity = %#v, want cat/Cat", first)
+	}
+}

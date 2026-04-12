@@ -177,15 +177,6 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
 
   const addRule = () => {
     const rule = createVisionRule(cameraDevices, ruleDraft.rules.length);
-    const preferredEntity =
-      activeCatalog?.entities.find((entity: VisionEntityCatalog['entities'][number]) => entity.kind === 'label' && entity.value === 'cat') ??
-      activeCatalog?.entities[0];
-    if (preferredEntity) {
-      rule.entity_selector = {
-        kind: preferredEntity.kind,
-        value: preferredEntity.value,
-      };
-    }
     updateRuleDraft((current) => ({
       rules: [...current.rules, rule],
     }));

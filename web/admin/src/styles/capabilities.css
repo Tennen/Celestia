@@ -279,6 +279,21 @@
   flex-direction: column;
 }
 
+.vision-history-toolbar {
+  margin-bottom: 0.85rem;
+}
+
+.vision-history-toolbar__filter {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.vision-history-toolbar__select {
+  max-width: 17rem;
+}
+
 .vision-history-grid-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -380,9 +395,21 @@
 .vision-history-card__bottom {
   display: flex;
   align-items: flex-end;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.68rem;
   pointer-events: none;
+}
+
+.vision-history-card__entities {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: hsl(var(--background) / 0.96);
 }
 
 .vision-history-card__time {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ArrowLeft, RefreshCcw, Trash2, X } from 'lucide-react';
 import { deleteVisionRuleEvent, fetchVisionRuleEvents, visionCaptureURL } from '../../lib/api';
 import type { EventRecord, VisionRule } from '../../lib/types';
@@ -18,9 +18,22 @@ type Props = {
   updatedAtKey: string;
 };
 
+type HistoryEntity = {
+  key: string;
+  kind: string;
+  label: string;
+  value: string;
+};
+
+type HistoryEventView = {
+  entities: HistoryEntity[];
+  entitySummary: string;
+  event: EventRecord;
+};
+
 type EventModalProps = {
   busy: boolean;
-  event: EventRecord | null;
+  eventView: HistoryEventView | null;
   onClose: () => void;
   onDelete: (event: EventRecord) => void;
 };
@@ -28,7 +41,7 @@ type EventModalProps = {
 type EventCardProps = {
   active: boolean;
   busy: boolean;
-  event: EventRecord;
+  eventView: HistoryEventView;
   onDelete: (event: EventRecord) => void;
   onOpen: (eventId: string) => void;
 };
@@ -41,9 +54,75 @@ function readNumber(value: unknown, fallback = 0) {
   return typeof value === 'number' ? value : fallback;
 }
 
-function VisionHistoryEventModal({ busy, event, onClose, onDelete }: EventModalProps) {
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function historyEntityKey(kind: string, value: string) {
+  return `${kind}::${value}`;
+}
+
+function readHistoryEntity(value: unknown): HistoryEntity | null {
+  const record = readRecord(value);
+  if (!record) {
+    return null;
+  }
+  const kind = readString(record.kind).trim() || 'label';
+  const entityValue = readString(record.value).trim();
+  if (!entityValue) {
+    return null;
+  }
+  return {
+    key: historyEntityKey(kind, entityValue),
+    kind,
+    label: readString(record.display_name).trim() || entityValue,
+    value: entityValue,
+  };
+}
+
+function normalizeEventEntities(event: EventRecord) {
+  const entities: HistoryEntity[] = [];
+  const seen = new Set<string>();
+  const payloadEntities = Array.isArray(event.payload?.entities) ? event.payload.entities : [];
+  for (const item of payloadEntities) {
+    const entity = readHistoryEntity(item);
+    if (!entity || seen.has(entity.key)) {
+      continue;
+    }
+    seen.add(entity.key);
+    entities.push(entity);
+  }
+  const fallbackValue = readString(event.payload?.entity_value).trim();
+  const fallbackKey = historyEntityKey('label', fallbackValue);
+  if (fallbackValue && !seen.has(fallbackKey)) {
+    entities.push({
+      key: fallbackKey,
+      kind: 'label',
+      label: fallbackValue,
+      value: fallbackValue,
+    });
+  }
+  return entities;
+}
+
+function buildHistoryEventView(event: EventRecord): HistoryEventView {
+  const entities = normalizeEventEntities(event);
+  return {
+    entities,
+    entitySummary: entities.map((entity) => entity.label).join(', '),
+    event,
+  };
+}
+
+function historyEventStatus(eventView: HistoryEventView) {
+  return readString(eventView.event.payload?.event_status, eventView.event.type);
+}
+
+function VisionHistoryEventModal({ busy, eventView, onClose, onDelete }: EventModalProps) {
   useEffect(() => {
-    if (!event) {
+    if (!eventView) {
       return;
     }
     const onKeyDown = (keyEvent: KeyboardEvent) => {
@@ -53,9 +132,9 @@ function VisionHistoryEventModal({ busy, event, onClose, onDelete }: EventModalP
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [event, onClose]);
+  }, [eventView, onClose]);
 
-  if (!event) {
+  if (!eventView) {
     return null;
   }
 
@@ -64,8 +143,12 @@ function VisionHistoryEventModal({ busy, event, onClose, onDelete }: EventModalP
       <Card className="admin-modal__card vision-history-modal" onMouseDown={(mouseEvent) => mouseEvent.stopPropagation()}>
         <CardHeader className="vision-history-modal__header">
           <CardHeading
-            title={readString(event.payload?.event_status, event.type)}
-            description={`${formatTime(event.ts)} · ${readString(event.payload?.entity_value, 'entity')}`}
+            title={historyEventStatus(eventView)}
+            description={
+              eventView.entitySummary
+                ? `${formatTime(eventView.event.ts)} · ${eventView.entitySummary}`
+                : formatTime(eventView.event.ts)
+            }
             aside={
               <div className="vision-history-modal__aside">
                 <Button
@@ -74,7 +157,7 @@ function VisionHistoryEventModal({ busy, event, onClose, onDelete }: EventModalP
                   size="icon"
                   aria-label="Delete Event"
                   title="Delete Event"
-                  onClick={() => onDelete(event)}
+                  onClick={() => onDelete(eventView.event)}
                   disabled={busy}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -93,26 +176,28 @@ function VisionHistoryEventModal({ busy, event, onClose, onDelete }: EventModalP
                 {
                   className: 'aggregated-info-card__item--full',
                   label: 'Event ID',
-                  value: event.id,
-                  title: event.id,
+                  value: eventView.event.id,
+                  title: eventView.event.id,
                 },
                 {
                   label: 'Dwell Seconds',
-                  value: `${readNumber(event.payload?.dwell_seconds)}s`,
+                  value: `${readNumber(eventView.event.payload?.dwell_seconds)}s`,
                 },
                 {
                   label: 'Event Status',
-                  value: readString(event.payload?.event_status, event.type),
-                  title: readString(event.payload?.event_status, event.type),
+                  value: historyEventStatus(eventView),
+                  title: historyEventStatus(eventView),
                 },
               ]}
             />
 
-            <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(event.payload)} />
+            <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(eventView.event.payload)} />
 
             <div className="vision-history-detail__payload">
               <span className="muted">Event Metadata</span>
-              <pre className="vision-history-detail__json">{prettyJson(event.payload?.metadata ?? event.payload ?? {})}</pre>
+              <pre className="vision-history-detail__json">
+                {prettyJson(eventView.event.payload?.metadata ?? eventView.event.payload ?? {})}
+              </pre>
             </div>
           </CardContent>
         </div>
@@ -121,8 +206,8 @@ function VisionHistoryEventModal({ busy, event, onClose, onDelete }: EventModalP
   );
 }
 
-function VisionHistoryEventCard({ active, busy, event, onDelete, onOpen }: EventCardProps) {
-  const captures = visionEventCapturesFromPayload(event.payload);
+function VisionHistoryEventCard({ active, busy, eventView, onDelete, onOpen }: EventCardProps) {
+  const captures = visionEventCapturesFromPayload(eventView.event.payload);
   const leadCapture = captures[0] ?? null;
   const backgroundStyle: CSSProperties | undefined = leadCapture
     ? { backgroundImage: `url("${visionCaptureURL(leadCapture.capture_id)}")` }
@@ -130,16 +215,23 @@ function VisionHistoryEventCard({ active, busy, event, onDelete, onOpen }: Event
 
   return (
     <article className={cn('vision-history-card', active && 'is-active')}>
-      <button type="button" className="vision-history-card__surface" onClick={() => onOpen(event.id)}>
+      <button type="button" className="vision-history-card__surface" onClick={() => onOpen(eventView.event.id)}>
         <div className={cn('vision-history-card__media', !leadCapture && 'is-placeholder')} style={backgroundStyle} />
         <div className="vision-history-card__veil" />
         <div className="vision-history-card__top">
           <Badge className="vision-history-card__tag" tone="accent" size="xs">
-            {readNumber(event.payload?.dwell_seconds)}s
+            {readNumber(eventView.event.payload?.dwell_seconds)}s
           </Badge>
         </div>
         <div className="vision-history-card__bottom">
-          <span className="vision-history-card__time">{formatTime(event.ts)}</span>
+          {eventView.entitySummary ? (
+            <span className="vision-history-card__entities" title={eventView.entitySummary}>
+              {eventView.entitySummary}
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className="vision-history-card__time">{formatTime(eventView.event.ts)}</span>
         </div>
       </button>
 
@@ -152,7 +244,7 @@ function VisionHistoryEventCard({ active, busy, event, onDelete, onOpen }: Event
         title="Delete Event"
         onClick={(mouseEvent) => {
           mouseEvent.stopPropagation();
-          onDelete(event);
+          onDelete(eventView.event);
         }}
         disabled={busy}
       >
@@ -165,6 +257,7 @@ function VisionHistoryEventCard({ active, busy, event, onDelete, onOpen }: Event
 export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKey }: Props) {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [openEventId, setOpenEventId] = useState('');
+  const [selectedEntityKey, setSelectedEntityKey] = useState('');
   const [busy, setBusy] = useState<'load' | 'refresh' | ''>('load');
   const [deletingEventId, setDeletingEventId] = useState('');
 
@@ -192,11 +285,37 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     };
   }, [onError, rule.id, updatedAtKey]);
 
-  useEffect(() => {
-    setOpenEventId((current) => (events.some((event) => event.id === current) ? current : ''));
-  }, [events]);
+  const eventViews = useMemo(() => events.map((event) => buildHistoryEventView(event)), [events]);
 
-  const openEvent = events.find((event) => event.id === openEventId) ?? null;
+  const entityOptions = useMemo(() => {
+    const entities = new Map<string, HistoryEntity>();
+    for (const eventView of eventViews) {
+      for (const entity of eventView.entities) {
+        if (!entities.has(entity.key)) {
+          entities.set(entity.key, entity);
+        }
+      }
+    }
+    return Array.from(entities.values()).sort((left, right) => left.label.localeCompare(right.label));
+  }, [eventViews]);
+
+  const filteredEventViews = useMemo(
+    () =>
+      selectedEntityKey
+        ? eventViews.filter((eventView) => eventView.entities.some((entity) => entity.key === selectedEntityKey))
+        : eventViews,
+    [eventViews, selectedEntityKey],
+  );
+
+  useEffect(() => {
+    setSelectedEntityKey((current) => (current && !entityOptions.some((entity) => entity.key === current) ? '' : current));
+  }, [entityOptions]);
+
+  useEffect(() => {
+    setOpenEventId((current) => (filteredEventViews.some((eventView) => eventView.event.id === current) ? current : ''));
+  }, [filteredEventViews]);
+
+  const openEvent = filteredEventViews.find((eventView) => eventView.event.id === openEventId) ?? null;
 
   const refreshEvents = async () => {
     setBusy('refresh');
@@ -253,23 +372,52 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
           />
         </CardHeader>
         <CardContent className="vision-history-panel__content">
+          {eventViews.length > 0 ? (
+            <div className="vision-toolbar vision-history-toolbar">
+              <div className="vision-history-toolbar__filter">
+                <span className="muted">Entity Filter</span>
+                <select
+                  className="select vision-history-toolbar__select"
+                  value={selectedEntityKey}
+                  onChange={(event) => setSelectedEntityKey(event.target.value)}
+                >
+                  <option value="">All Entities</option>
+                  {entityOptions.map((entity) => (
+                    <option key={entity.key} value={entity.key}>
+                      {entity.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className="muted">
+                {filteredEventViews.length === eventViews.length
+                  ? `${eventViews.length} events`
+                  : `${filteredEventViews.length} of ${eventViews.length} events`}
+              </span>
+            </div>
+          ) : null}
+
           <ScrollArea className="vision-history-grid-scroll">
-            {events.length > 0 ? (
+            {filteredEventViews.length > 0 ? (
               <div className="vision-history-grid">
-                {events.map((event) => (
+                {filteredEventViews.map((eventView) => (
                   <VisionHistoryEventCard
-                    key={event.id}
-                    active={event.id === openEventId}
+                    key={eventView.event.id}
+                    active={eventView.event.id === openEventId}
                     busy={busy !== '' || deletingEventId !== ''}
-                    event={event}
-                    onDelete={(item) => void deleteEvent(item)}
+                    eventView={eventView}
+                    onDelete={(event) => void deleteEvent(event)}
                     onOpen={setOpenEventId}
                   />
                 ))}
               </div>
             ) : (
               <div className="detail">
-                {busy === 'load' ? 'Loading persisted rule events…' : 'No persisted events for this rule in the current retention window.'}
+                {busy === 'load'
+                  ? 'Loading persisted rule events…'
+                  : eventViews.length > 0
+                    ? 'No persisted events match the selected entity filter.'
+                    : 'No persisted events for this rule in the current retention window.'}
               </div>
             )}
           </ScrollArea>
@@ -278,7 +426,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
 
       <VisionHistoryEventModal
         busy={deletingEventId !== ''}
-        event={openEvent}
+        eventView={openEvent}
         onClose={() => setOpenEventId('')}
         onDelete={(event) => void deleteEvent(event)}
       />

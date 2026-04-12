@@ -191,6 +191,9 @@ func (s *Service) validateConfigAgainstCatalog(ctx context.Context, config model
 		allowed[key] = struct{}{}
 	}
 	for _, rule := range config.Rules {
+		if rule.EntitySelector.Value == "" {
+			continue
+		}
 		key := rule.EntitySelector.Kind + "\x00" + rule.EntitySelector.Value
 		if _, ok := allowed[key]; ok {
 			continue

@@ -157,7 +157,7 @@ Request body:
       },
       "entity_selector": {
         "kind": "label",
-        "value": "cat"
+        "value": ""
       },
       "zone": {
         "x": 0.12,
@@ -181,7 +181,8 @@ Important behavior:
 - Gateway starts and maintains that websocket session during runtime init, so recognition does not depend on Admin interaction to establish the connection.
 - When the selected camera already exposes an `rtsp_url` in device state or metadata, clients may omit `rtsp_source.url`. Gateway resolves and persists it before sync.
 - If the camera does not expose RTSP and the rule is enabled for recognition, save is rejected explicitly.
-- If Gateway already has a fetched catalog for the same websocket endpoint and configured model, it validates each `entity_selector` against that catalog before accepting the config.
+- `entity_selector.value` is optional. When empty, Gateway persists the rule as an all-entities wildcard and syncs that empty selector to the Vision Service.
+- If Gateway already has a fetched catalog for the same websocket endpoint and configured model, it validates each non-empty `entity_selector` against that catalog before accepting the config.
 
 The synced websocket control payload is:
 
@@ -249,6 +250,18 @@ Response:
       "event_status": "threshold_met",
       "dwell_seconds": 6,
       "entity_value": "cat",
+      "entities": [
+        {
+          "kind": "label",
+          "value": "cat",
+          "display_name": "Cat"
+        },
+        {
+          "kind": "label",
+          "value": "dog",
+          "display_name": "Dog"
+        }
+      ],
       "capture_count": 3,
       "captures": [
         {
@@ -272,6 +285,7 @@ Important behavior:
 - Gateway returns persisted `device.event.occurred` records for the requested rule only.
 - Results are ordered newest-first.
 - History is limited to the configured `event_capture_retention_hours` window so rule history and evidence expiration stay aligned in Admin.
+- `payload.entities`, when present, contains the full set of recognized in-zone entities reported by the Vision Service for that event. `payload.entity_value` remains the backward-compatible primary entity field.
 - If stored evidence exists for a returned event, Gateway enriches the event payload with `capture_count` and `captures`.
 
 ## Delete Rule Event History Item

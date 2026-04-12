@@ -148,7 +148,7 @@ func applyReportedEvent(previous map[string]any, rule models.VisionRule, item mo
 		next[keys.Active] = false
 	}
 	next[keys.LastEventAt] = observedAt.Format(time.RFC3339Nano)
-	next[keys.LastEntityValue] = strings.TrimSpace(item.EntityValue)
+	next[keys.LastEntityValue] = summarizeReportedEntities(normalizeReportedEntities(item), item.EntityValue)
 	next[keys.LastDwellSeconds] = max(item.DwellSeconds, 0)
 	next[keys.LastStatus] = string(item.Status)
 	return next
