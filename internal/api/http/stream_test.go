@@ -15,11 +15,14 @@ import (
 
 // stubGateway implements gatewayapi.Service for stream handler tests.
 type stubGateway struct {
-	device          models.DeviceView
-	deviceErr       error
-	commandResult   gatewayapi.CommandExecutionResult
-	commandErr      error
-	savedAutomation models.Automation
+	device               models.DeviceView
+	deviceErr            error
+	commandResult        gatewayapi.CommandExecutionResult
+	commandErr           error
+	savedAutomation      models.Automation
+	deletedVisionRuleID  string
+	deletedVisionEventID string
+	deleteVisionEventErr error
 }
 
 func (g *stubGateway) Health(_ context.Context) (gatewayapi.HealthStatus, error) {
@@ -61,6 +64,11 @@ func (g *stubGateway) RefreshVisionEntityCatalog(_ context.Context, _ models.Vis
 }
 func (g *stubGateway) ListVisionRuleEvents(_ context.Context, _ string, _ int) ([]models.Event, error) {
 	return nil, nil
+}
+func (g *stubGateway) DeleteVisionRuleEvent(_ context.Context, ruleID string, eventID string) error {
+	g.deletedVisionRuleID = ruleID
+	g.deletedVisionEventID = eventID
+	return g.deleteVisionEventErr
 }
 func (g *stubGateway) GetVisionEventCapture(_ context.Context, _ string) (models.VisionEventCaptureAsset, error) {
 	return models.VisionEventCaptureAsset{}, nil

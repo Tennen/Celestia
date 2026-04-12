@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, RefreshCcw } from 'lucide-react';
-import { fetchVisionRuleEvents, visionCaptureURL } from '../../lib/api';
+import { ArrowLeft, RefreshCcw, Trash2 } from 'lucide-react';
+import { deleteVisionRuleEvent, fetchVisionRuleEvents, visionCaptureURL } from '../../lib/api';
 import type { EventRecord, VisionRule } from '../../lib/types';
 import { formatTime, prettyJson } from '../../lib/utils';
 import { Badge } from '../ui/badge';
@@ -86,7 +86,7 @@ function VisionHistoryEventListItem({ event, onSelect, selected }: VisionHistory
 export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKey }: Props) {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
-  const [busy, setBusy] = useState<'load' | 'refresh' | ''>('load');
+  const [busy, setBusy] = useState<'load' | 'refresh' | 'delete' | ''>('load');
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +151,24 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     }
   };
 
+  const deleteSelectedEvent = async () => {
+    if (!selectedEvent) {
+      return;
+    }
+    if (!window.confirm('Delete this persisted event and any stored captures?')) {
+      return;
+    }
+    setBusy('delete');
+    try {
+      await deleteVisionRuleEvent(rule.id, selectedEvent.id);
+      setEvents((current) => current.filter((event) => event.id !== selectedEvent.id));
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Failed to delete persisted rule event');
+    } finally {
+      setBusy('');
+    }
+  };
+
   return (
     <Card className="vision-history-panel">
       <CardHeader>
@@ -204,13 +222,26 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                     title={readString(selectedEvent.payload?.event_status, selectedEvent.type)}
                     description={`${formatTime(selectedEvent.ts)} · ${readString(selectedEvent.payload?.entity_value, 'entity')}`}
                     aside={
-                      <div className="vision-history-detail__badges">
-                        <Badge tone="accent" size="sm">
-                          {readString(selectedEvent.payload?.rule_name, rule.name || rule.id)}
-                        </Badge>
-                        <Badge tone="neutral" size="sm">
-                          {selectedEvent.device_id || 'no device'}
-                        </Badge>
+                      <div className="vision-history-detail__aside">
+                        <div className="vision-history-detail__badges">
+                          <Badge tone="accent" size="sm">
+                            {readString(selectedEvent.payload?.rule_name, rule.name || rule.id)}
+                          </Badge>
+                          <Badge tone="neutral" size="sm">
+                            {selectedEvent.device_id || 'no device'}
+                          </Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="icon"
+                          aria-label="Delete Event"
+                          title="Delete Event"
+                          onClick={() => void deleteSelectedEvent()}
+                          disabled={busy !== ''}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     }
                   />

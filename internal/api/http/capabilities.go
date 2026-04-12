@@ -69,6 +69,14 @@ func (s *Server) handleVisionRuleEvents(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (s *Server) handleDeleteVisionRuleEvent(w http.ResponseWriter, r *http.Request) {
+	if err := s.gateway.DeleteVisionRuleEvent(r.Context(), r.PathValue("ruleID"), r.PathValue("eventID")); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (s *Server) handleVisionCapture(w http.ResponseWriter, r *http.Request) {
 	asset, err := s.gateway.GetVisionEventCapture(r.Context(), r.PathValue("captureID"))
 	if err != nil {

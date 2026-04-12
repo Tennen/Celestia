@@ -46,6 +46,7 @@ type Store interface {
 	GetEvent(context.Context, string) (models.Event, bool, error)
 	ListEvents(context.Context, EventFilter) ([]models.Event, error)
 	CountEvents(context.Context) (int, error)
+	DeleteVisionEvent(context.Context, string) error
 
 	AppendAudit(context.Context, models.AuditRecord) error
 	ListAudits(context.Context, AuditFilter) ([]models.AuditRecord, error)

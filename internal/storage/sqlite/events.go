@@ -93,6 +93,30 @@ func (s *Store) CountEvents(ctx context.Context) (int, error) {
 	return count(ctx, s.db, `select count(*) from events`)
 }
 
+func (s *Store) DeleteVisionEvent(ctx context.Context, eventID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	trimmedID := strings.TrimSpace(eventID)
+	if _, err = tx.ExecContext(ctx, `delete from vision_event_captures where event_id = ?`, trimmedID); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `delete from events where id = ?`, trimmedID); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Store) AppendAudit(ctx context.Context, audit models.AuditRecord) error {
 	paramsJSON, err := marshalJSON(audit.Params)
 	if err != nil {

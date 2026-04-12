@@ -274,6 +274,25 @@ Important behavior:
 - History is limited to the configured `event_capture_retention_hours` window so rule history and evidence expiration stay aligned in Admin.
 - If stored evidence exists for a returned event, Gateway enriches the event payload with `capture_count` and `captures`.
 
+## Delete Rule Event History Item
+
+`DELETE /api/v1/capabilities/vision_entity_stay_zone/rules/{ruleID}/events/{eventID}`
+
+Response:
+
+```json
+{
+  "ok": true
+}
+```
+
+Important behavior:
+
+- Gateway only deletes persisted `device.event.occurred` records that belong to the specified rule.
+- Gateway deletes any stored evidence captures linked to that event in the same operation.
+- If `ruleID` does not exist, or `eventID` does not belong to that rule-scoped persisted vision event, Gateway returns `404`.
+- This endpoint does not delete the separate projected `device.state.changed` record that may have been emitted for the same observation.
+
 ## Vision Service Event Ingestion
 
 Gateway no longer exposes REST endpoints for Vision Service status, event, or evidence callbacks.

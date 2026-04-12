@@ -119,6 +119,15 @@ export async function fetchVisionRuleEvents(ruleId: string, limit = 50) {
   );
 }
 
+export async function deleteVisionRuleEvent(ruleId: string, eventId: string) {
+  return request<{ ok: boolean }>(
+    `/capabilities/vision_entity_stay_zone/rules/${encodeURIComponent(ruleId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
 export async function installPlugin(payload: {
   plugin_id: string;
   binary_path?: string;

@@ -11,7 +11,10 @@ import (
 	"github.com/chentianyu/celestia/internal/storage"
 )
 
-var ErrVisionRuleNotFound = errors.New("vision rule not found")
+var (
+	ErrVisionRuleNotFound  = errors.New("vision rule not found")
+	ErrVisionEventNotFound = errors.New("vision event not found")
+)
 
 const (
 	defaultVisionHistoryLimit = 12
@@ -39,6 +42,33 @@ func (s *Service) RuleEvents(ctx context.Context, ruleID string, limit int) ([]m
 		return nil, fmt.Errorf("%w: %s", ErrVisionRuleNotFound, ruleID)
 	}
 	return s.listHistoryEvents(ctx, config, ruleID, limit)
+}
+
+func (s *Service) DeleteRuleEvent(ctx context.Context, ruleID, eventID string) error {
+	ruleID = strings.TrimSpace(ruleID)
+	if ruleID == "" {
+		return errors.New("vision rule id is required")
+	}
+	eventID = strings.TrimSpace(eventID)
+	if eventID == "" {
+		return errors.New("vision event id is required")
+	}
+	config, err := s.GetConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if !hasVisionRule(config.Rules, ruleID) {
+		return fmt.Errorf("%w: %s", ErrVisionRuleNotFound, ruleID)
+	}
+
+	event, ok, err := s.store.GetEvent(ctx, eventID)
+	if err != nil {
+		return err
+	}
+	if !ok || !isVisionOccurredEvent(event) || visionEventRuleID(event) != ruleID {
+		return fmt.Errorf("%w: %s", ErrVisionEventNotFound, eventID)
+	}
+	return s.store.DeleteVisionEvent(ctx, eventID)
 }
 
 func (s *Service) listHistoryEvents(

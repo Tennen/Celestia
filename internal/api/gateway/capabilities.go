@@ -61,6 +61,16 @@ func (s *HTTPService) ListVisionRuleEvents(ctx context.Context, ruleID string, l
 	return out, nil
 }
 
+func (s *HTTPService) DeleteVisionRuleEvent(ctx context.Context, ruleID string, eventID string) error {
+	path := fmt.Sprintf(
+		"/api/v1/capabilities/%s/rules/%s/events/%s",
+		models.VisionCapabilityID,
+		url.PathEscape(ruleID),
+		url.PathEscape(eventID),
+	)
+	return s.request(ctx, http.MethodDelete, path, nil, nil, nil, "")
+}
+
 func (s *HTTPService) GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error) {
 	path := fmt.Sprintf("/api/v1/capabilities/%s/captures/%s", models.VisionCapabilityID, url.PathEscape(captureID))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.baseURL+path, nil)
