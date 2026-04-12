@@ -38,6 +38,31 @@
   .detail-stack {
     @apply overflow-visible pr-0;
   }
+
+  .vision-history-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-right: 0;
+  }
+
+  .vision-history-card__surface {
+    aspect-ratio: 3 / 2;
+  }
+
+  .vision-history-card__bottom {
+    gap: 0.5rem;
+    padding: 0.7rem;
+  }
+
+  .vision-history-modal__aside {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 900px) {
+  .vision-history-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
@@ -75,24 +100,13 @@
   .recognition-settings-modal__aside {
     @apply flex-wrap;
   }
-
   .vision-history-grid {
     grid-template-columns: minmax(0, 1fr);
     padding-right: 0;
   }
 
   .vision-history-card__bottom {
-    gap: 0.5rem;
     padding: 0.7rem;
-  }
-
-  .vision-history-card__title {
-    font-size: 0.84rem;
-  }
-
-  .vision-history-modal__aside {
-    width: 100%;
-    justify-content: flex-end;
   }
 
   .admin-modal {

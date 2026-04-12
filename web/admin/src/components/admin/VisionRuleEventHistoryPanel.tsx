@@ -139,10 +139,6 @@ function VisionHistoryEventCard({ active, busy, event, onDelete, onOpen }: Event
           </Badge>
         </div>
         <div className="vision-history-card__bottom">
-          <div className="vision-history-card__caption">
-            <span className="vision-history-card__eyebrow">{readString(event.payload?.entity_value, 'entity')}</span>
-            <strong className="vision-history-card__title">{readString(event.payload?.event_status, event.type)}</strong>
-          </div>
           <span className="vision-history-card__time">{formatTime(event.ts)}</span>
         </div>
       </button>
