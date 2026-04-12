@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, RefreshCcw } from 'lucide-react';
-import { fetchVisionRuleEvents } from '../../lib/api';
+import { fetchVisionRuleEvents, visionCaptureURL } from '../../lib/api';
 import type { EventRecord, VisionRule } from '../../lib/types';
 import { formatTime, prettyJson } from '../../lib/utils';
 import { Badge } from '../ui/badge';
@@ -8,7 +8,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import { visionEventCapturesFromPayload, VisionEventCaptureGallery } from './VisionEventCaptureGallery';
-import { SelectableListItem } from './shared/SelectableListItem';
+import { AggregatedInfoCard, type AggregatedInfoCardItem } from './shared/AggregatedInfoCard';
 import { CardHeading } from './shared/CardHeading';
 
 type Props = {
@@ -24,6 +24,63 @@ function readString(value: unknown, fallback = '') {
 
 function readNumber(value: unknown, fallback = 0) {
   return typeof value === 'number' ? value : fallback;
+}
+
+function readRecord(value: unknown) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
+
+function formatEntitySelector(value: unknown, fallback: VisionRule['entity_selector']) {
+  const selector = readRecord(value);
+  const kind = readString(selector?.kind, fallback.kind || 'label');
+  const entityValue = readString(selector?.value, fallback.value);
+  if (kind && entityValue) {
+    return `${kind}:${entityValue}`;
+  }
+  return entityValue || kind || 'unset';
+}
+
+type VisionHistoryEventListItemProps = {
+  event: EventRecord;
+  onSelect: () => void;
+  selected: boolean;
+};
+
+function VisionHistoryEventListItem({ event, onSelect, selected }: VisionHistoryEventListItemProps) {
+  const captures = visionEventCapturesFromPayload(event.payload);
+  const captureCount = Math.max(readNumber(event.payload?.capture_count), captures.length);
+  const leadCapture = captures[0] ?? null;
+  const eventStatus = readString(event.payload?.event_status, event.type);
+
+  return (
+    <button type="button" className={`vision-history-item ${selected ? 'is-selected' : ''}`} onClick={onSelect}>
+      <div className="vision-history-item__layout">
+        <div className="vision-history-item__copy">
+          <strong className="vision-history-item__title">{eventStatus}</strong>
+          <p className="vision-history-item__description">
+            {readString(event.payload?.entity_value, 'entity')} · dwell {readNumber(event.payload?.dwell_seconds)}s
+          </p>
+          <div className="vision-history-item__support">{formatTime(event.ts)}</div>
+        </div>
+
+        {leadCapture ? (
+          <div className="vision-history-item__thumb-wrap">
+            {captureCount > 0 ? (
+              <Badge className="vision-history-item__count" size="xxs" tone="accent">
+                {captureCount}
+              </Badge>
+            ) : null}
+            <img
+              className="vision-history-item__thumb"
+              src={visionCaptureURL(leadCapture.capture_id)}
+              alt={`Vision capture preview for ${eventStatus}`}
+              loading="lazy"
+            />
+          </div>
+        ) : null}
+      </div>
+    </button>
+  );
 }
 
 export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKey }: Props) {
@@ -60,6 +117,28 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   }, [events]);
 
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
+  const summaryItems: AggregatedInfoCardItem[] = [
+    {
+      label: 'Event ID',
+      value: selectedEvent?.id || 'No event selected',
+      title: selectedEvent?.id,
+    },
+    {
+      label: 'Camera',
+      value: selectedEvent?.device_id || rule.camera_device_id || 'unbound',
+      title: selectedEvent?.device_id || rule.camera_device_id || 'unbound',
+    },
+    {
+      label: 'Entity',
+      value: readString(selectedEvent?.payload?.entity_value, rule.entity_selector.value || 'unset'),
+      title: readString(selectedEvent?.payload?.entity_value, rule.entity_selector.value || 'unset'),
+    },
+    {
+      label: 'Entity Selector',
+      value: formatEntitySelector(selectedEvent?.payload?.entity_selector, rule.entity_selector),
+      title: formatEntitySelector(selectedEvent?.payload?.entity_selector, rule.entity_selector),
+    },
+  ];
 
   const refreshEvents = async () => {
     setBusy('refresh');
@@ -93,45 +172,19 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
         />
       </CardHeader>
       <CardContent className="vision-history-panel__content">
-        <div className="vision-history-summary">
-          <div className="vision-history-summary__item">
-            <span className="muted">Rule ID</span>
-            <strong>{rule.id}</strong>
-          </div>
-          <div className="vision-history-summary__item">
-            <span className="muted">Camera</span>
-            <strong>{rule.camera_device_id || 'unbound'}</strong>
-          </div>
-          <div className="vision-history-summary__item">
-            <span className="muted">Entity</span>
-            <strong>{rule.entity_selector.value || 'unset'}</strong>
-          </div>
-          <div className="vision-history-summary__item">
-            <span className="muted">Threshold</span>
-            <strong>{rule.stay_threshold_seconds}s</strong>
-          </div>
-        </div>
+        <AggregatedInfoCard items={summaryItems} />
 
         <div className="vision-history-layout">
           <ScrollArea className="vision-history-layout__list">
             <div className="vision-history-list">
               {events.length > 0 ? (
                 events.map((event) => {
-                  const captureCount = readNumber(event.payload?.capture_count);
                   return (
-                    <SelectableListItem
+                    <VisionHistoryEventListItem
                       key={event.id}
-                      layout="stacked_badges"
+                      onSelect={() => setSelectedEventId(event.id)}
                       selected={event.id === selectedEventId}
-                      onClick={() => setSelectedEventId(event.id)}
-                      title={readString(event.payload?.event_status, event.type)}
-                      description={`${readString(event.payload?.entity_value, 'entity')} · dwell ${readNumber(event.payload?.dwell_seconds)}s`}
-                      badges={
-                        <Badge size="xxs" tone={captureCount > 0 ? 'accent' : 'neutral'}>
-                          {captureCount > 0 ? `${captureCount} captures` : 'no capture'}
-                        </Badge>
-                      }
-                      support={<span className="muted">{formatTime(event.ts)}</span>}
+                      event={event}
                     />
                   );
                 })
@@ -145,7 +198,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
 
           <div className="vision-history-layout__detail">
             {selectedEvent ? (
-              <Card>
+              <Card className="vision-history-detail-card">
                 <CardHeader>
                   <CardHeading
                     title={readString(selectedEvent.payload?.event_status, selectedEvent.type)}
@@ -162,39 +215,41 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                     }
                   />
                 </CardHeader>
-                <CardContent className="stack">
-                  <div className="vision-history-detail__grid">
-                    <div className="vision-history-detail__item">
-                      <span className="muted">Event ID</span>
-                      <strong>{selectedEvent.id}</strong>
-                    </div>
-                    <div className="vision-history-detail__item">
-                      <span className="muted">Dwell Seconds</span>
-                      <strong>{readNumber(selectedEvent.payload?.dwell_seconds)}s</strong>
-                    </div>
-                    <div className="vision-history-detail__item">
-                      <span className="muted">Rule ID</span>
-                      <strong>{readString(selectedEvent.payload?.rule_id, rule.id)}</strong>
-                    </div>
-                    <div className="vision-history-detail__item">
-                      <span className="muted">Event Status</span>
-                      <strong>{readString(selectedEvent.payload?.event_status, selectedEvent.type)}</strong>
-                    </div>
-                  </div>
+                <ScrollArea className="vision-history-detail-card__scroll">
+                  <CardContent className="vision-history-detail-card__content">
+                    <AggregatedInfoCard
+                      items={[
+                        {
+                          label: 'Event ID',
+                          value: selectedEvent.id,
+                          title: selectedEvent.id,
+                        },
+                        {
+                          label: 'Dwell Seconds',
+                          value: `${readNumber(selectedEvent.payload?.dwell_seconds)}s`,
+                        },
+                        {
+                          label: 'Event Status',
+                          value: readString(selectedEvent.payload?.event_status, selectedEvent.type),
+                          title: readString(selectedEvent.payload?.event_status, selectedEvent.type),
+                        },
+                      ]}
+                    />
 
-                  <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(selectedEvent.payload)} />
+                    <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(selectedEvent.payload)} />
 
-                  <div className="vision-history-detail__payload">
-                    <span className="muted">Event Metadata</span>
-                    <pre className="vision-history-detail__json">
-                      {prettyJson(selectedEvent.payload?.metadata ?? selectedEvent.payload ?? {})}
-                    </pre>
-                  </div>
-                </CardContent>
+                    <div className="vision-history-detail__payload">
+                      <span className="muted">Event Metadata</span>
+                      <pre className="vision-history-detail__json">
+                        {prettyJson(selectedEvent.payload?.metadata ?? selectedEvent.payload ?? {})}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </ScrollArea>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="pt-6">
+              <Card className="vision-history-detail-card">
+                <CardContent className="vision-history-detail-card__empty pt-6">
                   <p className="muted">Select a persisted event to inspect its details.</p>
                 </CardContent>
               </Card>

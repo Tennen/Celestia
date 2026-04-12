@@ -14,6 +14,13 @@
   .vision-rule-layout,
   .vision-capability-panel,
   .vision-capability-panel__body,
+  .vision-history-panel,
+  .vision-history-panel__content,
+  .vision-history-layout,
+  .vision-history-layout__list,
+  .vision-history-layout__detail,
+  .vision-history-detail-card,
+  .vision-history-detail-card__scroll,
   .overview-panel,
   .overview-panel__main,
   .explorer-card,
@@ -27,6 +34,13 @@
 
   .workspace__panel--fixed,
   .workspace__panel--scroll,
+  .vision-history-panel,
+  .vision-history-panel__content,
+  .vision-history-layout,
+  .vision-history-layout__list,
+  .vision-history-layout__detail,
+  .vision-history-detail-card,
+  .vision-history-detail-card__scroll,
   .explorer-scroll,
   .detail-scroll,
   .detail-stack {
@@ -69,6 +83,11 @@
   .vision-toolbar,
   .recognition-settings-modal__aside {
     @apply flex-wrap;
+  }
+
+  .vision-history-item__thumb-wrap {
+    width: 4.5rem;
+    min-width: 4.5rem;
   }
 
   .admin-modal {
