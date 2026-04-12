@@ -167,6 +167,106 @@ func TestGetCaptureAssetDropsExpiredEvidence(t *testing.T) {
 	}
 }
 
+func TestReportEvidenceNormalizesCaptureAnnotations(t *testing.T) {
+	ctx := context.Background()
+	service, registrySvc, _, store := newVisionTestService(t)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+	if err := store.UpsertVisionConfig(ctx, models.VisionCapabilityConfig{
+		ServiceWSURL:               "ws://vision.example/api/v1/capabilities/vision_entity_stay_zone",
+		RecognitionEnabled:         true,
+		EventCaptureRetentionHours: 72,
+		Rules: []models.VisionRule{{
+			ID:             "feeder-zone",
+			Name:           "Feeder Zone",
+			CameraDeviceID: camera.ID,
+		}},
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("UpsertVisionConfig() error = %v", err)
+	}
+	if err := service.ReportEvents(ctx, models.VisionServiceEventBatch{
+		Events: []models.VisionServiceEvent{{
+			EventID:      "evt-3",
+			RuleID:       "feeder-zone",
+			Status:       models.VisionServiceEventStatusThresholdMet,
+			ObservedAt:   time.Now().UTC(),
+			DwellSeconds: 5,
+			EntityValue:  "cat",
+		}},
+	}); err != nil {
+		t.Fatalf("ReportEvents() error = %v", err)
+	}
+
+	if err := service.ReportEvidence(ctx, models.VisionServiceEventCaptureBatch{
+		Captures: []models.VisionServiceEventCapture{{
+			EventID:        "evt-3",
+			RuleID:         "feeder-zone",
+			CameraDeviceID: camera.ID,
+			Phase:          models.VisionEventCapturePhaseStart,
+			CapturedAt:     time.Now().UTC(),
+			ContentType:    "image/jpeg",
+			ImageBase64:    base64.StdEncoding.EncodeToString([]byte("annotated")),
+			Metadata: map[string]any{
+				"annotations": map[string]any{
+					"image_kind": "annotated",
+					"source":     "ultralytics.plot",
+					"detections": []any{
+						map[string]any{
+							"kind":         "label",
+							"value":        "cat",
+							"display_name": "Cat",
+							"confidence":   0.93,
+							"track_id":     "7",
+							"box": map[string]any{
+								"x":      0.125,
+								"y":      0.2,
+								"width":  0.5,
+								"height": 0.4,
+							},
+						},
+					},
+				},
+			},
+		}},
+	}); err != nil {
+		t.Fatalf("ReportEvidence() error = %v", err)
+	}
+
+	persisted, ok, err := store.GetVisionEventCapture(ctx, "evt-3:start")
+	if err != nil {
+		t.Fatalf("GetVisionEventCapture() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("persisted capture missing")
+	}
+	annotations, ok := persisted.Capture.Metadata["annotations"].(map[string]any)
+	if !ok {
+		t.Fatalf("capture metadata annotations type = %T, want map[string]any", persisted.Capture.Metadata["annotations"])
+	}
+	if annotations["image_kind"] != "annotated" || annotations["coordinate_space"] != "normalized_xywh" {
+		t.Fatalf("annotations = %#v, want normalized annotation metadata", annotations)
+	}
+	detections, ok := annotations["detections"].([]any)
+	if !ok || len(detections) != 1 {
+		t.Fatalf("detections = %#v, want 1 detection", annotations["detections"])
+	}
+	first, ok := detections[0].(map[string]any)
+	if !ok {
+		t.Fatalf("first detection type = %T, want map[string]any", detections[0])
+	}
+	box, ok := first["box"].(map[string]any)
+	if !ok {
+		t.Fatalf("first box type = %T, want map[string]any", first["box"])
+	}
+	if first["display_name"] != "Cat" || box["x"] != 0.125 || box["height"] != 0.4 {
+		t.Fatalf("first detection = %#v, want normalized cat annotation", first)
+	}
+}
+
 func testVisionCapture(eventID, ruleID, cameraID string, phase models.VisionEventCapturePhase, raw string) models.VisionServiceEventCapture {
 	return models.VisionServiceEventCapture{
 		EventID:        eventID,

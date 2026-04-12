@@ -1,10 +1,15 @@
 import { Badge } from '../ui/badge';
 import { visionCaptureURL } from '../../lib/api';
+import { visionCaptureAnnotationsFromMetadata } from '../../lib/visionCaptureAnnotations';
 import { formatTime } from '../../lib/utils';
 import type { VisionEventCapture } from '../../lib/types';
 
 type Props = {
   captures: VisionEventCapture[];
+};
+
+type CaptureCardProps = {
+  capture: VisionEventCapture;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -60,34 +65,62 @@ export function visionEventCapturesFromPayload(payload?: Record<string, unknown>
     .filter((item): item is VisionEventCapture => item !== null);
 }
 
+function VisionCaptureCard({ capture }: CaptureCardProps) {
+  const annotations = visionCaptureAnnotationsFromMetadata(capture.metadata);
+
+  return (
+    <a
+      className="vision-capture-card"
+      href={visionCaptureURL(capture.capture_id)}
+      target="_blank"
+      rel="noreferrer"
+    >
+      <div className="feed__meta">
+        <Badge size="xs" tone="accent">
+          {capture.phase}
+        </Badge>
+        <span>{formatTime(capture.captured_at)}</span>
+      </div>
+      <div className="vision-capture-preview">
+        <img
+          className="vision-capture-image"
+          src={visionCaptureURL(capture.capture_id)}
+          alt={`Vision capture ${capture.phase}`}
+          loading="lazy"
+        />
+        {annotations?.image_kind === 'raw' ? (
+          <div className="vision-capture-overlay">
+            {annotations.detections.map((detection, index) => (
+              <div
+                key={`${capture.capture_id}:${detection.display_name}:${index}`}
+                className="vision-capture-box"
+                style={{
+                  left: `${detection.box.x * 100}%`,
+                  top: `${detection.box.y * 100}%`,
+                  width: `${detection.box.width * 100}%`,
+                  height: `${detection.box.height * 100}%`,
+                }}
+              >
+                <span className="vision-capture-box__label">
+                  {detection.display_name}
+                  {typeof detection.confidence === 'number' ? ` ${Math.round(detection.confidence * 100)}%` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </a>
+  );
+}
+
 export function VisionEventCaptureGallery({ captures }: Props) {
   if (captures.length === 0) {
     return null;
   }
   return (
     <div className="vision-capture-gallery">
-      {captures.map((capture) => (
-        <a
-          key={capture.capture_id}
-          className="vision-capture-card"
-          href={visionCaptureURL(capture.capture_id)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <div className="feed__meta">
-            <Badge size="xs" tone="accent">
-              {capture.phase}
-            </Badge>
-            <span>{formatTime(capture.captured_at)}</span>
-          </div>
-          <img
-            className="vision-capture-image"
-            src={visionCaptureURL(capture.capture_id)}
-            alt={`Vision capture ${capture.phase}`}
-            loading="lazy"
-          />
-        </a>
-      ))}
+      {captures.map((capture) => <VisionCaptureCard key={capture.capture_id} capture={capture} />)}
     </div>
   );
 }

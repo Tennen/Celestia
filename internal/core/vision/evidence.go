@@ -157,7 +157,7 @@ func normalizeReportedCapture(item models.VisionServiceEventCapture) (models.Vis
 		CapturedAt:     capturedAt,
 		ContentType:    contentType,
 		SizeBytes:      len(raw),
-		Metadata:       cloneMap(item.Metadata),
+		Metadata:       normalizeCaptureMetadata(item.Metadata),
 	}
 	asset.Data = raw
 	return asset, nil

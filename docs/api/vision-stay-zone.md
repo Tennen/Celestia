@@ -272,7 +272,29 @@ Response:
           "phase": "start",
           "captured_at": "2026-04-11T08:28:09Z",
           "content_type": "image/jpeg",
-          "size_bytes": 48123
+          "size_bytes": 48123,
+          "metadata": {
+            "annotations": {
+              "image_kind": "raw",
+              "coordinate_space": "normalized_xywh",
+              "source": "ultralytics.boxes",
+              "detections": [
+                {
+                  "kind": "label",
+                  "value": "cat",
+                  "display_name": "Cat",
+                  "confidence": 0.93,
+                  "track_id": "7",
+                  "box": {
+                    "x": 0.12,
+                    "y": 0.24,
+                    "width": 0.31,
+                    "height": 0.42
+                  }
+                }
+              ]
+            }
+          }
         }
       ]
     }
@@ -286,6 +308,7 @@ Important behavior:
 - Results are ordered newest-first.
 - History is limited to the configured `event_capture_retention_hours` window so rule history and evidence expiration stay aligned in Admin.
 - `payload.entities`, when present, contains the full set of recognized in-zone entities reported by the Vision Service for that event. `payload.entity_value` remains the backward-compatible primary entity field.
+- `payload.captures[].metadata.annotations`, when present, contains normalized detection boxes for that capture. If `image_kind` is `raw`, Admin overlays those boxes on top of the returned image. If `image_kind` is `annotated`, Admin treats the stored image bytes as already rendered.
 - If stored evidence exists for a returned event, Gateway enriches the event payload with `capture_count` and `captures`.
 
 ## Delete Rule Event History Item

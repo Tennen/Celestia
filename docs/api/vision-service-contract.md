@@ -178,12 +178,43 @@ Sent after the matching `rule_events` message when a `threshold_met` transition 
         "phase": "start",
         "captured_at": "2026-04-11T08:00:08Z",
         "content_type": "image/jpeg",
-        "image_base64": "..."
+        "image_base64": "...",
+        "metadata": {
+          "annotations": {
+            "image_kind": "raw",
+            "coordinate_space": "normalized_xywh",
+            "source": "ultralytics.boxes",
+            "detections": [
+              {
+                "kind": "label",
+                "value": "cat",
+                "display_name": "Cat",
+                "confidence": 0.93,
+                "track_id": "7",
+                "box": {
+                  "x": 0.12,
+                  "y": 0.24,
+                  "width": 0.31,
+                  "height": 0.42
+                }
+              }
+            ]
+          }
+        }
       }
     ]
   }
 }
 ```
+
+`evidence` annotation semantics:
+
+- Vision Service may send either a pre-rendered annotated image or a raw capture plus structured detections.
+- `metadata.annotations.image_kind = "annotated"` means `image_base64` already contains rendered boxes and labels. Gateway/Admin should display that image as-is and must not draw another overlay from the same detection set.
+- `metadata.annotations.image_kind = "raw"` means `image_base64` is an unannotated capture. Gateway/Admin may draw the overlay from `metadata.annotations.detections`.
+- `metadata.annotations.coordinate_space` is fixed to normalized top-left origin coordinates in `[0,1]` space using `box.{x,y,width,height}`.
+- Each detection should carry `display_name` and may optionally carry `kind`, `value`, `confidence`, and `track_id`.
+- If Vision Service uses Ultralytics' own renderer to generate evidence, it should still keep detection ordering stable and may optionally include the same detection list for downstream structured consumers.
 
 ### `error`
 

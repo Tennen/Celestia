@@ -308,6 +308,29 @@ export type VisionEventCapture = {
   metadata?: Record<string, unknown>;
 };
 
+export type VisionCaptureAnnotationBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type VisionCaptureDetection = {
+  kind?: string;
+  value?: string;
+  display_name: string;
+  confidence?: number;
+  track_id?: string;
+  box: VisionCaptureAnnotationBox;
+};
+
+export type VisionCaptureAnnotations = {
+  image_kind: 'raw' | 'annotated';
+  coordinate_space: 'normalized_xywh';
+  source?: string;
+  detections: VisionCaptureDetection[];
+};
+
 export type AuditRecord = {
   id: string;
   actor: string;

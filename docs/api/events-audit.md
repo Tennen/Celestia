@@ -82,6 +82,9 @@ Each `payload.captures` item includes:
 - `captured_at`
 - `content_type`
 - `size_bytes`
+- optional `metadata.annotations`
+
+`metadata.annotations` uses normalized `box.{x,y,width,height}` coordinates. `image_kind=raw` means clients may render overlays from that box list; `image_kind=annotated` means the image bytes were already rendered by Vision Service.
 
 ## Event Stream
 
