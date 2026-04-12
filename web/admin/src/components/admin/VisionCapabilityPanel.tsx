@@ -337,9 +337,9 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
             </CardContent>
           </Card>
 
-          <ScrollArea className="detail-scroll vision-rule-layout__detail">
-            <div className="detail-stack">
-              {detailView === 'editor' ? (
+          {detailView === 'editor' ? (
+            <ScrollArea className="detail-scroll vision-rule-layout__detail">
+              <div className="detail-stack">
                 <VisionRuleEditorCard
                   catalog={activeCatalog}
                   catalogMismatch={Boolean(catalog && !catalogMatchesSaved)}
@@ -357,22 +357,28 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
                   saving={busy === 'save_rule'}
                   selectedRule={selectedRule}
                 />
-              ) : selectedRule ? (
-                <VisionRuleEventHistoryPanel
-                  onBack={() => setDetailView('editor')}
-                  onError={onError}
-                  rule={selectedRule}
-                  updatedAtKey={summary?.updated_at ?? ''}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="pt-6">
-                    <p className="muted">Select or create a rule to inspect its persisted event history.</p>
-                  </CardContent>
-                </Card>
-              )}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="vision-rule-layout__detail vision-rule-layout__detail--fixed">
+              <div className="detail-stack">
+                {selectedRule ? (
+                  <VisionRuleEventHistoryPanel
+                    onBack={() => setDetailView('editor')}
+                    onError={onError}
+                    rule={selectedRule}
+                    updatedAtKey={summary?.updated_at ?? ''}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="muted">Select or create a rule to inspect its persisted event history.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
-          </ScrollArea>
+          )}
         </div>
       </div>
 
