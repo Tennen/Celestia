@@ -16,11 +16,7 @@
   .vision-capability-panel__body,
   .vision-history-panel,
   .vision-history-panel__content,
-  .vision-history-layout,
-  .vision-history-layout__list,
-  .vision-history-layout__detail,
-  .vision-history-detail-card,
-  .vision-history-detail-card__scroll,
+  .vision-history-grid-scroll,
   .overview-panel,
   .overview-panel__main,
   .explorer-card,
@@ -36,11 +32,7 @@
   .workspace__panel--scroll,
   .vision-history-panel,
   .vision-history-panel__content,
-  .vision-history-layout,
-  .vision-history-layout__list,
-  .vision-history-layout__detail,
-  .vision-history-detail-card,
-  .vision-history-detail-card__scroll,
+  .vision-history-grid-scroll,
   .explorer-scroll,
   .detail-scroll,
   .detail-stack {
@@ -75,8 +67,7 @@
   }
 
   .capability-workspace,
-  .vision-rule-layout,
-  .vision-history-layout {
+  .vision-rule-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -85,9 +76,23 @@
     @apply flex-wrap;
   }
 
-  .vision-history-item__thumb-wrap {
-    width: 4.5rem;
-    min-width: 4.5rem;
+  .vision-history-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 0;
+  }
+
+  .vision-history-card__bottom {
+    gap: 0.5rem;
+    padding: 0.7rem;
+  }
+
+  .vision-history-card__title {
+    font-size: 0.84rem;
+  }
+
+  .vision-history-modal__aside {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .admin-modal {
