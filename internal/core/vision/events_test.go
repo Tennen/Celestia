@@ -75,8 +75,8 @@ func TestReportEventsProjectsDeviceStateChange(t *testing.T) {
 	if intValue(snapshot.State["vision_rule_feeder-zone_match_count"]) != 1 {
 		t.Fatalf("match_count = %#v, want 1", snapshot.State["vision_rule_feeder-zone_match_count"])
 	}
-	if snapshot.State["vision_rule_feeder-zone_active"] != true {
-		t.Fatalf("active = %#v, want true", snapshot.State["vision_rule_feeder-zone_active"])
+	if snapshot.State["vision_rule_feeder-zone_active"] != false {
+		t.Fatalf("active = %#v, want false", snapshot.State["vision_rule_feeder-zone_active"])
 	}
 	if snapshot.State["vision_rule_feeder-zone_last_status"] != "threshold_met" {
 		t.Fatalf("last_status = %#v, want threshold_met", snapshot.State["vision_rule_feeder-zone_last_status"])
@@ -186,5 +186,46 @@ func TestReportEventsPersistsReportedEntities(t *testing.T) {
 	}
 	if first["value"] != "cat" || first["display_name"] != "Cat" {
 		t.Fatalf("first payload entity = %#v, want cat/Cat", first)
+	}
+}
+
+func TestReportEventsRejectsClearedStatus(t *testing.T) {
+	ctx := context.Background()
+	service, registrySvc, _, store := newVisionTestService(t)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+	if err := store.UpsertVisionConfig(ctx, models.VisionCapabilityConfig{
+		RecognitionEnabled: true,
+		UpdatedAt:          time.Now().UTC(),
+		Rules: []models.VisionRule{{
+			ID:                   "feeder-zone",
+			Name:                 "Feeder Zone",
+			Enabled:              true,
+			CameraDeviceID:       camera.ID,
+			RecognitionEnabled:   true,
+			RTSPSource:           models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
+			EntitySelector:       models.VisionEntitySelector{Kind: "label", Value: "cat"},
+			Zone:                 models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
+			StayThresholdSeconds: 5,
+		}},
+	}); err != nil {
+		t.Fatalf("UpsertVisionConfig() error = %v", err)
+	}
+
+	err := service.ReportEvents(ctx, models.VisionServiceEventBatch{
+		Events: []models.VisionServiceEvent{{
+			EventID:      "evt-cleared",
+			RuleID:       "feeder-zone",
+			Status:       models.VisionServiceEventStatus("cleared"),
+			ObservedAt:   time.Now().UTC(),
+			DwellSeconds: 6,
+			EntityValue:  "cat",
+		}},
+	})
+	if err == nil {
+		t.Fatal("ReportEvents() error = nil, want unsupported status error")
 	}
 }

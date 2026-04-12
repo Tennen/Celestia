@@ -139,14 +139,9 @@ func applyReportedEvent(previous map[string]any, rule models.VisionRule, item mo
 	}
 	keys := ruleStateKeys(rule)
 	matchCount := intValue(next[keys.MatchCount])
-	if item.Status == models.VisionServiceEventStatusThresholdMet {
-		matchCount++
-		next[keys.Active] = true
-		next[keys.MatchCount] = matchCount
-	}
-	if item.Status == models.VisionServiceEventStatusCleared {
-		next[keys.Active] = false
-	}
+	matchCount++
+	next[keys.Active] = false
+	next[keys.MatchCount] = matchCount
 	next[keys.LastEventAt] = observedAt.Format(time.RFC3339Nano)
 	next[keys.LastEntityValue] = summarizeReportedEntities(normalizeReportedEntities(item), item.EntityValue)
 	next[keys.LastDwellSeconds] = max(item.DwellSeconds, 0)

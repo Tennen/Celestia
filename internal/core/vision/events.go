@@ -91,6 +91,11 @@ func (s *Service) ReportEvents(ctx context.Context, batch models.VisionServiceEv
 }
 
 func (s *Service) reportEvent(ctx context.Context, rule models.VisionRule, item models.VisionServiceEvent) error {
+	status, ok := normalizeReportedEventStatus(item.Status)
+	if !ok {
+		return fmt.Errorf("vision event status %q is unsupported; only threshold_met is accepted", item.Status)
+	}
+	item.Status = status
 	deviceID := strings.TrimSpace(item.CameraDeviceID)
 	if deviceID == "" {
 		deviceID = rule.CameraDeviceID

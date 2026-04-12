@@ -117,7 +117,7 @@ Payload schema:
 
 ### `rule_events`
 
-Sent when a rule transitions to `threshold_met` or `cleared`.
+Sent once for each completed stay event whose dwell time reached the configured threshold. Vision Service no longer emits a separate `cleared` message.
 
 ```json
 {
@@ -158,12 +158,13 @@ Sent when a rule transitions to `threshold_met` or `cleared`.
 - `entity_value` remains the backward-compatible primary entity identifier.
 - `entities` is optional, but when present it carries the complete set of recognized entities currently inside the configured zone for that emitted event.
 - When Gateway syncs a rule whose `entity_selector.value == ""`, Vision Service must treat that rule as "no class filter" and must not gate detections by entity class before dwell aggregation.
-- For wildcard rules, `threshold_met` and `cleared` events must include every in-zone recognized entity in `entities`.
+- For wildcard rules, the completed `threshold_met` event must include every in-zone recognized entity in `entities`.
+- `dwell_seconds` is the full duration of the completed stay event, not an in-progress counter.
 - Gateway uses `entities` for persisted history display and entity-based filtering in Admin, so Vision Service should keep the array stable, deduplicated by `kind + value`, and ordered by its primary/most relevant entity first.
 
 ### `evidence`
 
-Sent after the matching `rule_events` message when a `threshold_met` transition includes evidence.
+Sent after the matching completed `rule_events` message when that threshold-matched event includes evidence.
 
 ```json
 {

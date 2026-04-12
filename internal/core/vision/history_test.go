@@ -82,7 +82,7 @@ func TestVisionHistoryQueriesUsePersistedEventsBeyondInitialWindow(t *testing.T)
 				"capability_id": models.VisionCapabilityID,
 				"rule_id":       "feeder-zone",
 				"rule_name":     "Feeder Zone",
-				"event_status":  "cleared",
+				"event_status":  "threshold_met",
 				"entity_value":  "cat",
 			},
 		},

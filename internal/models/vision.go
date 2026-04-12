@@ -87,7 +87,6 @@ type VisionServiceEventStatus string
 
 const (
 	VisionServiceEventStatusThresholdMet VisionServiceEventStatus = "threshold_met"
-	VisionServiceEventStatusCleared      VisionServiceEventStatus = "cleared"
 )
 
 type VisionServiceEvent struct {

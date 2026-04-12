@@ -307,6 +307,7 @@ Important behavior:
 - Gateway returns persisted `device.event.occurred` records for the requested rule only.
 - Results are ordered newest-first.
 - History is limited to the configured `event_capture_retention_hours` window so rule history and evidence expiration stay aligned in Admin.
+- Current Vision Service behavior emits one completed `threshold_met` event per threshold-qualified stay. `dwell_seconds` is the full event duration, and Gateway no longer expects a follow-up `cleared` event.
 - `payload.entities`, when present, contains the full set of recognized in-zone entities reported by the Vision Service for that event. `payload.entity_value` remains the backward-compatible primary entity field.
 - `payload.captures[].metadata.annotations`, when present, contains normalized detection boxes for that capture. If `image_kind` is `raw`, Admin overlays those boxes on top of the returned image. If `image_kind` is `annotated`, Admin treats the stored image bytes as already rendered.
 - If stored evidence exists for a returned event, Gateway enriches the event payload with `capture_count` and `captures`.
