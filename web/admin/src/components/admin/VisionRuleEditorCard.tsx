@@ -13,7 +13,8 @@ import { ZoneBoxEditor } from './ZoneBoxEditor';
 
 type Props = {
   catalog: VisionEntityCatalog | null;
-  catalogMismatch: boolean;
+  catalogMatchesDraft: boolean;
+  catalogMatchesSaved: boolean;
   cameraDevices: DeviceView[];
   loading: boolean;
   onSaveRule: () => void;
@@ -59,7 +60,8 @@ function buildEntityOptions(catalog: VisionEntityCatalog | null, selectedRule: V
 
 export function VisionRuleEditorCard({
   catalog,
-  catalogMismatch,
+  catalogMatchesDraft,
+  catalogMatchesSaved,
   cameraDevices,
   loading,
   onSaveRule,
@@ -71,8 +73,9 @@ export function VisionRuleEditorCard({
   selectedRule,
 }: Props) {
   const [zoneEditorCollapsed, setZoneEditorCollapsed] = useState(true);
-  const entityOptions = selectedRule ? buildEntityOptions(catalog, selectedRule) : [];
-  const canUseSpecificEntities = Boolean(selectedRule && catalog && !catalogMismatch && entityOptions.length > 0);
+  const usableCatalog = catalogMatchesDraft ? catalog : null;
+  const entityOptions = selectedRule ? buildEntityOptions(usableCatalog, selectedRule) : [];
+  const canUseSpecificEntities = Boolean(selectedRule && usableCatalog && entityOptions.length > 0);
   const selectedCameraDevice =
     selectedRule ? cameraDevices.find((device) => device.device.id === selectedRule.camera_device_id) ?? null : null;
   const resolvedRTSPSourceURL = cameraRTSPSourceURL(selectedCameraDevice);
@@ -179,16 +182,22 @@ export function VisionRuleEditorCard({
               </div>
             </div>
 
-            {catalogMismatch ? (
+            {catalog && catalogMatchesDraft && !catalogMatchesSaved ? (
               <p className="muted">
-                Supported entities were fetched from {catalog?.service_ws_url}. Refresh the catalog again for the current Vision
-                Service websocket URL and model before saving rules.
+                Supported entities were fetched from {catalog.service_ws_url} for the current recognition settings draft. Save
+                Recognition Settings before relying on these specific entity choices in rule saves.
               </p>
             ) : null}
-            {!catalog && !catalogMismatch ? (
+            {catalog && !catalogMatchesDraft ? (
+              <p className="muted">
+                Supported entities were fetched from {catalog?.service_ws_url}. Refresh the catalog again for the current Vision
+                Service websocket URL and model before using specific entities in this rule.
+              </p>
+            ) : null}
+            {!catalog ? (
               <p className="muted">You can save this rule for all entities now, or refresh supported entities to target one label such as cat.</p>
             ) : null}
-            {catalog && !catalogMismatch && entityOptions.length === 0 ? (
+            {usableCatalog && entityOptions.length === 0 ? (
               <p className="muted">The current Vision Service catalog is empty, so this rule can only run in all-entities mode right now.</p>
             ) : null}
 
@@ -215,9 +224,11 @@ export function VisionRuleEditorCard({
               <p className="muted">
                 {selectedRule.entity_selector.value === ''
                   ? 'Leave this empty to let the Vision Service report every recognized entity inside the zone.'
-                  : canUseSpecificEntities
+                  : canUseSpecificEntities && catalogMatchesSaved
                     ? 'Specific entity choices come from the current Vision Service model catalog.'
-                    : 'Specific entity matching depends on the current Vision Service catalog. Refresh supported entities if you want to narrow this rule to one entity.'}
+                    : canUseSpecificEntities
+                      ? 'Specific entity choices come from the latest fetched catalog for the current recognition settings draft. Save Recognition Settings before saving this rule if you want those settings applied.'
+                      : 'Specific entity matching depends on the current Vision Service catalog. Refresh supported entities if you want to narrow this rule to one entity.'}
               </p>
             </div>
 

@@ -25,7 +25,8 @@ describe('VisionRuleEditorCard', () => {
     render(
       <VisionRuleEditorCard
         catalog={null}
-        catalogMismatch={false}
+        catalogMatchesDraft={false}
+        catalogMatchesSaved={false}
         cameraDevices={[]}
         loading={false}
         onSaveRule={vi.fn()}
@@ -44,5 +45,44 @@ describe('VisionRuleEditorCard', () => {
     await user.click(screen.getByRole('button', { name: /show zone editor/i }));
 
     expect(screen.getByText(/drag on the frame to redraw the target zone/i)).not.toBeNull();
+  });
+
+  it('shows specific entities from the current settings draft catalog before settings are saved', () => {
+    render(
+      <VisionRuleEditorCard
+        catalog={{
+          service_ws_url: 'ws://vision-draft.example/api/v1/capabilities/vision_entity_stay_zone',
+          schema_version: 'celestia.vision.catalog.v1',
+          model_name: 'yolo11m-coco',
+          service_version: '1.2.0',
+          fetched_at: '2026-04-12T01:00:00Z',
+          entities: [
+            { kind: 'label', value: 'cat', display_name: 'Cat' },
+            { kind: 'label', value: 'dog', display_name: 'Dog' },
+          ],
+        }}
+        catalogMatchesDraft={true}
+        catalogMatchesSaved={false}
+        cameraDevices={[]}
+        loading={false}
+        onSaveRule={vi.fn()}
+        onRemoveRule={vi.fn()}
+        onSelectRuleId={vi.fn()}
+        onUpdateRule={vi.fn()}
+        onViewHistory={vi.fn()}
+        saving={false}
+        selectedRule={{
+          ...buildRule(),
+          entity_selector: { kind: 'label', value: '' },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('option', { name: 'All Entities In Zone' })).not.toBeNull();
+    expect(screen.getByRole('option', { name: 'Cat' })).not.toBeNull();
+    expect(screen.getByRole('option', { name: 'Dog' })).not.toBeNull();
+    expect(
+      screen.getByText(/save recognition settings before relying on these specific entity choices in rule saves/i),
+    ).not.toBeNull();
   });
 });

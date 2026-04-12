@@ -157,7 +157,6 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
   const normalizedDraftServiceWSURL = normalizeVisionServiceWSURL(settingsDraft.service_ws_url);
   const catalogMatchesDraft = catalogMatchesSelection(catalog, settingsDraft.service_ws_url, settingsDraft.model_name);
   const catalogMatchesSaved = catalogMatchesSelection(catalog, persistedConfig.service_ws_url, persistedConfig.model_name ?? '');
-  const activeCatalog = catalogMatchesSaved ? catalog : null;
   const selectedRule = ruleDraft.rules.find((rule: VisionRule) => rule.id === selectedRuleId) ?? null;
   const recognitionConfigured = Boolean(normalizedSavedServiceWSURL);
 
@@ -332,8 +331,9 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
             <ScrollArea className="detail-scroll vision-rule-layout__detail">
               <div className="detail-stack">
                 <VisionRuleEditorCard
-                  catalog={activeCatalog}
-                  catalogMismatch={Boolean(catalog && !catalogMatchesSaved)}
+                  catalog={catalog}
+                  catalogMatchesDraft={catalogMatchesDraft}
+                  catalogMatchesSaved={catalogMatchesSaved}
                   cameraDevices={cameraDevices}
                   loading={busy === 'load'}
                   onSaveRule={() => void handleSaveRule()}
