@@ -90,7 +90,7 @@ export function VisionRuleEditorCard({
       <CardHeader>
         <CardHeading
           title={selectedRule ? selectedRule.name || 'Rule Editor' : 'Rule Editor'}
-          description="Bind a camera and RTSP source to a generic entity stay-zone rule. Rules may either target one catalog entity or leave the selector empty so the Vision Service reports every recognized entity inside the zone."
+          description="Bind a camera and RTSP source to a generic entity stay-zone rule. Rules may either target one catalog entity or leave the selector empty so the Vision Service reports every recognized entity inside the zone, with an optional behavior hint for semantic fallback checks."
           aside={
             selectedRule ? (
               <div className="automation-editor__meta">
@@ -229,6 +229,24 @@ export function VisionRuleEditorCard({
                     : canUseSpecificEntities
                       ? 'Specific entity choices come from the latest fetched catalog for the current recognition settings draft. Save Recognition Settings before saving this rule if you want those settings applied.'
                       : 'Specific entity matching depends on the current Vision Service catalog. Refresh supported entities if you want to narrow this rule to one entity.'}
+              </p>
+            </div>
+
+            <div className="automation-field">
+              <label>Behavior</label>
+              <Input
+                value={selectedRule.behavior}
+                onChange={(event) =>
+                  onUpdateRule(selectedRule.id, (current) => ({
+                    ...current,
+                    behavior: event.target.value,
+                  }))
+                }
+                placeholder="Optional, for example eating"
+              />
+              <p className="muted">
+                Optional semantic hint. When provided, Vision Service may combine it with the entity selector for ROI/VLM
+                fallback checks such as whether a cat is eating inside this zone.
               </p>
             </div>
 

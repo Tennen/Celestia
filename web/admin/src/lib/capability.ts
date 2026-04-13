@@ -74,6 +74,7 @@ function normalizeVisionRule(rule: Partial<VisionRule> | null | undefined, index
       kind: readString(rule?.entity_selector?.kind) || 'label',
       value: readString(rule?.entity_selector?.value),
     },
+    behavior: readString(rule?.behavior),
     zone: {
       x: readNumber(rule?.zone?.x, 0.2),
       y: readNumber(rule?.zone?.y, 0.2),
@@ -151,6 +152,7 @@ export function createVisionRule(cameras: DeviceView[], index: number): VisionRu
       kind: 'label',
       value: '',
     },
+    behavior: '',
     zone: {
       x: 0.2,
       y: 0.2,

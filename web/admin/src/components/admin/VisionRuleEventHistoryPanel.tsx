@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import { visionEventCapturesFromPayload, VisionEventCaptureGallery } from './VisionEventCaptureGallery';
+import { VisionEventDecisionCard } from './VisionEventDecisionCard';
 import { AggregatedInfoCard } from './shared/AggregatedInfoCard';
 import { CardHeading } from './shared/CardHeading';
 
@@ -192,6 +193,7 @@ function VisionHistoryEventModal({ busy, eventView, onClose, onDelete }: EventMo
             />
 
             <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(eventView.event.payload)} />
+            <VisionEventDecisionCard metadata={eventView.event.payload?.metadata} />
 
             <div className="vision-history-detail__payload">
               <span className="muted">Event Metadata</span>

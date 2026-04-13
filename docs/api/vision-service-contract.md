@@ -1,6 +1,6 @@
 # Vision Service WebSocket Contract
 
-This document is the integration contract between Gateway and the standalone Vision Service for the `vision_entity_stay_zone` capability.
+This document is the integration contract between Gateway and the standalone Vision Service control session.
 
 ## Overview
 
@@ -23,10 +23,10 @@ Implications:
 Gateway connects to:
 
 ```text
-ws://{vision_service_host}:{port}/api/v1/capabilities/vision_entity_stay_zone
+ws://{vision_service_host}:{port}/ws/control
 ```
 
-The route path is configurable with `VISION_SERVICE_GATEWAY_WS_PATH`.
+The route path is configurable with `VISION_SERVICE_CONTROL_WS_PATH`.
 
 Current server behavior:
 
@@ -117,7 +117,7 @@ Payload schema:
 
 ### `rule_events`
 
-Sent once for each completed stay event whose dwell time reached the configured threshold. Vision Service no longer emits a separate `cleared` message.
+Sent once after a dwell episode ends and the completed stay exceeded the configured threshold.
 
 ```json
 {
@@ -158,13 +158,13 @@ Sent once for each completed stay event whose dwell time reached the configured 
 - `entity_value` remains the backward-compatible primary entity identifier.
 - `entities` is optional, but when present it carries the complete set of recognized entities currently inside the configured zone for that emitted event.
 - When Gateway syncs a rule whose `entity_selector.value == ""`, Vision Service must treat that rule as "no class filter" and must not gate detections by entity class before dwell aggregation.
-- For wildcard rules, the completed `threshold_met` event must include every in-zone recognized entity in `entities`.
-- `dwell_seconds` is the full duration of the completed stay event, not an in-progress counter.
+- For wildcard rules, events must include every in-zone recognized entity in `entities`.
 - Gateway uses `entities` for persisted history display and entity-based filtering in Admin, so Vision Service should keep the array stable, deduplicated by `kind + value`, and ordered by its primary/most relevant entity first.
+- `metadata.decision` may carry source and scoring details such as `source`, `confidence_score`, `confidence_breakdown`, and semantic checker verdicts when ROI/VLM fallback was used.
 
 ### `evidence`
 
-Sent after the matching completed `rule_events` message when that threshold-matched event includes evidence.
+Sent after the matching `rule_events` message when the completed dwell event includes evidence.
 
 ```json
 {
@@ -370,6 +370,7 @@ Request:
           "kind": "label",
           "value": "cat"
         },
+        "behavior": "eating",
         "zone": {
           "x": 0.12,
           "y": 0.28,
@@ -403,6 +404,7 @@ Important semantics:
 - `recognition_enabled=false` stops all recognition work cleanly.
 - rules only run while the WebSocket session remains connected.
 - `entity_selector.value == ""` means the rule is intentionally wildcarded. Vision Service must still honor the rule's zone and dwell threshold, but it must skip any class-level inclusion gate for that rule.
+- `behavior` is optional. When present, Vision Service may combine it with the entity selector to build a short semantic-check prompt for an optional local VLM fallback path.
 
 ## Ordering Notes
 

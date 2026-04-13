@@ -5,6 +5,7 @@ import { Section } from '../ui/section';
 import { formatTime, prettyJson } from '../../lib/utils';
 import type { AuditRecord, EventRecord } from '../../lib/types';
 import { VisionEventCaptureGallery, visionEventCapturesFromPayload } from './VisionEventCaptureGallery';
+import { VisionEventDecisionCard } from './VisionEventDecisionCard';
 
 type Props = {
   events: EventRecord[];
@@ -32,6 +33,7 @@ export function ActivitySection({ events, audits }: Props) {
                   </div>
                   <strong>{event.device_id || event.plugin_id || 'system'}</strong>
                   <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(event.payload)} />
+                  <VisionEventDecisionCard metadata={event.payload?.metadata} />
                   <pre className="log-box log-box--wrap">{prettyJson(event.payload ?? {})}</pre>
                 </article>
               ))}

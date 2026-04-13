@@ -82,6 +82,7 @@ func TestSaveConfigSeedsCameraStateAndSyncsOverWebsocket(t *testing.T) {
 			RecognitionEnabled:   true,
 			RTSPSource:           models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
 			EntitySelector:       models.VisionEntitySelector{Kind: "label", Value: "cat"},
+			Behavior:             " eating ",
 			Zone:                 models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
 			StayThresholdSeconds: 7,
 		}},
@@ -110,6 +111,12 @@ func TestSaveConfigSeedsCameraStateAndSyncsOverWebsocket(t *testing.T) {
 	}
 	if synced.Rules[0].ID != "feeder-zone" {
 		t.Fatalf("synced rule id = %q, want feeder-zone", synced.Rules[0].ID)
+	}
+	if detail.Config.Rules[0].Behavior != "eating" {
+		t.Fatalf("detail behavior = %q, want eating", detail.Config.Rules[0].Behavior)
+	}
+	if synced.Rules[0].Behavior != "eating" {
+		t.Fatalf("synced behavior = %q, want eating", synced.Rules[0].Behavior)
 	}
 
 	snapshot, ok, err := stateSvc.Get(ctx, camera.ID)

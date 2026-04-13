@@ -127,6 +127,7 @@ func (s *Service) normalizeRule(ctx context.Context, rule models.VisionRule, idx
 		rule.EntitySelector.Kind = "label"
 	}
 	rule.EntitySelector.Value = strings.TrimSpace(rule.EntitySelector.Value)
+	rule.Behavior = strings.TrimSpace(rule.Behavior)
 	if rule.StayThresholdSeconds <= 0 {
 		rule.StayThresholdSeconds = defaultVisionThresholdSeconds
 	}
@@ -290,6 +291,7 @@ func (s *Service) buildSyncPayload(ctx context.Context, config models.VisionCapa
 			Camera:               camera,
 			RTSPSource:           rule.RTSPSource,
 			EntitySelector:       rule.EntitySelector,
+			Behavior:             rule.Behavior,
 			Zone:                 rule.Zone,
 			StayThresholdSeconds: rule.StayThresholdSeconds,
 		})

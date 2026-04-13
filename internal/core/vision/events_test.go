@@ -189,6 +189,82 @@ func TestReportEventsPersistsReportedEntities(t *testing.T) {
 	}
 }
 
+func TestReportEventsPersistsDecisionMetadata(t *testing.T) {
+	ctx := context.Background()
+	service, registrySvc, _, store := newVisionTestService(t)
+
+	camera := visionTestCamera()
+	if err := registrySvc.Upsert(ctx, []models.Device{camera}); err != nil {
+		t.Fatalf("registry.Upsert() error = %v", err)
+	}
+	if err := store.UpsertVisionConfig(ctx, models.VisionCapabilityConfig{
+		RecognitionEnabled: true,
+		UpdatedAt:          time.Now().UTC(),
+		Rules: []models.VisionRule{{
+			ID:                   "feeder-zone",
+			Name:                 "Feeder Zone",
+			Enabled:              true,
+			CameraDeviceID:       camera.ID,
+			RecognitionEnabled:   true,
+			RTSPSource:           models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
+			EntitySelector:       models.VisionEntitySelector{Kind: "label", Value: "cat"},
+			Behavior:             "eating",
+			Zone:                 models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
+			StayThresholdSeconds: 5,
+		}},
+	}); err != nil {
+		t.Fatalf("UpsertVisionConfig() error = %v", err)
+	}
+
+	if err := service.ReportEvents(ctx, models.VisionServiceEventBatch{
+		Events: []models.VisionServiceEvent{{
+			EventID:      "evt-decision",
+			RuleID:       "feeder-zone",
+			Status:       models.VisionServiceEventStatusThresholdMet,
+			ObservedAt:   time.Now().UTC(),
+			DwellSeconds: 9,
+			EntityValue:  "cat",
+			Metadata: map[string]any{
+				"decision": map[string]any{
+					"source":           "roi_vlm_fallback",
+					"confidence_score": 0.91,
+					"confidence_breakdown": map[string]any{
+						"detector": 0.52,
+						"semantic": 0.96,
+					},
+					"semantic_checker": map[string]any{
+						"verdict": "pass",
+					},
+				},
+			},
+		}},
+	}); err != nil {
+		t.Fatalf("ReportEvents() error = %v", err)
+	}
+
+	event, ok, err := store.GetEvent(ctx, "evt-decision")
+	if err != nil {
+		t.Fatalf("GetEvent() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("persisted event missing after ReportEvents()")
+	}
+	metadata, ok := event.Payload["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("payload.metadata type = %T, want map[string]any", event.Payload["metadata"])
+	}
+	decision, ok := metadata["decision"].(map[string]any)
+	if !ok {
+		t.Fatalf("payload.metadata.decision type = %T, want map[string]any", metadata["decision"])
+	}
+	if decision["source"] != "roi_vlm_fallback" {
+		t.Fatalf("payload.metadata.decision.source = %#v, want roi_vlm_fallback", decision["source"])
+	}
+	if decision["confidence_score"] != 0.91 {
+		t.Fatalf("payload.metadata.decision.confidence_score = %#v, want 0.91", decision["confidence_score"])
+	}
+}
+
 func TestReportEventsRejectsClearedStatus(t *testing.T) {
 	ctx := context.Background()
 	service, registrySvc, _, store := newVisionTestService(t)

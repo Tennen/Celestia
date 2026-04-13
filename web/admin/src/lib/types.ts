@@ -171,6 +171,7 @@ export type VisionRule = {
   recognition_enabled: boolean;
   rtsp_source: VisionRTSPSource;
   entity_selector: VisionEntitySelector;
+  behavior: string;
   zone: VisionZoneBox;
   stay_threshold_seconds: number;
 };

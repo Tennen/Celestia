@@ -36,6 +36,7 @@ type VisionRule struct {
 	RecognitionEnabled   bool                 `json:"recognition_enabled"`
 	RTSPSource           VisionRTSPSource     `json:"rtsp_source"`
 	EntitySelector       VisionEntitySelector `json:"entity_selector"`
+	Behavior             string               `json:"behavior,omitempty"`
 	Zone                 VisionZoneBox        `json:"zone"`
 	StayThresholdSeconds int                  `json:"stay_threshold_seconds"`
 }
@@ -168,6 +169,7 @@ type VisionServiceRule struct {
 	Camera               VisionServiceCamera  `json:"camera"`
 	RTSPSource           VisionRTSPSource     `json:"rtsp_source"`
 	EntitySelector       VisionEntitySelector `json:"entity_selector"`
+	Behavior             string               `json:"behavior,omitempty"`
 	Zone                 VisionZoneBox        `json:"zone"`
 	StayThresholdSeconds int                  `json:"stay_threshold_seconds"`
 }

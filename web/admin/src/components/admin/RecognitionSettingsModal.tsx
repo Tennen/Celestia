@@ -110,7 +110,7 @@ export function RecognitionSettingsModal({
               <Input
                 value={draft.service_ws_url}
                 onChange={(event) => onUpdateDraft((current) => ({ ...current, service_ws_url: event.target.value }))}
-                placeholder="ws://127.0.0.1:8090/api/v1/capabilities/vision_entity_stay_zone"
+                placeholder="ws://127.0.0.1:8090/ws/control"
               />
             </div>
 
