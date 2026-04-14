@@ -112,6 +112,10 @@ type CommandExecutionResult struct {
 type EventFilter struct {
 	PluginID string
 	DeviceID string
+	FromTS   *time.Time
+	ToTS     *time.Time
+	BeforeTS *time.Time
+	BeforeID string
 	Limit    int
 }
 

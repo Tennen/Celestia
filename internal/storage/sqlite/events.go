@@ -57,6 +57,14 @@ func (s *Store) ListEvents(ctx context.Context, filter storage.EventFilter) ([]m
 		clauses = append(clauses, "type = ?")
 		args = append(args, filter.Type)
 	}
+	if filter.FromTS != nil {
+		clauses = append(clauses, "ts >= ?")
+		args = append(args, filter.FromTS.UTC().Format(time.RFC3339Nano))
+	}
+	if filter.ToTS != nil {
+		clauses = append(clauses, "ts < ?")
+		args = append(args, filter.ToTS.UTC().Format(time.RFC3339Nano))
+	}
 	if filter.BeforeTS != nil {
 		beforeTS := filter.BeforeTS.UTC().Format(time.RFC3339Nano)
 		if beforeID := strings.TrimSpace(filter.BeforeID); beforeID != "" {

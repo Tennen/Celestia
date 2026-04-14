@@ -19,6 +19,8 @@ type stubGateway struct {
 	deviceErr            error
 	commandResult        gatewayapi.CommandExecutionResult
 	commandErr           error
+	listedEvents         []models.Event
+	listedEventsFilter   gatewayapi.EventFilter
 	savedAutomation      models.Automation
 	deletedVisionRuleID  string
 	deletedVisionEventID string
@@ -110,8 +112,9 @@ func (g *stubGateway) ToggleControl(_ context.Context, _ gatewayapi.ToggleContro
 func (g *stubGateway) RunActionControl(_ context.Context, _ gatewayapi.ActionControlRequest) (gatewayapi.CommandExecutionResult, error) {
 	return gatewayapi.CommandExecutionResult{}, nil
 }
-func (g *stubGateway) ListEvents(_ context.Context, _ gatewayapi.EventFilter) ([]models.Event, error) {
-	return nil, nil
+func (g *stubGateway) ListEvents(_ context.Context, filter gatewayapi.EventFilter) ([]models.Event, error) {
+	g.listedEventsFilter = filter
+	return g.listedEvents, nil
 }
 func (g *stubGateway) ListAudits(_ context.Context, _ gatewayapi.AuditFilter) ([]models.AuditRecord, error) {
 	return nil, nil

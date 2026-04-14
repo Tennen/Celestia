@@ -11,6 +11,10 @@ Optional query parameters:
 - `plugin_id`
 - `device_id`
 - `limit` (default `100`)
+- `from_ts` (inclusive RFC3339 lower bound)
+- `to_ts` (exclusive RFC3339 upper bound)
+- `before_ts` (RFC3339 cursor for older pages)
+- `before_id` (recommended with `before_ts` to disambiguate equal timestamps)
 
 Response:
 
@@ -33,6 +37,14 @@ Response:
     }
   }
 ]
+```
+
+This endpoint exposes the global persisted Core event feed. Vision capability `event_capture_retention_hours` does not trim this list; that setting only applies to rule-scoped vision history and capture evidence.
+
+For cursor-based pagination, request the next older page with the last event from the current page:
+
+```text
+GET /api/v1/events?limit=100&before_ts=2026-04-03T10:00:00Z&before_id=evt-1
 ```
 
 For `device.state.changed`, Core enriches the payload before publishing it to SSE subscribers and persisting it:

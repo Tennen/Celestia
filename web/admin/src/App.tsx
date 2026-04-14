@@ -385,7 +385,7 @@ function App() {
               {activeSection === 'devices' ? <DeviceWorkspace /> : null}
 
               {activeSection === 'activity' ? (
-                <ActivitySection events={events} audits={audits} />
+                <ActivitySection audits={audits} />
               ) : null}
             </div>
           </div>

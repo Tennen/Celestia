@@ -11,9 +11,28 @@ import (
 )
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	fromTS, err := parseOptionalRFC3339Time(r.URL.Query().Get("from_ts"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("from_ts: %w", err))
+		return
+	}
+	toTS, err := parseOptionalRFC3339Time(r.URL.Query().Get("to_ts"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("to_ts: %w", err))
+		return
+	}
+	beforeTS, err := parseOptionalRFC3339Time(r.URL.Query().Get("before_ts"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("before_ts: %w", err))
+		return
+	}
 	items, err := s.gateway.ListEvents(r.Context(), gatewayapi.EventFilter{
 		PluginID: r.URL.Query().Get("plugin_id"),
 		DeviceID: r.URL.Query().Get("device_id"),
+		FromTS:   fromTS,
+		ToTS:     toTS,
+		BeforeTS: beforeTS,
+		BeforeID: r.URL.Query().Get("before_id"),
 		Limit:    parseLimit(r.URL.Query().Get("limit"), 100),
 	})
 	if err != nil {

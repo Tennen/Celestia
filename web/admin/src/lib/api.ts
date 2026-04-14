@@ -119,6 +119,16 @@ export async function fetchVisionRuleEvents(ruleId: string, limit = 50) {
   );
 }
 
+export type FetchEventsQuery = {
+  pluginId?: string;
+  deviceId?: string;
+  fromTs?: string;
+  toTs?: string;
+  beforeTs?: string;
+  beforeId?: string;
+  limit?: number;
+};
+
 export async function deleteVisionRuleEvent(ruleId: string, eventId: string) {
   return request<{ ok: boolean }>(
     `/capabilities/vision_entity_stay_zone/rules/${encodeURIComponent(ruleId)}/events/${encodeURIComponent(eventId)}`,
@@ -248,8 +258,32 @@ export async function updateDeviceControlPreference(
   );
 }
 
-export async function fetchEvents(limit = 100) {
-  return request<EventRecord[]>(`/events?limit=${limit}`);
+export async function fetchEvents(query: FetchEventsQuery = {}) {
+  const params = new URLSearchParams();
+  if (query.pluginId) {
+    params.set('plugin_id', query.pluginId);
+  }
+  if (query.deviceId) {
+    params.set('device_id', query.deviceId);
+  }
+  if (query.fromTs) {
+    params.set('from_ts', query.fromTs);
+  }
+  if (query.toTs) {
+    params.set('to_ts', query.toTs);
+  }
+  if (query.beforeTs) {
+    params.set('before_ts', query.beforeTs);
+  }
+  if (query.beforeId) {
+    params.set('before_id', query.beforeId);
+  }
+  if (query.limit && query.limit > 0) {
+    params.set('limit', `${query.limit}`);
+  }
+  const queryString = params.toString();
+  const suffix = queryString ? `?${queryString}` : '';
+  return request<EventRecord[]>(`/events${suffix}`);
 }
 
 export async function fetchAudits(limit = 100) {

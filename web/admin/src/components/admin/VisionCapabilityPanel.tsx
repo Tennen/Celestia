@@ -355,6 +355,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
               <div className="detail-stack">
                 {selectedRule ? (
                   <VisionRuleEventHistoryPanel
+                    key={selectedRule.id}
                     onBack={() => setDetailView('editor')}
                     onError={onError}
                     rule={selectedRule}

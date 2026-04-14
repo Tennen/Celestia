@@ -49,7 +49,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         fetchCapabilities(),
         fetchAutomations(),
         fetchDevices(deviceSearch),
-        fetchEvents(80),
+        fetchEvents({ limit: 80 }),
         fetchAudits(80),
       ]);
 

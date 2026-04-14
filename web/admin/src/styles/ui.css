@@ -189,6 +189,34 @@
     @apply mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground;
   }
 
+  .activity-toolbar {
+    @apply grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start;
+  }
+
+  .activity-toolbar__filters {
+    @apply flex flex-wrap items-end gap-2;
+  }
+
+  .activity-toolbar__status {
+    @apply flex flex-wrap items-center gap-2 xl:justify-end;
+  }
+
+  .activity-toolbar__range {
+    @apply w-full min-w-[11rem] sm:w-auto;
+  }
+
+  .activity-toolbar__support {
+    @apply -mt-1 text-xs leading-5;
+  }
+
+  .activity-empty {
+    @apply rounded-2xl border border-dashed border-border/80 bg-secondary/30 p-4;
+  }
+
+  .activity-pagination {
+    @apply flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-3;
+  }
+
   .stat {
     @apply rounded-2xl border bg-card/85 shadow-sm backdrop-blur;
   }

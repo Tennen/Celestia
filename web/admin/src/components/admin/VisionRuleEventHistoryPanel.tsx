@@ -265,6 +265,10 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
 
   useEffect(() => {
     let cancelled = false;
+    setEvents([]);
+    setOpenEventId('');
+    setSelectedEntityKey('');
+    setDeletingEventId('');
     setBusy('load');
     void fetchVisionRuleEvents(rule.id, 50)
       .then((items) => {

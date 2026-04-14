@@ -137,6 +137,9 @@ export function RecognitionSettingsModal({
                   }))
                 }
               />
+              <p className="muted">
+                Applies to persisted vision rule history and capture evidence only. The global Activity event feed is paginated separately.
+              </p>
             </div>
 
             <div className="automation-field">

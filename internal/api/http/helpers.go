@@ -51,6 +51,19 @@ func parseLimit(raw string, defaultValue int) int {
 	return limit
 }
 
+func parseOptionalRFC3339Time(raw string) (*time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	value, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid RFC3339 timestamp %q", raw)
+	}
+	value = value.UTC()
+	return &value, nil
+}
+
 func actorFromRequest(r *http.Request) string {
 	return actorFromRequestWithDefault(r, "admin")
 }

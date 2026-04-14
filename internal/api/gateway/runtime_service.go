@@ -300,9 +300,16 @@ func (s *RuntimeService) ListEvents(ctx context.Context, filter EventFilter) ([]
 	if limit <= 0 {
 		limit = 100
 	}
+	if filter.FromTS != nil && filter.ToTS != nil && !filter.FromTS.Before(*filter.ToTS) {
+		return nil, statusError(http.StatusBadRequest, errors.New("from_ts must be before to_ts"))
+	}
 	items, err := s.runtime.Store.ListEvents(ctx, storage.EventFilter{
 		PluginID: filter.PluginID,
 		DeviceID: filter.DeviceID,
+		FromTS:   filter.FromTS,
+		ToTS:     filter.ToTS,
+		BeforeTS: filter.BeforeTS,
+		BeforeID: filter.BeforeID,
 		Limit:    limit,
 	})
 	if err != nil {
