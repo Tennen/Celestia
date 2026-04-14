@@ -19,6 +19,9 @@ type stubGateway struct {
 	deviceErr            error
 	commandResult        gatewayapi.CommandExecutionResult
 	commandErr           error
+	listedVisionRuleID   string
+	listedVisionFilter   gatewayapi.VisionRuleEventFilter
+	listedVisionEvents   []models.Event
 	listedEvents         []models.Event
 	listedEventsFilter   gatewayapi.EventFilter
 	savedAutomation      models.Automation
@@ -64,8 +67,10 @@ func (g *stubGateway) SaveVisionCapabilityConfig(_ context.Context, _ models.Vis
 func (g *stubGateway) RefreshVisionEntityCatalog(_ context.Context, _ models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error) {
 	return models.VisionEntityCatalog{}, nil
 }
-func (g *stubGateway) ListVisionRuleEvents(_ context.Context, _ string, _ int) ([]models.Event, error) {
-	return nil, nil
+func (g *stubGateway) ListVisionRuleEvents(_ context.Context, ruleID string, filter gatewayapi.VisionRuleEventFilter) ([]models.Event, error) {
+	g.listedVisionRuleID = ruleID
+	g.listedVisionFilter = filter
+	return g.listedVisionEvents, nil
 }
 func (g *stubGateway) DeleteVisionRuleEvent(_ context.Context, ruleID string, eventID string) error {
 	g.deletedVisionRuleID = ruleID

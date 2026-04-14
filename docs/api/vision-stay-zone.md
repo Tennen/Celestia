@@ -235,6 +235,10 @@ If the Vision Service is unreachable, Gateway still persists the config and retu
 Optional query parameters:
 
 - `limit` (default `50`)
+- `from_ts` (inclusive RFC3339 lower bound)
+- `to_ts` (exclusive RFC3339 upper bound)
+- `before_ts` (RFC3339 cursor for older pages)
+- `before_id` (recommended with `before_ts` to disambiguate equal timestamps)
 
 Response:
 
@@ -318,6 +322,8 @@ Response:
   }
 ]
 ```
+
+Rule history is still bounded by the configured `event_capture_retention_hours`, but callers can page within that retained window and narrow reads to a specific date range.
 
 Important behavior:
 

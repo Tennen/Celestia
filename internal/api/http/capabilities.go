@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	gateway "github.com/chentianyu/celestia/internal/api/gateway"
 	"github.com/chentianyu/celestia/internal/models"
 )
 
@@ -61,7 +62,28 @@ func (s *Server) handleRefreshVisionEntityCatalog(w http.ResponseWriter, r *http
 }
 
 func (s *Server) handleVisionRuleEvents(w http.ResponseWriter, r *http.Request) {
-	items, err := s.gateway.ListVisionRuleEvents(r.Context(), r.PathValue("ruleID"), parseLimit(r.URL.Query().Get("limit"), 50))
+	fromTS, err := parseOptionalRFC3339Time(r.URL.Query().Get("from_ts"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	toTS, err := parseOptionalRFC3339Time(r.URL.Query().Get("to_ts"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	beforeTS, err := parseOptionalRFC3339Time(r.URL.Query().Get("before_ts"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	items, err := s.gateway.ListVisionRuleEvents(r.Context(), r.PathValue("ruleID"), gateway.VisionRuleEventFilter{
+		FromTS:   fromTS,
+		ToTS:     toTS,
+		BeforeTS: beforeTS,
+		BeforeID: r.URL.Query().Get("before_id"),
+		Limit:    parseLimit(r.URL.Query().Get("limit"), 50),
+	})
 	if err != nil {
 		writeServiceError(w, err)
 		return

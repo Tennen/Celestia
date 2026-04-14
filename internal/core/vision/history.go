@@ -21,15 +21,23 @@ const (
 	maxVisionHistoryPageSize  = 200
 )
 
+type EventHistoryFilter struct {
+	FromTS   *time.Time
+	ToTS     *time.Time
+	BeforeTS *time.Time
+	BeforeID string
+	Limit    int
+}
+
 func (s *Service) RecentEvents(ctx context.Context, limit int) ([]models.Event, error) {
 	config, err := s.GetConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return s.listHistoryEvents(ctx, config, "", limit)
+	return s.listHistoryEvents(ctx, config, "", EventHistoryFilter{Limit: limit})
 }
 
-func (s *Service) RuleEvents(ctx context.Context, ruleID string, limit int) ([]models.Event, error) {
+func (s *Service) RuleEvents(ctx context.Context, ruleID string, filter EventHistoryFilter) ([]models.Event, error) {
 	ruleID = strings.TrimSpace(ruleID)
 	if ruleID == "" {
 		return nil, errors.New("vision rule id is required")
@@ -41,7 +49,7 @@ func (s *Service) RuleEvents(ctx context.Context, ruleID string, limit int) ([]m
 	if !hasVisionRule(config.Rules, ruleID) {
 		return nil, fmt.Errorf("%w: %s", ErrVisionRuleNotFound, ruleID)
 	}
-	return s.listHistoryEvents(ctx, config, ruleID, limit)
+	return s.listHistoryEvents(ctx, config, ruleID, filter)
 }
 
 func (s *Service) DeleteRuleEvent(ctx context.Context, ruleID, eventID string) error {
@@ -75,8 +83,9 @@ func (s *Service) listHistoryEvents(
 	ctx context.Context,
 	config models.VisionCapabilityConfig,
 	ruleID string,
-	limit int,
+	filter EventHistoryFilter,
 ) ([]models.Event, error) {
+	limit := filter.Limit
 	if limit <= 0 {
 		limit = defaultVisionHistoryLimit
 	}
@@ -87,14 +96,22 @@ func (s *Service) listHistoryEvents(
 	}
 
 	cutoff := time.Now().UTC().Add(-time.Duration(normalizeCaptureRetentionHours(config.EventCaptureRetentionHours)) * time.Hour)
-	filter := storage.EventFilter{
-		Type:  models.EventDeviceOccurred,
-		Limit: pageSize,
+	fromTS := cutoff
+	if filter.FromTS != nil && filter.FromTS.After(fromTS) {
+		fromTS = filter.FromTS.UTC()
+	}
+	storeFilter := storage.EventFilter{
+		Type:     models.EventDeviceOccurred,
+		FromTS:   &fromTS,
+		ToTS:     filter.ToTS,
+		BeforeTS: filter.BeforeTS,
+		BeforeID: filter.BeforeID,
+		Limit:    pageSize,
 	}
 	out := make([]models.Event, 0, min(limit, pageSize))
 
 	for len(out) < limit {
-		page, err := s.store.ListEvents(ctx, filter)
+		page, err := s.store.ListEvents(ctx, storeFilter)
 		if err != nil {
 			return nil, err
 		}
@@ -104,10 +121,6 @@ func (s *Service) listHistoryEvents(
 
 		stop := false
 		for _, item := range page {
-			if item.TS.Before(cutoff) {
-				stop = true
-				break
-			}
 			if !isVisionOccurredEvent(item) {
 				continue
 			}
@@ -120,14 +133,14 @@ func (s *Service) listHistoryEvents(
 				break
 			}
 		}
-		if stop || len(page) < filter.Limit {
+		if stop || len(page) < storeFilter.Limit {
 			break
 		}
 
 		last := page[len(page)-1]
 		beforeTS := last.TS.UTC()
-		filter.BeforeTS = &beforeTS
-		filter.BeforeID = last.ID
+		storeFilter.BeforeTS = &beforeTS
+		storeFilter.BeforeID = last.ID
 	}
 
 	return s.EnrichEvents(ctx, out)

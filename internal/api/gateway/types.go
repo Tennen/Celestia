@@ -24,7 +24,7 @@ type Service interface {
 	GetPluginLogs(ctx context.Context, pluginID string) (PluginLogsView, error)
 	SaveVisionCapabilityConfig(ctx context.Context, config models.VisionCapabilityConfig) (models.CapabilityDetail, error)
 	RefreshVisionEntityCatalog(ctx context.Context, req models.VisionEntityCatalogRefreshRequest) (models.VisionEntityCatalog, error)
-	ListVisionRuleEvents(ctx context.Context, ruleID string, limit int) ([]models.Event, error)
+	ListVisionRuleEvents(ctx context.Context, ruleID string, filter VisionRuleEventFilter) ([]models.Event, error)
 	DeleteVisionRuleEvent(ctx context.Context, ruleID string, eventID string) error
 	GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error)
 
@@ -112,6 +112,14 @@ type CommandExecutionResult struct {
 type EventFilter struct {
 	PluginID string
 	DeviceID string
+	FromTS   *time.Time
+	ToTS     *time.Time
+	BeforeTS *time.Time
+	BeforeID string
+	Limit    int
+}
+
+type VisionRuleEventFilter struct {
 	FromTS   *time.Time
 	ToTS     *time.Time
 	BeforeTS *time.Time

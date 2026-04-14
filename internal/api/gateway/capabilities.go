@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -44,11 +45,23 @@ func (s *HTTPService) RefreshVisionEntityCatalog(ctx context.Context, req models
 	return out, nil
 }
 
-func (s *HTTPService) ListVisionRuleEvents(ctx context.Context, ruleID string, limit int) ([]models.Event, error) {
+func (s *HTTPService) ListVisionRuleEvents(ctx context.Context, ruleID string, filter VisionRuleEventFilter) ([]models.Event, error) {
 	var out []models.Event
 	query := url.Values{}
-	if limit > 0 {
-		query.Set("limit", fmt.Sprintf("%d", limit))
+	if filter.FromTS != nil {
+		query.Set("from_ts", filter.FromTS.UTC().Format(time.RFC3339Nano))
+	}
+	if filter.ToTS != nil {
+		query.Set("to_ts", filter.ToTS.UTC().Format(time.RFC3339Nano))
+	}
+	if filter.BeforeTS != nil {
+		query.Set("before_ts", filter.BeforeTS.UTC().Format(time.RFC3339Nano))
+	}
+	if filter.BeforeID != "" {
+		query.Set("before_id", filter.BeforeID)
+	}
+	if filter.Limit > 0 {
+		query.Set("limit", fmt.Sprintf("%d", filter.Limit))
 	}
 	path := fmt.Sprintf(
 		"/api/v1/capabilities/%s/rules/%s/events",

@@ -76,6 +76,8 @@ For rule-scoped persisted vision history in Admin, use the Vision Stay Zone capa
 - `GET /api/v1/capabilities/vision_entity_stay_zone/rules/{ruleID}/events`
 - `DELETE /api/v1/capabilities/vision_entity_stay_zone/rules/{ruleID}/events/{eventID}`
 
+The rule-history endpoint supports its own `limit`, `from_ts`, `to_ts`, `before_ts`, and `before_id` query parameters within the configured vision retention window.
+
 If Gateway has persisted screenshot evidence for a vision event, that same event record is enriched on read with:
 
 - `payload.entities`

@@ -113,9 +113,35 @@ export async function refreshVisionEntityCatalog(
   return normalizeVisionEntityCatalog(catalog);
 }
 
-export async function fetchVisionRuleEvents(ruleId: string, limit = 50) {
+export type FetchVisionRuleEventsQuery = {
+  limit?: number;
+  fromTs?: string;
+  toTs?: string;
+  beforeTs?: string;
+  beforeId?: string;
+};
+
+export async function fetchVisionRuleEvents(ruleId: string, query: FetchVisionRuleEventsQuery = {}) {
+  const params = new URLSearchParams();
+  if (query.fromTs) {
+    params.set('from_ts', query.fromTs);
+  }
+  if (query.toTs) {
+    params.set('to_ts', query.toTs);
+  }
+  if (query.beforeTs) {
+    params.set('before_ts', query.beforeTs);
+  }
+  if (query.beforeId) {
+    params.set('before_id', query.beforeId);
+  }
+  if (query.limit && query.limit > 0) {
+    params.set('limit', `${query.limit}`);
+  }
+  const queryString = params.toString();
+  const suffix = queryString ? `?${queryString}` : '';
   return request<EventRecord[]>(
-    `/capabilities/vision_entity_stay_zone/rules/${encodeURIComponent(ruleId)}/events?limit=${limit}`,
+    `/capabilities/vision_entity_stay_zone/rules/${encodeURIComponent(ruleId)}/events${suffix}`,
   );
 }
 

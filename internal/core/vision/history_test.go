@@ -117,7 +117,7 @@ func TestVisionHistoryQueriesUsePersistedEventsBeyondInitialWindow(t *testing.T)
 		t.Fatalf("RecentEvents() ids = [%s %s %s], want [vision-recent vision-other-rule vision-older]", recentEvents[0].ID, recentEvents[1].ID, recentEvents[2].ID)
 	}
 
-	ruleEvents, err := service.RuleEvents(ctx, "feeder-zone", 10)
+	ruleEvents, err := service.RuleEvents(ctx, "feeder-zone", EventHistoryFilter{Limit: 10})
 	if err != nil {
 		t.Fatalf("RuleEvents() error = %v", err)
 	}
@@ -234,7 +234,7 @@ func TestDeleteRuleEventRemovesPersistedEventAndCaptures(t *testing.T) {
 		t.Fatal("kept event missing after delete")
 	}
 
-	events, err := service.RuleEvents(ctx, "feeder-zone", 10)
+	events, err := service.RuleEvents(ctx, "feeder-zone", EventHistoryFilter{Limit: 10})
 	if err != nil {
 		t.Fatalf("RuleEvents() error = %v", err)
 	}
@@ -279,5 +279,75 @@ func TestDeleteRuleEventRejectsEventsOutsideRule(t *testing.T) {
 	err := service.DeleteRuleEvent(ctx, "feeder-zone", "vision-other-rule")
 	if !errors.Is(err, ErrVisionEventNotFound) {
 		t.Fatalf("DeleteRuleEvent() error = %v, want ErrVisionEventNotFound", err)
+	}
+}
+
+func TestRuleEventsSupportsDateRangeAndCursor(t *testing.T) {
+	ctx := context.Background()
+	service, _, _, store := newVisionTestService(t)
+
+	now := time.Now().UTC().Truncate(time.Second)
+	cameraID := visionTestCamera().ID
+	if err := store.UpsertVisionConfig(ctx, models.VisionCapabilityConfig{
+		RecognitionEnabled:         true,
+		EventCaptureRetentionHours: 168,
+		UpdatedAt:                  now,
+		Rules: []models.VisionRule{
+			{ID: "feeder-zone", Name: "Feeder Zone", CameraDeviceID: cameraID},
+		},
+	}); err != nil {
+		t.Fatalf("UpsertVisionConfig() error = %v", err)
+	}
+
+	for idx, eventTS := range []time.Time{
+		now.Add(-15 * time.Minute),
+		now.Add(-45 * time.Minute),
+		now.Add(-75 * time.Minute),
+	} {
+		if err := store.AppendEvent(ctx, models.Event{
+			ID:       fmt.Sprintf("vision-range-%d", idx+1),
+			Type:     models.EventDeviceOccurred,
+			PluginID: "hikvision",
+			DeviceID: cameraID,
+			TS:       eventTS,
+			Payload: map[string]any{
+				"capability_id": models.VisionCapabilityID,
+				"rule_id":       "feeder-zone",
+				"rule_name":     "Feeder Zone",
+				"event_status":  "threshold_met",
+				"entity_value":  "cat",
+			},
+		}); err != nil {
+			t.Fatalf("AppendEvent(%d) error = %v", idx, err)
+		}
+	}
+
+	fromTS := now.Add(-80 * time.Minute)
+	toTS := now.Add(-20 * time.Minute)
+	items, err := service.RuleEvents(ctx, "feeder-zone", EventHistoryFilter{
+		FromTS: &fromTS,
+		ToTS:   &toTS,
+		Limit:  10,
+	})
+	if err != nil {
+		t.Fatalf("RuleEvents(range) error = %v", err)
+	}
+	if len(items) != 2 || items[0].ID != "vision-range-2" || items[1].ID != "vision-range-3" {
+		t.Fatalf("RuleEvents(range) = %#v, want [vision-range-2 vision-range-3]", items)
+	}
+
+	beforeTS := items[0].TS
+	items, err = service.RuleEvents(ctx, "feeder-zone", EventHistoryFilter{
+		FromTS:   &fromTS,
+		ToTS:     &toTS,
+		BeforeTS: &beforeTS,
+		BeforeID: items[0].ID,
+		Limit:    10,
+	})
+	if err != nil {
+		t.Fatalf("RuleEvents(cursor) error = %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "vision-range-3" {
+		t.Fatalf("RuleEvents(cursor) = %#v, want [vision-range-3]", items)
 	}
 }

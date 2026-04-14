@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ArrowLeft, RefreshCcw, Trash2, X } from 'lucide-react';
-import { deleteVisionRuleEvent, fetchVisionRuleEvents, visionCaptureURL } from '../../lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, RefreshCcw } from 'lucide-react';
+import { deleteVisionRuleEvent, fetchVisionRuleEvents } from '../../lib/api';
 import type { EventRecord, VisionRule } from '../../lib/types';
-import { cn, formatTime, prettyJson } from '../../lib/utils';
-import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
+import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
-import { visionEventCapturesFromPayload, VisionEventCaptureGallery } from './VisionEventCaptureGallery';
-import { VisionEventDecisionCard } from './VisionEventDecisionCard';
-import { AggregatedInfoCard } from './shared/AggregatedInfoCard';
+import { buildHistoryEventView, type HistoryEntity, VisionHistoryEventCard, VisionHistoryEventModal } from './VisionRuleEventHistoryCards';
 import { CardHeading } from './shared/CardHeading';
 
 type Props = {
@@ -19,241 +16,39 @@ type Props = {
   updatedAtKey: string;
 };
 
-type HistoryEntity = {
-  key: string;
-  kind: string;
-  label: string;
-  value: string;
+type EventCursor = {
+  beforeTs?: string;
+  beforeId?: string;
 };
 
-type HistoryEventView = {
-  entities: HistoryEntity[];
-  entitySummary: string;
-  event: EventRecord;
-};
+const HISTORY_PAGE_SIZE = 50;
 
-type EventModalProps = {
-  busy: boolean;
-  eventView: HistoryEventView | null;
-  onClose: () => void;
-  onDelete: (event: EventRecord) => void;
-};
-
-type EventCardProps = {
-  active: boolean;
-  busy: boolean;
-  eventView: HistoryEventView;
-  onDelete: (event: EventRecord) => void;
-  onOpen: (eventId: string) => void;
-};
-
-function readString(value: unknown, fallback = '') {
-  return typeof value === 'string' ? value : fallback;
-}
-
-function readNumber(value: unknown, fallback = 0) {
-  return typeof value === 'number' ? value : fallback;
-}
-
-function readRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function historyEntityKey(kind: string, value: string) {
-  return `${kind}::${value}`;
-}
-
-function readHistoryEntity(value: unknown): HistoryEntity | null {
-  const record = readRecord(value);
-  if (!record) {
+function parseLocalDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
     return null;
   }
-  const kind = readString(record.kind).trim() || 'label';
-  const entityValue = readString(record.value).trim();
-  if (!entityValue) {
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return null;
   }
-  return {
-    key: historyEntityKey(kind, entityValue),
-    kind,
-    label: readString(record.display_name).trim() || entityValue,
-    value: entityValue,
-  };
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
-function normalizeEventEntities(event: EventRecord) {
-  const entities: HistoryEntity[] = [];
-  const seen = new Set<string>();
-  const payloadEntities = Array.isArray(event.payload?.entities) ? event.payload.entities : [];
-  for (const item of payloadEntities) {
-    const entity = readHistoryEntity(item);
-    if (!entity || seen.has(entity.key)) {
-      continue;
-    }
-    seen.add(entity.key);
-    entities.push(entity);
+function toStartOfDayISO(value: string) {
+  const date = parseLocalDate(value);
+  return date ? date.toISOString() : undefined;
+}
+
+function toExclusiveEndOfDayISO(value: string) {
+  const date = parseLocalDate(value);
+  if (!date) {
+    return undefined;
   }
-  const fallbackValue = readString(event.payload?.entity_value).trim();
-  const fallbackKey = historyEntityKey('label', fallbackValue);
-  if (fallbackValue && !seen.has(fallbackKey)) {
-    entities.push({
-      key: fallbackKey,
-      kind: 'label',
-      label: fallbackValue,
-      value: fallbackValue,
-    });
-  }
-  return entities;
-}
-
-function buildHistoryEventView(event: EventRecord): HistoryEventView {
-  const entities = normalizeEventEntities(event);
-  return {
-    entities,
-    entitySummary: entities.map((entity) => entity.label).join(', '),
-    event,
-  };
-}
-
-function historyEventStatus(eventView: HistoryEventView) {
-  return readString(eventView.event.payload?.event_status, eventView.event.type);
-}
-
-function VisionHistoryEventModal({ busy, eventView, onClose, onDelete }: EventModalProps) {
-  useEffect(() => {
-    if (!eventView) {
-      return;
-    }
-    const onKeyDown = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [eventView, onClose]);
-
-  if (!eventView) {
-    return null;
-  }
-
-  return (
-    <div className="admin-modal" onMouseDown={onClose}>
-      <Card className="admin-modal__card vision-history-modal" onMouseDown={(mouseEvent) => mouseEvent.stopPropagation()}>
-        <CardHeader className="vision-history-modal__header">
-          <CardHeading
-            title={historyEventStatus(eventView)}
-            description={
-              eventView.entitySummary
-                ? `${formatTime(eventView.event.ts)} · ${eventView.entitySummary}`
-                : formatTime(eventView.event.ts)
-            }
-            aside={
-              <div className="vision-history-modal__aside">
-                <Button
-                  type="button"
-                  variant="danger"
-                  size="icon"
-                  aria-label="Delete Event"
-                  title="Delete Event"
-                  onClick={() => onDelete(eventView.event)}
-                  disabled={busy}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-                <Button type="button" variant="ghost" size="icon" aria-label="Close Event Detail" title="Close" onClick={onClose}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            }
-          />
-        </CardHeader>
-        <div className="admin-modal__scroll">
-          <CardContent className="vision-history-modal__content">
-            <AggregatedInfoCard
-              items={[
-                {
-                  className: 'aggregated-info-card__item--full',
-                  label: 'Event ID',
-                  value: eventView.event.id,
-                  title: eventView.event.id,
-                },
-                {
-                  label: 'Dwell Seconds',
-                  value: `${readNumber(eventView.event.payload?.dwell_seconds)}s`,
-                },
-                {
-                  label: 'Event Status',
-                  value: historyEventStatus(eventView),
-                  title: historyEventStatus(eventView),
-                },
-              ]}
-            />
-
-            <VisionEventCaptureGallery captures={visionEventCapturesFromPayload(eventView.event.payload)} />
-            <VisionEventDecisionCard metadata={eventView.event.payload?.metadata} />
-
-            <div className="vision-history-detail__payload">
-              <span className="muted">Event Metadata</span>
-              <pre className="vision-history-detail__json">
-                {prettyJson(eventView.event.payload?.metadata ?? eventView.event.payload ?? {})}
-              </pre>
-            </div>
-          </CardContent>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function VisionHistoryEventCard({ active, busy, eventView, onDelete, onOpen }: EventCardProps) {
-  const captures = visionEventCapturesFromPayload(eventView.event.payload);
-  const leadCapture = captures[0] ?? null;
-  const backgroundStyle: CSSProperties | undefined = leadCapture
-    ? { backgroundImage: `url("${visionCaptureURL(leadCapture.capture_id)}")` }
-    : undefined;
-
-  return (
-    <article className={cn('vision-history-card', active && 'is-active')}>
-      <button type="button" className="vision-history-card__surface" onClick={() => onOpen(eventView.event.id)}>
-        <div className={cn('vision-history-card__media', !leadCapture && 'is-placeholder')} style={backgroundStyle} />
-        <div className="vision-history-card__veil" />
-        <div className="vision-history-card__top">
-          <Badge className="vision-history-card__tag" tone="accent" size="xs">
-            {readNumber(eventView.event.payload?.dwell_seconds)}s
-          </Badge>
-        </div>
-        <div className="vision-history-card__bottom">
-          {eventView.entitySummary ? (
-            <span className="vision-history-card__entities" title={eventView.entitySummary}>
-              {eventView.entitySummary}
-            </span>
-          ) : (
-            <span />
-          )}
-          <span className="vision-history-card__time">{formatTime(eventView.event.ts)}</span>
-        </div>
-      </button>
-
-      <Button
-        type="button"
-        variant="danger"
-        size="icon"
-        className="vision-history-card__delete"
-        aria-label="Delete Event"
-        title="Delete Event"
-        onClick={(mouseEvent) => {
-          mouseEvent.stopPropagation();
-          onDelete(eventView.event);
-        }}
-        disabled={busy}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </article>
-  );
+  date.setDate(date.getDate() + 1);
+  return date.toISOString();
 }
 
 export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKey }: Props) {
@@ -262,19 +57,48 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   const [selectedEntityKey, setSelectedEntityKey] = useState('');
   const [busy, setBusy] = useState<'load' | 'refresh' | ''>('load');
   const [deletingEventId, setDeletingEventId] = useState('');
+  const [draftFromDate, setDraftFromDate] = useState('');
+  const [draftToDate, setDraftToDate] = useState('');
+  const [appliedFromDate, setAppliedFromDate] = useState('');
+  const [appliedToDate, setAppliedToDate] = useState('');
+  const [pageCursors, setPageCursors] = useState<EventCursor[]>([{}]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [hasOlderPage, setHasOlderPage] = useState(false);
+
+  const currentCursor = pageCursors[pageIndex] ?? {};
+  const hasAppliedDateFilter = appliedFromDate !== '' || appliedToDate !== '';
+  const hasDraftChanges = draftFromDate !== appliedFromDate || draftToDate !== appliedToDate;
 
   useEffect(() => {
-    let cancelled = false;
     setEvents([]);
     setOpenEventId('');
     setSelectedEntityKey('');
     setDeletingEventId('');
+    setDraftFromDate('');
+    setDraftToDate('');
+    setAppliedFromDate('');
+    setAppliedToDate('');
+    setPageCursors([{}]);
+    setPageIndex(0);
+    setHasOlderPage(false);
+  }, [rule.id]);
+
+  useEffect(() => {
+    let cancelled = false;
     setBusy('load');
-    void fetchVisionRuleEvents(rule.id, 50)
+    void fetchVisionRuleEvents(rule.id, {
+      limit: HISTORY_PAGE_SIZE + 1,
+      fromTs: toStartOfDayISO(appliedFromDate),
+      toTs: toExclusiveEndOfDayISO(appliedToDate),
+      beforeTs: currentCursor.beforeTs,
+      beforeId: currentCursor.beforeId,
+    })
       .then((items) => {
-        if (!cancelled) {
-          setEvents(items);
+        if (cancelled) {
+          return;
         }
+        setEvents(items.slice(0, HISTORY_PAGE_SIZE));
+        setHasOlderPage(items.length > HISTORY_PAGE_SIZE);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -289,7 +113,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     return () => {
       cancelled = true;
     };
-  }, [onError, rule.id, updatedAtKey]);
+  }, [appliedFromDate, appliedToDate, currentCursor.beforeId, currentCursor.beforeTs, onError, rule.id, updatedAtKey]);
 
   const eventViews = useMemo(() => events.map((event) => buildHistoryEventView(event)), [events]);
 
@@ -322,16 +146,70 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   }, [filteredEventViews]);
 
   const openEvent = filteredEventViews.find((eventView) => eventView.event.id === openEventId) ?? null;
+  const filteredCountLabel =
+    filteredEventViews.length === eventViews.length
+      ? `${eventViews.length} events on this page`
+      : `${filteredEventViews.length} of ${eventViews.length} events on this page`;
+
+  const applyDateFilter = () => {
+    const fromTs = toStartOfDayISO(draftFromDate);
+    const toTs = toExclusiveEndOfDayISO(draftToDate);
+    if ((draftFromDate && !fromTs) || (draftToDate && !toTs)) {
+      onError('Enter valid dates before applying the history filter.');
+      return;
+    }
+    if (fromTs && toTs && fromTs >= toTs) {
+      onError('History end date must be on or after the start date.');
+      return;
+    }
+    setAppliedFromDate(draftFromDate);
+    setAppliedToDate(draftToDate);
+    setPageCursors([{}]);
+    setPageIndex(0);
+  };
+
+  const clearDateFilter = () => {
+    setDraftFromDate('');
+    setDraftToDate('');
+    setAppliedFromDate('');
+    setAppliedToDate('');
+    setPageCursors([{}]);
+    setPageIndex(0);
+  };
 
   const refreshEvents = async () => {
     setBusy('refresh');
     try {
-      setEvents(await fetchVisionRuleEvents(rule.id, 50));
+      const items = await fetchVisionRuleEvents(rule.id, {
+        limit: HISTORY_PAGE_SIZE + 1,
+        fromTs: toStartOfDayISO(appliedFromDate),
+        toTs: toExclusiveEndOfDayISO(appliedToDate),
+        beforeTs: currentCursor.beforeTs,
+        beforeId: currentCursor.beforeId,
+      });
+      setEvents(items.slice(0, HISTORY_PAGE_SIZE));
+      setHasOlderPage(items.length > HISTORY_PAGE_SIZE);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Failed to refresh persisted rule events');
     } finally {
       setBusy('');
     }
+  };
+
+  const loadOlderPage = () => {
+    if (!hasOlderPage || events.length === 0) {
+      return;
+    }
+    const lastEvent = events[events.length - 1];
+    setPageCursors((current) => [
+      ...current.slice(0, pageIndex + 1),
+      { beforeTs: lastEvent.ts, beforeId: lastEvent.id },
+    ]);
+    setPageIndex((current) => current + 1);
+  };
+
+  const loadNewerPage = () => {
+    setPageIndex((current) => Math.max(0, current - 1));
   };
 
   const deleteEvent = async (event: EventRecord) => {
@@ -378,30 +256,61 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
           />
         </CardHeader>
         <CardContent className="vision-history-panel__content">
-          {eventViews.length > 0 ? (
-            <div className="vision-toolbar vision-history-toolbar">
-              <div className="vision-history-toolbar__filter">
-                <span className="muted">Entity Filter</span>
-                <select
-                  className="select vision-history-toolbar__select"
-                  value={selectedEntityKey}
-                  onChange={(event) => setSelectedEntityKey(event.target.value)}
-                >
-                  <option value="">All Entities</option>
-                  {entityOptions.map((entity) => (
-                    <option key={entity.key} value={entity.key}>
-                      {entity.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <span className="muted">
-                {filteredEventViews.length === eventViews.length
-                  ? `${eventViews.length} events`
-                  : `${filteredEventViews.length} of ${eventViews.length} events`}
-              </span>
+          <div className="vision-toolbar vision-history-toolbar vision-history-toolbar--compact">
+            <div className="vision-history-toolbar__filter">
+              <span className="muted">Entity</span>
+              <select
+                className="select vision-history-toolbar__select"
+                value={selectedEntityKey}
+                onChange={(event) => setSelectedEntityKey(event.target.value)}
+              >
+                <option value="">All Entities</option>
+                {entityOptions.map((entity) => (
+                  <option key={entity.key} value={entity.key}>
+                    {entity.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : null}
+            <div className="vision-history-toolbar__dates">
+              <Input
+                type="date"
+                className="vision-history-toolbar__range"
+                value={draftFromDate}
+                onChange={(event) => setDraftFromDate(event.target.value)}
+                aria-label="Filter rule history from date"
+              />
+              <Input
+                type="date"
+                className="vision-history-toolbar__range"
+                value={draftToDate}
+                onChange={(event) => setDraftToDate(event.target.value)}
+                aria-label="Filter rule history to date"
+              />
+              <Button type="button" variant="secondary" size="sm" onClick={applyDateFilter} disabled={busy !== '' || !hasDraftChanges}>
+                Apply
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearDateFilter}
+                disabled={busy !== '' || (!hasAppliedDateFilter && draftFromDate === '' && draftToDate === '' && pageIndex === 0)}
+              >
+                Clear
+              </Button>
+            </div>
+            <div className="vision-history-toolbar__page">
+              <span className="muted">{filteredCountLabel}</span>
+              <span className="muted">Page {pageIndex + 1}</span>
+              <Button type="button" variant="secondary" size="sm" onClick={loadNewerPage} disabled={busy !== '' || pageIndex === 0}>
+                Newer
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={loadOlderPage} disabled={busy !== '' || !hasOlderPage}>
+                Older
+              </Button>
+            </div>
+          </div>
 
           <ScrollArea className="vision-history-grid-scroll">
             {filteredEventViews.length > 0 ? (
@@ -423,7 +332,9 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                   ? 'Loading persisted rule events…'
                   : eventViews.length > 0
                     ? 'No persisted events match the selected entity filter.'
-                    : 'No persisted events for this rule in the current retention window.'}
+                    : hasAppliedDateFilter
+                      ? 'No persisted events matched the selected date range.'
+                      : 'No persisted events for this rule in the current retention window.'}
               </div>
             )}
           </ScrollArea>

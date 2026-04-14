@@ -37,8 +37,17 @@ func (s *RuntimeService) RefreshVisionEntityCatalog(ctx context.Context, req mod
 	return item, nil
 }
 
-func (s *RuntimeService) ListVisionRuleEvents(ctx context.Context, ruleID string, limit int) ([]models.Event, error) {
-	items, err := s.runtime.Vision.RuleEvents(ctx, ruleID, limit)
+func (s *RuntimeService) ListVisionRuleEvents(ctx context.Context, ruleID string, filter VisionRuleEventFilter) ([]models.Event, error) {
+	if filter.FromTS != nil && filter.ToTS != nil && !filter.FromTS.Before(*filter.ToTS) {
+		return nil, statusError(http.StatusBadRequest, errors.New("from_ts must be before to_ts"))
+	}
+	items, err := s.runtime.Vision.RuleEvents(ctx, ruleID, vision.EventHistoryFilter{
+		FromTS:   filter.FromTS,
+		ToTS:     filter.ToTS,
+		BeforeTS: filter.BeforeTS,
+		BeforeID: filter.BeforeID,
+		Limit:    filter.Limit,
+	})
 	if err != nil {
 		if errors.Is(err, vision.ErrVisionRuleNotFound) {
 			return nil, statusError(http.StatusNotFound, err)
