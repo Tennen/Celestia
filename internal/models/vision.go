@@ -17,6 +17,17 @@ type VisionEntityDescriptor struct {
 	DisplayName string `json:"display_name,omitempty"`
 }
 
+type VisionRuleKeyEntityImage struct {
+	Base64      string `json:"base64"`
+	ContentType string `json:"content_type,omitempty"`
+}
+
+type VisionRuleKeyEntity struct {
+	ID          int                       `json:"id"`
+	Image       *VisionRuleKeyEntityImage `json:"image,omitempty"`
+	Description string                    `json:"description,omitempty"`
+}
+
 type VisionZoneBox struct {
 	X      float64 `json:"x"`
 	Y      float64 `json:"y"`
@@ -29,16 +40,17 @@ type VisionRTSPSource struct {
 }
 
 type VisionRule struct {
-	ID                   string               `json:"id"`
-	Name                 string               `json:"name"`
-	Enabled              bool                 `json:"enabled"`
-	CameraDeviceID       string               `json:"camera_device_id"`
-	RecognitionEnabled   bool                 `json:"recognition_enabled"`
-	RTSPSource           VisionRTSPSource     `json:"rtsp_source"`
-	EntitySelector       VisionEntitySelector `json:"entity_selector"`
-	Behavior             string               `json:"behavior,omitempty"`
-	Zone                 VisionZoneBox        `json:"zone"`
-	StayThresholdSeconds int                  `json:"stay_threshold_seconds"`
+	ID                   string                `json:"id"`
+	Name                 string                `json:"name"`
+	Enabled              bool                  `json:"enabled"`
+	CameraDeviceID       string                `json:"camera_device_id"`
+	RecognitionEnabled   bool                  `json:"recognition_enabled"`
+	RTSPSource           VisionRTSPSource      `json:"rtsp_source"`
+	EntitySelector       VisionEntitySelector  `json:"entity_selector"`
+	Behavior             string                `json:"behavior,omitempty"`
+	KeyEntities          []VisionRuleKeyEntity `json:"key_entities,omitempty"`
+	Zone                 VisionZoneBox         `json:"zone"`
+	StayThresholdSeconds int                   `json:"stay_threshold_seconds"`
 }
 
 type VisionCapabilityConfig struct {
@@ -98,6 +110,7 @@ type VisionServiceEvent struct {
 	ObservedAt     time.Time                `json:"observed_at"`
 	DwellSeconds   int                      `json:"dwell_seconds"`
 	EntityValue    string                   `json:"entity_value,omitempty"`
+	KeyEntityID    *int                     `json:"key_entity_id,omitempty"`
 	Entities       []VisionEntityDescriptor `json:"entities,omitempty"`
 	Metadata       map[string]any           `json:"metadata,omitempty"`
 }
@@ -163,15 +176,16 @@ type VisionServiceSyncPayload struct {
 }
 
 type VisionServiceRule struct {
-	ID                   string               `json:"id"`
-	Name                 string               `json:"name"`
-	Enabled              bool                 `json:"enabled"`
-	Camera               VisionServiceCamera  `json:"camera"`
-	RTSPSource           VisionRTSPSource     `json:"rtsp_source"`
-	EntitySelector       VisionEntitySelector `json:"entity_selector"`
-	Behavior             string               `json:"behavior,omitempty"`
-	Zone                 VisionZoneBox        `json:"zone"`
-	StayThresholdSeconds int                  `json:"stay_threshold_seconds"`
+	ID                   string                `json:"id"`
+	Name                 string                `json:"name"`
+	Enabled              bool                  `json:"enabled"`
+	Camera               VisionServiceCamera   `json:"camera"`
+	RTSPSource           VisionRTSPSource      `json:"rtsp_source"`
+	EntitySelector       VisionEntitySelector  `json:"entity_selector"`
+	Behavior             string                `json:"behavior,omitempty"`
+	KeyEntities          []VisionRuleKeyEntity `json:"key_entities,omitempty"`
+	Zone                 VisionZoneBox         `json:"zone"`
+	StayThresholdSeconds int                   `json:"stay_threshold_seconds"`
 }
 
 type VisionServiceCamera struct {

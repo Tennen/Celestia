@@ -125,6 +125,7 @@ func (s *Service) reportEvent(ctx context.Context, rule models.VisionRule, item 
 	if observedAt.IsZero() {
 		observedAt = time.Now().UTC()
 	}
+	item.KeyEntityID = normalizeReportedKeyEntityID(item.KeyEntityID)
 	reportedEntities := normalizeReportedEntities(item)
 	entityValue := primaryReportedEntityValue(reportedEntities, item.EntityValue)
 	nextState := applyReportedEvent(previous.State, rule, item, observedAt)
@@ -157,6 +158,9 @@ func (s *Service) reportEvent(ctx context.Context, rule models.VisionRule, item 
 	}
 	if len(reportedEntities) > 0 {
 		deviceEvent.Payload["entities"] = reportedEntities
+	}
+	if item.KeyEntityID != nil {
+		deviceEvent.Payload["key_entity_id"] = *item.KeyEntityID
 	}
 	if err := s.store.AppendEvent(ctx, deviceEvent); err != nil {
 		return err

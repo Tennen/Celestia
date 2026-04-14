@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
 import { Switch } from '../ui/switch';
 import type { DeviceView, VisionEntityCatalog, VisionEntityDescriptor, VisionRule } from '../../lib/types';
+import { VisionRuleKeyEntitiesEditor } from './VisionRuleKeyEntitiesEditor';
 import { CardHeading } from './shared/CardHeading';
 import { ZoneBoxEditor } from './ZoneBoxEditor';
 
@@ -17,6 +18,7 @@ type Props = {
   catalogMatchesSaved: boolean;
   cameraDevices: DeviceView[];
   loading: boolean;
+  onError: (message: string) => void;
   onSaveRule: () => void;
   onRemoveRule: (ruleId: string) => void;
   onSelectRuleId: (ruleId: string) => void;
@@ -64,6 +66,7 @@ export function VisionRuleEditorCard({
   catalogMatchesSaved,
   cameraDevices,
   loading,
+  onError,
   onSaveRule,
   onRemoveRule,
   onSelectRuleId,
@@ -249,6 +252,8 @@ export function VisionRuleEditorCard({
                 fallback checks such as whether a cat is eating inside this zone.
               </p>
             </div>
+
+            <VisionRuleKeyEntitiesEditor onError={onError} onUpdateRule={onUpdateRule} rule={selectedRule} />
 
             <div className="automation-field">
               <label>Resolved RTSP Source</label>

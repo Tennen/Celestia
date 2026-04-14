@@ -336,6 +336,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
                   catalogMatchesSaved={catalogMatchesSaved}
                   cameraDevices={cameraDevices}
                   loading={busy === 'load'}
+                  onError={onError}
                   onSaveRule={() => void handleSaveRule()}
                   onRemoveRule={removeRule}
                   onSelectRuleId={setSelectedRuleId}

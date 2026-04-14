@@ -103,6 +103,12 @@ describe('capability normalization', () => {
               rtsp_source: { url: 'rtsp://camera/live' },
               entity_selector: { kind: 'label', value: 'cat' },
               behavior: 'eating',
+              key_entities: [
+                {
+                  id: 101,
+                  description: 'orange tabby with a blue collar',
+                },
+              ],
               zone: { x: 0.2, y: 0.2, width: 0.4, height: 0.4 },
               stay_threshold_seconds: 5,
             },
@@ -116,5 +122,52 @@ describe('capability normalization', () => {
     } as CapabilityDetail);
 
     expect(detail.vision?.config.rules[0]?.behavior).toBe('eating');
+  });
+
+  it('drops malformed vision key entities before surfacing them to the UI', () => {
+    const detail = normalizeCapabilityDetail({
+      id: 'vision_entity_stay_zone',
+      kind: 'vision_entity_stay_zone',
+      name: 'Vision Stay Zone Recognition',
+      description: 'Vision capability',
+      enabled: true,
+      status: 'healthy',
+      updated_at: '2026-04-09T00:00:00Z',
+      vision: {
+        config: {
+          service_ws_url: 'ws://127.0.0.1:8090/ws/control',
+          recognition_enabled: true,
+          event_capture_retention_hours: 168,
+          updated_at: '2026-04-09T00:00:00Z',
+          rules: [
+            {
+              id: 'feeder-zone',
+              name: 'Feeder Zone',
+              enabled: true,
+              camera_device_id: 'camera-1',
+              recognition_enabled: true,
+              rtsp_source: { url: 'rtsp://camera/live' },
+              entity_selector: { kind: 'label', value: 'cat' },
+              behavior: 'eating',
+              key_entities: [
+                { id: 101, description: 'orange tabby with a blue collar' },
+                { id: 0, description: 'invalid id' },
+                { id: 102 },
+              ],
+              zone: { x: 0.2, y: 0.2, width: 0.4, height: 0.4 },
+              stay_threshold_seconds: 5,
+            },
+          ],
+        } as VisionCapabilityConfig,
+        runtime: {
+          status: 'healthy',
+          updated_at: '2026-04-09T00:00:00Z',
+        },
+      },
+    } as CapabilityDetail);
+
+    expect(detail.vision?.config.rules[0]?.key_entities).toEqual([
+      { id: 101, description: 'orange tabby with a blue collar', image: undefined },
+    ]);
   });
 });

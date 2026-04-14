@@ -75,14 +75,27 @@ func TestSaveConfigSeedsCameraStateAndSyncsOverWebsocket(t *testing.T) {
 		ModelName:          "custom-pets.pt",
 		RecognitionEnabled: true,
 		Rules: []models.VisionRule{{
-			ID:                   "Feeder Zone",
-			Name:                 "Feeder Zone",
-			Enabled:              true,
-			CameraDeviceID:       camera.ID,
-			RecognitionEnabled:   true,
-			RTSPSource:           models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
-			EntitySelector:       models.VisionEntitySelector{Kind: "label", Value: "cat"},
-			Behavior:             " eating ",
+			ID:                 "Feeder Zone",
+			Name:               "Feeder Zone",
+			Enabled:            true,
+			CameraDeviceID:     camera.ID,
+			RecognitionEnabled: true,
+			RTSPSource:         models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
+			EntitySelector:     models.VisionEntitySelector{Kind: "label", Value: "cat"},
+			Behavior:           " eating ",
+			KeyEntities: []models.VisionRuleKeyEntity{
+				{
+					ID:          101,
+					Description: " orange tabby with a blue collar ",
+				},
+				{
+					ID: 102,
+					Image: &models.VisionRuleKeyEntityImage{
+						Base64:      "ZmFrZS1pbWFnZQ==",
+						ContentType: " image/png ",
+					},
+				},
+			},
 			Zone:                 models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
 			StayThresholdSeconds: 7,
 		}},
@@ -117,6 +130,15 @@ func TestSaveConfigSeedsCameraStateAndSyncsOverWebsocket(t *testing.T) {
 	}
 	if synced.Rules[0].Behavior != "eating" {
 		t.Fatalf("synced behavior = %q, want eating", synced.Rules[0].Behavior)
+	}
+	if len(synced.Rules[0].KeyEntities) != 2 {
+		t.Fatalf("synced key_entities len = %d, want 2", len(synced.Rules[0].KeyEntities))
+	}
+	if detail.Config.Rules[0].KeyEntities[0].Description != "orange tabby with a blue collar" {
+		t.Fatalf("detail key_entities[0].description = %q, want trimmed description", detail.Config.Rules[0].KeyEntities[0].Description)
+	}
+	if synced.Rules[0].KeyEntities[1].Image == nil || synced.Rules[0].KeyEntities[1].Image.ContentType != "image/png" {
+		t.Fatalf("synced key_entities[1].image = %#v, want trimmed image/png", synced.Rules[0].KeyEntities[1].Image)
 	}
 
 	snapshot, ok, err := stateSvc.Get(ctx, camera.ID)

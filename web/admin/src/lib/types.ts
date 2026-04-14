@@ -152,6 +152,17 @@ export type VisionEntityDescriptor = {
   display_name?: string;
 };
 
+export type VisionRuleKeyEntityImage = {
+  base64: string;
+  content_type?: string;
+};
+
+export type VisionRuleKeyEntity = {
+  id: number;
+  image?: VisionRuleKeyEntityImage;
+  description?: string;
+};
+
 export type VisionZoneBox = {
   x: number;
   y: number;
@@ -172,6 +183,7 @@ export type VisionRule = {
   rtsp_source: VisionRTSPSource;
   entity_selector: VisionEntitySelector;
   behavior: string;
+  key_entities: VisionRuleKeyEntity[];
   zone: VisionZoneBox;
   stay_threshold_seconds: number;
 };

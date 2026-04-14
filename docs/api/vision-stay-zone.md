@@ -50,6 +50,20 @@ Response:
             "value": "cat"
           },
           "behavior": "eating",
+          "key_entities": [
+            {
+              "id": 101,
+              "description": "orange tabby with a blue collar"
+            },
+            {
+              "id": 102,
+              "image": {
+                "base64": "...",
+                "content_type": "image/jpeg"
+              },
+              "description": "solid black cat with a white chest"
+            }
+          ],
           "zone": {
             "x": 0.12,
             "y": 0.28,
@@ -161,6 +175,20 @@ Request body:
         "value": ""
       },
       "behavior": "eating",
+      "key_entities": [
+        {
+          "id": 101,
+          "description": "orange tabby with a blue collar"
+        },
+        {
+          "id": 102,
+          "image": {
+            "base64": "...",
+            "content_type": "image/jpeg"
+          },
+          "description": "solid black cat with a white chest"
+        }
+      ],
       "zone": {
         "x": 0.12,
         "y": 0.28,
@@ -185,6 +213,9 @@ Important behavior:
 - If the camera does not expose RTSP and the rule is enabled for recognition, save is rejected explicitly.
 - `entity_selector.value` is optional. When empty, Gateway persists the rule as an all-entities wildcard and syncs that empty selector to the Vision Service.
 - `behavior` is optional. When present, Gateway persists it with the rule and syncs it to Vision Service so downstream semantic fallback checks can combine the target entity plus behavior.
+- `key_entities` is optional. When present, Gateway persists and syncs the per-rule candidate set for post-event identity matching.
+- Each `key_entities[]` entry must provide a stable positive `id` plus at least one of `image` or `description`.
+- `key_entities[].image.content_type` is optional. When omitted, Vision Service may default it to `image/jpeg`.
 - If Gateway already has a fetched catalog for the same websocket endpoint and configured model, it validates each non-empty `entity_selector` against that catalog before accepting the config.
 
 The synced websocket control payload is:
@@ -214,6 +245,20 @@ The synced websocket control payload is:
         "value": "cat"
       },
       "behavior": "eating",
+      "key_entities": [
+        {
+          "id": 101,
+          "description": "orange tabby with a blue collar"
+        },
+        {
+          "id": 102,
+          "image": {
+            "base64": "...",
+            "content_type": "image/jpeg"
+          },
+          "description": "solid black cat with a white chest"
+        }
+      ],
       "zone": {
         "x": 0.12,
         "y": 0.28,
@@ -258,6 +303,7 @@ Response:
       "event_status": "threshold_met",
       "dwell_seconds": 6,
       "entity_value": "cat",
+      "key_entity_id": 101,
       "entities": [
         {
           "kind": "label",
@@ -280,6 +326,14 @@ Response:
           },
           "semantic_checker": {
             "verdict": "pass"
+          }
+        },
+        "key_entity_match": {
+          "winner_id": 101,
+          "model_name": "qwen2.5-vl",
+          "vote_counts": {
+            "101": 2,
+            "102": 1
           }
         }
       },
@@ -332,7 +386,9 @@ Important behavior:
 - History is limited to the configured `event_capture_retention_hours` window so rule history and evidence expiration stay aligned in Admin.
 - Current Vision Service behavior emits one completed `threshold_met` event per threshold-qualified stay. `dwell_seconds` is the full event duration, and Gateway no longer expects a follow-up `cleared` event.
 - `payload.entities`, when present, contains the full set of recognized in-zone entities reported by the Vision Service for that event. `payload.entity_value` remains the backward-compatible primary entity field.
+- `payload.key_entity_id`, when present, echoes the winning `rules[].key_entities[].id` chosen by downstream identity matching for that event.
 - `payload.metadata.decision`, when present, contains Vision Service decision metadata such as source, confidence scoring, confidence breakdown, and semantic checker verdicts used by Admin for decision inspection.
+- `payload.metadata.key_entity_match`, when present, contains downstream key-entity vote details such as frame matches, vote counts, winner, model name, and failure or skipped reasons.
 - `payload.captures[].metadata.annotations`, when present, contains normalized detection boxes for that capture. If `image_kind` is `raw`, Admin overlays those boxes on top of the returned image. If `image_kind` is `annotated`, Admin treats the stored image bytes as already rendered.
 - If stored evidence exists for a returned event, Gateway enriches the event payload with `capture_count` and `captures`.
 

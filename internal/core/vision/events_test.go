@@ -201,14 +201,20 @@ func TestReportEventsPersistsDecisionMetadata(t *testing.T) {
 		RecognitionEnabled: true,
 		UpdatedAt:          time.Now().UTC(),
 		Rules: []models.VisionRule{{
-			ID:                   "feeder-zone",
-			Name:                 "Feeder Zone",
-			Enabled:              true,
-			CameraDeviceID:       camera.ID,
-			RecognitionEnabled:   true,
-			RTSPSource:           models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
-			EntitySelector:       models.VisionEntitySelector{Kind: "label", Value: "cat"},
-			Behavior:             "eating",
+			ID:                 "feeder-zone",
+			Name:               "Feeder Zone",
+			Enabled:            true,
+			CameraDeviceID:     camera.ID,
+			RecognitionEnabled: true,
+			RTSPSource:         models.VisionRTSPSource{URL: "rtsp://user:pass@camera/stream"},
+			EntitySelector:     models.VisionEntitySelector{Kind: "label", Value: "cat"},
+			Behavior:           "eating",
+			KeyEntities: []models.VisionRuleKeyEntity{
+				{
+					ID:          101,
+					Description: "orange tabby with a blue collar",
+				},
+			},
 			Zone:                 models.VisionZoneBox{X: 0.1, Y: 0.2, Width: 0.3, Height: 0.4},
 			StayThresholdSeconds: 5,
 		}},
@@ -216,6 +222,7 @@ func TestReportEventsPersistsDecisionMetadata(t *testing.T) {
 		t.Fatalf("UpsertVisionConfig() error = %v", err)
 	}
 
+	keyEntityID := 101
 	if err := service.ReportEvents(ctx, models.VisionServiceEventBatch{
 		Events: []models.VisionServiceEvent{{
 			EventID:      "evt-decision",
@@ -224,6 +231,7 @@ func TestReportEventsPersistsDecisionMetadata(t *testing.T) {
 			ObservedAt:   time.Now().UTC(),
 			DwellSeconds: 9,
 			EntityValue:  "cat",
+			KeyEntityID:  &keyEntityID,
 			Metadata: map[string]any{
 				"decision": map[string]any{
 					"source":           "roi_vlm_fallback",
@@ -235,6 +243,10 @@ func TestReportEventsPersistsDecisionMetadata(t *testing.T) {
 					"semantic_checker": map[string]any{
 						"verdict": "pass",
 					},
+				},
+				"key_entity_match": map[string]any{
+					"winner_id":  101,
+					"model_name": "qwen2.5-vl",
 				},
 			},
 		}},
@@ -262,6 +274,16 @@ func TestReportEventsPersistsDecisionMetadata(t *testing.T) {
 	}
 	if decision["confidence_score"] != 0.91 {
 		t.Fatalf("payload.metadata.decision.confidence_score = %#v, want 0.91", decision["confidence_score"])
+	}
+	if intValue(event.Payload["key_entity_id"]) != 101 {
+		t.Fatalf("payload.key_entity_id = %#v, want 101", event.Payload["key_entity_id"])
+	}
+	keyEntityMatch, ok := metadata["key_entity_match"].(map[string]any)
+	if !ok {
+		t.Fatalf("payload.metadata.key_entity_match type = %T, want map[string]any", metadata["key_entity_match"])
+	}
+	if intValue(keyEntityMatch["winner_id"]) != 101 {
+		t.Fatalf("payload.metadata.key_entity_match.winner_id = %#v, want 101", keyEntityMatch["winner_id"])
 	}
 }
 

@@ -21,6 +21,11 @@ type EventCursor = {
   beforeId?: string;
 };
 
+type KeyEntityOption = {
+  label: string;
+  value: string;
+};
+
 const HISTORY_PAGE_SIZE = 50;
 
 function parseLocalDate(value: string) {
@@ -55,6 +60,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [openEventId, setOpenEventId] = useState('');
   const [selectedEntityKey, setSelectedEntityKey] = useState('');
+  const [selectedKeyEntityID, setSelectedKeyEntityID] = useState('');
   const [busy, setBusy] = useState<'load' | 'refresh' | ''>('load');
   const [deletingEventId, setDeletingEventId] = useState('');
   const [draftDate, setDraftDate] = useState('');
@@ -67,13 +73,14 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   const currentCursor = pageCursors[pageIndex] ?? {};
   const hasAppliedDateFilter = appliedDate !== '';
   const hasDraftChanges = draftDate !== appliedDate;
-  const hasActiveFilters = hasAppliedDateFilter || selectedEntityKey !== '';
+  const hasActiveFilters = hasAppliedDateFilter || selectedEntityKey !== '' || selectedKeyEntityID !== '';
   const canApplyDateFilter = hasDraftChanges || pageIndex > 0;
 
   useEffect(() => {
     setEvents([]);
     setOpenEventId('');
     setSelectedEntityKey('');
+    setSelectedKeyEntityID('');
     setDeletingEventId('');
     setDraftDate('');
     setAppliedDate('');
@@ -115,7 +122,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     };
   }, [appliedDate, currentCursor.beforeId, currentCursor.beforeTs, onError, rule.id, updatedAtKey]);
 
-  const eventViews = useMemo(() => events.map((event) => buildHistoryEventView(event)), [events]);
+  const eventViews = useMemo(() => events.map((event) => buildHistoryEventView(event, rule)), [events, rule]);
 
   const entityOptions = useMemo(() => {
     const entities = new Map<string, HistoryEntity>();
@@ -129,12 +136,35 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     return Array.from(entities.values()).sort((left, right) => left.label.localeCompare(right.label));
   }, [eventViews]);
 
+  const keyEntityOptions = useMemo(() => {
+    const options = new Map<string, KeyEntityOption>();
+    for (const item of rule.key_entities) {
+      const label = item.description?.trim() || `Key Entity #${item.id}`;
+      options.set(String(item.id), { label, value: String(item.id) });
+    }
+    for (const eventView of eventViews) {
+      if (eventView.keyEntity && !options.has(String(eventView.keyEntity.id))) {
+        options.set(String(eventView.keyEntity.id), {
+          label: eventView.keyEntity.label,
+          value: String(eventView.keyEntity.id),
+        });
+      }
+    }
+    return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
+  }, [eventViews, rule.key_entities]);
+
   const filteredEventViews = useMemo(
     () =>
-      selectedEntityKey
-        ? eventViews.filter((eventView) => eventView.entities.some((entity) => entity.key === selectedEntityKey))
-        : eventViews,
-    [eventViews, selectedEntityKey],
+      eventViews.filter((eventView) => {
+        if (selectedEntityKey && !eventView.entities.some((entity) => entity.key === selectedEntityKey)) {
+          return false;
+        }
+        if (selectedKeyEntityID && String(eventView.keyEntity?.id ?? '') !== selectedKeyEntityID) {
+          return false;
+        }
+        return true;
+      }),
+    [eventViews, selectedEntityKey, selectedKeyEntityID],
   );
 
   useEffect(() => {
@@ -142,11 +172,18 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   }, [entityOptions]);
 
   useEffect(() => {
+    setSelectedKeyEntityID((current) =>
+      current && !keyEntityOptions.some((entity) => entity.value === current) ? '' : current,
+    );
+  }, [keyEntityOptions]);
+
+  useEffect(() => {
     setOpenEventId((current) => (filteredEventViews.some((eventView) => eventView.event.id === current) ? current : ''));
   }, [filteredEventViews]);
 
   const openEvent = filteredEventViews.find((eventView) => eventView.event.id === openEventId) ?? null;
-  const filteredCountLabel = selectedEntityKey ? `${filteredEventViews.length}/${eventViews.length}` : `${eventViews.length}`;
+  const filteredCountLabel =
+    selectedEntityKey || selectedKeyEntityID ? `${filteredEventViews.length}/${eventViews.length}` : `${eventViews.length}`;
 
   const applyDateFilter = () => {
     const fromTs = toStartOfDayISO(draftDate);
@@ -295,12 +332,29 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                 <span className="muted">Entity</span>
                 <select
                   className="select vision-history-toolbar__select"
+                  aria-label="Filter rule history by entity"
                   value={selectedEntityKey}
                   onChange={(event) => setSelectedEntityKey(event.target.value)}
                 >
                   <option value="">All</option>
                   {entityOptions.map((entity) => (
                     <option key={entity.key} value={entity.key}>
+                      {entity.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="vision-history-toolbar__filter">
+                <span className="muted">Key Entity</span>
+                <select
+                  className="select vision-history-toolbar__select"
+                  aria-label="Filter rule history by key entity"
+                  value={selectedKeyEntityID}
+                  onChange={(event) => setSelectedKeyEntityID(event.target.value)}
+                >
+                  <option value="">All</option>
+                  {keyEntityOptions.map((entity) => (
+                    <option key={entity.value} value={entity.value}>
                       {entity.label}
                     </option>
                   ))}
@@ -349,7 +403,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                 {busy === 'load'
                   ? 'Loading persisted rule events…'
                   : eventViews.length > 0
-                    ? 'No persisted events match the selected entity filter.'
+                    ? 'No persisted events match the selected filters.'
                     : hasAppliedDateFilter
                       ? 'No persisted events matched the selected day.'
                       : 'No persisted events for this rule in the current retention window.'}

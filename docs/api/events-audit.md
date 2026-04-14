@@ -81,12 +81,16 @@ The rule-history endpoint supports its own `limit`, `from_ts`, `to_ts`, `before_
 If Gateway has persisted screenshot evidence for a vision event, that same event record is enriched on read with:
 
 - `payload.entities`
+- `payload.key_entity_id`
 - `payload.metadata.decision`
+- `payload.metadata.key_entity_match`
 - `payload.capture_count`
 - `payload.captures`
 
 `payload.entities` is the Vision Service-reported set of recognized in-zone entities for that event. `payload.entity_value` remains the backward-compatible primary entity field.
+`payload.key_entity_id`, when present, echoes the winning `rules[].key_entities[].id` selected by downstream identity matching for that event.
 `payload.metadata.decision`, when present, carries Vision Service decision details such as the inference source, confidence score, confidence breakdown, and semantic checker verdicts.
+`payload.metadata.key_entity_match`, when present, carries downstream vote details such as frame-level matches, vote counts, final winner, model name, and explicit failure or skipped reasons.
 
 Each `payload.captures` item includes:
 

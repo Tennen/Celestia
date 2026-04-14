@@ -5,6 +5,7 @@ import type {
   VisionCapabilityConfig,
   VisionEntityCatalog,
   VisionEntityDescriptor,
+  VisionRuleKeyEntity,
   VisionRule,
 } from './types';
 
@@ -60,6 +61,32 @@ function normalizeVisionEntityDescriptor(
   };
 }
 
+function normalizeVisionRuleKeyEntity(
+  keyEntity: Partial<VisionRuleKeyEntity> | null | undefined,
+): VisionRuleKeyEntity | null {
+  const id = readNumber(keyEntity?.id, 0);
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
+
+  const imageBase64 = readString(keyEntity?.image?.base64).trim();
+  const description = readString(keyEntity?.description).trim();
+  if (!imageBase64 && !description) {
+    return null;
+  }
+
+  return {
+    id,
+    image: imageBase64
+      ? {
+          base64: imageBase64,
+          content_type: readString(keyEntity?.image?.content_type).trim() || undefined,
+        }
+      : undefined,
+    description: description || undefined,
+  };
+}
+
 function normalizeVisionRule(rule: Partial<VisionRule> | null | undefined, index: number): VisionRule {
   return {
     id: readString(rule?.id) || `vision-rule-${index + 1}`,
@@ -75,6 +102,9 @@ function normalizeVisionRule(rule: Partial<VisionRule> | null | undefined, index
       value: readString(rule?.entity_selector?.value),
     },
     behavior: readString(rule?.behavior),
+    key_entities: asArray(rule?.key_entities)
+      .map((item) => normalizeVisionRuleKeyEntity(item))
+      .filter((item): item is VisionRuleKeyEntity => item !== null),
     zone: {
       x: readNumber(rule?.zone?.x, 0.2),
       y: readNumber(rule?.zone?.y, 0.2),
@@ -153,6 +183,7 @@ export function createVisionRule(cameras: DeviceView[], index: number): VisionRu
       value: '',
     },
     behavior: '',
+    key_entities: [],
     zone: {
       x: 0.2,
       y: 0.2,

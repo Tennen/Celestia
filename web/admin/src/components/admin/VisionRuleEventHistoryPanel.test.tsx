@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventRecord, VisionRule } from '../../lib/types';
 import { VisionRuleEventHistoryPanel } from './VisionRuleEventHistoryPanel';
@@ -32,13 +33,14 @@ function buildRule(overrides: Partial<VisionRule> = {}): VisionRule {
     rtsp_source: { url: 'rtsp://camera/live' },
     entity_selector: { kind: 'label', value: 'cat' },
     behavior: '',
+    key_entities: [],
     zone: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
     stay_threshold_seconds: 5,
     ...overrides,
   };
 }
 
-function buildEvent(id: string, label: string): EventRecord {
+function buildEvent(id: string, label: string, keyEntityId?: number): EventRecord {
   return {
     id,
     type: 'device.event.occurred',
@@ -47,6 +49,7 @@ function buildEvent(id: string, label: string): EventRecord {
     ts: '2026-04-12T08:00:00Z',
     payload: {
       dwell_seconds: 5,
+      ...(keyEntityId ? { key_entity_id: keyEntityId } : {}),
       entities: [{ kind: 'label', value: label.toLowerCase(), display_name: label }],
     },
   };
@@ -115,5 +118,35 @@ describe('VisionRuleEventHistoryPanel', () => {
     });
 
     expect(screen.getByTitle('Dog')).toBeTruthy();
+  });
+
+  it('filters persisted events by key entity id', async () => {
+    const user = userEvent.setup();
+    fetchVisionRuleEvents.mockResolvedValue([
+      buildEvent('evt-feeder-101', 'Cat', 101),
+      buildEvent('evt-feeder-102', 'Dog', 102),
+    ]);
+
+    render(
+      <VisionRuleEventHistoryPanel
+        onBack={vi.fn()}
+        onError={vi.fn()}
+        rule={buildRule({
+          key_entities: [
+            { id: 101, description: 'orange tabby with a blue collar' },
+            { id: 102, description: 'solid black cat with a white chest' },
+          ],
+        })}
+        updatedAtKey="2026-04-12T08:00:00Z"
+      />,
+    );
+
+    expect(await screen.findByTitle('Cat')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /show filters/i }));
+    await user.selectOptions(screen.getByLabelText(/filter rule history by key entity/i), '101');
+
+    expect(screen.getByText(/1\/2/i)).toBeTruthy();
+    expect(screen.getByText('#101')).toBeTruthy();
   });
 });

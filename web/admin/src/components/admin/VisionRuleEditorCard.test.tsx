@@ -14,6 +14,7 @@ function buildRule(): VisionRule {
     rtsp_source: { url: 'rtsp://camera/live' },
     entity_selector: { kind: 'label', value: 'cat' },
     behavior: '',
+    key_entities: [],
     zone: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
     stay_threshold_seconds: 5,
   };
@@ -30,6 +31,7 @@ describe('VisionRuleEditorCard', () => {
         catalogMatchesSaved={false}
         cameraDevices={[]}
         loading={false}
+        onError={vi.fn()}
         onSaveRule={vi.fn()}
         onRemoveRule={vi.fn()}
         onSelectRuleId={vi.fn()}
@@ -66,6 +68,7 @@ describe('VisionRuleEditorCard', () => {
         catalogMatchesSaved={false}
         cameraDevices={[]}
         loading={false}
+        onError={vi.fn()}
         onSaveRule={vi.fn()}
         onRemoveRule={vi.fn()}
         onSelectRuleId={vi.fn()}
@@ -95,6 +98,7 @@ describe('VisionRuleEditorCard', () => {
         catalogMatchesSaved={false}
         cameraDevices={[]}
         loading={false}
+        onError={vi.fn()}
         onSaveRule={vi.fn()}
         onRemoveRule={vi.fn()}
         onSelectRuleId={vi.fn()}
@@ -110,5 +114,36 @@ describe('VisionRuleEditorCard', () => {
 
     expect(screen.getByDisplayValue('eating')).not.toBeNull();
     expect(screen.getByText(/optional semantic hint/i)).not.toBeNull();
+  });
+
+  it('renders editable key entity inputs for post-event identity matching', () => {
+    render(
+      <VisionRuleEditorCard
+        catalog={null}
+        catalogMatchesDraft={false}
+        catalogMatchesSaved={false}
+        cameraDevices={[]}
+        loading={false}
+        onError={vi.fn()}
+        onSaveRule={vi.fn()}
+        onRemoveRule={vi.fn()}
+        onSelectRuleId={vi.fn()}
+        onUpdateRule={vi.fn()}
+        onViewHistory={vi.fn()}
+        saving={false}
+        selectedRule={{
+          ...buildRule(),
+          key_entities: [
+            {
+              id: 101,
+              description: 'orange tabby with a blue collar',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByDisplayValue('orange tabby with a blue collar')).not.toBeNull();
+    expect(screen.getByText(/stable id 101/i)).not.toBeNull();
   });
 });
