@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, RefreshCcw } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCcw, SlidersHorizontal } from 'lucide-react';
 import { deleteVisionRuleEvent, fetchVisionRuleEvents } from '../../lib/api';
 import type { EventRecord, VisionRule } from '../../lib/types';
 import { Button } from '../ui/button';
@@ -57,27 +57,27 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   const [selectedEntityKey, setSelectedEntityKey] = useState('');
   const [busy, setBusy] = useState<'load' | 'refresh' | ''>('load');
   const [deletingEventId, setDeletingEventId] = useState('');
-  const [draftFromDate, setDraftFromDate] = useState('');
-  const [draftToDate, setDraftToDate] = useState('');
-  const [appliedFromDate, setAppliedFromDate] = useState('');
-  const [appliedToDate, setAppliedToDate] = useState('');
+  const [draftDate, setDraftDate] = useState('');
+  const [appliedDate, setAppliedDate] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [pageCursors, setPageCursors] = useState<EventCursor[]>([{}]);
   const [pageIndex, setPageIndex] = useState(0);
   const [hasOlderPage, setHasOlderPage] = useState(false);
 
   const currentCursor = pageCursors[pageIndex] ?? {};
-  const hasAppliedDateFilter = appliedFromDate !== '' || appliedToDate !== '';
-  const hasDraftChanges = draftFromDate !== appliedFromDate || draftToDate !== appliedToDate;
+  const hasAppliedDateFilter = appliedDate !== '';
+  const hasDraftChanges = draftDate !== appliedDate;
+  const hasActiveFilters = hasAppliedDateFilter || selectedEntityKey !== '';
+  const canApplyDateFilter = hasDraftChanges || pageIndex > 0;
 
   useEffect(() => {
     setEvents([]);
     setOpenEventId('');
     setSelectedEntityKey('');
     setDeletingEventId('');
-    setDraftFromDate('');
-    setDraftToDate('');
-    setAppliedFromDate('');
-    setAppliedToDate('');
+    setDraftDate('');
+    setAppliedDate('');
+    setFiltersOpen(false);
     setPageCursors([{}]);
     setPageIndex(0);
     setHasOlderPage(false);
@@ -88,8 +88,8 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     setBusy('load');
     void fetchVisionRuleEvents(rule.id, {
       limit: HISTORY_PAGE_SIZE + 1,
-      fromTs: toStartOfDayISO(appliedFromDate),
-      toTs: toExclusiveEndOfDayISO(appliedToDate),
+      fromTs: toStartOfDayISO(appliedDate),
+      toTs: toExclusiveEndOfDayISO(appliedDate),
       beforeTs: currentCursor.beforeTs,
       beforeId: currentCursor.beforeId,
     })
@@ -113,7 +113,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     return () => {
       cancelled = true;
     };
-  }, [appliedFromDate, appliedToDate, currentCursor.beforeId, currentCursor.beforeTs, onError, rule.id, updatedAtKey]);
+  }, [appliedDate, currentCursor.beforeId, currentCursor.beforeTs, onError, rule.id, updatedAtKey]);
 
   const eventViews = useMemo(() => events.map((event) => buildHistoryEventView(event)), [events]);
 
@@ -146,33 +146,22 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   }, [filteredEventViews]);
 
   const openEvent = filteredEventViews.find((eventView) => eventView.event.id === openEventId) ?? null;
-  const filteredCountLabel =
-    filteredEventViews.length === eventViews.length
-      ? `${eventViews.length} events on this page`
-      : `${filteredEventViews.length} of ${eventViews.length} events on this page`;
+  const filteredCountLabel = selectedEntityKey ? `${filteredEventViews.length}/${eventViews.length}` : `${eventViews.length}`;
 
   const applyDateFilter = () => {
-    const fromTs = toStartOfDayISO(draftFromDate);
-    const toTs = toExclusiveEndOfDayISO(draftToDate);
-    if ((draftFromDate && !fromTs) || (draftToDate && !toTs)) {
-      onError('Enter valid dates before applying the history filter.');
+    const fromTs = toStartOfDayISO(draftDate);
+    if (draftDate && !fromTs) {
+      onError('Enter a valid date before applying the history filter.');
       return;
     }
-    if (fromTs && toTs && fromTs >= toTs) {
-      onError('History end date must be on or after the start date.');
-      return;
-    }
-    setAppliedFromDate(draftFromDate);
-    setAppliedToDate(draftToDate);
+    setAppliedDate(draftDate);
     setPageCursors([{}]);
     setPageIndex(0);
   };
 
   const clearDateFilter = () => {
-    setDraftFromDate('');
-    setDraftToDate('');
-    setAppliedFromDate('');
-    setAppliedToDate('');
+    setDraftDate('');
+    setAppliedDate('');
     setPageCursors([{}]);
     setPageIndex(0);
   };
@@ -182,8 +171,8 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     try {
       const items = await fetchVisionRuleEvents(rule.id, {
         limit: HISTORY_PAGE_SIZE + 1,
-        fromTs: toStartOfDayISO(appliedFromDate),
-        toTs: toExclusiveEndOfDayISO(appliedToDate),
+        fromTs: toStartOfDayISO(appliedDate),
+        toTs: toExclusiveEndOfDayISO(appliedDate),
         beforeTs: currentCursor.beforeTs,
         beforeId: currentCursor.beforeId,
       });
@@ -256,61 +245,90 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
           />
         </CardHeader>
         <CardContent className="vision-history-panel__content">
-          <div className="vision-toolbar vision-history-toolbar vision-history-toolbar--compact">
-            <div className="vision-history-toolbar__filter">
-              <span className="muted">Entity</span>
-              <select
-                className="select vision-history-toolbar__select"
-                value={selectedEntityKey}
-                onChange={(event) => setSelectedEntityKey(event.target.value)}
-              >
-                <option value="">All Entities</option>
-                {entityOptions.map((entity) => (
-                  <option key={entity.key} value={entity.key}>
-                    {entity.label}
-                  </option>
-                ))}
-              </select>
+          <div className="vision-history-toolbar">
+            <div className="vision-history-toolbar__summary">
+              <span className="muted">{filteredCountLabel}</span>
+              <span className="muted">p{pageIndex + 1}</span>
             </div>
-            <div className="vision-history-toolbar__dates">
-              <Input
-                type="date"
-                className="vision-history-toolbar__range"
-                value={draftFromDate}
-                onChange={(event) => setDraftFromDate(event.target.value)}
-                aria-label="Filter rule history from date"
-              />
-              <Input
-                type="date"
-                className="vision-history-toolbar__range"
-                value={draftToDate}
-                onChange={(event) => setDraftToDate(event.target.value)}
-                aria-label="Filter rule history to date"
-              />
-              <Button type="button" variant="secondary" size="sm" onClick={applyDateFilter} disabled={busy !== '' || !hasDraftChanges}>
-                Apply
+            <div className="vision-history-toolbar__actions">
+              <Button
+                type="button"
+                variant={filtersOpen || hasActiveFilters ? 'secondary' : 'ghost'}
+                size="icon"
+                className="vision-history-toolbar__icon"
+                aria-label={filtersOpen ? 'Hide filters' : 'Show filters'}
+                title={filtersOpen ? 'Hide Filters' : 'Show Filters'}
+                onClick={() => setFiltersOpen((current) => !current)}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                onClick={clearDateFilter}
-                disabled={busy !== '' || (!hasAppliedDateFilter && draftFromDate === '' && draftToDate === '' && pageIndex === 0)}
+                size="icon"
+                className="vision-history-toolbar__icon"
+                aria-label="Newer page"
+                title="Newer"
+                onClick={loadNewerPage}
+                disabled={busy !== '' || pageIndex === 0}
               >
-                Clear
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-            </div>
-            <div className="vision-history-toolbar__page">
-              <span className="muted">{filteredCountLabel}</span>
-              <span className="muted">Page {pageIndex + 1}</span>
-              <Button type="button" variant="secondary" size="sm" onClick={loadNewerPage} disabled={busy !== '' || pageIndex === 0}>
-                Newer
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={loadOlderPage} disabled={busy !== '' || !hasOlderPage}>
-                Older
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="vision-history-toolbar__icon"
+                aria-label="Older page"
+                title="Older"
+                onClick={loadOlderPage}
+                disabled={busy !== '' || !hasOlderPage}
+              >
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
+
+          {filtersOpen ? (
+            <div className="vision-history-toolbar__panel">
+              <div className="vision-history-toolbar__filter">
+                <span className="muted">Entity</span>
+                <select
+                  className="select vision-history-toolbar__select"
+                  value={selectedEntityKey}
+                  onChange={(event) => setSelectedEntityKey(event.target.value)}
+                >
+                  <option value="">All</option>
+                  {entityOptions.map((entity) => (
+                    <option key={entity.key} value={entity.key}>
+                      {entity.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="vision-history-toolbar__date-filter">
+                <Input
+                  type="date"
+                  className="vision-history-toolbar__range"
+                  value={draftDate}
+                  onChange={(event) => setDraftDate(event.target.value)}
+                  aria-label="Filter rule history by date"
+                />
+                <Button type="button" variant="secondary" size="sm" onClick={applyDateFilter} disabled={busy !== '' || !canApplyDateFilter}>
+                  Apply
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDateFilter}
+                  disabled={busy !== '' || (!hasAppliedDateFilter && draftDate === '' && pageIndex === 0)}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <ScrollArea className="vision-history-grid-scroll">
             {filteredEventViews.length > 0 ? (
@@ -333,7 +351,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                   : eventViews.length > 0
                     ? 'No persisted events match the selected entity filter.'
                     : hasAppliedDateFilter
-                      ? 'No persisted events matched the selected date range.'
+                      ? 'No persisted events matched the selected day.'
                       : 'No persisted events for this rule in the current retention window.'}
               </div>
             )}
