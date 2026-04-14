@@ -71,12 +71,14 @@ function normalizeVisionRuleKeyEntity(
 
   const imageBase64 = readString(keyEntity?.image?.base64).trim();
   const description = readString(keyEntity?.description).trim();
+  const name = readString(keyEntity?.name).trim() || description || `Key Entity #${id}`;
   if (!imageBase64 && !description) {
     return null;
   }
 
   return {
     id,
+    name,
     image: imageBase64
       ? {
           base64: imageBase64,

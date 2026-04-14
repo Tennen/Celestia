@@ -212,6 +212,7 @@ func TestReportEventsPersistsDecisionMetadata(t *testing.T) {
 			KeyEntities: []models.VisionRuleKeyEntity{
 				{
 					ID:          101,
+					Name:        "Feeder Cat",
 					Description: "orange tabby with a blue collar",
 				},
 			},

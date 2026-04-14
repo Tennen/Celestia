@@ -133,8 +133,8 @@ describe('VisionRuleEventHistoryPanel', () => {
         onError={vi.fn()}
         rule={buildRule({
           key_entities: [
-            { id: 101, description: 'orange tabby with a blue collar' },
-            { id: 102, description: 'solid black cat with a white chest' },
+            { id: 101, name: 'Feeder Cat', description: 'orange tabby with a blue collar' },
+            { id: 102, name: 'Midnight', description: 'solid black cat with a white chest' },
           ],
         })}
         updatedAtKey="2026-04-12T08:00:00Z"
@@ -144,6 +144,7 @@ describe('VisionRuleEventHistoryPanel', () => {
     expect(await screen.findByTitle('Cat')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: /show filters/i }));
+    expect(screen.getByRole('option', { name: 'Feeder Cat' })).toBeTruthy();
     await user.selectOptions(screen.getByLabelText(/filter rule history by key entity/i), '101');
 
     expect(screen.getByText(/1\/2/i)).toBeTruthy();

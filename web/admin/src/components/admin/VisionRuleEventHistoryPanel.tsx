@@ -139,7 +139,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   const keyEntityOptions = useMemo(() => {
     const options = new Map<string, KeyEntityOption>();
     for (const item of rule.key_entities) {
-      const label = item.description?.trim() || `Key Entity #${item.id}`;
+      const label = item.name.trim() || item.description?.trim() || `Key Entity #${item.id}`;
       options.set(String(item.id), { label, value: String(item.id) });
     }
     for (const eventView of eventViews) {

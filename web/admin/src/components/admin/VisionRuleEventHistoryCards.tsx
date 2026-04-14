@@ -124,7 +124,7 @@ function resolveHistoryKeyEntity(event: EventRecord, rule: VisionRule | null | u
     return null;
   }
   const matched = rule?.key_entities.find((item) => item.id === id);
-  const label = matched?.description?.trim() || `Key Entity #${id}`;
+  const label = matched?.name.trim() || matched?.description?.trim() || `Key Entity #${id}`;
   return { id, label };
 }
 

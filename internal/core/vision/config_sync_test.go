@@ -2,6 +2,8 @@ package vision
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,10 +88,12 @@ func TestSaveConfigSeedsCameraStateAndSyncsOverWebsocket(t *testing.T) {
 			KeyEntities: []models.VisionRuleKeyEntity{
 				{
 					ID:          101,
+					Name:        " Feeder Cat ",
 					Description: " orange tabby with a blue collar ",
 				},
 				{
-					ID: 102,
+					ID:   102,
+					Name: " Midnight ",
 					Image: &models.VisionRuleKeyEntityImage{
 						Base64:      "ZmFrZS1pbWFnZQ==",
 						ContentType: " image/png ",
@@ -134,11 +138,21 @@ func TestSaveConfigSeedsCameraStateAndSyncsOverWebsocket(t *testing.T) {
 	if len(synced.Rules[0].KeyEntities) != 2 {
 		t.Fatalf("synced key_entities len = %d, want 2", len(synced.Rules[0].KeyEntities))
 	}
+	if detail.Config.Rules[0].KeyEntities[0].Name != "Feeder Cat" {
+		t.Fatalf("detail key_entities[0].name = %q, want Feeder Cat", detail.Config.Rules[0].KeyEntities[0].Name)
+	}
 	if detail.Config.Rules[0].KeyEntities[0].Description != "orange tabby with a blue collar" {
 		t.Fatalf("detail key_entities[0].description = %q, want trimmed description", detail.Config.Rules[0].KeyEntities[0].Description)
 	}
 	if synced.Rules[0].KeyEntities[1].Image == nil || synced.Rules[0].KeyEntities[1].Image.ContentType != "image/png" {
 		t.Fatalf("synced key_entities[1].image = %#v, want trimmed image/png", synced.Rules[0].KeyEntities[1].Image)
+	}
+	encodedKeyEntities, err := json.Marshal(synced.Rules[0].KeyEntities)
+	if err != nil {
+		t.Fatalf("marshal synced key_entities: %v", err)
+	}
+	if strings.Contains(string(encodedKeyEntities), "\"name\"") {
+		t.Fatalf("synced key_entities leaked Gateway-only name: %s", encodedKeyEntities)
 	}
 
 	snapshot, ok, err := stateSvc.Get(ctx, camera.ID)

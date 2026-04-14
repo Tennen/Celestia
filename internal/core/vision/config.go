@@ -297,7 +297,7 @@ func (s *Service) buildSyncPayload(ctx context.Context, config models.VisionCapa
 			RTSPSource:           rule.RTSPSource,
 			EntitySelector:       rule.EntitySelector,
 			Behavior:             rule.Behavior,
-			KeyEntities:          rule.KeyEntities,
+			KeyEntities:          buildVisionServiceKeyEntities(rule.KeyEntities),
 			Zone:                 rule.Zone,
 			StayThresholdSeconds: rule.StayThresholdSeconds,
 		})

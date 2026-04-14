@@ -159,6 +159,7 @@ export type VisionRuleKeyEntityImage = {
 
 export type VisionRuleKeyEntity = {
   id: number;
+  name: string;
   image?: VisionRuleKeyEntityImage;
   description?: string;
 };

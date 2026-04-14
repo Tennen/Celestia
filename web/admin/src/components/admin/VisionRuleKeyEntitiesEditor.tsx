@@ -16,8 +16,7 @@ function nextKeyEntityID(rule: VisionRule) {
 }
 
 function keyEntityLabel(item: VisionRuleKeyEntity) {
-  const description = item.description?.trim();
-  return description || `Key Entity #${item.id}`;
+  return item.name.trim() || item.description?.trim() || `Key Entity #${item.id}`;
 }
 
 function keyEntityImageDataURL(image: VisionRuleKeyEntityImage | undefined) {
@@ -85,8 +84,8 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
         <div className="space-y-1">
           <label>Key Entities</label>
           <p className="muted">
-            Define stable per-rule identities for post-event VLM matching. Each entry needs a positive ID plus at least
-            one reference signal: image or description.
+            Define stable per-rule identities for post-event VLM matching. `name` stays in Gateway/Admin for display,
+            while the downstream matcher only receives `id`, `image`, and `description`.
           </p>
         </div>
         <Button
@@ -100,6 +99,7 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
                 ...current.key_entities,
                 {
                   id: nextKeyEntityID(current),
+                  name: `Key Entity #${nextKeyEntityID(current)}`,
                 },
               ],
             }))
@@ -139,6 +139,26 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
 
                 <div className="automation-field-grid">
                   <div className="automation-field">
+                    <label>Name</label>
+                    <Input
+                      value={keyEntity.name}
+                      onChange={(event) =>
+                        onUpdateRule(rule.id, (current) => ({
+                          ...current,
+                          key_entities: current.key_entities.map((item) =>
+                            item.id === keyEntity.id
+                              ? {
+                                  ...item,
+                                  name: event.target.value,
+                                }
+                              : item,
+                          ),
+                        }))
+                      }
+                      placeholder={`Key Entity #${keyEntity.id}`}
+                    />
+                  </div>
+                  <div className="automation-field">
                     <label>Entity ID</label>
                     <Input
                       type="number"
@@ -160,9 +180,32 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
                       }
                     />
                   </div>
+                </div>
+
+                <div className="automation-field-grid">
                   <div className="automation-field">
                     <label>Reference Image</label>
                     <Input type="file" accept="image/*" onChange={(event) => void handleKeyEntityImageChange(keyEntity.id, event)} />
+                  </div>
+                  <div className="automation-field">
+                    <label>Description</label>
+                    <Textarea
+                      value={keyEntity.description ?? ''}
+                      onChange={(event) =>
+                        onUpdateRule(rule.id, (current) => ({
+                          ...current,
+                          key_entities: current.key_entities.map((item) =>
+                            item.id === keyEntity.id
+                              ? {
+                                  ...item,
+                                  description: event.target.value,
+                                }
+                              : item,
+                          ),
+                        }))
+                      }
+                      placeholder="For example: orange tabby with a blue collar"
+                    />
                   </div>
                 </div>
 
@@ -195,30 +238,10 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
                   </div>
                 ) : null}
 
-                <div className="automation-field">
-                  <label>Description</label>
-                  <Textarea
-                    value={keyEntity.description ?? ''}
-                    onChange={(event) =>
-                      onUpdateRule(rule.id, (current) => ({
-                        ...current,
-                        key_entities: current.key_entities.map((item) =>
-                          item.id === keyEntity.id
-                            ? {
-                                ...item,
-                                description: event.target.value,
-                              }
-                            : item,
-                        ),
-                      }))
-                    }
-                    placeholder="For example: orange tabby with a blue collar"
-                  />
-                  <p className="muted">
-                    Free-text identity hint. Use the physical traits that distinguish this individual from others in the
-                    same class.
-                  </p>
-                </div>
+                <p className="muted">
+                  `name` is only for Gateway/Admin display. `description` remains the free-text identity hint sent to the
+                  downstream matcher.
+                </p>
               </div>
             );
           })

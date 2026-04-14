@@ -106,6 +106,7 @@ describe('capability normalization', () => {
               key_entities: [
                 {
                   id: 101,
+                  name: 'Feeder Cat',
                   description: 'orange tabby with a blue collar',
                 },
               ],
@@ -150,7 +151,7 @@ describe('capability normalization', () => {
               entity_selector: { kind: 'label', value: 'cat' },
               behavior: 'eating',
               key_entities: [
-                { id: 101, description: 'orange tabby with a blue collar' },
+                { id: 101, name: 'Feeder Cat', description: 'orange tabby with a blue collar' },
                 { id: 0, description: 'invalid id' },
                 { id: 102 },
               ],
@@ -167,7 +168,7 @@ describe('capability normalization', () => {
     } as CapabilityDetail);
 
     expect(detail.vision?.config.rules[0]?.key_entities).toEqual([
-      { id: 101, description: 'orange tabby with a blue collar', image: undefined },
+      { id: 101, name: 'Feeder Cat', description: 'orange tabby with a blue collar', image: undefined },
     ]);
   });
 });

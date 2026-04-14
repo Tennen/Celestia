@@ -24,6 +24,13 @@ type VisionRuleKeyEntityImage struct {
 
 type VisionRuleKeyEntity struct {
 	ID          int                       `json:"id"`
+	Name        string                    `json:"name,omitempty"`
+	Image       *VisionRuleKeyEntityImage `json:"image,omitempty"`
+	Description string                    `json:"description,omitempty"`
+}
+
+type VisionServiceRuleKeyEntity struct {
+	ID          int                       `json:"id"`
 	Image       *VisionRuleKeyEntityImage `json:"image,omitempty"`
 	Description string                    `json:"description,omitempty"`
 }
@@ -176,16 +183,16 @@ type VisionServiceSyncPayload struct {
 }
 
 type VisionServiceRule struct {
-	ID                   string                `json:"id"`
-	Name                 string                `json:"name"`
-	Enabled              bool                  `json:"enabled"`
-	Camera               VisionServiceCamera   `json:"camera"`
-	RTSPSource           VisionRTSPSource      `json:"rtsp_source"`
-	EntitySelector       VisionEntitySelector  `json:"entity_selector"`
-	Behavior             string                `json:"behavior,omitempty"`
-	KeyEntities          []VisionRuleKeyEntity `json:"key_entities,omitempty"`
-	Zone                 VisionZoneBox         `json:"zone"`
-	StayThresholdSeconds int                   `json:"stay_threshold_seconds"`
+	ID                   string                       `json:"id"`
+	Name                 string                       `json:"name"`
+	Enabled              bool                         `json:"enabled"`
+	Camera               VisionServiceCamera          `json:"camera"`
+	RTSPSource           VisionRTSPSource             `json:"rtsp_source"`
+	EntitySelector       VisionEntitySelector         `json:"entity_selector"`
+	Behavior             string                       `json:"behavior,omitempty"`
+	KeyEntities          []VisionServiceRuleKeyEntity `json:"key_entities,omitempty"`
+	Zone                 VisionZoneBox                `json:"zone"`
+	StayThresholdSeconds int                          `json:"stay_threshold_seconds"`
 }
 
 type VisionServiceCamera struct {

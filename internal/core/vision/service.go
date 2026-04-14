@@ -52,7 +52,7 @@ func (s *Service) GetConfig(ctx context.Context) (models.VisionCapabilityConfig,
 	if !ok {
 		return defaultConfig(), nil
 	}
-	return config, nil
+	return hydrateVisionConfigKeyEntities(config), nil
 }
 
 func (s *Service) GetStatus(ctx context.Context) (models.VisionCapabilityStatus, error) {

@@ -53,10 +53,12 @@ Response:
           "key_entities": [
             {
               "id": 101,
+              "name": "Feeder Cat",
               "description": "orange tabby with a blue collar"
             },
             {
               "id": 102,
+              "name": "Midnight",
               "image": {
                 "base64": "...",
                 "content_type": "image/jpeg"
@@ -178,10 +180,12 @@ Request body:
       "key_entities": [
         {
           "id": 101,
+          "name": "Feeder Cat",
           "description": "orange tabby with a blue collar"
         },
         {
           "id": 102,
+          "name": "Midnight",
           "image": {
             "base64": "...",
             "content_type": "image/jpeg"
@@ -213,7 +217,8 @@ Important behavior:
 - If the camera does not expose RTSP and the rule is enabled for recognition, save is rejected explicitly.
 - `entity_selector.value` is optional. When empty, Gateway persists the rule as an all-entities wildcard and syncs that empty selector to the Vision Service.
 - `behavior` is optional. When present, Gateway persists it with the rule and syncs it to Vision Service so downstream semantic fallback checks can combine the target entity plus behavior.
-- `key_entities` is optional. When present, Gateway persists and syncs the per-rule candidate set for post-event identity matching.
+- `key_entities` is optional. When present, Gateway persists the per-rule candidate set for post-event identity matching and only syncs the downstream-required fields.
+- `key_entities[].name` is a Gateway/Admin-only display field. Gateway persists it for local history, filtering, and future statistics surfaces, but it does not send `name` to Vision Service.
 - Each `key_entities[]` entry must provide a stable positive `id` plus at least one of `image` or `description`.
 - `key_entities[].image.content_type` is optional. When omitted, Vision Service may default it to `image/jpeg`.
 - If Gateway already has a fetched catalog for the same websocket endpoint and configured model, it validates each non-empty `entity_selector` against that catalog before accepting the config.

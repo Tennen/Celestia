@@ -136,6 +136,7 @@ describe('VisionRuleEditorCard', () => {
           key_entities: [
             {
               id: 101,
+              name: 'Feeder Cat',
               description: 'orange tabby with a blue collar',
             },
           ],
@@ -143,6 +144,7 @@ describe('VisionRuleEditorCard', () => {
       />,
     );
 
+    expect(screen.getByDisplayValue('Feeder Cat')).not.toBeNull();
     expect(screen.getByDisplayValue('orange tabby with a blue collar')).not.toBeNull();
     expect(screen.getByText(/stable id 101/i)).not.toBeNull();
   });
