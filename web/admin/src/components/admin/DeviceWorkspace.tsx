@@ -79,6 +79,22 @@ export function DeviceWorkspace() {
     () => applyToggleOverrides(selectedDevice, toggleOverrides),
     [selectedDevice, toggleOverrides],
   );
+  const filteredDevices = useMemo(() => {
+    const query = deviceSearch.trim().toLowerCase();
+    if (!query) {
+      return devices;
+    }
+    return devices.filter((item) =>
+      [
+        item.device.name,
+        item.device.id,
+        item.device.alias,
+        item.device.room,
+        item.device.kind,
+        item.device.plugin_id,
+      ].some((value) => value?.toLowerCase().includes(query)),
+    );
+  }, [deviceSearch, devices]);
   const deviceView = displayDevice ?? selectedDevice;
 
   useEffect(() => {
@@ -147,7 +163,7 @@ export function DeviceWorkspace() {
           </div>
           <ScrollArea className="explorer-scroll">
             <div className="list-stack pb-3">
-              {devices.map((item) => (
+              {filteredDevices.map((item) => (
                 <SelectableListItem
                   key={item.device.id}
                   className={`table__row ${selectedDeviceId === item.device.id ? 'is-selected' : ''}`}
@@ -168,6 +184,7 @@ export function DeviceWorkspace() {
                   }
                 />
               ))}
+              {filteredDevices.length === 0 ? <div className="detail">No devices match the current search.</div> : null}
             </div>
           </ScrollArea>
         </CardContent>

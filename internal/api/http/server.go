@@ -82,6 +82,7 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("POST /api/ai/v1/commands", s.handleAICommand)
 	mux.HandleFunc("GET /api/v1/events", s.handleEvents)
 	mux.HandleFunc("GET /api/v1/events/stream", s.handleEventStream)
+	mux.HandleFunc("GET /api/v1/admin/stream", s.handleAdminStream)
 	mux.HandleFunc("GET /api/v1/audits", s.handleAudits)
 	mux.HandleFunc("POST /api/v1/oauth/xiaomi/start", s.handleXiaomiOAuthStart)
 	mux.HandleFunc("GET /api/v1/oauth/xiaomi/sessions/{id}", s.handleXiaomiOAuthSession)

@@ -156,7 +156,7 @@ export function VisionHistoryEventModal({ busy, eventView, onClose, onDelete }: 
     return null;
   }
 
-  const infoItems = [
+  const infoItems: AggregatedInfoCardItem[] = [
     {
       className: 'aggregated-info-card__item--full',
       label: 'Event ID',
@@ -172,15 +172,15 @@ export function VisionHistoryEventModal({ busy, eventView, onClose, onDelete }: 
       value: historyEventStatus(eventView),
       title: historyEventStatus(eventView),
     },
-    eventView.keyEntity
-      ? {
-          className: 'aggregated-info-card__item--full',
-          label: 'Key Entity',
-          value: eventView.keyEntity.label,
-          title: String(eventView.keyEntity.id),
-        }
-      : null,
-  ].filter((item): item is AggregatedInfoCardItem => item !== null);
+  ];
+  if (eventView.keyEntity) {
+    infoItems.push({
+      className: 'aggregated-info-card__item--full',
+      label: 'Key Entity',
+      value: eventView.keyEntity.label,
+      title: String(eventView.keyEntity.id),
+    });
+  }
 
   return (
     <div className="admin-modal" onMouseDown={onClose}>

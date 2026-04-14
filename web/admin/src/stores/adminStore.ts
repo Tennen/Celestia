@@ -10,16 +10,68 @@ import {
   fetchPlugins,
   getApiBase,
 } from '../lib/api';
-import { asArray, compareText, emptyLoadState, mergeLoadStateData, POLL_MS } from '../lib/admin';
-import type { LoadState } from '../lib/admin';
+import {
+  applyAdminStreamFrame,
+  emptyLoadState,
+  mergeLoadStateData,
+  sortAutomations,
+  sortCapabilities,
+  sortDevices,
+  sortPlugins,
+} from '../lib/admin';
+import type { LoadState, RemoteLoadState } from '../lib/admin';
+import type { AdminStreamFrame } from '../lib/types';
 
 type AdminActions = {
   refreshAll: () => Promise<void>;
   reportError: (message: string) => void;
-  initPolling: () => () => void;
+  initStream: () => () => void;
 };
 
 type AdminStore = LoadState & AdminActions;
+
+function applyRemoteState(
+  set: (
+    updater: (current: AdminStore) => Partial<AdminStore>,
+  ) => void,
+  next: RemoteLoadState,
+) {
+  let mergedState: RemoteLoadState = next;
+  set((current) => {
+    mergedState = mergeLoadStateData(current, next);
+    return {
+      ...mergedState,
+      loading: false,
+      refreshing: false,
+      hasLoaded: true,
+      error: null,
+    };
+  });
+  autoSelectPlugin(mergedState.catalog);
+  autoSelectDevice(mergedState.devices);
+}
+
+function loadRemoteState(frame: {
+  dashboard: LoadState['dashboard'];
+  catalog: LoadState['catalog'];
+  plugins: LoadState['plugins'];
+  capabilities: LoadState['capabilities'];
+  automations: LoadState['automations'];
+  devices: LoadState['devices'];
+  events: LoadState['events'];
+  audits: LoadState['audits'];
+}): RemoteLoadState {
+  return {
+    dashboard: frame.dashboard,
+    catalog: frame.catalog,
+    plugins: sortPlugins(frame.plugins),
+    capabilities: sortCapabilities(frame.capabilities),
+    automations: sortAutomations(frame.automations),
+    devices: sortDevices(frame.devices),
+    events: frame.events,
+    audits: frame.audits,
+  };
+}
 
 export const useAdminStore = create<AdminStore>((set, get) => ({
   ...emptyLoadState(),
@@ -41,46 +93,30 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     );
 
     try {
-      const deviceSearch = getDeviceSearchRef();
-      const [dashboard, rawCatalog, rawPlugins, rawCapabilities, rawAutomations, rawDevices, rawEvents, rawAudits] = await Promise.all([
+      const [dashboard, catalog, plugins, capabilities, automations, devices, events, audits] = await Promise.all([
         fetchDashboard(),
         fetchCatalogPlugins(),
         fetchPlugins(),
         fetchCapabilities(),
         fetchAutomations(),
-        fetchDevices(deviceSearch),
+        fetchDevices(),
         fetchEvents({ limit: 80 }),
         fetchAudits(80),
       ]);
 
-      const catalog = asArray(rawCatalog).sort((a, b) => compareText(a.id, b.id));
-      const plugins = asArray(rawPlugins).sort((a, b) =>
-        compareText(a.record.plugin_id, b.record.plugin_id),
-      );
-      const devices = asArray(rawDevices).sort((a, b) =>
-        compareText(a.device.name || a.device.id, b.device.name || b.device.id),
-      );
-
-      set((current) => ({
-        ...mergeLoadStateData(current, {
+      applyRemoteState(
+        set,
+        loadRemoteState({
           dashboard,
           catalog,
           plugins,
-          capabilities: asArray(rawCapabilities).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
-          automations: asArray(rawAutomations).sort((a, b) => compareText(a.name || a.id, b.name || b.id)),
+          capabilities,
+          automations,
           devices,
-          events: asArray(rawEvents),
-          audits: asArray(rawAudits),
+          events,
+          audits,
         }),
-        loading: false,
-        refreshing: false,
-        hasLoaded: true,
-        error: null,
-      }));
-
-      // Auto-select first plugin/device if nothing selected or selection gone
-      autoSelectPlugin(catalog);
-      autoSelectDevice(devices);
+      );
     } catch (error) {
       set({
         loading: false,
@@ -90,41 +126,34 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     }
   },
 
-  initPolling: () => {
+  initStream: () => {
     void get().refreshAll();
 
-    const interval = window.setInterval(() => {
-      void get().refreshAll();
-    }, POLL_MS);
+    const source = new EventSource(`${getApiBase()}/admin/stream`);
 
-    const source = new EventSource(`${getApiBase()}/events/stream`);
-    const onEvent = () => void get().refreshAll();
-    source.onmessage = onEvent;
-    source.addEventListener('device.state.changed', onEvent);
-    source.addEventListener('device.event.occurred', onEvent);
-    source.addEventListener('plugin.lifecycle.changed', onEvent);
-    source.addEventListener('capability.status.changed', onEvent);
-    source.addEventListener('automation.triggered', onEvent);
-    source.addEventListener('automation.failed', onEvent);
-    source.onerror = () => source.close();
+    const applyFrame = (event: MessageEvent<string>) => {
+      try {
+        const frame = JSON.parse(event.data) as AdminStreamFrame;
+        const next = applyAdminStreamFrame(get(), frame);
+        applyRemoteState(set, next);
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : 'Failed to apply admin stream update',
+        });
+      }
+    };
+
+    source.addEventListener('sync', applyFrame as EventListener);
+    source.addEventListener('update', applyFrame as EventListener);
+    source.onerror = () => {
+      // Keep the EventSource alive so the browser can reconnect automatically.
+    };
 
     return () => {
-      window.clearInterval(interval);
       source.close();
     };
   },
 }));
-
-// ---------------------------------------------------------------------------
-// Helpers for auto-selection — read/write pluginStore and deviceStore lazily
-// to avoid circular import issues at module load time.
-// ---------------------------------------------------------------------------
-
-let getDeviceSearchRef: () => string = () => '';
-
-export function setDeviceSearchProvider(fn: () => string) {
-  getDeviceSearchRef = fn;
-}
 
 let autoSelectPlugin: (catalog: import('../lib/types').CatalogPlugin[]) => void = () => {};
 let autoSelectDevice: (devices: import('../lib/types').DeviceView[]) => void = () => {};

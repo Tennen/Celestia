@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { emptyLoadState, mergeLoadStateData } from './admin';
+import { applyAdminStreamFrame, emptyLoadState, mergeLoadStateData } from './admin';
 import type { LoadState } from './admin';
-import type { AuditRecord, CapabilitySummary, CatalogPlugin, DashboardSummary, DeviceView, EventRecord, PluginRuntimeView } from './types';
+import type {
+  AdminStreamFrame,
+  AuditRecord,
+  CapabilitySummary,
+  CatalogPlugin,
+  DashboardSummary,
+  DeviceView,
+  EventRecord,
+  PluginRuntimeView,
+} from './types';
 
 function buildCatalogPlugin(id: string): CatalogPlugin {
   return {
@@ -200,5 +209,46 @@ describe('mergeLoadStateData', () => {
     expect(merged.devices[0]).toBe(firstDevice);
     expect(merged.devices[1]).not.toBe(secondDevice);
     expect(merged.devices[1].device.online).toBe(false);
+  });
+});
+
+describe('applyAdminStreamFrame', () => {
+  it('prepends streamed activity items while preserving existing state', () => {
+    const current = buildState();
+    const frame: AdminStreamFrame = {
+      dashboard: {
+        plugins: 1,
+        enabled_plugins: 1,
+        devices: 1,
+        online_devices: 1,
+        events: 2,
+        audits: 2,
+      },
+      event: buildEvent('event-2'),
+      audit: buildAudit('audit-2'),
+    };
+
+    const merged = applyAdminStreamFrame(current, frame);
+
+    expect(merged.dashboard?.events).toBe(2);
+    expect(merged.events[0].id).toBe('event-2');
+    expect(merged.events[1].id).toBe('event-1');
+    expect(merged.audits[0].id).toBe('audit-2');
+    expect(merged.audits[1].id).toBe('audit-1');
+    expect(merged.devices).toBe(current.devices);
+  });
+
+  it('replaces streamed collections when the server sends a fresh slice', () => {
+    const current = buildState();
+    const nextDevice = buildDeviceView('device-2', 'Hall Lamp');
+    const frame: AdminStreamFrame = {
+      devices: [nextDevice],
+    };
+
+    const merged = applyAdminStreamFrame(current, frame);
+
+    expect(merged.devices).toHaveLength(1);
+    expect(merged.devices[0].device.id).toBe('device-2');
+    expect(merged.events).toBe(current.events);
   });
 });

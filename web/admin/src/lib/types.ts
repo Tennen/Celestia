@@ -356,6 +356,19 @@ export type AuditRecord = {
   created_at: string;
 };
 
+export type AdminStreamFrame = {
+  reason?: string;
+  dashboard?: DashboardSummary | null;
+  plugins?: PluginRuntimeView[];
+  capabilities?: CapabilitySummary[];
+  automations?: Automation[];
+  devices?: DeviceView[];
+  events?: EventRecord[];
+  audits?: AuditRecord[];
+  event?: EventRecord;
+  audit?: AuditRecord;
+};
+
 export type CommandResult = {
   decision?: {
     allowed: boolean;

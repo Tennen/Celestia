@@ -123,6 +123,43 @@ event: device.state.changed
 data: {"id":"evt-1","type":"device.state.changed","device_id":"xiaomi:cn:123456","ts":"2026-04-03T10:00:00Z","payload":{"state":{"power":true}}}
 ```
 
+## Admin Stream
+
+`GET /api/v1/admin/stream`
+
+Server-Sent Events stream used by the Admin UI after its initial snapshot load.
+
+Stream events:
+
+- `event: sync` sends the current Admin snapshot
+- `event: update` sends only the affected slices when runtime state changes
+- a `: ping` keepalive comment is emitted every 15 seconds
+
+Each frame may include:
+
+- `dashboard`
+- `plugins`
+- `capabilities`
+- `automations`
+- `devices`
+- `events` or single `event`
+- `audits` or single `audit`
+- `reason` describing the source change such as `device.state.changed`, `plugin.lifecycle.changed`, or `audit.recorded`
+
+On connect, the `sync` payload contains the current dashboard, plugin runtime views, capability summaries, automations, device views, recent events, and recent audits.
+
+Subsequent `update` payloads are emitted only when Core state changes:
+
+- runtime events from plugin/device/capability/automation flows update the relevant Admin slices
+- newly appended audit records are pushed without requiring the Admin UI to poll `/api/v1/audits`
+
+Example:
+
+```text
+event: update
+data: {"reason":"device.state.changed","dashboard":{"plugins":2,"enabled_plugins":2,"devices":9,"online_devices":8,"events":128,"audits":41},"devices":[{"device":{"id":"xiaomi:cn:lamp-1","plugin_id":"xiaomi","vendor_device_id":"123","kind":"light","name":"Desk Lamp","online":true,"capabilities":["toggle"]},"state":{"device_id":"xiaomi:cn:lamp-1","plugin_id":"xiaomi","ts":"2026-04-14T10:00:00Z","state":{"power":true}},"controls":[{"id":"power","kind":"toggle","label":"Power","visible":true,"state":true}]}],"event":{"id":"evt-128","type":"device.state.changed","plugin_id":"xiaomi","device_id":"xiaomi:cn:lamp-1","ts":"2026-04-14T10:00:00Z","payload":{"previous_state":{"power":false},"state":{"power":true},"changed_keys":["power"]}}}
+```
+
 ## List Audits
 
 `GET /api/v1/audits`

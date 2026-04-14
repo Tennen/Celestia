@@ -20,7 +20,7 @@ import { getApiBase } from './lib/api';
 import { capabilityDisplayName, summaryNumber } from './lib/capability';
 import type { AppSection } from './lib/admin';
 import { cn } from './lib/utils';
-import { useAdminStore, setAutoSelectHandlers, setDeviceSearchProvider } from './stores/adminStore';
+import { useAdminStore, setAutoSelectHandlers } from './stores/adminStore';
 import { usePluginStore } from './stores/pluginStore';
 import { useDeviceStore } from './stores/deviceStore';
 import { useXiaomiOAuth } from './hooks/useXiaomiOAuth';
@@ -49,9 +49,8 @@ function App() {
   const { selectedDeviceId } = useDeviceStore();
   const { oauthBanner, oauthActive, startFlow } = useXiaomiOAuth();
 
-  // Wire auto-select handlers and device search provider into adminStore
+  // Wire auto-select handlers into adminStore
   useEffect(() => {
-    setDeviceSearchProvider(() => useDeviceStore.getState().deviceSearch);
     setAutoSelectHandlers(
       (cat) => {
         const { selectedPluginId, setSelectedPluginId } = usePluginStore.getState();
@@ -72,9 +71,9 @@ function App() {
     );
   }, []);
 
-  // Init polling + SSE on mount
+  // Init admin stream on mount
   useEffect(() => {
-    const cleanup = useAdminStore.getState().initPolling();
+    const cleanup = useAdminStore.getState().initStream();
     return cleanup;
   }, []);
 

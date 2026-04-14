@@ -1,4 +1,5 @@
 import type {
+  AdminStreamFrame,
   Automation,
   AuditRecord,
   CapabilitySummary,
@@ -9,7 +10,7 @@ import type {
   PluginRuntimeView,
 } from './types';
 
-export const POLL_MS = 10000;
+const RECENT_ACTIVITY_LIMIT = 80;
 
 export type StatusBanner = {
   tone: 'good' | 'warn' | 'bad';
@@ -33,7 +34,7 @@ export type LoadState = {
   error: string | null;
 };
 
-type RemoteLoadState = Pick<
+export type RemoteLoadState = Pick<
   LoadState,
   'dashboard' | 'catalog' | 'plugins' | 'capabilities' | 'automations' | 'devices' | 'events' | 'audits'
 >;
@@ -59,6 +60,22 @@ export function asArray<T>(value: T[] | null | undefined): T[] {
 
 export function compareText(a: string, b: string) {
   return a.localeCompare(b, 'en');
+}
+
+export function sortPlugins(items: PluginRuntimeView[]) {
+  return asArray(items).sort((a, b) => compareText(a.record.plugin_id, b.record.plugin_id));
+}
+
+export function sortCapabilities(items: CapabilitySummary[]) {
+  return asArray(items).sort((a, b) => compareText(a.name || a.id, b.name || b.id));
+}
+
+export function sortAutomations(items: Automation[]) {
+  return asArray(items).sort((a, b) => compareText(a.name || a.id, b.name || b.id));
+}
+
+export function sortDevices(items: DeviceView[]) {
+  return asArray(items).sort((a, b) => compareText(a.device.name || a.device.id, b.device.name || b.device.id));
 }
 
 function isJsonEqual(left: unknown, right: unknown) {
@@ -107,6 +124,33 @@ export function mergeLoadStateData(current: LoadState, next: RemoteLoadState): R
     devices: mergeStableList(current.devices, next.devices, (item) => item.device.id),
     events: mergeStableList(current.events, next.events, (item) => item.id),
     audits: mergeStableList(current.audits, next.audits, (item) => item.id),
+  };
+}
+
+function prependStableItem<T>(current: T[], item: T, getKey: (value: T) => string, limit: number) {
+  const itemKey = getKey(item);
+  const next = [item, ...current.filter((value) => getKey(value) !== itemKey)];
+  return next.slice(0, limit);
+}
+
+export function applyAdminStreamFrame(current: LoadState, frame: AdminStreamFrame): RemoteLoadState {
+  return {
+    dashboard: frame.dashboard ?? current.dashboard,
+    catalog: current.catalog,
+    plugins: frame.plugins ? sortPlugins(frame.plugins) : current.plugins,
+    capabilities: frame.capabilities ? sortCapabilities(frame.capabilities) : current.capabilities,
+    automations: frame.automations ? sortAutomations(frame.automations) : current.automations,
+    devices: frame.devices ? sortDevices(frame.devices) : current.devices,
+    events: frame.events
+      ? asArray(frame.events)
+      : frame.event
+        ? prependStableItem(current.events, frame.event, (item) => item.id, RECENT_ACTIVITY_LIMIT)
+        : current.events,
+    audits: frame.audits
+      ? asArray(frame.audits)
+      : frame.audit
+        ? prependStableItem(current.audits, frame.audit, (item) => item.id, RECENT_ACTIVITY_LIMIT)
+        : current.audits,
   };
 }
 

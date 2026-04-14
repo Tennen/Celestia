@@ -142,7 +142,7 @@ export function VisionCapabilityPanel({ summary, devices, onError }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [summary?.id, summary?.updated_at, onError]);
+  }, [summary?.id, onError]);
 
   useEffect(() => {
     setSelectedRuleId((current) => ensureSelection(current, ruleDraftState.draft?.rules ?? []));
