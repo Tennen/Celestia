@@ -19,20 +19,22 @@
 
 .vision-capture-preview {
   position: relative;
-}
-
-.vision-capture-image {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
   border-radius: 0.7rem;
   border: 1px solid hsl(var(--border) / 0.65);
   background: hsl(var(--muted));
 }
 
+.vision-capture-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: inherit;
+}
+
 .vision-capture-overlay {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   pointer-events: none;
 }
 
