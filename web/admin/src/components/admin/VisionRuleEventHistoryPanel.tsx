@@ -4,6 +4,7 @@ import { deleteVisionRuleEvent, fetchVisionRuleEvents } from '../../lib/api';
 import type { EventRecord, VisionRule } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
 import { buildHistoryEventView, type HistoryEntity, VisionHistoryEventCard, VisionHistoryEventModal } from './VisionRuleEventHistoryCards';
@@ -63,6 +64,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
   const [selectedKeyEntityID, setSelectedKeyEntityID] = useState('');
   const [busy, setBusy] = useState<'load' | 'refresh' | ''>('load');
   const [deletingEventId, setDeletingEventId] = useState('');
+  const [pendingDeleteEvent, setPendingDeleteEvent] = useState<EventRecord | null>(null);
   const [draftDate, setDraftDate] = useState('');
   const [appliedDate, setAppliedDate] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -82,6 +84,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     setSelectedEntityKey('');
     setSelectedKeyEntityID('');
     setDeletingEventId('');
+    setPendingDeleteEvent(null);
     setDraftDate('');
     setAppliedDate('');
     setFiltersOpen(false);
@@ -238,8 +241,13 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
     setPageIndex((current) => Math.max(0, current - 1));
   };
 
-  const deleteEvent = async (event: EventRecord) => {
-    if (!window.confirm('Delete this persisted event and any stored captures?')) {
+  const requestDeleteEvent = (event: EventRecord) => {
+    setPendingDeleteEvent(event);
+  };
+
+  const confirmDeleteEvent = async () => {
+    const event = pendingDeleteEvent;
+    if (!event) {
       return;
     }
     setDeletingEventId(event.id);
@@ -247,6 +255,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
       await deleteVisionRuleEvent(rule.id, event.id);
       setEvents((current) => current.filter((item) => item.id !== event.id));
       setOpenEventId((current) => (current === event.id ? '' : current));
+      setPendingDeleteEvent(null);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Failed to delete persisted rule event');
     } finally {
@@ -393,7 +402,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
                     active={eventView.event.id === openEventId}
                     busy={busy !== '' || deletingEventId !== ''}
                     eventView={eventView}
-                    onDelete={(event) => void deleteEvent(event)}
+                    onDelete={requestDeleteEvent}
                     onOpen={setOpenEventId}
                   />
                 ))}
@@ -417,7 +426,22 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
         busy={deletingEventId !== ''}
         eventView={openEvent}
         onClose={() => setOpenEventId('')}
-        onDelete={(event) => void deleteEvent(event)}
+        onDelete={requestDeleteEvent}
+      />
+      <ConfirmDialog
+        open={pendingDeleteEvent !== null}
+        title="Delete Recognition Event"
+        description="This removes the persisted recognition event and any stored capture evidence. This action cannot be undone."
+        tone="danger"
+        cancelLabel="Keep Event"
+        confirmLabel="Delete Event"
+        loading={deletingEventId !== ''}
+        onOpenChange={(open) => {
+          if (!open && deletingEventId === '') {
+            setPendingDeleteEvent(null);
+          }
+        }}
+        onConfirm={() => void confirmDeleteEvent()}
       />
     </>
   );

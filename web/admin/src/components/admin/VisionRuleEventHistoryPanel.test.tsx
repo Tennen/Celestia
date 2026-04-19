@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventRecord, VisionRule } from '../../lib/types';
@@ -149,5 +149,37 @@ describe('VisionRuleEventHistoryPanel', () => {
 
     expect(screen.getByText(/1\/2/i)).toBeTruthy();
     expect(screen.getByText('#101')).toBeTruthy();
+  });
+
+  it('opens the app confirmation dialog before deleting a persisted event', async () => {
+    const user = userEvent.setup();
+    fetchVisionRuleEvents.mockResolvedValue([buildEvent('evt-feeder', 'Cat')]);
+    deleteVisionRuleEvent.mockResolvedValue(undefined);
+
+    render(
+      <VisionRuleEventHistoryPanel
+        onBack={vi.fn()}
+        onError={vi.fn()}
+        rule={buildRule()}
+        updatedAtKey="2026-04-12T08:00:00Z"
+      />,
+    );
+
+    expect(await screen.findByTitle('Cat')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Delete Event' }));
+    const cancelDialog = screen.getByRole('alertdialog', { name: 'Delete Recognition Event' });
+    expect(deleteVisionRuleEvent).not.toHaveBeenCalled();
+
+    await user.click(within(cancelDialog).getByRole('button', { name: 'Keep Event' }));
+    expect(screen.queryByRole('alertdialog', { name: 'Delete Recognition Event' })).toBeNull();
+    expect(screen.getByTitle('Cat')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Delete Event' }));
+    const confirmDialog = screen.getByRole('alertdialog', { name: 'Delete Recognition Event' });
+    await user.click(within(confirmDialog).getByRole('button', { name: 'Delete Event' }));
+
+    expect(deleteVisionRuleEvent).toHaveBeenCalledWith('feeder-zone', 'evt-feeder');
+    await waitFor(() => expect(screen.queryByTitle('Cat')).toBeNull());
   });
 });
