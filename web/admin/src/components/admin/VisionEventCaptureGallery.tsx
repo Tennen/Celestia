@@ -28,10 +28,6 @@ function readMetadata(value: unknown) {
   return isRecord(value) ? value : undefined;
 }
 
-function isCapturePhase(value: string): value is VisionEventCapture['phase'] {
-  return value === 'start' || value === 'middle' || value === 'end';
-}
-
 export function visionEventCapturesFromPayload(payload?: Record<string, unknown>) {
   const raw = payload?.captures;
   if (!Array.isArray(raw)) {
@@ -44,10 +40,10 @@ export function visionEventCapturesFromPayload(payload?: Record<string, unknown>
       }
       const captureId = readString(item.capture_id);
       const eventId = readString(item.event_id);
-      const phase = readString(item.phase);
+      const phase = readString(item.phase).trim();
       const capturedAt = readString(item.captured_at);
       const contentType = readString(item.content_type);
-      if (!captureId || !eventId || !capturedAt || !contentType || !isCapturePhase(phase)) {
+      if (!captureId || !eventId || !capturedAt || !contentType || !phase) {
         return null;
       }
       return {
@@ -118,8 +114,10 @@ export function VisionEventCaptureGallery({ captures }: Props) {
   if (captures.length === 0) {
     return null;
   }
+  const galleryClassName =
+    captures.length > 3 ? 'vision-capture-gallery vision-capture-gallery--scroll' : 'vision-capture-gallery';
   return (
-    <div className="vision-capture-gallery">
+    <div className={galleryClassName}>
       {captures.map((capture) => <VisionCaptureCard key={capture.capture_id} capture={capture} />)}
     </div>
   );

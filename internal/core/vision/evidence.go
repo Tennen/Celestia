@@ -164,16 +164,11 @@ func normalizeReportedCapture(item models.VisionServiceEventCapture) (models.Vis
 }
 
 func normalizeCapturePhase(value models.VisionEventCapturePhase) models.VisionEventCapturePhase {
-	switch models.VisionEventCapturePhase(strings.TrimSpace(string(value))) {
-	case models.VisionEventCapturePhaseStart:
-		return models.VisionEventCapturePhaseStart
-	case models.VisionEventCapturePhaseMiddle:
-		return models.VisionEventCapturePhaseMiddle
-	case models.VisionEventCapturePhaseEnd:
-		return models.VisionEventCapturePhaseEnd
-	default:
+	phase := strings.TrimSpace(string(value))
+	if phase == "" {
 		return ""
 	}
+	return models.VisionEventCapturePhase(phase)
 }
 
 func (s *Service) validateCapture(ctx context.Context, capture models.VisionEventCapture) (models.VisionEventCapture, error) {

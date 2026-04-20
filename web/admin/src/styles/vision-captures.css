@@ -1,8 +1,15 @@
 .vision-capture-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
   gap: 0.75rem;
   margin-top: 0.5rem;
+}
+
+.vision-capture-gallery--scroll {
+  max-height: clamp(18rem, 46vh, 34rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
 }
 
 .vision-capture-card {

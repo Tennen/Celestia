@@ -18,10 +18,10 @@ func (s *Store) UpsertVisionEventCapture(ctx context.Context, asset models.Visio
 		insert into vision_event_captures(
 			capture_id, event_id, rule_id, camera_device_id, phase, captured_at, content_type, size_bytes, metadata_json, image_data
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		on conflict(event_id, phase) do update set
-			capture_id=excluded.capture_id,
+		on conflict(capture_id) do update set
 			rule_id=excluded.rule_id,
 			camera_device_id=excluded.camera_device_id,
+			phase=excluded.phase,
 			captured_at=excluded.captured_at,
 			content_type=excluded.content_type,
 			size_bytes=excluded.size_bytes,

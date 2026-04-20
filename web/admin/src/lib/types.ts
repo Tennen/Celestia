@@ -315,7 +315,7 @@ export type VisionEventCapture = {
   event_id: string;
   rule_id?: string;
   camera_device_id?: string;
-  phase: 'start' | 'middle' | 'end';
+  phase: string;
   captured_at: string;
   content_type: string;
   size_bytes: number;

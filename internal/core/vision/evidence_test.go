@@ -61,11 +61,17 @@ func TestReportEvidenceAttachesCapturesToVisionEvents(t *testing.T) {
 		t.Fatalf("ReportEvents() error = %v", err)
 	}
 
+	extraMiddle := testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhaseMiddle, "middle-extra")
+	extraMiddle.CaptureID = "evt-1:middle:extra"
+	extraSample := testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhase("sample-1"), "sample")
+	extraSample.CaptureID = "evt-1:sample-1"
 	if err := service.ReportEvidence(ctx, models.VisionServiceEventCaptureBatch{
 		Captures: []models.VisionServiceEventCapture{
 			testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhaseMiddle, "middle"),
 			testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhaseEnd, "end"),
 			testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhaseStart, "start"),
+			extraMiddle,
+			extraSample,
 		},
 	}); err != nil {
 		t.Fatalf("ReportEvidence() error = %v", err)
@@ -82,8 +88,11 @@ func TestReportEvidenceAttachesCapturesToVisionEvents(t *testing.T) {
 	if !ok {
 		t.Fatalf("captures payload type = %T, want []models.VisionEventCapture", events[0].Payload["captures"])
 	}
-	if len(captures) != 3 {
-		t.Fatalf("captures len = %d, want 3", len(captures))
+	if len(captures) != 5 {
+		t.Fatalf("captures len = %d, want 5", len(captures))
+	}
+	if captures[0].Phase != models.VisionEventCapturePhaseStart || captures[len(captures)-1].Phase != models.VisionEventCapturePhase("sample-1") {
+		t.Fatalf("captures order = %#v, want start first and sample-1 last", captures)
 	}
 
 	asset, ok, err := service.GetCaptureAsset(ctx, "evt-1:start")
@@ -95,6 +104,16 @@ func TestReportEvidenceAttachesCapturesToVisionEvents(t *testing.T) {
 	}
 	if string(asset.Data) != "start" {
 		t.Fatalf("capture data = %q, want start", string(asset.Data))
+	}
+	extraAsset, ok, err := service.GetCaptureAsset(ctx, "evt-1:middle:extra")
+	if err != nil {
+		t.Fatalf("GetCaptureAsset(extra middle) error = %v", err)
+	}
+	if !ok {
+		t.Fatal("extra middle capture asset missing after ReportEvidence()")
+	}
+	if string(extraAsset.Data) != "middle-extra" {
+		t.Fatalf("extra middle capture data = %q, want middle-extra", string(extraAsset.Data))
 	}
 
 	persisted, ok, err := store.GetVisionEventCapture(ctx, "evt-1:start")
