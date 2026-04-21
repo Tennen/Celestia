@@ -147,6 +147,15 @@ func (g *stubGateway) RunAgentEvolutionGoal(_ context.Context, _ string) (models
 func (g *stubGateway) RunAgentTerminal(_ context.Context, _ models.AgentTerminalRequest) (models.AgentTerminalResult, error) {
 	return models.AgentTerminalResult{}, nil
 }
+func (g *stubGateway) RunAgentSearch(_ context.Context, _ models.AgentSearchRequest) (models.AgentSearchResult, error) {
+	return models.AgentSearchResult{}, nil
+}
+func (g *stubGateway) TranscribeAgentSpeech(_ context.Context, _ models.AgentSpeechRequest) (models.AgentSpeechResult, error) {
+	return models.AgentSpeechResult{}, nil
+}
+func (g *stubGateway) RunAgentCodex(_ context.Context, _ models.AgentCodexRequest) (models.AgentCodexResult, error) {
+	return models.AgentCodexResult{}, nil
+}
 func (g *stubGateway) ListDevices(_ context.Context, _ gatewayapi.DeviceFilter) ([]models.DeviceView, error) {
 	return nil, nil
 }

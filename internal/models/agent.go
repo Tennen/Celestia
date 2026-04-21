@@ -180,10 +180,11 @@ type AgentConversationRequest struct {
 }
 
 type AgentTopicSnapshot struct {
-	ActiveProfileID string              `json:"active_profile_id"`
-	Profiles        []AgentTopicProfile `json:"profiles"`
-	Runs            []AgentTopicRun     `json:"runs"`
-	UpdatedAt       time.Time           `json:"updated_at"`
+	ActiveProfileID string                  `json:"active_profile_id"`
+	Profiles        []AgentTopicProfile     `json:"profiles"`
+	Runs            []AgentTopicRun         `json:"runs"`
+	SentLog         []AgentTopicSentLogItem `json:"sent_log,omitempty"`
+	UpdatedAt       time.Time               `json:"updated_at"`
 }
 
 type AgentTopicProfile struct {
@@ -279,11 +280,14 @@ type AgentMarketConfig struct {
 }
 
 type AgentMarketRun struct {
-	ID          string    `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	Phase       string    `json:"phase"`
-	MarketState string    `json:"market_state"`
-	Summary     string    `json:"summary"`
+	ID          string                    `json:"id"`
+	CreatedAt   time.Time                 `json:"created_at"`
+	Phase       string                    `json:"phase"`
+	MarketState string                    `json:"market_state"`
+	Summary     string                    `json:"summary"`
+	Assets      []AgentMarketAssetContext `json:"assets,omitempty"`
+	SourceChain []string                  `json:"source_chain,omitempty"`
+	Errors      []AgentRunError           `json:"errors,omitempty"`
 }
 
 type AgentEvolutionSnapshot struct {

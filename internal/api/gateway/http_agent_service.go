@@ -151,6 +151,30 @@ func (s *HTTPService) RunAgentTerminal(ctx context.Context, req models.AgentTerm
 	return out, nil
 }
 
+func (s *HTTPService) RunAgentSearch(ctx context.Context, req models.AgentSearchRequest) (models.AgentSearchResult, error) {
+	var out models.AgentSearchResult
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/search/run", nil, req, &out, ""); err != nil {
+		return models.AgentSearchResult{}, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) TranscribeAgentSpeech(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error) {
+	var out models.AgentSpeechResult
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/stt/transcribe", nil, req, &out, ""); err != nil {
+		return models.AgentSpeechResult{}, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) RunAgentCodex(ctx context.Context, req models.AgentCodexRequest) (models.AgentCodexResult, error) {
+	var out models.AgentCodexResult
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/codex/run", nil, req, &out, ""); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 func (s *HTTPService) putAgentSnapshot(ctx context.Context, path string, body any) (models.AgentSnapshot, error) {
 	var out models.AgentSnapshot
 	if err := s.request(ctx, http.MethodPut, path, nil, body, &out, ""); err != nil {

@@ -31,9 +31,39 @@ PUT /api/v1/agent/push
 
 Each endpoint accepts the corresponding object from the snapshot and returns the updated snapshot.
 
-LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ollama`, `gemini`, and `gemini-like` through HTTP-compatible transports. `codex` requires a configured external evolution runner and is not invoked through the chat transport.
+LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ollama`, `gemini`, and `gemini-like` through HTTP-compatible transports. `codex` invokes the local `codex exec --json --sandbox workspace-write` runner.
 
 Terminal execution is disabled unless `settings.terminal.enabled` is true.
+
+## Search Engine
+
+```http
+POST /api/v1/agent/search/run
+```
+
+Body:
+
+```json
+{
+  "engine_selector": "default",
+  "timeout_ms": 12000,
+  "max_items": 8,
+  "plans": [
+    {
+      "label": "fund-news",
+      "query": "基金 公告 净值 风险",
+      "recency": "month"
+    }
+  ]
+}
+```
+
+Search engines are read from `settings.search_engines`. Supported providers:
+
+- `serpapi`: calls `GET /search.json` with `engine`, `q`, `hl`, `gl`, `num`, and `api_key`
+- `qianfan`: calls Baidu Qianfan `POST /v2/ai_search/web_search`
+
+If no profile is configured, Celestia bootstraps from `SERPAPI_KEY` and `QIANFAN_SEARCH_*` environment variables.
 
 ## WeCom
 
@@ -65,6 +95,22 @@ Body:
 
 The runtime applies direct-input mapping first, then calls the configured LLM provider. Device command execution remains owned by `/api/ai/v1/commands`.
 
+## STT
+
+```http
+POST /api/v1/agent/stt/transcribe
+```
+
+Body:
+
+```json
+{
+  "audio_path": "/path/to/audio.wav"
+}
+```
+
+STT requires `settings.stt.enabled=true`. The supported provider is `fast-whisper`; Celestia runs `settings.stt.command` when provided, otherwise it runs `python3 tools/fast-whisper-transcribe.py --audio <audio_path>`.
+
 ## Topic Summary
 
 ```http
@@ -91,7 +137,7 @@ PUT /api/v1/agent/market/portfolio
 POST /api/v1/agent/market/run
 ```
 
-The market module stores fund holdings and cash. Runs are explicitly marked `portfolio_only_no_market_feed` unless user notes or future configured data providers supply market data.
+The market module stores fund holdings and cash. A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
 
 ## Evolution And Terminal
 
@@ -99,8 +145,11 @@ The market module stores fund holdings and cash. Runs are explicitly marked `por
 POST /api/v1/agent/evolution/goals
 POST /api/v1/agent/evolution/goals/{id}/run
 POST /api/v1/agent/terminal
+POST /api/v1/agent/codex/run
 ```
 
 Evolution goals are queued in Celestia state. Running a goal requires `settings.evolution.command`; the goal text is passed to the command through stdin.
 
 Terminal commands require `settings.terminal.enabled=true` and execute through `/bin/sh -lc` with the configured timeout.
+
+`/agent/codex/run` invokes local `codex exec` directly with workspace-write sandboxing and writes command output under `data/agent/codex` in the selected working directory.

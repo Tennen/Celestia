@@ -51,6 +51,9 @@ type Service interface {
 	CreateAgentEvolutionGoal(ctx context.Context, req AgentEvolutionGoalRequest) (models.AgentEvolutionGoal, error)
 	RunAgentEvolutionGoal(ctx context.Context, goalID string) (models.AgentEvolutionGoal, error)
 	RunAgentTerminal(ctx context.Context, req models.AgentTerminalRequest) (models.AgentTerminalResult, error)
+	RunAgentSearch(ctx context.Context, req models.AgentSearchRequest) (models.AgentSearchResult, error)
+	TranscribeAgentSpeech(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error)
+	RunAgentCodex(ctx context.Context, req models.AgentCodexRequest) (models.AgentCodexResult, error)
 
 	ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error)
 	GetDevice(ctx context.Context, deviceID string) (models.DeviceView, error)

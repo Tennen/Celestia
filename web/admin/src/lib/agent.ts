@@ -167,6 +167,18 @@ export type TerminalResult = {
   finished_at: string;
 };
 
+export type AgentSearchResult = {
+  items: Array<{
+    title: string;
+    source: string;
+    link?: string;
+    published_at?: string;
+    snippet?: string;
+  }>;
+  source_chain: string[];
+  errors: string[];
+};
+
 export function fetchAgentSnapshot() {
   return request<AgentSnapshot>('/agent');
 }
@@ -243,6 +255,30 @@ export function runEvolutionGoal(goalId: string) {
 
 export function runTerminalCommand(payload: { command: string; cwd?: string }) {
   return request<TerminalResult>('/agent/terminal', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function runAgentSearch(payload: {
+  engine_selector?: string;
+  timeout_ms?: number;
+  max_items?: number;
+  plans: Array<{ label: string; query: string; sites?: string[]; recency?: string }>;
+}) {
+  return request<AgentSearchResult>('/agent/search/run', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function transcribeAgentSpeech(payload: { audio_path: string }) {
+  return request<Record<string, unknown>>('/agent/stt/transcribe', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function runAgentCodex(payload: {
+  task_id?: string;
+  prompt: string;
+  model?: string;
+  reasoning_effort?: string;
+  timeout_ms?: number;
+  cwd?: string;
+}) {
+  return request<Record<string, unknown>>('/agent/codex/run', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export function stableJSON(value: unknown) {

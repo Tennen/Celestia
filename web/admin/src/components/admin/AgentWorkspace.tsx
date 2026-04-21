@@ -21,7 +21,9 @@ import {
   fetchAgentSnapshot,
   parseJSONObject,
   publishAgentWeComMenu,
+  runAgentCodex,
   runAgentConversation,
+  runAgentSearch,
   runAgentTopic,
   runEvolutionGoal,
   runMarketAnalysis,
@@ -35,6 +37,7 @@ import {
   sendAgentWeComMessage,
   stableJSON,
   summarizeWritingTopic,
+  transcribeAgentSpeech,
   type AgentDirectInputConfig,
   type AgentMarketPortfolio,
   type AgentSettings,
@@ -58,7 +61,10 @@ type Busy =
   | 'writing'
   | 'market'
   | 'evolution'
-  | 'terminal';
+  | 'terminal'
+  | 'search'
+  | 'stt'
+  | 'codex';
 
 export function AgentWorkspace() {
   const [snapshot, setSnapshot] = useState<AgentSnapshot | null>(null);
@@ -79,6 +85,9 @@ export function AgentWorkspace() {
   const [marketNotes, setMarketNotes] = useState('');
   const [evolutionGoal, setEvolutionGoal] = useState('');
   const [terminalCommand, setTerminalCommand] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [audioPath, setAudioPath] = useState('');
+  const [codexPrompt, setCodexPrompt] = useState('');
   const [resultText, setResultText] = useState('');
 
   const activeWritingTopic = snapshot?.writing.topics[0] ?? null;
@@ -304,6 +313,28 @@ export function AgentWorkspace() {
         <TabsContent value="ops" className="grid grid--two">
           <Card className="panel">
             <CardHeader>
+              <CardTitle>Search Engine</CardTitle>
+              <CardDescription>{snapshot.settings.search_engines?.length ?? 0} configured providers</CardDescription>
+            </CardHeader>
+            <CardContent className="stack">
+              <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search query" />
+              <Button
+                onClick={() =>
+                  run('search', () =>
+                    runAgentSearch({
+                      max_items: 8,
+                      timeout_ms: 12000,
+                      plans: [{ label: 'manual', query: searchQuery, recency: 'month' }],
+                    }), false)
+                }
+              >
+                <Play className="mr-2 h-4 w-4" />
+                Search
+              </Button>
+            </CardContent>
+          </Card>
+          <Card className="panel">
+            <CardHeader>
               <CardTitle>Evolution Operator</CardTitle>
               <CardDescription>{runnableEvolutionGoal ? runnableEvolutionGoal.status : 'No queued goal'}</CardDescription>
             </CardHeader>
@@ -327,6 +358,32 @@ export function AgentWorkspace() {
               <Button onClick={() => run('terminal', () => runTerminalCommand({ command: terminalCommand }), false)}>
                 <TerminalSquare className="mr-2 h-4 w-4" />
                 Run
+              </Button>
+            </CardContent>
+          </Card>
+          <Card className="panel">
+            <CardHeader>
+              <CardTitle>STT</CardTitle>
+              <CardDescription>Runs configured fast-whisper command</CardDescription>
+            </CardHeader>
+            <CardContent className="stack">
+              <Input value={audioPath} onChange={(event) => setAudioPath(event.target.value)} placeholder="Audio file path" />
+              <Button onClick={() => run('stt', () => transcribeAgentSpeech({ audio_path: audioPath }), false)}>
+                <Play className="mr-2 h-4 w-4" />
+                Transcribe
+              </Button>
+            </CardContent>
+          </Card>
+          <Card className="panel">
+            <CardHeader>
+              <CardTitle>Codex Runner</CardTitle>
+              <CardDescription>Runs codex exec in workspace-write mode</CardDescription>
+            </CardHeader>
+            <CardContent className="stack">
+              <Textarea value={codexPrompt} onChange={(event) => setCodexPrompt(event.target.value)} />
+              <Button onClick={() => run('codex', () => runAgentCodex({ prompt: codexPrompt }), false)}>
+                <TerminalSquare className="mr-2 h-4 w-4" />
+                Run Codex
               </Button>
             </CardContent>
           </Card>

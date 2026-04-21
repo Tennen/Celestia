@@ -49,3 +49,46 @@ func (s *Server) handleAgentTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, result)
 }
+
+func (s *Server) handleAgentSearchRun(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentSearchRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.RunAgentSearch(r.Context(), payload)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleAgentSTT(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentSpeechRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.TranscribeAgentSpeech(r.Context(), payload)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleAgentCodexRun(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentCodexRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.RunAgentCodex(r.Context(), payload)
+	if err != nil {
+		if result.TaskID != "" {
+			writeJSON(w, gatewayapi.StatusCode(err), result)
+			return
+		}
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}

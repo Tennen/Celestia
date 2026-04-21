@@ -142,6 +142,30 @@ func (s *RuntimeService) RunAgentTerminal(ctx context.Context, req models.AgentT
 	return result, nil
 }
 
+func (s *RuntimeService) RunAgentSearch(ctx context.Context, req models.AgentSearchRequest) (models.AgentSearchResult, error) {
+	result, err := s.runtime.Agent.RunSearch(ctx, req)
+	if err != nil {
+		return models.AgentSearchResult{}, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
+func (s *RuntimeService) TranscribeAgentSpeech(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error) {
+	result, err := s.runtime.Agent.Transcribe(ctx, req)
+	if err != nil {
+		return models.AgentSpeechResult{}, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
+func (s *RuntimeService) RunAgentCodex(ctx context.Context, req models.AgentCodexRequest) (models.AgentCodexResult, error) {
+	result, err := s.runtime.Agent.RunCodex(ctx, req)
+	if err != nil && result.TaskID == "" {
+		return result, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
 func (s *RuntimeService) agentSnapshot(_ context.Context, snapshot models.AgentSnapshot, err error) (models.AgentSnapshot, error) {
 	if err != nil {
 		return models.AgentSnapshot{}, statusError(http.StatusBadRequest, err)

@@ -35,7 +35,16 @@ func (s *Service) GenerateText(ctx context.Context, prompt string) (string, erro
 	case "gemini", "gemini-like":
 		return callGemini(ctx, provider, prompt)
 	case "codex":
-		return "", errors.New("codex provider requires an external runner and is not available through HTTP")
+		result, err := s.RunCodex(ctx, models.AgentCodexRequest{
+			Prompt:          prompt,
+			Model:           provider.Model,
+			ReasoningEffort: provider.ChatPath,
+			TimeoutMS:       provider.TimeoutMS,
+		})
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(result.Output), nil
 	default:
 		return "", fmt.Errorf("unsupported LLM provider type %q", provider.Type)
 	}

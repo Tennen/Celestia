@@ -52,6 +52,7 @@ func (s *Service) RunTopicSummary(ctx context.Context, profileID string) (models
 		CreatedAt: time.Now().UTC(),
 		Items:     []models.AgentTopicItem{},
 	}
+	seen := topicSentLogSet(snapshot.TopicSummary.SentLog)
 	for _, source := range profile.Sources {
 		if !source.Enabled {
 			continue
@@ -61,7 +62,16 @@ func (s *Service) RunTopicSummary(ctx context.Context, profileID string) (models
 			run.FetchErrors = append(run.FetchErrors, models.AgentRunError{Target: source.ID, Error: fetchErr.Error()})
 			continue
 		}
-		run.Items = append(run.Items, items...)
+		for _, item := range items {
+			key := normalizeTopicURL(item.URL)
+			if key != "" {
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+			}
+			run.Items = append(run.Items, item)
+		}
 	}
 	run.Items = truncateList(run.Items, 30)
 	run.Summary = topicFallbackSummary(profile, run)
@@ -73,11 +83,42 @@ func (s *Service) RunTopicSummary(ctx context.Context, profileID string) (models
 	_, err = s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		snapshot.TopicSummary.Runs = append([]models.AgentTopicRun{run}, snapshot.TopicSummary.Runs...)
 		snapshot.TopicSummary.Runs = truncateList(snapshot.TopicSummary.Runs, 50)
+		for _, item := range run.Items {
+			if normalized := normalizeTopicURL(item.URL); normalized != "" {
+				snapshot.TopicSummary.SentLog = append([]models.AgentTopicSentLogItem{{
+					URLNormalized: normalized,
+					SentAt:        run.CreatedAt,
+					Title:         item.Title,
+				}}, snapshot.TopicSummary.SentLog...)
+			}
+		}
+		snapshot.TopicSummary.SentLog = truncateList(snapshot.TopicSummary.SentLog, 1000)
 		snapshot.TopicSummary.UpdatedAt = time.Now().UTC()
 		snapshot.UpdatedAt = snapshot.TopicSummary.UpdatedAt
 		return nil
 	})
 	return run, err
+}
+
+func topicSentLogSet(items []models.AgentTopicSentLogItem) map[string]struct{} {
+	out := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if normalized := normalizeTopicURL(item.URLNormalized); normalized != "" {
+			out[normalized] = struct{}{}
+		}
+	}
+	return out
+}
+
+func normalizeTopicURL(raw string) string {
+	value := strings.TrimSpace(strings.ToLower(raw))
+	if value == "" {
+		return ""
+	}
+	value = strings.TrimPrefix(value, "http://")
+	value = strings.TrimPrefix(value, "https://")
+	value = strings.TrimSuffix(value, "/")
+	return value
 }
 
 func selectTopicProfile(snapshot models.AgentTopicSnapshot, profileID string) (models.AgentTopicProfile, bool) {
