@@ -145,10 +145,11 @@ func (s *Service) HandleWeComXML(ctx context.Context, raw []byte) (models.AgentW
 	if msgType == "text" || msgType == "voice" {
 		input := strings.TrimSpace(payload.Content)
 		if msgType == "voice" {
-			input = strings.TrimSpace(payload.Recognition)
-			if input == "" {
-				input = "收到语音但没有 Recognition 文本；请启用企业微信语音识别或通过 STT API 转写 media_id: " + strings.TrimSpace(payload.MediaID)
+			snapshot, snapshotErr := s.Snapshot(ctx)
+			if snapshotErr != nil {
+				return models.AgentWeComInboundResult{}, snapshotErr
 			}
+			input = s.resolveWeComVoiceInput(ctx, snapshot.Settings.WeCom, payload.MediaID, payload.MsgID, payload.Recognition)
 		}
 		record, err := s.recordWeComMessage(ctx, msgType, payload.FromUser, payload.ToUserName, payload.AgentID, payload.MsgID, input)
 		if err != nil {

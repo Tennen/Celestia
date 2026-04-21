@@ -8,7 +8,6 @@ import (
 )
 
 func (s *Service) runScheduler() {
-	defer close(s.done)
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {

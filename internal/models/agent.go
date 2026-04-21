@@ -64,14 +64,16 @@ type AgentSpeechConfig struct {
 }
 
 type AgentWeComConfig struct {
-	CorpID       string `json:"corp_id,omitempty"`
-	CorpSecret   string `json:"corp_secret,omitempty"`
-	AgentID      string `json:"agent_id,omitempty"`
-	BaseURL      string `json:"base_url,omitempty"`
-	BridgeURL    string `json:"bridge_url,omitempty"`
-	BridgeToken  string `json:"bridge_token,omitempty"`
-	TextMaxBytes int    `json:"text_max_bytes,omitempty"`
-	Enabled      bool   `json:"enabled"`
+	CorpID              string `json:"corp_id,omitempty"`
+	CorpSecret          string `json:"corp_secret,omitempty"`
+	AgentID             string `json:"agent_id,omitempty"`
+	BaseURL             string `json:"base_url,omitempty"`
+	BridgeURL           string `json:"bridge_url,omitempty"`
+	BridgeToken         string `json:"bridge_token,omitempty"`
+	BridgeStreamEnabled bool   `json:"bridge_stream_enabled,omitempty"`
+	AudioDir            string `json:"audio_dir,omitempty"`
+	TextMaxBytes        int    `json:"text_max_bytes,omitempty"`
+	Enabled             bool   `json:"enabled"`
 }
 
 type AgentTerminalConfig struct {

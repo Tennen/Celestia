@@ -22,6 +22,8 @@ export type AgentSettings = {
     base_url?: string;
     bridge_url?: string;
     bridge_token?: string;
+    bridge_stream_enabled?: boolean;
+    audio_dir?: string;
     text_max_bytes?: number;
     enabled: boolean;
   };

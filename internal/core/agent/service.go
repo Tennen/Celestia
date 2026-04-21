@@ -17,12 +17,14 @@ import (
 const stateDocumentKey = "agent/state"
 
 type Service struct {
-	store   storage.Store
-	bus     *eventbus.Bus
-	mu      sync.Mutex
-	stop    chan struct{}
-	done    chan struct{}
-	started bool
+	store    storage.Store
+	bus      *eventbus.Bus
+	mu       sync.Mutex
+	stop     chan struct{}
+	stopOnce sync.Once
+	done     chan struct{}
+	wg       sync.WaitGroup
+	started  bool
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
@@ -46,7 +48,19 @@ func (s *Service) Init(ctx context.Context) error {
 	}
 	s.started = true
 	s.mu.Unlock()
-	go s.runScheduler()
+	s.wg.Add(2)
+	go func() {
+		defer s.wg.Done()
+		s.runScheduler()
+	}()
+	go func() {
+		defer s.wg.Done()
+		s.runWeComBridge()
+	}()
+	go func() {
+		s.wg.Wait()
+		close(s.done)
+	}()
 	return nil
 }
 
@@ -62,7 +76,9 @@ func (s *Service) Close() {
 		return
 	default:
 	}
-	close(s.stop)
+	s.stopOnce.Do(func() {
+		close(s.stop)
+	})
 	<-s.done
 }
 
@@ -267,6 +283,9 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	}
 	if strings.TrimSpace(settings.WeCom.BaseURL) == "" {
 		settings.WeCom.BaseURL = "https://qyapi.weixin.qq.com"
+	}
+	if strings.TrimSpace(settings.WeCom.AudioDir) == "" {
+		settings.WeCom.AudioDir = "data/agent/wecom-audio"
 	}
 	if settings.WeCom.TextMaxBytes <= 0 {
 		settings.WeCom.TextMaxBytes = 1800

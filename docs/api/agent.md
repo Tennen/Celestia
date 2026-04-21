@@ -80,7 +80,9 @@ POST /api/v1/agent/wecom/ingress
 
 `/wecom/image` accepts `{ "to_user", "base64", "filename", "content_type" }`, uploads the image as WeCom media, then sends an image message. If `settings.wecom.bridge_url` is set, Celestia uses the Paimon bridge-compatible routes `/proxy/gettoken`, `/proxy/media/upload`, and `/proxy/send`; otherwise it calls the WeCom API directly.
 
-`/wecom/callback` records unencrypted WeCom XML callbacks and returns JSON. `/wecom/ingress` is the Paimon-style synchronous WeCom entrypoint: text and click events enter the agent conversation, voice messages use WeCom `Recognition` text when present, and the HTTP response is a WeCom XML text reply. Send `Accept: application/json` to `/wecom/ingress` to inspect the structured result instead.
+`/wecom/callback` records unencrypted WeCom XML callbacks and returns JSON. `/wecom/ingress` is the Paimon-style synchronous WeCom entrypoint: text and click events enter the agent conversation, voice messages download media and run STT when `settings.stt.enabled=true`, then fall back to WeCom `Recognition` text when present. The HTTP response is a WeCom XML text reply. Send `Accept: application/json` to `/wecom/ingress` to inspect the structured result instead.
+
+If `settings.wecom.bridge_stream_enabled=true` and `settings.wecom.bridge_url` is configured, the agent starts a background SSE client against `{bridge_url}/stream`. Incoming bridge text, voice, image, and click events enter the same conversation path and replies are sent with the bridge-compatible sender. Voice media is fetched through `/proxy/media/get` first and then falls back to direct WeCom media download. Downloaded audio is stored under `settings.wecom.audio_dir` (default `data/agent/wecom-audio`).
 
 Encrypted callback verification is not implemented in these endpoints; deployments that require encrypted callbacks must terminate and decrypt before forwarding XML here.
 
