@@ -20,6 +20,9 @@ export type AgentSettings = {
     corp_secret?: string;
     agent_id?: string;
     base_url?: string;
+    bridge_url?: string;
+    bridge_token?: string;
+    text_max_bytes?: number;
     enabled: boolean;
   };
   terminal: {
@@ -31,6 +34,15 @@ export type AgentSettings = {
     command?: string;
     cwd?: string;
     timeout_ms?: number;
+    codex_model?: string;
+    codex_reasoning?: string;
+    max_fix_attempts?: number;
+    test_commands?: Array<{ name: string; command: string; timeout_ms?: number }>;
+    auto_commit?: boolean;
+    auto_push?: boolean;
+    push_remote?: string;
+    push_branch?: string;
+    structure_review?: boolean;
   };
   stt?: Record<string, unknown>;
   search_engines?: Array<Record<string, unknown>>;
@@ -106,6 +118,10 @@ export type AgentWritingTopic = {
   materials: Array<Record<string, unknown>>;
   state: Record<string, string>;
   backup: Record<string, string>;
+  artifact_root?: string;
+  raw_files?: Array<Record<string, unknown>>;
+  artifacts?: Record<string, unknown>;
+  last_summarized_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -133,6 +149,13 @@ export type AgentEvolutionGoal = {
   commit_message?: string;
   status: string;
   stage: string;
+  plan?: { steps: string[]; current_step: number };
+  fix_attempts?: number;
+  started_from_ref?: string;
+  completed_commit?: string;
+  test_results?: Array<Record<string, unknown>>;
+  raw_tail?: Array<Record<string, unknown>>;
+  last_codex_output?: string;
   events: Array<Record<string, unknown>>;
   created_at: string;
   updated_at: string;
@@ -205,6 +228,10 @@ export function publishAgentWeComMenu() {
 
 export function sendAgentWeComMessage(payload: { to_user: string; text: string }) {
   return request<{ ok: boolean }>('/agent/wecom/send', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function sendAgentWeComImage(payload: { to_user: string; base64: string; filename?: string; content_type?: string }) {
+  return request<{ ok: boolean }>('/agent/wecom/image', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export function runAgentConversation(payload: { input: string; session_id?: string }) {

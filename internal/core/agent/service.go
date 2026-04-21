@@ -262,8 +262,14 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	if settings.Evolution.TimeoutMS <= 0 {
 		settings.Evolution.TimeoutMS = 600000
 	}
+	if settings.Evolution.MaxFixAttempts <= 0 {
+		settings.Evolution.MaxFixAttempts = 2
+	}
 	if strings.TrimSpace(settings.WeCom.BaseURL) == "" {
 		settings.WeCom.BaseURL = "https://qyapi.weixin.qq.com"
+	}
+	if settings.WeCom.TextMaxBytes <= 0 {
+		settings.WeCom.TextMaxBytes = 1800
 	}
 	return settings
 }

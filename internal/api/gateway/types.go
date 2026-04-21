@@ -39,7 +39,9 @@ type Service interface {
 	SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error)
 	PublishAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error)
 	SendAgentWeComMessage(ctx context.Context, req AgentWeComSendRequest) error
+	SendAgentWeComImage(ctx context.Context, req AgentWeComImageRequest) error
 	RecordAgentWeComCallback(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error)
+	HandleAgentWeComIngress(ctx context.Context, raw []byte) (models.AgentWeComInboundResult, error)
 	RunAgentConversation(ctx context.Context, req models.AgentConversationRequest) (models.AgentConversation, error)
 	SaveAgentTopic(ctx context.Context, topic models.AgentTopicSnapshot) (models.AgentSnapshot, error)
 	RunAgentTopicSummary(ctx context.Context, profileID string) (models.AgentTopicRun, error)
@@ -94,6 +96,13 @@ type PluginLogsView struct {
 type AgentWeComSendRequest struct {
 	ToUser string `json:"to_user"`
 	Text   string `json:"text"`
+}
+
+type AgentWeComImageRequest struct {
+	ToUser      string `json:"to_user"`
+	Base64      string `json:"base64"`
+	Filename    string `json:"filename,omitempty"`
+	ContentType string `json:"content_type,omitempty"`
 }
 
 type AgentWritingTopicRequest struct {

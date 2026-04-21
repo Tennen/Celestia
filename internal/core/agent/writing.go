@@ -32,7 +32,12 @@ func (s *Service) SaveWritingTopic(ctx context.Context, req WritingTopicRequest)
 			if snapshot.Writing.Topics[idx].ID == targetID {
 				snapshot.Writing.Topics[idx].Title = strings.TrimSpace(req.Title)
 				snapshot.Writing.Topics[idx].UpdatedAt = now
-				saved = snapshot.Writing.Topics[idx]
+				var prepErr error
+				saved, prepErr = prepareWritingTopic(snapshot.Writing.Topics[idx])
+				if prepErr != nil {
+					return prepErr
+				}
+				snapshot.Writing.Topics[idx] = saved
 				return nil
 			}
 		}
@@ -43,6 +48,11 @@ func (s *Service) SaveWritingTopic(ctx context.Context, req WritingTopicRequest)
 			Materials: []models.AgentWritingMaterial{},
 			CreatedAt: now,
 			UpdatedAt: now,
+		}
+		var prepErr error
+		saved, prepErr = prepareWritingTopic(saved)
+		if prepErr != nil {
+			return prepErr
 		}
 		snapshot.Writing.Topics = append([]models.AgentWritingTopic{saved}, snapshot.Writing.Topics...)
 		snapshot.Writing.UpdatedAt = now
@@ -66,13 +76,23 @@ func (s *Service) AddWritingMaterial(ctx context.Context, topicID string, req Wr
 		if !ok {
 			return errors.New("writing topic not found")
 		}
-		topic.Materials = append([]models.AgentWritingMaterial{{
+		material := models.AgentWritingMaterial{
 			ID:        uuid.NewString(),
 			Title:     strings.TrimSpace(firstNonEmpty(req.Title, "Material")),
 			Content:   strings.TrimSpace(req.Content),
 			CreatedAt: now,
-		}}, topic.Materials...)
+		}
+		persisted, nextTopic, persistErr := persistWritingMaterial(topic, material)
+		if persistErr != nil {
+			return persistErr
+		}
+		topic = nextTopic
+		topic.Materials = append([]models.AgentWritingMaterial{persisted}, topic.Materials...)
 		topic.UpdatedAt = now
+		topic, persistErr = prepareWritingTopic(topic)
+		if persistErr != nil {
+			return persistErr
+		}
 		saved = topic
 		replaceWritingTopic(snapshot, topic)
 		return nil
@@ -110,6 +130,11 @@ func (s *Service) SummarizeWritingTopic(ctx context.Context, topicID string) (mo
 		current.Backup = current.State
 		current.State = state
 		current.UpdatedAt = now
+		var persistErr error
+		current, persistErr = persistWritingState(current, current.Backup, state, now)
+		if persistErr != nil {
+			return persistErr
+		}
 		saved = current
 		replaceWritingTopic(snapshot, current)
 		return nil

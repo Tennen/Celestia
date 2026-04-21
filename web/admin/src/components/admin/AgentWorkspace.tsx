@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Bot,
+  Image,
   Play,
   RefreshCw,
   Save,
@@ -34,6 +35,7 @@ import {
   saveAgentTopic,
   saveAgentWeComMenu,
   saveMarketPortfolio,
+  sendAgentWeComImage,
   sendAgentWeComMessage,
   stableJSON,
   summarizeWritingTopic,
@@ -80,6 +82,8 @@ export function AgentWorkspace() {
   const [conversationInput, setConversationInput] = useState('');
   const [wecomUser, setWecomUser] = useState('');
   const [wecomText, setWecomText] = useState('');
+  const [wecomImage, setWecomImage] = useState('');
+  const [wecomImageName, setWecomImageName] = useState('');
   const [writingTitle, setWritingTitle] = useState('');
   const [writingMaterial, setWritingMaterial] = useState('');
   const [marketNotes, setMarketNotes] = useState('');
@@ -251,10 +255,16 @@ export function AgentWorkspace() {
             <CardContent className="stack">
               <Input value={wecomUser} onChange={(event) => setWecomUser(event.target.value)} placeholder="WeCom user id" />
               <Textarea value={wecomText} onChange={(event) => setWecomText(event.target.value)} placeholder="Message" />
+              <Input value={wecomImageName} onChange={(event) => setWecomImageName(event.target.value)} placeholder="Image filename" />
+              <Textarea value={wecomImage} onChange={(event) => setWecomImage(event.target.value)} placeholder="Image base64 or data URL" />
               <div className="button-row">
                 <Button onClick={() => run('send', () => sendAgentWeComMessage({ to_user: wecomUser, text: wecomText }))}>
                   <Send className="mr-2 h-4 w-4" />
                   Send
+                </Button>
+                <Button variant="secondary" onClick={() => run('send', () => sendAgentWeComImage({ to_user: wecomUser, base64: wecomImage, filename: wecomImageName || undefined }))}>
+                  <Image className="mr-2 h-4 w-4" />
+                  Image
                 </Button>
                 <Button variant="secondary" onClick={() => run('publish', () => publishAgentWeComMenu())}>
                   <Save className="mr-2 h-4 w-4" />

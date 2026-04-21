@@ -47,6 +47,10 @@ func (s *HTTPService) SendAgentWeComMessage(ctx context.Context, req AgentWeComS
 	return s.request(ctx, http.MethodPost, "/api/v1/agent/wecom/send", nil, req, nil, "")
 }
 
+func (s *HTTPService) SendAgentWeComImage(ctx context.Context, req AgentWeComImageRequest) error {
+	return s.request(ctx, http.MethodPost, "/api/v1/agent/wecom/image", nil, req, nil, "")
+}
+
 func (s *HTTPService) RecordAgentWeComCallback(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {
 	var out models.AgentWeComEventRecord
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/agent/wecom/callback", bytes.NewReader(raw))
@@ -63,6 +67,27 @@ func (s *HTTPService) RecordAgentWeComCallback(ctx context.Context, raw []byte) 
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return models.AgentWeComEventRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) HandleAgentWeComIngress(ctx context.Context, raw []byte) (models.AgentWeComInboundResult, error) {
+	var out models.AgentWeComInboundResult
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/agent/wecom/ingress", bytes.NewReader(raw))
+	if err != nil {
+		return models.AgentWeComInboundResult{}, statusError(http.StatusInternalServerError, err)
+	}
+	req.Header.Set("Accept", "application/json")
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return models.AgentWeComInboundResult{}, statusError(http.StatusBadGateway, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= http.StatusBadRequest {
+		return models.AgentWeComInboundResult{}, s.decodeError(resp)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return models.AgentWeComInboundResult{}, err
 	}
 	return out, nil
 }

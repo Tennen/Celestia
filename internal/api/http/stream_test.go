@@ -111,8 +111,14 @@ func (g *stubGateway) PublishAgentWeComMenu(_ context.Context) (models.AgentWeCo
 func (g *stubGateway) SendAgentWeComMessage(_ context.Context, _ gatewayapi.AgentWeComSendRequest) error {
 	return nil
 }
+func (g *stubGateway) SendAgentWeComImage(_ context.Context, _ gatewayapi.AgentWeComImageRequest) error {
+	return nil
+}
 func (g *stubGateway) RecordAgentWeComCallback(_ context.Context, _ []byte) (models.AgentWeComEventRecord, error) {
 	return models.AgentWeComEventRecord{}, nil
+}
+func (g *stubGateway) HandleAgentWeComIngress(_ context.Context, _ []byte) (models.AgentWeComInboundResult, error) {
+	return models.AgentWeComInboundResult{}, nil
 }
 func (g *stubGateway) RunAgentConversation(_ context.Context, _ models.AgentConversationRequest) (models.AgentConversation, error) {
 	return models.AgentConversation{}, nil

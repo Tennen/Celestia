@@ -21,6 +21,13 @@ type WeComSendRequest struct {
 	Text   string `json:"text"`
 }
 
+type WeComImageRequest struct {
+	ToUser      string `json:"to_user"`
+	Base64      string `json:"base64"`
+	Filename    string `json:"filename,omitempty"`
+	ContentType string `json:"content_type,omitempty"`
+}
+
 func (s *Service) SaveWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
 	return s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		now := time.Now().UTC()
@@ -77,34 +84,92 @@ func (s *Service) SendWeComMessage(ctx context.Context, req WeComSendRequest) er
 	if err != nil {
 		return err
 	}
-	token, err := s.wecomAccessToken(ctx, snapshot.Settings.WeCom)
-	if err != nil {
-		return err
+	chunks := splitTextByUTF8Bytes(req.Text, maxInt(snapshot.Settings.WeCom.TextMaxBytes, 1800))
+	for _, chunk := range chunks {
+		payload := map[string]any{
+			"touser":  strings.TrimSpace(req.ToUser),
+			"msgtype": "text",
+			"agentid": parseAgentID(snapshot.Settings.WeCom.AgentID),
+			"text":    map[string]any{"content": chunk},
+		}
+		if err := s.sendWeComPayload(ctx, snapshot.Settings.WeCom, payload); err != nil {
+			return err
+		}
 	}
-	payload := map[string]any{
-		"touser":  strings.TrimSpace(req.ToUser),
-		"msgtype": "text",
-		"agentid": snapshot.Settings.WeCom.AgentID,
-		"text":    map[string]any{"content": strings.TrimSpace(req.Text)},
-	}
-	endpoint := strings.TrimRight(snapshot.Settings.WeCom.BaseURL, "/") + "/cgi-bin/message/send"
-	return wecomPost(ctx, endpoint+"?access_token="+url.QueryEscape(token), payload, nil)
+	return nil
 }
 
 func (s *Service) RecordWeComXML(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {
+	result, err := s.HandleWeComXML(ctx, raw)
+	return result.Record, err
+}
+
+func (s *Service) HandleWeComXML(ctx context.Context, raw []byte) (models.AgentWeComInboundResult, error) {
 	var payload struct {
-		XMLName    xml.Name `xml:"xml"`
-		ToUserName string   `xml:"ToUserName"`
-		FromUser   string   `xml:"FromUserName"`
-		MsgType    string   `xml:"MsgType"`
-		Event      string   `xml:"Event"`
-		EventKey   string   `xml:"EventKey"`
-		AgentID    string   `xml:"AgentID"`
+		XMLName     xml.Name `xml:"xml"`
+		ToUserName  string   `xml:"ToUserName"`
+		FromUser    string   `xml:"FromUserName"`
+		MsgType     string   `xml:"MsgType"`
+		Event       string   `xml:"Event"`
+		EventKey    string   `xml:"EventKey"`
+		Content     string   `xml:"Content"`
+		Recognition string   `xml:"Recognition"`
+		MediaID     string   `xml:"MediaId"`
+		MsgID       string   `xml:"MsgId"`
+		AgentID     string   `xml:"AgentID"`
 	}
 	if err := xml.Unmarshal(raw, &payload); err != nil {
-		return models.AgentWeComEventRecord{}, err
+		return models.AgentWeComInboundResult{}, err
 	}
-	return s.recordWeComEvent(ctx, strings.ToLower(payload.Event), payload.EventKey, payload.FromUser, payload.ToUserName, payload.AgentID)
+	msgType := strings.ToLower(strings.TrimSpace(payload.MsgType))
+	if msgType == "event" {
+		record, err := s.recordWeComEvent(ctx, strings.ToLower(payload.Event), payload.EventKey, payload.FromUser, payload.ToUserName, payload.AgentID)
+		if err != nil {
+			return models.AgentWeComInboundResult{}, err
+		}
+		response := ""
+		if strings.TrimSpace(record.DispatchText) != "" {
+			conversation, convErr := s.Converse(ctx, models.AgentConversationRequest{
+				SessionID: record.FromUser,
+				Input:     record.DispatchText,
+				Actor:     "wecom",
+			})
+			if convErr != nil {
+				response = convErr.Error()
+			} else {
+				response = conversation.Response
+			}
+		}
+		return models.AgentWeComInboundResult{Record: record, ResponseText: response, FromUser: payload.FromUser, ToUser: payload.ToUserName}, nil
+	}
+	if msgType == "text" || msgType == "voice" {
+		input := strings.TrimSpace(payload.Content)
+		if msgType == "voice" {
+			input = strings.TrimSpace(payload.Recognition)
+			if input == "" {
+				input = "收到语音但没有 Recognition 文本；请启用企业微信语音识别或通过 STT API 转写 media_id: " + strings.TrimSpace(payload.MediaID)
+			}
+		}
+		record, err := s.recordWeComMessage(ctx, msgType, payload.FromUser, payload.ToUserName, payload.AgentID, payload.MsgID, input)
+		if err != nil {
+			return models.AgentWeComInboundResult{}, err
+		}
+		conversation, convErr := s.Converse(ctx, models.AgentConversationRequest{
+			SessionID: payload.FromUser,
+			Input:     input,
+			Actor:     "wecom",
+		})
+		response := conversation.Response
+		if convErr != nil {
+			response = convErr.Error()
+		}
+		return models.AgentWeComInboundResult{Record: record, ResponseText: response, FromUser: payload.FromUser, ToUser: payload.ToUserName}, nil
+	}
+	record, err := s.recordWeComMessage(ctx, firstNonEmpty(msgType, "unknown"), payload.FromUser, payload.ToUserName, payload.AgentID, payload.MsgID, "")
+	if err != nil {
+		return models.AgentWeComInboundResult{}, err
+	}
+	return models.AgentWeComInboundResult{Record: record, FromUser: payload.FromUser, ToUser: payload.ToUserName}, nil
 }
 
 func (s *Service) recordWeComEvent(ctx context.Context, eventType, eventKey, fromUser, toUser, agentID string) (models.AgentWeComEventRecord, error) {
@@ -129,6 +194,33 @@ func (s *Service) recordWeComEvent(ctx context.Context, eventType, eventKey, fro
 			record.DispatchText = button.DispatchText
 			record.Status = "dispatched"
 		}
+		snapshot.WeComMenu.RecentEvents = append([]models.AgentWeComEventRecord{record}, snapshot.WeComMenu.RecentEvents...)
+		snapshot.WeComMenu.RecentEvents = truncateList(snapshot.WeComMenu.RecentEvents, 50)
+		snapshot.UpdatedAt = now
+		return nil
+	})
+	if err != nil {
+		return models.AgentWeComEventRecord{}, err
+	}
+	return next.WeComMenu.RecentEvents[0], nil
+}
+
+func (s *Service) recordWeComMessage(ctx context.Context, msgType, fromUser, toUser, agentID, msgID, content string) (models.AgentWeComEventRecord, error) {
+	now := time.Now().UTC()
+	record := models.AgentWeComEventRecord{
+		ID:         uuid.NewString(),
+		EventType:  firstNonEmpty(msgType, "message"),
+		EventKey:   strings.TrimSpace(msgID),
+		FromUser:   strings.TrimSpace(fromUser),
+		ToUser:     strings.TrimSpace(toUser),
+		AgentID:    strings.TrimSpace(agentID),
+		Status:     "dispatched",
+		ReceivedAt: now,
+	}
+	if strings.TrimSpace(content) != "" {
+		record.DispatchText = strings.TrimSpace(content)
+	}
+	next, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		snapshot.WeComMenu.RecentEvents = append([]models.AgentWeComEventRecord{record}, snapshot.WeComMenu.RecentEvents...)
 		snapshot.WeComMenu.RecentEvents = truncateList(snapshot.WeComMenu.RecentEvents, 50)
 		snapshot.UpdatedAt = now

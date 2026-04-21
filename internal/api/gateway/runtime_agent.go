@@ -52,12 +52,28 @@ func (s *RuntimeService) SendAgentWeComMessage(ctx context.Context, req AgentWeC
 	return nil
 }
 
+func (s *RuntimeService) SendAgentWeComImage(ctx context.Context, req AgentWeComImageRequest) error {
+	err := s.runtime.Agent.SendWeComImage(ctx, coreagent.WeComImageRequest(req))
+	if err != nil {
+		return statusError(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
 func (s *RuntimeService) RecordAgentWeComCallback(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {
 	record, err := s.runtime.Agent.RecordWeComXML(ctx, raw)
 	if err != nil {
 		return models.AgentWeComEventRecord{}, statusError(http.StatusBadRequest, err)
 	}
 	return record, nil
+}
+
+func (s *RuntimeService) HandleAgentWeComIngress(ctx context.Context, raw []byte) (models.AgentWeComInboundResult, error) {
+	result, err := s.runtime.Agent.HandleWeComXML(ctx, raw)
+	if err != nil {
+		return models.AgentWeComInboundResult{}, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
 }
 
 func (s *RuntimeService) RunAgentConversation(ctx context.Context, req models.AgentConversationRequest) (models.AgentConversation, error) {

@@ -39,8 +39,13 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 		return models.AgentConversation{}, err
 	}
 	response, status := "", "succeeded"
-	if strings.HasPrefix(strings.TrimSpace(resolved), "/celestia") {
-		response = "Celestia command dispatch is available through /api/ai/v1/commands; use the AI command form for device execution."
+	if commandResponse, handled, commandErr := s.RunDirectCommand(ctx, resolved); handled {
+		response = commandResponse
+		if commandErr != nil {
+			response = strings.TrimSpace(commandResponse + "\n" + commandErr.Error())
+			status = "failed"
+			err = commandErr
+		}
 	} else {
 		response, err = s.GenerateText(ctx, resolved)
 		if err != nil {

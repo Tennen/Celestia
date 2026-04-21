@@ -1,10 +1,8 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -28,6 +26,7 @@ func (s *Service) CreateEvolutionGoal(ctx context.Context, req EvolutionGoalRequ
 		CommitMessage: strings.TrimSpace(req.CommitMessage),
 		Status:        "pending",
 		Stage:         "queued",
+		Plan:          models.AgentEvolutionPlan{Steps: []string{}},
 		Events: []models.AgentEvolutionEvent{{
 			At:      now,
 			Stage:   "queued",
@@ -51,43 +50,98 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 		return models.AgentEvolutionGoal{}, err
 	}
 	settings := snapshot.Settings.Evolution
-	if strings.TrimSpace(settings.Command) == "" {
-		return s.failEvolutionGoal(ctx, goalID, "runner_missing", "evolution command is not configured")
-	}
 	goal, ok := findEvolutionGoal(snapshot.Evolution.Goals, goalID)
 	if !ok {
 		return models.AgentEvolutionGoal{}, errors.New("evolution goal not found")
 	}
 	started := time.Now().UTC()
 	goal.Status = "running"
-	goal.Stage = "running"
-	goal.StartedAt = &started
+	goal.Stage = "prepare"
+	if goal.StartedAt == nil {
+		goal.StartedAt = &started
+	}
 	goal.UpdatedAt = started
-	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: started, Stage: "running", Message: "Runner started."})
-	if _, err := s.saveEvolutionGoal(ctx, goal); err != nil {
+	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: started, Stage: "prepare", Message: "Evolution runner started."})
+	goal.RawTail = appendEvolutionRaw(goal.RawTail, "runner started")
+	if goal.Plan.Steps == nil {
+		goal.Plan.Steps = []string{}
+	}
+	if goal, err = s.saveEvolutionGoal(ctx, goal); err != nil {
 		return models.AgentEvolutionGoal{}, err
 	}
-	timeout := time.Duration(maxInt(settings.TimeoutMS, 600000)) * time.Millisecond
-	runCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	cmd := exec.CommandContext(runCtx, "/bin/sh", "-lc", settings.Command)
-	if strings.TrimSpace(settings.CWD) != "" {
-		cmd.Dir = settings.CWD
+
+	if goal.StartedFromRef == "" {
+		if ref, refErr := evolutionGitOutput(ctx, settings, "git rev-parse --short HEAD"); refErr == nil {
+			goal.StartedFromRef = strings.TrimSpace(ref)
+			goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: time.Now().UTC(), Stage: "git", Message: "Baseline commit: " + goal.StartedFromRef})
+			if goal, err = s.saveEvolutionGoal(ctx, goal); err != nil {
+				return models.AgentEvolutionGoal{}, err
+			}
+		}
 	}
-	cmd.Stdin = strings.NewReader(goal.Goal)
-	var output bytes.Buffer
-	cmd.Stdout = &output
-	cmd.Stderr = &output
-	err = cmd.Run()
-	completed := time.Now().UTC()
+
+	if len(goal.Plan.Steps) == 0 {
+		goal, err = s.evolutionPlan(ctx, goal, settings)
+		if err != nil {
+			if strings.TrimSpace(settings.Command) != "" {
+				return s.runLegacyEvolutionCommand(ctx, goal, settings)
+			}
+			return s.failEvolutionGoal(ctx, goalID, "plan_failed", err.Error())
+		}
+	}
+
+	for goal.Plan.CurrentStep < len(goal.Plan.Steps) {
+		goal, err = s.evolutionStep(ctx, goal, settings, goal.Plan.CurrentStep)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, goal.Stage, err.Error())
+		}
+	}
+
+	goal, checksOK, err := s.evolutionChecks(ctx, goal, settings)
 	if err != nil {
-		return s.failEvolutionGoal(ctx, goalID, "failed", output.String()+"\n"+err.Error())
+		return s.failEvolutionGoal(ctx, goalID, "checks_failed", err.Error())
 	}
+	for attempt := goal.FixAttempts; !checksOK && attempt < maxInt(settings.MaxFixAttempts, 2); attempt++ {
+		goal, err = s.evolutionFix(ctx, goal, settings, attempt+1)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, "fix_failed", err.Error())
+		}
+		goal, checksOK, err = s.evolutionChecks(ctx, goal, settings)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, "checks_failed", err.Error())
+		}
+	}
+	if !checksOK {
+		return s.failEvolutionGoal(ctx, goalID, "checks_failed", "checks failed after auto-fix attempts")
+	}
+
+	if settings.StructureReview {
+		goal, err = s.evolutionStructureReview(ctx, goal, settings)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, "structure_failed", err.Error())
+		}
+	}
+
+	if settings.AutoCommit {
+		goal, err = s.evolutionCommit(ctx, goal, settings)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, "commit_failed", err.Error())
+		}
+	}
+	if settings.AutoPush {
+		goal, err = s.evolutionPush(ctx, goal, settings)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, "push_failed", err.Error())
+		}
+	}
+
+	completed := time.Now().UTC()
 	goal.Status = "succeeded"
 	goal.Stage = "completed"
 	goal.CompletedAt = &completed
 	goal.UpdatedAt = completed
-	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: completed, Stage: "completed", Message: strings.TrimSpace(output.String())})
+	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: completed, Stage: "completed", Message: "Evolution goal completed."})
+	goal.RawTail = appendEvolutionRaw(goal.RawTail, "goal completed")
 	return s.saveEvolutionGoal(ctx, goal)
 }
 

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
 	"github.com/chentianyu/celestia/internal/models"
@@ -91,6 +94,18 @@ func (s *Server) handleAgentWeComSend(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+func (s *Server) handleAgentWeComImage(w http.ResponseWriter, r *http.Request) {
+	var payload gatewayapi.AgentWeComImageRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	if err := s.gateway.SendAgentWeComImage(r.Context(), payload); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (s *Server) handleAgentWeComCallback(w http.ResponseWriter, r *http.Request) {
 	raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
@@ -103,6 +118,46 @@ func (s *Server) handleAgentWeComCallback(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, record)
+}
+
+func (s *Server) handleAgentWeComIngress(w http.ResponseWriter, r *http.Request) {
+	raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	result, err := s.gateway.HandleAgentWeComIngress(r.Context(), raw)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if strings.Contains(r.Header.Get("Accept"), "application/json") {
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
+	response := strings.TrimSpace(result.ResponseText)
+	if response == "" {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("success"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	_, _ = w.Write([]byte(buildWeComTextReply(result.FromUser, result.ToUser, response)))
+}
+
+func buildWeComTextReply(toUser string, fromUser string, content string) string {
+	now := strconv.FormatInt(time.Now().Unix(), 10)
+	return "<xml>" +
+		"<ToUserName><![CDATA[" + cdataSafe(toUser) + "]]></ToUserName>" +
+		"<FromUserName><![CDATA[" + cdataSafe(fromUser) + "]]></FromUserName>" +
+		"<CreateTime>" + now + "</CreateTime>" +
+		"<MsgType><![CDATA[text]]></MsgType>" +
+		"<Content><![CDATA[" + cdataSafe(content) + "]]></Content>" +
+		"</xml>"
+}
+
+func cdataSafe(value string) string {
+	return strings.ReplaceAll(value, "]]>", "]]]]><![CDATA[>")
 }
 
 func (s *Server) handleAgentConversation(w http.ResponseWriter, r *http.Request) {

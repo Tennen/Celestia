@@ -41,7 +41,16 @@ func (s *Service) runDuePushTasks() {
 		}
 		user := userByID[task.UserID]
 		if user.Enabled && user.WeComUser != "" {
-			if err := s.SendWeComMessage(ctx, WeComSendRequest{ToUser: user.WeComUser, Text: task.Text}); err != nil {
+			message := task.Text
+			conversation, convErr := s.Converse(ctx, models.AgentConversationRequest{
+				SessionID: "push:" + task.ID,
+				Input:     task.Text,
+				Actor:     "scheduler",
+			})
+			if convErr == nil && conversation.Response != "" {
+				message = conversation.Response
+			}
+			if err := s.SendWeComMessage(ctx, WeComSendRequest{ToUser: user.WeComUser, Text: message}); err != nil {
 				_ = s.emit(ctx, models.EventAgentTaskFailed, map[string]any{"task_id": task.ID, "error": err.Error()})
 			}
 		}

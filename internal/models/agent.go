@@ -64,11 +64,14 @@ type AgentSpeechConfig struct {
 }
 
 type AgentWeComConfig struct {
-	CorpID     string `json:"corp_id,omitempty"`
-	CorpSecret string `json:"corp_secret,omitempty"`
-	AgentID    string `json:"agent_id,omitempty"`
-	BaseURL    string `json:"base_url,omitempty"`
-	Enabled    bool   `json:"enabled"`
+	CorpID       string `json:"corp_id,omitempty"`
+	CorpSecret   string `json:"corp_secret,omitempty"`
+	AgentID      string `json:"agent_id,omitempty"`
+	BaseURL      string `json:"base_url,omitempty"`
+	BridgeURL    string `json:"bridge_url,omitempty"`
+	BridgeToken  string `json:"bridge_token,omitempty"`
+	TextMaxBytes int    `json:"text_max_bytes,omitempty"`
+	Enabled      bool   `json:"enabled"`
 }
 
 type AgentTerminalConfig struct {
@@ -78,8 +81,23 @@ type AgentTerminalConfig struct {
 }
 
 type AgentEvolutionConfig struct {
-	Command   string `json:"command,omitempty"`
-	CWD       string `json:"cwd,omitempty"`
+	Command         string                      `json:"command,omitempty"`
+	CWD             string                      `json:"cwd,omitempty"`
+	TimeoutMS       int                         `json:"timeout_ms,omitempty"`
+	CodexModel      string                      `json:"codex_model,omitempty"`
+	CodexReasoning  string                      `json:"codex_reasoning,omitempty"`
+	MaxFixAttempts  int                         `json:"max_fix_attempts,omitempty"`
+	TestCommands    []AgentEvolutionTestCommand `json:"test_commands,omitempty"`
+	AutoCommit      bool                        `json:"auto_commit,omitempty"`
+	AutoPush        bool                        `json:"auto_push,omitempty"`
+	PushRemote      string                      `json:"push_remote,omitempty"`
+	PushBranch      string                      `json:"push_branch,omitempty"`
+	StructureReview bool                        `json:"structure_review,omitempty"`
+}
+
+type AgentEvolutionTestCommand struct {
+	Name      string `json:"name"`
+	Command   string `json:"command"`
 	TimeoutMS int    `json:"timeout_ms,omitempty"`
 }
 
@@ -134,6 +152,13 @@ type AgentWeComEventRecord struct {
 	Status            string    `json:"status"`
 	Error             string    `json:"error,omitempty"`
 	ReceivedAt        time.Time `json:"received_at"`
+}
+
+type AgentWeComInboundResult struct {
+	Record       AgentWeComEventRecord `json:"record"`
+	ResponseText string                `json:"response_text,omitempty"`
+	FromUser     string                `json:"from_user,omitempty"`
+	ToUser       string                `json:"to_user,omitempty"`
 }
 
 type AgentPushSnapshot struct {
@@ -232,27 +257,77 @@ type AgentWritingSnapshot struct {
 }
 
 type AgentWritingTopic struct {
-	ID        string                 `json:"id"`
-	Title     string                 `json:"title"`
-	Status    string                 `json:"status"`
-	Materials []AgentWritingMaterial `json:"materials"`
-	State     AgentWritingState      `json:"state"`
-	Backup    AgentWritingState      `json:"backup"`
-	CreatedAt time.Time              `json:"created_at"`
-	UpdatedAt time.Time              `json:"updated_at"`
+	ID               string                 `json:"id"`
+	Title            string                 `json:"title"`
+	Status           string                 `json:"status"`
+	Materials        []AgentWritingMaterial `json:"materials"`
+	State            AgentWritingState      `json:"state"`
+	Backup           AgentWritingState      `json:"backup"`
+	ArtifactRoot     string                 `json:"artifact_root,omitempty"`
+	RawFiles         []AgentWritingRawFile  `json:"raw_files,omitempty"`
+	Artifacts        AgentWritingArtifacts  `json:"artifacts,omitempty"`
+	LastSummarizedAt *time.Time             `json:"last_summarized_at,omitempty"`
+	CreatedAt        time.Time              `json:"created_at"`
+	UpdatedAt        time.Time              `json:"updated_at"`
 }
 
 type AgentWritingMaterial struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           string         `json:"id"`
+	Title        string         `json:"title"`
+	Content      string         `json:"content"`
+	Type         string         `json:"type,omitempty"`
+	Source       string         `json:"source,omitempty"`
+	InputMode    string         `json:"input_mode,omitempty"`
+	URLs         []string       `json:"urls,omitempty"`
+	RawFile      string         `json:"raw_file,omitempty"`
+	ArtifactPath string         `json:"artifact_path,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
 }
 
 type AgentWritingState struct {
 	Summary string `json:"summary"`
 	Outline string `json:"outline"`
 	Draft   string `json:"draft"`
+}
+
+type AgentWritingRawFile struct {
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	LineCount int    `json:"line_count"`
+}
+
+type AgentWritingArtifacts struct {
+	MaterialCount  int                   `json:"material_count"`
+	InsightCount   int                   `json:"insight_count"`
+	DocumentCount  int                   `json:"document_count"`
+	LatestInsight  *AgentWritingInsight  `json:"latest_insight,omitempty"`
+	LatestDocument *AgentWritingDocument `json:"latest_document,omitempty"`
+}
+
+type AgentWritingInsight struct {
+	ID           string    `json:"id"`
+	TopicID      string    `json:"topic_id"`
+	MaterialIDs  []string  `json:"material_ids"`
+	Summary      string    `json:"summary"`
+	KeyPoints    []string  `json:"key_points"`
+	Tags         []string  `json:"tags"`
+	Entities     []string  `json:"entities"`
+	QualityScore float64   `json:"quality_score"`
+	Path         string    `json:"path,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type AgentWritingDocument struct {
+	ID          string    `json:"id"`
+	TopicID     string    `json:"topic_id"`
+	MaterialIDs []string  `json:"material_ids"`
+	InsightID   string    `json:"insight_id"`
+	Mode        string    `json:"mode"`
+	Title       string    `json:"title"`
+	Path        string    `json:"path"`
+	Version     int       `json:"version"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type AgentMarketSnapshot struct {
@@ -296,17 +371,44 @@ type AgentEvolutionSnapshot struct {
 }
 
 type AgentEvolutionGoal struct {
-	ID            string                `json:"id"`
-	Goal          string                `json:"goal"`
-	CommitMessage string                `json:"commit_message,omitempty"`
-	Status        string                `json:"status"`
-	Stage         string                `json:"stage"`
-	Events        []AgentEvolutionEvent `json:"events"`
-	CreatedAt     time.Time             `json:"created_at"`
-	UpdatedAt     time.Time             `json:"updated_at"`
-	StartedAt     *time.Time            `json:"started_at,omitempty"`
-	CompletedAt   *time.Time            `json:"completed_at,omitempty"`
-	LastError     string                `json:"last_error,omitempty"`
+	ID              string                     `json:"id"`
+	Goal            string                     `json:"goal"`
+	CommitMessage   string                     `json:"commit_message,omitempty"`
+	Status          string                     `json:"status"`
+	Stage           string                     `json:"stage"`
+	Plan            AgentEvolutionPlan         `json:"plan"`
+	FixAttempts     int                        `json:"fix_attempts"`
+	StartedFromRef  string                     `json:"started_from_ref,omitempty"`
+	CompletedCommit string                     `json:"completed_commit,omitempty"`
+	TestResults     []AgentEvolutionTestResult `json:"test_results,omitempty"`
+	RawTail         []AgentEvolutionRawLine    `json:"raw_tail,omitempty"`
+	LastCodexOutput string                     `json:"last_codex_output,omitempty"`
+	Events          []AgentEvolutionEvent      `json:"events"`
+	CreatedAt       time.Time                  `json:"created_at"`
+	UpdatedAt       time.Time                  `json:"updated_at"`
+	StartedAt       *time.Time                 `json:"started_at,omitempty"`
+	CompletedAt     *time.Time                 `json:"completed_at,omitempty"`
+	LastError       string                     `json:"last_error,omitempty"`
+}
+
+type AgentEvolutionPlan struct {
+	Steps       []string `json:"steps"`
+	CurrentStep int      `json:"current_step"`
+}
+
+type AgentEvolutionTestResult struct {
+	Name       string    `json:"name"`
+	Command    string    `json:"command"`
+	OK         bool      `json:"ok"`
+	ExitCode   int       `json:"exit_code"`
+	Output     string    `json:"output"`
+	StartedAt  time.Time `json:"started_at"`
+	FinishedAt time.Time `json:"finished_at"`
+}
+
+type AgentEvolutionRawLine struct {
+	At   time.Time `json:"at"`
+	Line string    `json:"line"`
 }
 
 type AgentEvolutionEvent struct {
