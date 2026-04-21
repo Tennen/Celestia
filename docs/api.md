@@ -57,6 +57,7 @@ Command endpoints accept an optional `X-Actor` header. When omitted:
 - [Vision Service Integration Contract](api/vision-service-contract.md): downstream-facing HTTP/JSON contract that the external Vision Service must implement
 - [Device Query, Control, and Preferences](api/devices.md): `/api/v1/devices`, `/api/external/v1/devices`, and admin-side device/control preferences
 - [AI Agent API](api/ai.md): `/api/ai/v1` semantic device lookup and command execution
+- [Agent Runtime API](api/agent.md): `/api/v1/agent` Paimon-derived runtime, WeCom, topic, writing, market, evolution, and terminal operations
 - [Events And Audit API](api/events-audit.md): event history, SSE stream, and audit history
 - [Xiaomi OAuth API](api/xiaomi-oauth.md): Xiaomi OAuth session bootstrap and callback flow
 - [Stream Signalling API](api/stream-signalling.md): WebRTC session setup for streaming-capable devices

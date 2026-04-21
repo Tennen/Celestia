@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 
+	"github.com/chentianyu/celestia/internal/core/agent"
 	"github.com/chentianyu/celestia/internal/core/audit"
 	"github.com/chentianyu/celestia/internal/core/automation"
 	"github.com/chentianyu/celestia/internal/core/capability"
@@ -31,6 +32,7 @@ type Runtime struct {
 	OAuth      *oauthsvc.Service
 	PluginMgr  *pluginmgr.Manager
 	Vision     *vision.Service
+	Agent      *agent.Service
 }
 
 func New(store storage.Store) *Runtime {
@@ -41,6 +43,7 @@ func New(store storage.Store) *Runtime {
 	auditSvc := audit.New(store)
 	pluginMgr := pluginmgr.New(store, registrySvc, stateSvc, bus)
 	visionSvc := vision.New(store, registrySvc, stateSvc, bus)
+	agentSvc := agent.New(store, bus)
 	automationSvc := automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr)
 	return &Runtime{
 		Store:      store,
@@ -55,12 +58,18 @@ func New(store storage.Store) *Runtime {
 		OAuth:      oauthsvc.New(store),
 		PluginMgr:  pluginMgr,
 		Vision:     visionSvc,
+		Agent:      agentSvc,
 	}
 }
 
 func (r *Runtime) Reconcile(ctx context.Context) error {
 	if r.Vision != nil {
 		if err := r.Vision.Init(ctx); err != nil {
+			return err
+		}
+	}
+	if r.Agent != nil {
+		if err := r.Agent.Init(ctx); err != nil {
 			return err
 		}
 	}
@@ -73,6 +82,9 @@ func (r *Runtime) Shutdown(ctx context.Context) error {
 	}
 	if r.Vision != nil {
 		r.Vision.Close()
+	}
+	if r.Agent != nil {
+		r.Agent.Close()
 	}
 	return r.PluginMgr.Shutdown(ctx)
 }

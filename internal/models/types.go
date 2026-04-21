@@ -42,6 +42,8 @@ const (
 	EventCapabilityStatusChanged EventType = "capability.status.changed"
 	EventAutomationTriggered     EventType = "automation.triggered"
 	EventAutomationFailed        EventType = "automation.failed"
+	EventAgentStateChanged       EventType = "agent.state.changed"
+	EventAgentTaskFailed         EventType = "agent.task.failed"
 )
 
 type DeviceKind string

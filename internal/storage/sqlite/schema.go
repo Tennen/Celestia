@@ -34,6 +34,12 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 			created_at text not null,
 			updated_at text not null
 		)`,
+		`create table if not exists agent_documents (
+			key text primary key,
+			domain text not null,
+			payload_json text not null default '{}',
+			updated_at text not null
+		)`,
 		`create table if not exists vision_capability_config (
 			capability_id text primary key,
 			service_url text not null default '',
@@ -148,6 +154,7 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 		`create index if not exists idx_device_preferences_alias on device_preferences(alias)`,
 		`create index if not exists idx_device_control_preferences_device on device_control_preferences(device_id)`,
 		`create index if not exists idx_automations_enabled on automations(enabled, updated_at desc)`,
+		`create index if not exists idx_agent_documents_domain on agent_documents(domain, updated_at desc)`,
 		`create index if not exists idx_events_plugin_ts on events(plugin_id, ts desc)`,
 		`drop index if exists idx_vision_event_captures_event_phase`,
 		`create index if not exists idx_vision_event_captures_event_captured_at on vision_event_captures(event_id, captured_at asc, capture_id)`,

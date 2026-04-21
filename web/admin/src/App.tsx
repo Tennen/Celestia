@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Activity,
+  Bot,
   ChevronDown,
   Home,
   Layers3,
@@ -9,6 +10,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { ActivitySection } from './components/admin/ActivitySection';
+import { AgentWorkspace } from './components/admin/AgentWorkspace';
 import { CapabilityWorkspace } from './components/admin/CapabilityWorkspace';
 import { DeviceWorkspace } from './components/admin/DeviceWorkspace';
 import { OverviewSection } from './components/admin/OverviewSection';
@@ -100,6 +102,7 @@ function App() {
   const sectionLabel: Record<AppSection, string> = {
     overview: 'Overview',
     plugins: 'Plugins',
+    agent: 'Agent',
     capabilities: 'Capabilities',
     devices: 'Devices',
     activity: 'Activity',
@@ -113,6 +116,7 @@ function App() {
   }> = [
     { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0, icon: Home },
     { id: 'plugins', label: 'Plugins', count: catalog.length, icon: PlugZap },
+    { id: 'agent', label: 'Agent', count: 0, icon: Bot },
   ];
 
   const trailingSectionItems: Array<{
@@ -376,6 +380,8 @@ function App() {
                   }}
                 />
               ) : null}
+
+              {activeSection === 'agent' ? <AgentWorkspace /> : null}
 
               {activeSection === 'capabilities' ? (
                 <CapabilityWorkspace selectedCapabilityId={selectedCapability?.id ?? ''} />

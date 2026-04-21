@@ -32,6 +32,26 @@ type Service interface {
 	SaveAutomation(ctx context.Context, automation models.Automation) (models.Automation, error)
 	DeleteAutomation(ctx context.Context, id string) error
 
+	GetAgentSnapshot(ctx context.Context) (models.AgentSnapshot, error)
+	SaveAgentSettings(ctx context.Context, settings models.AgentSettings) (models.AgentSnapshot, error)
+	SaveAgentDirectInput(ctx context.Context, config models.AgentDirectInputConfig) (models.AgentSnapshot, error)
+	SaveAgentPush(ctx context.Context, push models.AgentPushSnapshot) (models.AgentSnapshot, error)
+	SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error)
+	PublishAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error)
+	SendAgentWeComMessage(ctx context.Context, req AgentWeComSendRequest) error
+	RecordAgentWeComCallback(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error)
+	RunAgentConversation(ctx context.Context, req models.AgentConversationRequest) (models.AgentConversation, error)
+	SaveAgentTopic(ctx context.Context, topic models.AgentTopicSnapshot) (models.AgentSnapshot, error)
+	RunAgentTopicSummary(ctx context.Context, profileID string) (models.AgentTopicRun, error)
+	SaveAgentWritingTopic(ctx context.Context, req AgentWritingTopicRequest) (models.AgentWritingTopic, error)
+	AddAgentWritingMaterial(ctx context.Context, topicID string, req AgentWritingMaterialRequest) (models.AgentWritingTopic, error)
+	SummarizeAgentWritingTopic(ctx context.Context, topicID string) (models.AgentWritingTopic, error)
+	SaveAgentMarketPortfolio(ctx context.Context, portfolio models.AgentMarketPortfolio) (models.AgentSnapshot, error)
+	RunAgentMarketAnalysis(ctx context.Context, req AgentMarketRunRequest) (models.AgentMarketRun, error)
+	CreateAgentEvolutionGoal(ctx context.Context, req AgentEvolutionGoalRequest) (models.AgentEvolutionGoal, error)
+	RunAgentEvolutionGoal(ctx context.Context, goalID string) (models.AgentEvolutionGoal, error)
+	RunAgentTerminal(ctx context.Context, req models.AgentTerminalRequest) (models.AgentTerminalResult, error)
+
 	ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error)
 	GetDevice(ctx context.Context, deviceID string) (models.DeviceView, error)
 	ListAIDevices(ctx context.Context, filter DeviceFilter) ([]AIDevice, error)
@@ -66,6 +86,31 @@ type UpdatePluginConfigRequest struct {
 type PluginLogsView struct {
 	PluginID string   `json:"plugin_id"`
 	Logs     []string `json:"logs"`
+}
+
+type AgentWeComSendRequest struct {
+	ToUser string `json:"to_user"`
+	Text   string `json:"text"`
+}
+
+type AgentWritingTopicRequest struct {
+	ID    string `json:"id,omitempty"`
+	Title string `json:"title"`
+}
+
+type AgentWritingMaterialRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+type AgentMarketRunRequest struct {
+	Phase string `json:"phase"`
+	Notes string `json:"notes,omitempty"`
+}
+
+type AgentEvolutionGoalRequest struct {
+	Goal          string `json:"goal"`
+	CommitMessage string `json:"commit_message,omitempty"`
 }
 
 type DeviceFilter struct {

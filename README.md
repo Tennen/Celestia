@@ -9,6 +9,7 @@ Celestia is a monorepo for a process-isolated home gateway written in Go with a 
 - Phase 2: Petkit cloud integration with feeder/litter/fountain support
 - Phase 3: Haier hOn washer integration with model capability matrices
 - Phase 4: Hikvision/EZVIZ LAN HCNetSDK plus Ezviz cloud camera integration
+- Integrated Agent Runtime: Paimon-derived LLM orchestration, WeCom operations, direct input mapping, topic summary, writing organizer, market portfolio analysis, evolution queue, and guarded terminal execution. Home Assistant and ChatGPT bridge paths are intentionally excluded.
 
 ## Local Commands
 
@@ -182,6 +183,7 @@ These repositories are reference material for protocol and behavior research, no
 - `cmd/celctl`: agent-oriented CLI built on Cobra with a structured subcommand surface for plugins/devices/events/audits and normalized command dispatch.
 - `internal/api/http`: the only supported admin and external control surface. It serves device, plugin, audit, event, and OAuth endpoints.
 - `internal/core`: Core runtime services for plugin management, registry, state, audit, policy, event bus, quick-control modeling, and Xiaomi OAuth orchestration.
+- `internal/core/agent`: direct Core integration of the Paimon-derived agent/admin runtime excluding Home Assistant and ChatGPT bridge.
 - `internal/coreapi`: Core-owned gRPC helpers that plugins use for approved back-calls such as config persistence.
 - `internal/models`: shared runtime models exchanged across Core, plugins, storage, and API layers.
 - `internal/pluginapi`: generated/handwritten gRPC protocol bindings and struct encoding helpers for plugin RPCs.
@@ -210,12 +212,14 @@ The container exposes the gateway and admin UI on port `8080`.
 
 ## API Docs
 
-- HTTP API reference grouped by domain, including runtime management, devices, AI, events, OAuth, and streaming: [docs/api.md](/Users/chentianyu/workspace/private/Celestia/docs/api.md)
+- HTTP API reference grouped by domain, including runtime management, devices, AI, events, OAuth, and streaming: [docs/api.md](docs/api.md)
+- Agent runtime API for the directly integrated Paimon-derived capabilities: [docs/api/agent.md](docs/api/agent.md)
 
 ## Admin Surface
 
 - Dashboard summary
 - Plugin catalog, install, runtime view, Core-owned config view, enable/disable, discover, uninstall, logs
+- Agent workspace for LLM/provider settings, direct input mapping, WeCom menu/message operations, topic summary, writing organizer, market portfolio analysis, evolution goals, and guarded terminal execution
 - Device inventory with live state
 - Command dispatch with actor header support
 - Event feed and audit feed

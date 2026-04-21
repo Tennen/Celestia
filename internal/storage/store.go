@@ -20,6 +20,10 @@ type Store interface {
 	ListAutomations(context.Context) ([]models.Automation, error)
 	DeleteAutomation(context.Context, string) error
 
+	UpsertAgentDocument(context.Context, models.AgentDocument) error
+	GetAgentDocument(context.Context, string) (models.AgentDocument, bool, error)
+	DeleteAgentDocument(context.Context, string) error
+
 	UpsertVisionConfig(context.Context, models.VisionCapabilityConfig) error
 	GetVisionConfig(context.Context) (models.VisionCapabilityConfig, bool, error)
 	UpsertVisionCatalog(context.Context, models.VisionEntityCatalog) error

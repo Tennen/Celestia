@@ -90,6 +90,63 @@ func (g *stubGateway) SaveAutomation(_ context.Context, automation models.Automa
 func (g *stubGateway) DeleteAutomation(_ context.Context, _ string) error {
 	return nil
 }
+func (g *stubGateway) GetAgentSnapshot(_ context.Context) (models.AgentSnapshot, error) {
+	return models.AgentSnapshot{}, nil
+}
+func (g *stubGateway) SaveAgentSettings(_ context.Context, _ models.AgentSettings) (models.AgentSnapshot, error) {
+	return models.AgentSnapshot{}, nil
+}
+func (g *stubGateway) SaveAgentDirectInput(_ context.Context, _ models.AgentDirectInputConfig) (models.AgentSnapshot, error) {
+	return models.AgentSnapshot{}, nil
+}
+func (g *stubGateway) SaveAgentPush(_ context.Context, _ models.AgentPushSnapshot) (models.AgentSnapshot, error) {
+	return models.AgentSnapshot{}, nil
+}
+func (g *stubGateway) SaveAgentWeComMenu(_ context.Context, _ models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
+	return models.AgentSnapshot{}, nil
+}
+func (g *stubGateway) PublishAgentWeComMenu(_ context.Context) (models.AgentWeComMenuSnapshot, error) {
+	return models.AgentWeComMenuSnapshot{}, nil
+}
+func (g *stubGateway) SendAgentWeComMessage(_ context.Context, _ gatewayapi.AgentWeComSendRequest) error {
+	return nil
+}
+func (g *stubGateway) RecordAgentWeComCallback(_ context.Context, _ []byte) (models.AgentWeComEventRecord, error) {
+	return models.AgentWeComEventRecord{}, nil
+}
+func (g *stubGateway) RunAgentConversation(_ context.Context, _ models.AgentConversationRequest) (models.AgentConversation, error) {
+	return models.AgentConversation{}, nil
+}
+func (g *stubGateway) SaveAgentTopic(_ context.Context, _ models.AgentTopicSnapshot) (models.AgentSnapshot, error) {
+	return models.AgentSnapshot{}, nil
+}
+func (g *stubGateway) RunAgentTopicSummary(_ context.Context, _ string) (models.AgentTopicRun, error) {
+	return models.AgentTopicRun{}, nil
+}
+func (g *stubGateway) SaveAgentWritingTopic(_ context.Context, _ gatewayapi.AgentWritingTopicRequest) (models.AgentWritingTopic, error) {
+	return models.AgentWritingTopic{}, nil
+}
+func (g *stubGateway) AddAgentWritingMaterial(_ context.Context, _ string, _ gatewayapi.AgentWritingMaterialRequest) (models.AgentWritingTopic, error) {
+	return models.AgentWritingTopic{}, nil
+}
+func (g *stubGateway) SummarizeAgentWritingTopic(_ context.Context, _ string) (models.AgentWritingTopic, error) {
+	return models.AgentWritingTopic{}, nil
+}
+func (g *stubGateway) SaveAgentMarketPortfolio(_ context.Context, _ models.AgentMarketPortfolio) (models.AgentSnapshot, error) {
+	return models.AgentSnapshot{}, nil
+}
+func (g *stubGateway) RunAgentMarketAnalysis(_ context.Context, _ gatewayapi.AgentMarketRunRequest) (models.AgentMarketRun, error) {
+	return models.AgentMarketRun{}, nil
+}
+func (g *stubGateway) CreateAgentEvolutionGoal(_ context.Context, _ gatewayapi.AgentEvolutionGoalRequest) (models.AgentEvolutionGoal, error) {
+	return models.AgentEvolutionGoal{}, nil
+}
+func (g *stubGateway) RunAgentEvolutionGoal(_ context.Context, _ string) (models.AgentEvolutionGoal, error) {
+	return models.AgentEvolutionGoal{}, nil
+}
+func (g *stubGateway) RunAgentTerminal(_ context.Context, _ models.AgentTerminalRequest) (models.AgentTerminalResult, error) {
+	return models.AgentTerminalResult{}, nil
+}
 func (g *stubGateway) ListDevices(_ context.Context, _ gatewayapi.DeviceFilter) ([]models.DeviceView, error) {
 	return nil, nil
 }
