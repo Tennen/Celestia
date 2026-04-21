@@ -157,13 +157,13 @@ Sent once after a dwell episode ends and the completed stay exceeded the configu
 `rule_events` entity semantics:
 
 - `entity_value` remains the backward-compatible primary entity identifier.
-- `key_entity_id` is optional. When present, it echoes the winning `rules[].key_entities[].id` selected from aggregated VLM matching over the event's evidence samples.
+- `key_entity_id` is optional. When present, it echoes the winning `rules[].key_entities[].id` selected from aggregated pairwise VLM matching over the event's evidence samples.
 - `entities` is optional, but when present it carries the complete set of recognized entities currently inside the configured zone for that emitted event.
 - When Gateway syncs a rule whose `entity_selector.value == ""`, Vision Service must treat that rule as "no class filter" and must not gate detections by entity class before dwell aggregation.
 - For wildcard rules, events must include every in-zone recognized entity in `entities`.
 - Gateway uses `entities` for persisted history display and entity-based filtering in Admin, so Vision Service should keep the array stable, deduplicated by `kind + value`, and ordered by its primary/most relevant entity first.
 - `metadata.decision` may carry source and scoring details such as `source`, `confidence_score`, `confidence_breakdown`, and semantic checker verdicts when ROI/VLM fallback was used.
-- `metadata.key_entity_match` may carry multi-frame vote details such as frame-level match outputs, vote counts, final winner, model name, and explicit failure / skipped reasons when key-entity enrichment was requested but could not complete.
+- `metadata.key_entity_match` may carry multi-frame vote details such as frame-level pairwise match outputs, raw model output, VLM input source, vote counts, final winner, model name, and explicit failure / skipped reasons when key-entity enrichment was requested but could not complete.
 
 ### `evidence`
 
@@ -213,8 +213,9 @@ Sent after the matching `rule_events` message when the completed dwell event inc
 
 `evidence` annotation semantics:
 
-- `captures` may contain more than three images for one event.
-- `phase` is a non-empty evidence label. Gateway sorts `start`, `middle`, and `end` first for compatibility, then sorts additional phase labels by capture time and `capture_id`.
+- Vision Service samples evidence at `rules[].stay_threshold_seconds / 3` intervals while the episode remains active, up to its configured evidence buffer limit.
+- `phase` is a stable capture label within the event. The first retained capture uses `start`, the final retained capture uses `end`, and intermediate captures use numbered phases such as `sample_002`.
+- Gateway treats `phase` as an opaque non-empty label. It sorts `start` first, `end` last, and orders intermediate labels such as legacy `middle` or numbered samples like `sample_002` by capture time and `capture_id`.
 - `capture_id` is the stable evidence asset identifier and should be unique for every image. If Vision Service sends multiple images with the same `event_id` and `phase`, each image must use a distinct `capture_id`; otherwise Gateway's fallback `event_id:phase` identifier will update the same asset.
 - Vision Service may send either a pre-rendered annotated image or a raw capture plus structured detections.
 - `metadata.annotations.image_kind = "annotated"` means `image_base64` already contains rendered boxes and labels. Gateway/Admin should display that image as-is and must not draw another overlay from the same detection set.
@@ -222,6 +223,7 @@ Sent after the matching `rule_events` message when the completed dwell event inc
 - `metadata.annotations.coordinate_space` is fixed to normalized top-left origin coordinates in `[0,1]` space using `box.{x,y,width,height}`.
 - Each detection should carry `display_name` and may optionally carry `kind`, `value`, `confidence`, and `track_id`.
 - If Vision Service uses Ultralytics' own renderer to generate evidence, it should still keep detection ordering stable and may optionally include the same detection list for downstream structured consumers.
+- If ROI/VLM fallback confirms an event, `image_base64` must remain a full-frame raw capture. The configured-zone crop is only a semantic-check model input and should be described in metadata rather than replacing upstream evidence.
 
 ### `error`
 

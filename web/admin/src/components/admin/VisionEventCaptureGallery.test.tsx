@@ -24,17 +24,17 @@ describe('VisionEventCaptureGallery', () => {
         capture('evt-1:start', 'start'),
         capture('evt-1:middle', 'middle'),
         capture('evt-1:end', 'end'),
-        capture('evt-1:sample-1', 'sample-1'),
+        capture('evt-1:sample_002', 'sample_002'),
       ],
     });
 
     expect(captures).toHaveLength(4);
-    expect(captures[3].phase).toBe('sample-1');
+    expect(captures[3].phase).toBe('sample_002');
 
     const { container } = render(<VisionEventCaptureGallery captures={captures} />);
 
     expect(screen.getAllByRole('link')).toHaveLength(4);
-    expect(screen.getByText('sample-1')).toBeTruthy();
+    expect(screen.getByText('sample_002')).toBeTruthy();
     expect(container.firstElementChild?.className).toContain('vision-capture-gallery--scroll');
   });
 });

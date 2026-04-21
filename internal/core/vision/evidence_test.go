@@ -63,8 +63,8 @@ func TestReportEvidenceAttachesCapturesToVisionEvents(t *testing.T) {
 
 	extraMiddle := testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhaseMiddle, "middle-extra")
 	extraMiddle.CaptureID = "evt-1:middle:extra"
-	extraSample := testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhase("sample-1"), "sample")
-	extraSample.CaptureID = "evt-1:sample-1"
+	extraSample := testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhase("sample_002"), "sample")
+	extraSample.CaptureID = "evt-1:sample_002"
 	if err := service.ReportEvidence(ctx, models.VisionServiceEventCaptureBatch{
 		Captures: []models.VisionServiceEventCapture{
 			testVisionCapture("evt-1", "feeder-zone", camera.ID, models.VisionEventCapturePhaseMiddle, "middle"),
@@ -91,8 +91,18 @@ func TestReportEvidenceAttachesCapturesToVisionEvents(t *testing.T) {
 	if len(captures) != 5 {
 		t.Fatalf("captures len = %d, want 5", len(captures))
 	}
-	if captures[0].Phase != models.VisionEventCapturePhaseStart || captures[len(captures)-1].Phase != models.VisionEventCapturePhase("sample-1") {
-		t.Fatalf("captures order = %#v, want start first and sample-1 last", captures)
+	if captures[0].Phase != models.VisionEventCapturePhaseStart || captures[len(captures)-1].Phase != models.VisionEventCapturePhaseEnd {
+		t.Fatalf("captures order = %#v, want start first and end last", captures)
+	}
+	sampleIndex := -1
+	for index, capture := range captures {
+		if capture.Phase == models.VisionEventCapturePhase("sample_002") {
+			sampleIndex = index
+			break
+		}
+	}
+	if sampleIndex < 0 || sampleIndex >= len(captures)-1 {
+		t.Fatalf("captures order = %#v, want sample_002 before end", captures)
 	}
 
 	asset, ok, err := service.GetCaptureAsset(ctx, "evt-1:start")

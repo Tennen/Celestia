@@ -397,11 +397,11 @@ Response:
           "size_bytes": 48984
         },
         {
-          "capture_id": "vision-recent:sample-1",
+          "capture_id": "vision-recent:sample_002",
           "event_id": "vision-recent",
           "rule_id": "feeder-zone",
           "camera_device_id": "hikvision:camera:entry-1",
-          "phase": "sample-1",
+          "phase": "sample_002",
           "captured_at": "2026-04-11T08:28:21Z",
           "content_type": "image/jpeg",
           "size_bytes": 49201
@@ -425,7 +425,7 @@ Important behavior:
 - `payload.metadata.decision`, when present, contains Vision Service decision metadata such as source, confidence scoring, confidence breakdown, and semantic checker verdicts used by Admin for decision inspection.
 - `payload.metadata.key_entity_match`, when present, contains downstream key-entity vote details such as frame matches, vote counts, winner, model name, and failure or skipped reasons.
 - `payload.captures[].metadata.annotations`, when present, contains normalized detection boxes for that capture. If `image_kind` is `raw`, Admin overlays those boxes on top of the returned image. If `image_kind` is `annotated`, Admin treats the stored image bytes as already rendered.
-- `payload.captures[]` may contain more than three images. `phase` is a non-empty label; Gateway orders `start`, `middle`, and `end` first, then any additional captures by time and `capture_id`.
+- `payload.captures[]` may contain more than three images. `phase` is a non-empty label; Gateway orders `start` first, `end` last, and intermediate labels such as legacy `middle` or numbered samples like `sample_002` by time and `capture_id`.
 - If stored evidence exists for a returned event, Gateway enriches the event payload with `capture_count` and `captures`.
 
 ## Delete Rule Event History Item

@@ -237,11 +237,9 @@ func capturePhaseRank(phase models.VisionEventCapturePhase) int {
 	switch phase {
 	case models.VisionEventCapturePhaseStart:
 		return 0
-	case models.VisionEventCapturePhaseMiddle:
-		return 1
 	case models.VisionEventCapturePhaseEnd:
 		return 2
 	default:
-		return 3
+		return 1
 	}
 }
