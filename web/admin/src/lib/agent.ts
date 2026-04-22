@@ -374,14 +374,6 @@ export function stableJSON(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-export function parseJSONObject<T>(raw: string, label: string): T {
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${label} must be a JSON object`);
-  }
-  return parsed as T;
-}
-
 export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
   const snapshot = input ?? ({} as AgentSnapshot);
   const settings = snapshot.settings ?? ({} as AgentSettings);
