@@ -105,3 +105,38 @@ func (s *Server) handleAgentMarkdownRender(w http.ResponseWriter, r *http.Reques
 	}
 	writeJSON(w, http.StatusOK, result)
 }
+
+func (s *Server) handleAgentCapabilities(w http.ResponseWriter, r *http.Request) {
+	items, err := s.gateway.ListAgentCapabilities(r.Context())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *Server) handleAgentCapability(w http.ResponseWriter, r *http.Request) {
+	item, err := s.gateway.DescribeAgentCapability(r.Context(), r.PathValue("name"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) handleAgentCapabilityRun(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentCapabilityRunRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.RunAgentCapability(r.Context(), r.PathValue("name"), payload)
+	if err != nil {
+		if result.Capability != "" {
+			writeJSON(w, gatewayapi.StatusCode(err), result)
+			return
+		}
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}

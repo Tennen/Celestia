@@ -100,6 +100,36 @@ func (s *HTTPService) RunAgentConversation(ctx context.Context, req models.Agent
 	return out, nil
 }
 
+func (s *HTTPService) ListAgentCapabilities(ctx context.Context) ([]models.AgentCapabilityInfo, error) {
+	var out []models.AgentCapabilityInfo
+	if err := s.get(ctx, "/api/v1/agent/capabilities", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) DescribeAgentCapability(ctx context.Context, name string) (models.AgentCapabilityInfo, error) {
+	var out models.AgentCapabilityInfo
+	path := fmt.Sprintf("/api/v1/agent/capabilities/%s", url.PathEscape(name))
+	if err := s.get(ctx, path, nil, &out); err != nil {
+		return models.AgentCapabilityInfo{}, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) RunAgentCapability(
+	ctx context.Context,
+	name string,
+	req models.AgentCapabilityRunRequest,
+) (models.AgentCapabilityRunResult, error) {
+	var out models.AgentCapabilityRunResult
+	path := fmt.Sprintf("/api/v1/agent/capabilities/%s/run", url.PathEscape(name))
+	if err := s.request(ctx, http.MethodPost, path, nil, req, &out, ""); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 func (s *HTTPService) SaveAgentTopic(ctx context.Context, topic models.AgentTopicSnapshot) (models.AgentSnapshot, error) {
 	return s.putAgentSnapshot(ctx, "/api/v1/agent/topic", topic)
 }

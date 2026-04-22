@@ -123,6 +123,15 @@ func (g *stubGateway) HandleAgentWeComIngress(_ context.Context, _ []byte) (mode
 func (g *stubGateway) RunAgentConversation(_ context.Context, _ models.AgentConversationRequest) (models.AgentConversation, error) {
 	return models.AgentConversation{}, nil
 }
+func (g *stubGateway) ListAgentCapabilities(_ context.Context) ([]models.AgentCapabilityInfo, error) {
+	return nil, nil
+}
+func (g *stubGateway) DescribeAgentCapability(_ context.Context, _ string) (models.AgentCapabilityInfo, error) {
+	return models.AgentCapabilityInfo{}, nil
+}
+func (g *stubGateway) RunAgentCapability(_ context.Context, _ string, _ models.AgentCapabilityRunRequest) (models.AgentCapabilityRunResult, error) {
+	return models.AgentCapabilityRunResult{}, nil
+}
 func (g *stubGateway) SaveAgentTopic(_ context.Context, _ models.AgentTopicSnapshot) (models.AgentSnapshot, error) {
 	return models.AgentSnapshot{}, nil
 }

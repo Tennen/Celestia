@@ -108,6 +108,32 @@ export type AgentConversation = {
   created_at: string;
 };
 
+export type AgentCapabilityInfo = {
+  name: string;
+  description: string;
+  terminal?: boolean;
+  command?: string;
+  install?: string;
+  keywords?: string[];
+  direct_commands?: string[];
+  tool?: string;
+  action?: string;
+  params?: string[];
+  prefer_tool_result?: boolean;
+  detail?: string;
+};
+
+export type AgentCapabilityRunResult = {
+  capability: string;
+  tool?: string;
+  action?: string;
+  input?: string;
+  used_command?: string;
+  output?: string;
+  terminal?: TerminalResult;
+  metadata?: Record<string, unknown>;
+};
+
 export type AgentMarkdownRenderResult = {
   mode: string;
   images: Array<{ path: string; content_type: string; size_bytes: number; width?: number; height?: number }>;
@@ -176,6 +202,7 @@ export type AgentEvolutionGoal = {
 
 export type AgentSnapshot = {
   settings: AgentSettings;
+  capabilities: AgentCapabilityInfo[];
   direct_input: AgentDirectInputConfig;
   wecom_menu: AgentWeComMenuSnapshot;
   push: AgentPushSnapshot;
@@ -248,6 +275,21 @@ export function sendAgentWeComImage(payload: { to_user: string; base64: string; 
 
 export function runAgentConversation(payload: { input: string; session_id?: string }) {
   return request<AgentConversation>('/agent/conversation', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function fetchAgentCapabilities() {
+  return request<AgentCapabilityInfo[]>('/agent/capabilities');
+}
+
+export function fetchAgentCapability(name: string) {
+  return request<AgentCapabilityInfo>(`/agent/capabilities/${encodeURIComponent(name)}`);
+}
+
+export function runAgentCapability(name: string, payload: { input?: string; command?: string; args?: string[] }) {
+  return request<AgentCapabilityRunResult>(`/agent/capabilities/${encodeURIComponent(name)}/run`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export function saveAgentTopic(payload: AgentTopicSnapshot) {

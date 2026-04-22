@@ -25,6 +25,7 @@ import {
   publishAgentWeComMenu,
   renderAgentMarkdown,
   runAgentCodex,
+  runAgentCapability,
   runAgentConversation,
   runAgentSearch,
   runAgentTopic,
@@ -49,6 +50,7 @@ import {
   type AgentTopicSnapshot,
   type AgentWeComMenuConfig,
 } from '../../lib/agent';
+import { AgentCapabilitiesCard } from './AgentCapabilitiesCard';
 
 type Busy =
   | ''
@@ -69,7 +71,8 @@ type Busy =
   | 'search'
   | 'stt'
   | 'codex'
-  | 'md2img';
+  | 'md2img'
+  | 'capability';
 
 export function AgentWorkspace() {
   const [snapshot, setSnapshot] = useState<AgentSnapshot | null>(null);
@@ -166,7 +169,7 @@ export function AgentWorkspace() {
     <div className="detail-stack">
       <div className="section-title">
         <div>
-          <p className="eyebrow">Paimon Runtime Migration</p>
+          <p className="eyebrow">Celestia Agent Runtime</p>
           <h2 className="text-2xl font-semibold tracking-tight">Agent</h2>
         </div>
         <div className="toolbar">
@@ -353,6 +356,11 @@ export function AgentWorkspace() {
               </Button>
             </CardContent>
           </Card>
+          <AgentCapabilitiesCard
+            capabilities={snapshot.capabilities ?? []}
+            busy={busy === 'capability'}
+            onRun={(name, input) => run('capability', () => runAgentCapability(name, { input }), false)}
+          />
           <Card className="panel">
             <CardHeader>
               <CardTitle>Evolution Operator</CardTitle>

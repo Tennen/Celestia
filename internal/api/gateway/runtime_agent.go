@@ -84,6 +84,34 @@ func (s *RuntimeService) RunAgentConversation(ctx context.Context, req models.Ag
 	return item, nil
 }
 
+func (s *RuntimeService) ListAgentCapabilities(ctx context.Context) ([]models.AgentCapabilityInfo, error) {
+	items, err := s.runtime.Agent.ListAgentCapabilities(ctx)
+	if err != nil {
+		return nil, statusError(http.StatusBadRequest, err)
+	}
+	return items, nil
+}
+
+func (s *RuntimeService) DescribeAgentCapability(ctx context.Context, name string) (models.AgentCapabilityInfo, error) {
+	item, err := s.runtime.Agent.DescribeAgentCapability(ctx, name)
+	if err != nil {
+		return models.AgentCapabilityInfo{}, statusError(http.StatusNotFound, err)
+	}
+	return item, nil
+}
+
+func (s *RuntimeService) RunAgentCapability(
+	ctx context.Context,
+	name string,
+	req models.AgentCapabilityRunRequest,
+) (models.AgentCapabilityRunResult, error) {
+	result, err := s.runtime.Agent.RunAgentCapability(ctx, name, req)
+	if err != nil && result.Capability == "" {
+		return result, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
 func (s *RuntimeService) SaveAgentTopic(ctx context.Context, topic models.AgentTopicSnapshot) (models.AgentSnapshot, error) {
 	snapshot, err := s.runtime.Agent.SaveTopic(ctx, topic)
 	return s.agentSnapshot(ctx, snapshot, err)

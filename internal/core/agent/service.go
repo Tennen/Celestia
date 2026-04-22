@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	agentcaps "github.com/chentianyu/celestia/internal/core/agent/capabilities"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/storage"
@@ -209,6 +210,7 @@ func defaultSnapshot() models.AgentSnapshot {
 			},
 			UpdatedAt: now,
 		}),
+		Capabilities: agentcaps.List(),
 		DirectInput: models.AgentDirectInputConfig{
 			Version:   1,
 			Rules:     []models.AgentDirectInputRule{},
@@ -261,6 +263,7 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 		snapshot.UpdatedAt = time.Now().UTC()
 	}
 	snapshot.Settings = normalizeSettings(snapshot.Settings)
+	snapshot.Capabilities = agentcaps.List()
 	if snapshot.DirectInput.Version == 0 {
 		snapshot.DirectInput.Version = 1
 	}

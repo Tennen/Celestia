@@ -10,12 +10,12 @@ import (
 )
 
 type conversationRouteDecision struct {
-	Decision     string         `json:"decision"`
-	ResponseText string         `json:"response_text"`
-	SkillName    string         `json:"skill_name"`
-	Tool         string         `json:"tool"`
-	Action       string         `json:"action"`
-	Params       map[string]any `json:"params"`
+	Decision       string         `json:"decision"`
+	ResponseText   string         `json:"response_text"`
+	CapabilityName string         `json:"capability_name"`
+	Tool           string         `json:"tool"`
+	Action         string         `json:"action"`
+	Params         map[string]any `json:"params"`
 }
 
 func (s *Service) RouteConversation(ctx context.Context, input string, memoryPrompt string, snapshot models.AgentSnapshot) (string, map[string]any, bool, error) {
@@ -35,7 +35,7 @@ func (s *Service) RouteConversation(ctx context.Context, input string, memoryPro
 		return "", metadata, false, nil
 	}
 	metadata["routing_decision"] = decision.Decision
-	metadata["routing_tool"] = firstNonEmpty(decision.Tool, decision.SkillName)
+	metadata["routing_tool"] = firstNonEmpty(decision.Tool, decision.CapabilityName)
 	if decision.Decision == "respond" && strings.TrimSpace(decision.ResponseText) != "" {
 		return strings.TrimSpace(decision.ResponseText), metadata, true, nil
 	}
@@ -65,6 +65,9 @@ func buildConversationRoutingPrompt(input string, memoryPrompt string, mode stri
 		`{"decision":"tool_call","tool":"writing-organizer","action":"topics|show|create|append|summarize|restore|set","params":{}}`,
 		`{"decision":"tool_call","tool":"market-analysis","params":{"phase":"midday|close"}}`,
 		`{"decision":"tool_call","tool":"evolution-operator","action":"queue|run","params":{}}`,
+		`{"decision":"tool_call","tool":"apple-notes","params":{"input":"memo notes args"}}`,
+		`{"decision":"tool_call","tool":"apple-reminders","params":{"input":"remindctl args"}}`,
+		`{"decision":"tool_call","tool":"agent-capability","action":"list|describe|run","params":{}}`,
 		`{"decision":"tool_call","tool":"terminal","params":{"command":"..."}}`,
 		`{"decision":"tool_call","tool":"codex","params":{"prompt":"..."}}`,
 		`{"decision":"tool_call","tool":"md2img","params":{"markdown":"...","mode":"long-image|multi-page"}}`,
@@ -96,14 +99,14 @@ func parseConversationRouteDecision(raw string) (conversationRouteDecision, erro
 	if decision.Decision == "" {
 		return decision, errors.New("routing decision is required")
 	}
-	if decision.Decision != "respond" && decision.Decision != "tool_call" && decision.Decision != "use_skill" && decision.Decision != "use_planning" {
+	if decision.Decision != "respond" && decision.Decision != "tool_call" && decision.Decision != "use_planning" {
 		return decision, errors.New("unsupported routing decision")
 	}
 	return decision, nil
 }
 
 func routeDecisionCommand(decision conversationRouteDecision) (string, error) {
-	tool := normalizeRouteTool(firstNonEmpty(decision.Tool, decision.SkillName))
+	tool := normalizeRouteTool(firstNonEmpty(decision.Tool, decision.CapabilityName))
 	action := strings.ToLower(strings.TrimSpace(decision.Action))
 	params := decision.Params
 	switch tool {
@@ -120,6 +123,12 @@ func routeDecisionCommand(decision conversationRouteDecision) (string, error) {
 			return "/evolution run " + stringParam(params, "goal_id", "goalId", "id"), nil
 		}
 		return "/evolution queue " + stringParam(params, "goal", "input"), nil
+	case "apple-notes":
+		return "/apple-notes " + stringParam(params, "input", "args"), nil
+	case "apple-reminders":
+		return "/apple-reminders " + stringParam(params, "input", "args"), nil
+	case "agent-capability":
+		return capabilityRouteCommand(action, params), nil
 	case "terminal":
 		command := stringParam(params, "command", "input")
 		if command == "" {
@@ -162,9 +171,22 @@ func writingRouteCommand(action string, params map[string]any) (string, error) {
 	}
 }
 
+func capabilityRouteCommand(action string, params map[string]any) string {
+	name := stringParam(params, "name", "capability", "capability_name")
+	input := stringParam(params, "input", "args")
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "describe", "get", "show":
+		return "/agent-capability describe " + name
+	case "run", "exec":
+		return strings.TrimSpace("/agent-capability run " + name + " " + input)
+	default:
+		return "/agent-capability list"
+	}
+}
+
 func normalizeRouteTool(tool string) string {
 	value := strings.ToLower(strings.TrimSpace(tool))
-	value = strings.TrimPrefix(value, "skill.")
+	value = strings.TrimPrefix(value, "agent.")
 	switch value {
 	case "topic", "topic-summary":
 		return "topic-summary"
@@ -174,6 +196,12 @@ func normalizeRouteTool(tool string) string {
 		return "market-analysis"
 	case "evolution", "evolution-operator":
 		return "evolution-operator"
+	case "notes", "apple-notes":
+		return "apple-notes"
+	case "reminders", "apple-reminders":
+		return "apple-reminders"
+	case "capability", "agent-capability":
+		return "agent-capability"
 	}
 	return value
 }

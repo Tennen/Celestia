@@ -14,6 +14,7 @@ type AgentDocument struct {
 
 type AgentSnapshot struct {
 	Settings      AgentSettings          `json:"settings"`
+	Capabilities  []AgentCapabilityInfo  `json:"capabilities"`
 	DirectInput   AgentDirectInputConfig `json:"direct_input"`
 	WeComMenu     AgentWeComMenuSnapshot `json:"wecom_menu"`
 	Push          AgentPushSnapshot      `json:"push"`
@@ -226,6 +227,41 @@ type AgentConversationRequest struct {
 	SessionID string `json:"session_id,omitempty"`
 	Input     string `json:"input"`
 	Actor     string `json:"actor,omitempty"`
+}
+
+type AgentCapabilityInfo struct {
+	Name                  string   `json:"name"`
+	Description           string   `json:"description"`
+	Terminal              bool     `json:"terminal,omitempty"`
+	Command               string   `json:"command,omitempty"`
+	Install               string   `json:"install,omitempty"`
+	Keywords              []string `json:"keywords,omitempty"`
+	DirectCommands        []string `json:"direct_commands,omitempty"`
+	DirectAsync           bool     `json:"direct_async,omitempty"`
+	DirectAcceptedText    string   `json:"direct_accepted_text,omitempty"`
+	DirectAcceptedDelayMS int      `json:"direct_accepted_delay_ms,omitempty"`
+	Tool                  string   `json:"tool,omitempty"`
+	Action                string   `json:"action,omitempty"`
+	Params                []string `json:"params,omitempty"`
+	PreferToolResult      bool     `json:"prefer_tool_result,omitempty"`
+	Detail                string   `json:"detail,omitempty"`
+}
+
+type AgentCapabilityRunRequest struct {
+	Input   string   `json:"input,omitempty"`
+	Command string   `json:"command,omitempty"`
+	Args    []string `json:"args,omitempty"`
+}
+
+type AgentCapabilityRunResult struct {
+	Capability  string               `json:"capability"`
+	Tool        string               `json:"tool,omitempty"`
+	Action      string               `json:"action,omitempty"`
+	Input       string               `json:"input,omitempty"`
+	UsedCommand string               `json:"used_command,omitempty"`
+	Output      string               `json:"output,omitempty"`
+	Terminal    *AgentTerminalResult `json:"terminal,omitempty"`
+	Metadata    map[string]any       `json:"metadata,omitempty"`
 }
 
 type AgentTopicSnapshot struct {

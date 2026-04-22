@@ -26,6 +26,14 @@ func (s *Service) RunDirectCommand(ctx context.Context, input string) (string, b
 		return s.commandMarket(ctx, rest)
 	case "/evolution":
 		return s.commandEvolution(ctx, rest)
+	case "/evolve", "/coding":
+		return s.commandEvolutionAlias(ctx, name, rest)
+	case "/agent-capability":
+		return s.commandAgentCapability(ctx, rest)
+	case "/apple-notes", "/notes":
+		return s.commandRunAgentCapability(ctx, "apple-notes", rest)
+	case "/apple-reminders", "/reminders":
+		return s.commandRunAgentCapability(ctx, "apple-reminders", rest)
 	case "/terminal":
 		return s.commandTerminal(ctx, rest)
 	case "/codex":
@@ -59,8 +67,7 @@ func (s *Service) commandSearch(ctx context.Context, query string) (string, bool
 }
 
 func (s *Service) commandTopic(ctx context.Context, profileID string) (string, bool, error) {
-	run, err := s.RunTopicSummary(ctx, strings.TrimSpace(profileID))
-	return marshalCommandResult(run), true, err
+	return s.runTopicCommand(ctx, profileID)
 }
 
 func (s *Service) commandWriting(ctx context.Context, rest string) (string, bool, error) {
@@ -103,23 +110,11 @@ func (s *Service) commandWriting(ctx context.Context, rest string) (string, bool
 }
 
 func (s *Service) commandMarket(ctx context.Context, rest string) (string, bool, error) {
-	phase := firstNonEmpty(rest, "close")
-	run, err := s.RunMarketAnalysis(ctx, MarketRunRequest{Phase: phase})
-	return marshalCommandResult(run), true, err
+	return s.runMarketCommand(ctx, rest)
 }
 
 func (s *Service) commandEvolution(ctx context.Context, rest string) (string, bool, error) {
-	action, tail := splitWord(rest)
-	switch action {
-	case "queue":
-		goal, err := s.CreateEvolutionGoal(ctx, EvolutionGoalRequest{Goal: tail})
-		return marshalCommandResult(goal), true, err
-	case "run":
-		goal, err := s.RunEvolutionGoal(ctx, strings.TrimSpace(tail))
-		return marshalCommandResult(goal), true, err
-	default:
-		return "Evolution commands: /evolution queue <goal>, /evolution run <goal_id>", true, nil
-	}
+	return s.runEvolutionCommand(ctx, rest)
 }
 
 func (s *Service) commandTerminal(ctx context.Context, command string) (string, bool, error) {
@@ -128,8 +123,7 @@ func (s *Service) commandTerminal(ctx context.Context, command string) (string, 
 }
 
 func (s *Service) commandCodex(ctx context.Context, prompt string) (string, bool, error) {
-	result, err := s.RunCodex(ctx, models.AgentCodexRequest{Prompt: prompt})
-	return marshalCommandResult(result), true, err
+	return s.runCodexCommand(ctx, prompt)
 }
 
 func (s *Service) commandMD2Img(ctx context.Context, markdown string) (string, bool, error) {

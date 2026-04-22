@@ -1,7 +1,7 @@
 # Agent Runtime API
 
-Celestia embeds the Paimon-derived agent runtime directly in Core under `/api/v1/agent`.
-Home Assistant and ChatGPT bridge behavior are intentionally not included.
+Celestia embeds the migrated agent runtime directly in Core under `/api/v1/agent`.
+Home Assistant, ChatGPT bridge, OpenAI quota management, and system maintenance behavior are intentionally not included.
 
 ## Snapshot
 
@@ -12,6 +12,7 @@ GET /api/v1/agent
 Returns the full agent snapshot:
 
 - `settings`: LLM, STT, WeCom, terminal, search, memory, md2img, and evolution runner configuration
+- `capabilities`: built-in Celestia Agent capability contracts and direct command metadata
 - `direct_input`: fixed text mapping rules
 - `wecom_menu`: WeCom menu config, publish payload, validation errors, and recent click events
 - `push`: WeCom push users and interval tasks
@@ -79,9 +80,9 @@ POST /api/v1/agent/wecom/ingress
 
 `/wecom/menu` stores and validates a menu config. `/wecom/menu/publish` publishes the generated payload to the real WeCom menu API using `settings.wecom`. `/wecom/send` sends text to a real WeCom user and splits long content by UTF-8 bytes using `settings.wecom.text_max_bytes` (default `1800`).
 
-`/wecom/image` accepts `{ "to_user", "base64", "filename", "content_type" }`, uploads the image as WeCom media, then sends an image message. If `settings.wecom.bridge_url` is set, Celestia uses the Paimon bridge-compatible routes `/proxy/gettoken`, `/proxy/media/upload`, and `/proxy/send`; otherwise it calls the WeCom API directly.
+`/wecom/image` accepts `{ "to_user", "base64", "filename", "content_type" }`, uploads the image as WeCom media, then sends an image message. If `settings.wecom.bridge_url` is set, Celestia uses bridge-compatible routes `/proxy/gettoken`, `/proxy/media/upload`, and `/proxy/send`; otherwise it calls the WeCom API directly.
 
-`/wecom/callback` records unencrypted WeCom XML callbacks and returns JSON. `/wecom/ingress` is the Paimon-style synchronous WeCom entrypoint: text and click events enter the agent conversation, voice messages download media and run STT when `settings.stt.enabled=true`, then fall back to WeCom `Recognition` text when present. The HTTP response is a WeCom XML text reply. Send `Accept: application/json` to `/wecom/ingress` to inspect the structured result instead.
+`/wecom/callback` records unencrypted WeCom XML callbacks and returns JSON. `/wecom/ingress` is the synchronous WeCom entrypoint: text and click events enter the agent conversation, voice messages download media and run STT when `settings.stt.enabled=true`, then fall back to WeCom `Recognition` text when present. The HTTP response is a WeCom XML text reply. Send `Accept: application/json` to `/wecom/ingress` to inspect the structured result instead.
 
 If `settings.wecom.bridge_stream_enabled=true` and `settings.wecom.bridge_url` is configured, the agent starts a background SSE client against `{bridge_url}/stream`. Incoming bridge text, voice, image, and click events enter the same conversation path and replies are sent with the bridge-compatible sender. Voice media is fetched through `/proxy/media/get` first and then falls back to direct WeCom media download. Downloaded audio is stored under `settings.wecom.audio_dir` (default `data/agent/wecom-audio`).
 
@@ -102,9 +103,9 @@ Body:
 }
 ```
 
-The runtime applies direct-input mapping first, then handles slash commands. For non-command text, Celestia now runs a Paimon-style routing step over built-in tool contracts before falling back to a direct LLM response. The router can call local search, topic summary, writing organizer, market analysis, evolution, terminal, Codex, md2img, or the Celestia device handoff response. Device command execution remains owned by `/api/ai/v1/commands`.
+The runtime applies direct-input mapping first, then handles slash commands. For non-command text, Celestia runs a local capability routing step over built-in tool contracts before falling back to a direct LLM response. The router can call local search, topic summary, writing organizer, market analysis, evolution, terminal, Codex, md2img, Apple Notes/Reminders, or the Celestia device handoff response. Device command execution remains owned by `/api/ai/v1/commands`.
 
-When `settings.memory.enabled=true`, non-command conversation turns inject Paimon-style session memory before the LLM call:
+When `settings.memory.enabled=true`, non-command conversation turns inject session memory before the LLM call:
 
 - active `conversation_window`: recent real user/assistant messages within `settings.memory.window_timeout_seconds`
 - `hybrid_memory`: summary hits ranked by hashed vector similarity plus lexical coverage
@@ -112,18 +113,42 @@ When `settings.memory.enabled=true`, non-command conversation turns inject Paimo
 
 After each turn Celestia appends a raw memory record, refreshes the active short window, and compacts unsummarized raw turns into summary memory once `compact_every_rounds` is reached. The deterministic fallback compactor preserves raw text references through `raw_refs`.
 
-Paimon-style direct commands are handled before the LLM:
+Direct commands are handled before the LLM:
 
 - `/search <query>`
-- `/topic [profile_id]`
+- `/agent-capability list`, `/agent-capability describe <name>`, `/agent-capability run <name> <input>`
+- `/apple-notes <memo notes args>` and `/apple-reminders <remindctl args>`; both require terminal execution to be enabled and the corresponding macOS CLI to be installed
+- `/topic`, `/topic run [--profile id]`, `/topic profile list/add/use/update/delete`, `/topic source list/add/update/enable/disable/delete`, `/topic config`, `/topic state`
 - `/writing topics`, `/writing show <topic_id>`, `/writing create <title>`, `/writing append <topic_id> <content>`, `/writing summarize <topic_id>`, `/writing restore <topic_id>`, `/writing set <topic_id> <summary|outline|draft> <content>`
-- `/market [phase]`
-- `/evolution queue <goal>`, `/evolution run <goal_id>`
+- `/market midday`, `/market close`, `/market status`, `/market portfolio`, `/market add <code> <quantity> <avg_cost> [name]`
+- `/evolve <goal>`, `/coding <goal>`, `/evolve status [goal_id]`, `/evolve tick`, `/evolution queue <goal>`, `/evolution run <goal_id>`
 - `/terminal <command>`
-- `/codex <prompt>`
+- `/codex <prompt>`, `/codex status`, `/codex model [model]`, `/codex effort [effort]`
 - `/md2img <markdown>`
 - `/sync`, `/build`, `/restart`, `/deploy`
 - `/celestia` returns the gateway-owned AI command path; device execution remains in `/api/ai/v1/commands`
+
+## Agent Capabilities
+
+```http
+GET /api/v1/agent/capabilities
+GET /api/v1/agent/capabilities/{name}
+POST /api/v1/agent/capabilities/{name}/run
+```
+
+Capabilities expose the migrated local Agent contracts as Celestia-owned capability metadata. A capability record contains `name`, `description`, optional terminal dependency metadata, direct commands, and the internal action contract.
+
+`POST /run` accepts:
+
+```json
+{
+  "input": "notes -s project",
+  "command": "memo",
+  "args": ["notes", "-s", "project"]
+}
+```
+
+For terminal-backed capabilities such as `apple-notes` and `apple-reminders`, Celestia executes the configured CLI through the same terminal runner used by `/agent/terminal`; `settings.terminal.enabled` must be true. Missing CLI binaries, macOS permission errors, and non-zero command exits are returned as explicit terminal errors.
 
 ## STT
 
@@ -160,7 +185,7 @@ POST /api/v1/agent/writing/topics/{id}/summarize
 
 Writing topics store raw materials and maintain `summary`, `outline`, and `draft` state with a backup of the previous state. Summarization uses the configured LLM when available and otherwise generates a deterministic material-based draft.
 
-Like Paimon, Celestia also writes organizer artifacts to disk under `data/agent/writing/topics/{topic_id}`:
+Celestia also writes organizer artifacts to disk under `data/agent/writing/topics/{topic_id}`:
 
 - `raw/*.md`: appended source material with rollover
 - `state/{summary,outline,draft}.md`: latest topic state
@@ -211,7 +236,7 @@ POST /api/v1/agent/terminal
 POST /api/v1/agent/codex/run
 ```
 
-Evolution goals are queued in Celestia state. Running a goal now follows the Paimon operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push when `settings.evolution.auto_commit` or `settings.evolution.auto_push` are enabled.
+Evolution goals are queued in Celestia state. Running a goal follows the Agent operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push when `settings.evolution.auto_commit` or `settings.evolution.auto_push` are enabled.
 
 Relevant `settings.evolution` fields:
 

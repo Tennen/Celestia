@@ -34,13 +34,13 @@ type AgentSummaryMemoryRecord struct {
 }
 
 type AgentConversationWindow struct {
-	SessionID       string            `json:"session_id"`
-	WindowID        string            `json:"window_id"`
-	StartedAt       time.Time         `json:"started_at"`
-	LastUserAt      *time.Time        `json:"last_user_at,omitempty"`
-	LastAssistantAt *time.Time        `json:"last_assistant_at,omitempty"`
-	Turns           []AgentMemoryTurn `json:"turns"`
-	ActiveSkill     map[string]any    `json:"active_skill,omitempty"`
+	SessionID        string            `json:"session_id"`
+	WindowID         string            `json:"window_id"`
+	StartedAt        time.Time         `json:"started_at"`
+	LastUserAt       *time.Time        `json:"last_user_at,omitempty"`
+	LastAssistantAt  *time.Time        `json:"last_assistant_at,omitempty"`
+	Turns            []AgentMemoryTurn `json:"turns"`
+	ActiveCapability map[string]any    `json:"active_capability,omitempty"`
 }
 
 type AgentMemoryTurn struct {
