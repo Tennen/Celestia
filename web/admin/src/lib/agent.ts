@@ -242,23 +242,23 @@ export type AgentSearchResult = {
 };
 
 export function fetchAgentSnapshot() {
-  return request<AgentSnapshot>('/agent');
+  return request<AgentSnapshot>('/agent').then(normalizeAgentSnapshot);
 }
 
 export function saveAgentSettings(payload: AgentSettings) {
-  return request<AgentSnapshot>('/agent/settings', { method: 'PUT', body: JSON.stringify(payload) });
+  return request<AgentSnapshot>('/agent/settings', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function saveAgentDirectInput(payload: AgentDirectInputConfig) {
-  return request<AgentSnapshot>('/agent/direct-input', { method: 'PUT', body: JSON.stringify(payload) });
+  return request<AgentSnapshot>('/agent/direct-input', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function saveAgentPush(payload: AgentPushSnapshot) {
-  return request<AgentSnapshot>('/agent/push', { method: 'PUT', body: JSON.stringify(payload) });
+  return request<AgentSnapshot>('/agent/push', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function saveAgentWeComMenu(payload: AgentWeComMenuConfig) {
-  return request<AgentSnapshot>('/agent/wecom/menu', { method: 'PUT', body: JSON.stringify(payload) });
+  return request<AgentSnapshot>('/agent/wecom/menu', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function publishAgentWeComMenu() {
@@ -278,7 +278,7 @@ export function runAgentConversation(payload: { input: string; session_id?: stri
 }
 
 export function fetchAgentCapabilities() {
-  return request<AgentCapabilityInfo[]>('/agent/capabilities');
+  return request<AgentCapabilityInfo[]>('/agent/capabilities').then((items) => (Array.isArray(items) ? items : []));
 }
 
 export function fetchAgentCapability(name: string) {
@@ -293,7 +293,7 @@ export function runAgentCapability(name: string, payload: { input?: string; comm
 }
 
 export function saveAgentTopic(payload: AgentTopicSnapshot) {
-  return request<AgentSnapshot>('/agent/topic', { method: 'PUT', body: JSON.stringify(payload) });
+  return request<AgentSnapshot>('/agent/topic', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function runAgentTopic(profileId?: string) {
@@ -319,7 +319,7 @@ export function summarizeWritingTopic(topicId: string) {
 }
 
 export function saveMarketPortfolio(payload: AgentMarketPortfolio) {
-  return request<AgentSnapshot>('/agent/market/portfolio', { method: 'PUT', body: JSON.stringify(payload) });
+  return request<AgentSnapshot>('/agent/market/portfolio', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function importMarketPortfolioCodes(payload: { codes: string }) {
@@ -380,4 +380,79 @@ export function parseJSONObject<T>(raw: string, label: string): T {
     throw new Error(`${label} must be a JSON object`);
   }
   return parsed as T;
+}
+
+export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
+  const snapshot = input ?? ({} as AgentSnapshot);
+  const settings = snapshot.settings ?? ({} as AgentSettings);
+  const directInput = snapshot.direct_input ?? ({} as AgentDirectInputConfig);
+  const wecomMenu = snapshot.wecom_menu ?? ({} as AgentWeComMenuSnapshot);
+  const wecomConfig = wecomMenu.config ?? ({} as AgentWeComMenuConfig);
+  const push = snapshot.push ?? ({} as AgentPushSnapshot);
+  const topic = snapshot.topic_summary ?? ({} as AgentTopicSnapshot);
+  const market = snapshot.market ?? ({} as AgentMarketSnapshot);
+  const portfolio = market.portfolio ?? ({ cash: 0 } as AgentMarketPortfolio);
+  const writing = snapshot.writing ?? { topics: [], updated_at: '' };
+  const evolution = snapshot.evolution ?? { goals: [], updated_at: '' };
+
+  return {
+    ...snapshot,
+    settings: {
+      ...settings,
+      llm_providers: arrayOrEmpty(settings.llm_providers),
+      search_engines: arrayOrEmpty(settings.search_engines),
+      wecom: settings.wecom ?? { enabled: false },
+      terminal: settings.terminal ?? { enabled: false },
+      evolution: {
+        ...(settings.evolution ?? {}),
+        test_commands: arrayOrEmpty(settings.evolution?.test_commands),
+      },
+    },
+    capabilities: arrayOrEmpty(snapshot.capabilities),
+    direct_input: {
+      ...directInput,
+      rules: arrayOrEmpty(directInput.rules),
+    },
+    wecom_menu: {
+      ...wecomMenu,
+      config: {
+        ...wecomConfig,
+        buttons: arrayOrEmpty(wecomConfig.buttons),
+      },
+      recent_events: arrayOrEmpty(wecomMenu.recent_events),
+      validation_errors: arrayOrEmpty(wecomMenu.validation_errors),
+    },
+    push: {
+      ...push,
+      users: arrayOrEmpty(push.users),
+      tasks: arrayOrEmpty(push.tasks),
+    },
+    conversations: arrayOrEmpty(snapshot.conversations),
+    topic_summary: {
+      ...topic,
+      profiles: arrayOrEmpty(topic.profiles),
+      runs: arrayOrEmpty(topic.runs),
+    },
+    writing: {
+      ...writing,
+      topics: arrayOrEmpty(writing.topics),
+    },
+    market: {
+      ...market,
+      portfolio: {
+        ...portfolio,
+        funds: arrayOrEmpty(portfolio.funds),
+        cash: typeof portfolio.cash === 'number' ? portfolio.cash : 0,
+      },
+      runs: arrayOrEmpty(market.runs),
+    },
+    evolution: {
+      ...evolution,
+      goals: arrayOrEmpty(evolution.goals),
+    },
+  };
+}
+
+function arrayOrEmpty<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
 }

@@ -12,22 +12,23 @@ export function AgentCapabilitiesCard(props: {
   busy: boolean;
   onRun: (name: string, input: string) => void;
 }) {
-  const [selected, setSelected] = useState(props.capabilities[0]?.name ?? '');
+  const capabilities = Array.isArray(props.capabilities) ? props.capabilities : [];
+  const [selected, setSelected] = useState(capabilities[0]?.name ?? '');
   const [input, setInput] = useState('');
   const current = useMemo(
-    () => props.capabilities.find((item) => item.name === selected) ?? props.capabilities[0],
-    [props.capabilities, selected],
+    () => capabilities.find((item) => item.name === selected) ?? capabilities[0],
+    [capabilities, selected],
   );
 
   return (
     <Card className="panel">
       <CardHeader>
         <CardTitle>Agent Capabilities</CardTitle>
-        <CardDescription>{props.capabilities.length} built-in capabilities</CardDescription>
+        <CardDescription>{capabilities.length} built-in capabilities</CardDescription>
       </CardHeader>
       <CardContent className="stack">
         <div className="grid gap-2 sm:grid-cols-2">
-          {props.capabilities.map((item) => (
+          {capabilities.map((item) => (
             <Button
               key={item.name}
               type="button"

@@ -264,6 +264,9 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	}
 	snapshot.Settings = normalizeSettings(snapshot.Settings)
 	snapshot.Capabilities = agentcaps.List()
+	if snapshot.Conversations == nil {
+		snapshot.Conversations = []models.AgentConversation{}
+	}
 	if snapshot.DirectInput.Version == 0 {
 		snapshot.DirectInput.Version = 1
 	}
@@ -276,6 +279,18 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.WeComMenu.Config.Buttons == nil {
 		snapshot.WeComMenu.Config.Buttons = []models.AgentWeComButton{}
 	}
+	if snapshot.WeComMenu.RecentEvents == nil {
+		snapshot.WeComMenu.RecentEvents = []models.AgentWeComEventRecord{}
+	}
+	if snapshot.WeComMenu.ValidationErrors == nil {
+		snapshot.WeComMenu.ValidationErrors = []string{}
+	}
+	if snapshot.Push.Users == nil {
+		snapshot.Push.Users = []models.AgentPushUser{}
+	}
+	if snapshot.Push.Tasks == nil {
+		snapshot.Push.Tasks = []models.AgentPushTask{}
+	}
 	if snapshot.Memory.RawRecords == nil {
 		snapshot.Memory.RawRecords = []models.AgentRawMemoryRecord{}
 	}
@@ -285,6 +300,27 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.Memory.Windows == nil {
 		snapshot.Memory.Windows = []models.AgentConversationWindow{}
 	}
+	if snapshot.TopicSummary.Profiles == nil {
+		snapshot.TopicSummary.Profiles = []models.AgentTopicProfile{}
+	}
+	if snapshot.TopicSummary.Runs == nil {
+		snapshot.TopicSummary.Runs = []models.AgentTopicRun{}
+	}
+	if snapshot.TopicSummary.SentLog == nil {
+		snapshot.TopicSummary.SentLog = []models.AgentTopicSentLogItem{}
+	}
+	if snapshot.Writing.Topics == nil {
+		snapshot.Writing.Topics = []models.AgentWritingTopic{}
+	}
+	if snapshot.Market.Portfolio.Funds == nil {
+		snapshot.Market.Portfolio.Funds = []models.AgentMarketHolding{}
+	}
+	if snapshot.Market.Runs == nil {
+		snapshot.Market.Runs = []models.AgentMarketRun{}
+	}
+	if snapshot.Evolution.Goals == nil {
+		snapshot.Evolution.Goals = []models.AgentEvolutionGoal{}
+	}
 	return snapshot
 }
 
@@ -292,6 +328,15 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	memoryWasEmpty := settings.Memory == (models.AgentMemoryConfig{})
 	md2imgWasEmpty := settings.MD2Img == (models.AgentMD2ImgConfig{})
 	settings.RuntimeMode = firstNonEmpty(settings.RuntimeMode, "classic")
+	if settings.LLMProviders == nil {
+		settings.LLMProviders = []models.AgentLLMProvider{}
+	}
+	if settings.SearchEngines == nil {
+		settings.SearchEngines = []models.AgentSearchProvider{}
+	}
+	if settings.Evolution.TestCommands == nil {
+		settings.Evolution.TestCommands = []models.AgentEvolutionTestCommand{}
+	}
 	if memoryWasEmpty {
 		settings.Memory.Enabled = true
 	}
