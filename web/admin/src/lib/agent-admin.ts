@@ -1,12 +1,15 @@
-export type AgentPanelId = 'runtime' | 'wecom' | 'content' | 'ops';
+export type AgentPanelId = 'llm' | 'wecom' | 'input' | 'content' | 'market' | 'evolution' | 'search';
 
 export const agentPanelItems: Array<{ id: AgentPanelId; label: string }> = [
-  { id: 'runtime', label: 'Runtime' },
+  { id: 'llm', label: 'LLM' },
   { id: 'wecom', label: 'WeCom' },
+  { id: 'input', label: 'Input' },
   { id: 'content', label: 'Content' },
-  { id: 'ops', label: 'Ops' },
+  { id: 'market', label: 'Market' },
+  { id: 'evolution', label: 'Evolution' },
+  { id: 'search', label: 'Search' },
 ];
 
 export function agentPanelLabel(id: AgentPanelId) {
-  return agentPanelItems.find((item) => item.id === id)?.label ?? 'Runtime';
+  return agentPanelItems.find((item) => item.id === id)?.label ?? 'LLM';
 }

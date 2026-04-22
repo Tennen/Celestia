@@ -31,7 +31,7 @@ import { useXiaomiOAuth } from './hooks/useXiaomiOAuth';
 
 function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('overview');
-  const [activeAgentPanel, setActiveAgentPanel] = useState<AgentPanelId>('runtime');
+  const [activeAgentPanel, setActiveAgentPanel] = useState<AgentPanelId>('llm');
   const [agentExpanded, setAgentExpanded] = useState(true);
   const [activeCapabilityId, setActiveCapabilityId] = useState('');
   const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(true);

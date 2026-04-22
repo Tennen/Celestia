@@ -7,8 +7,11 @@ import { ScrollArea } from '../ui/scroll-area';
 import { agentPanelLabel, type AgentPanelId } from '../../lib/agent-admin';
 import { fetchAgentSnapshot, stableJSON, type AgentSnapshot } from '../../lib/agent';
 import { AgentContentPanel } from './AgentContentPanel';
-import { AgentOpsPanel } from './AgentOpsPanel';
-import { AgentRuntimePanel } from './AgentRuntimePanel';
+import { AgentEvolutionPanel } from './AgentEvolutionPanel';
+import { AgentInputPanel } from './AgentInputPanel';
+import { AgentLLMPanel } from './AgentLLMPanel';
+import { AgentMarketPanel } from './AgentMarketPanel';
+import { AgentSearchPanel } from './AgentSearchPanel';
 import { AgentWeComPanel } from './AgentWeComPanel';
 
 export type AgentRunner = (label: string, action: () => Promise<unknown>, refresh?: boolean) => void;
@@ -100,10 +103,13 @@ export function AgentWorkspace({ activePanel }: Props) {
         {error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">{error}</div> : null}
         {notice ? <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">{notice}</div> : null}
 
-        {activePanel === 'runtime' ? <AgentRuntimePanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'llm' ? <AgentLLMPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'wecom' ? <AgentWeComPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'input' ? <AgentInputPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'content' ? <AgentContentPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
-        {activePanel === 'ops' ? <AgentOpsPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'market' ? <AgentMarketPanel snapshot={snapshot} onRun={run} /> : null}
+        {activePanel === 'evolution' ? <AgentEvolutionPanel snapshot={snapshot} onRun={run} /> : null}
+        {activePanel === 'search' ? <AgentSearchPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
 
         {resultText ? (
           <Card className="panel log-panel">
