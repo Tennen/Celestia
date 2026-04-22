@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Bot, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { agentPanelLabel, type AgentPanelId } from '../../lib/agent-admin';
 import { fetchAgentSnapshot, stableJSON, type AgentSnapshot } from '../../lib/agent';
 import { AgentContentPanel } from './AgentContentPanel';
 import { AgentOpsPanel } from './AgentOpsPanel';
@@ -13,7 +13,11 @@ import { AgentWeComPanel } from './AgentWeComPanel';
 
 export type AgentRunner = (label: string, action: () => Promise<unknown>, refresh?: boolean) => void;
 
-export function AgentWorkspace() {
+type Props = {
+  activePanel: AgentPanelId;
+};
+
+export function AgentWorkspace({ activePanel }: Props) {
   const [snapshot, setSnapshot] = useState<AgentSnapshot | null>(null);
   const [busy, setBusy] = useState('load');
   const [error, setError] = useState('');
@@ -77,7 +81,7 @@ export function AgentWorkspace() {
         <div className="section-title">
           <div>
             <p className="eyebrow">Celestia Agent Runtime</p>
-            <h2 className="text-2xl font-semibold tracking-tight">Agent</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">{agentPanelLabel(activePanel)}</h2>
           </div>
           <div className="toolbar">
             <Badge tone={snapshot.settings.llm_providers.length ? 'good' : 'warn'}>
@@ -96,30 +100,10 @@ export function AgentWorkspace() {
         {error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">{error}</div> : null}
         {notice ? <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">{notice}</div> : null}
 
-        <Tabs defaultValue="runtime" className="min-h-0">
-          <TabsList className="flex-wrap justify-start">
-            <TabsTrigger value="runtime">
-              <Bot className="mr-2 h-4 w-4" />
-              Runtime
-            </TabsTrigger>
-            <TabsTrigger value="wecom">WeCom</TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
-            <TabsTrigger value="ops">Ops</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="runtime">
-            <AgentRuntimePanel snapshot={snapshot} busy={busy} onRun={run} />
-          </TabsContent>
-          <TabsContent value="wecom">
-            <AgentWeComPanel snapshot={snapshot} busy={busy} onRun={run} />
-          </TabsContent>
-          <TabsContent value="content">
-            <AgentContentPanel snapshot={snapshot} busy={busy} onRun={run} />
-          </TabsContent>
-          <TabsContent value="ops">
-            <AgentOpsPanel snapshot={snapshot} busy={busy} onRun={run} />
-          </TabsContent>
-        </Tabs>
+        {activePanel === 'runtime' ? <AgentRuntimePanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'wecom' ? <AgentWeComPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'content' ? <AgentContentPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'ops' ? <AgentOpsPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
 
         {resultText ? (
           <Card className="panel log-panel">

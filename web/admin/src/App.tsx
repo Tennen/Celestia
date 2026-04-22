@@ -18,6 +18,7 @@ import { PluginWorkspace } from './components/admin/PluginWorkspace';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
+import { agentPanelItems, agentPanelLabel, type AgentPanelId } from './lib/agent-admin';
 import { getApiBase } from './lib/api';
 import { capabilityDisplayName, summaryNumber } from './lib/capability';
 import type { AppSection } from './lib/admin';
@@ -29,6 +30,8 @@ import { useXiaomiOAuth } from './hooks/useXiaomiOAuth';
 
 function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('overview');
+  const [activeAgentPanel, setActiveAgentPanel] = useState<AgentPanelId>('runtime');
+  const [agentExpanded, setAgentExpanded] = useState(true);
   const [activeCapabilityId, setActiveCapabilityId] = useState('');
   const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(true);
 
@@ -116,7 +119,6 @@ function App() {
   }> = [
     { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0, icon: Home },
     { id: 'plugins', label: 'Plugins', count: catalog.length, icon: PlugZap },
-    { id: 'agent', label: 'Agent', count: 0, icon: Bot },
   ];
 
   const trailingSectionItems: Array<{
@@ -140,12 +142,21 @@ function App() {
 
   const openSection = (sectionId: AppSection) => {
     setActiveSection(sectionId);
+    if (sectionId === 'agent') {
+      setAgentExpanded(true);
+    }
     if (sectionId === 'capabilities') {
       setCapabilitiesExpanded(true);
       if (!selectedCapability && capabilities[0]) {
         setActiveCapabilityId(capabilities[0].id);
       }
     }
+  };
+
+  const openAgentPanel = (panelId: AgentPanelId) => {
+    setAgentExpanded(true);
+    setActiveAgentPanel(panelId);
+    setActiveSection('agent');
   };
 
   const openCapability = (capabilityId: string) => {
@@ -205,6 +216,58 @@ function App() {
                 </button>
               );
             })}
+
+            <div className={cn('sidemenu__group', activeSection === 'agent' && 'is-active')}>
+              <div className={cn('sidemenu__button', activeSection === 'agent' && 'is-active', 'sidemenu__button--group')}>
+                <button type="button" className="sidemenu__button-main" onClick={() => openSection('agent')}>
+                  <span className="flex items-center gap-3">
+                    <Bot className="h-4 w-4" />
+                    Agent
+                  </span>
+                  <Badge
+                    tone={activeSection === 'agent' ? 'accent' : 'neutral'}
+                    size="xs"
+                    className="min-w-6 tabular-nums"
+                  >
+                    {agentPanelItems.length}
+                  </Badge>
+                </button>
+                <button
+                  type="button"
+                  className={cn('sidemenu__disclosure', agentExpanded && 'is-open')}
+                  aria-label={agentExpanded ? 'Collapse agent' : 'Expand agent'}
+                  aria-expanded={agentExpanded}
+                  onClick={() => setAgentExpanded((current) => !current)}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+
+              {agentExpanded ? (
+                <div className="sidemenu__submenu">
+                  {agentPanelItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={cn(
+                        'sidemenu__subbutton',
+                        activeSection === 'agent' && activeAgentPanel === item.id && 'is-active',
+                      )}
+                      onClick={() => openAgentPanel(item.id)}
+                    >
+                      <span className="sidemenu__subbutton-label">{item.label}</span>
+                      <Badge
+                        tone={activeSection === 'agent' && activeAgentPanel === item.id ? 'accent' : 'neutral'}
+                        size="xs"
+                        className="min-w-6"
+                      >
+                        {item.badge}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <div className={cn('sidemenu__group', activeSection === 'capabilities' && 'is-active')}>
               <div className={cn('sidemenu__button', activeSection === 'capabilities' && 'is-active', 'sidemenu__button--group')}>
@@ -329,6 +392,11 @@ function App() {
                   Capability <strong>{capabilityDisplayName(selectedCapability)}</strong>
                 </span>
               ) : null}
+              {activeSection === 'agent' ? (
+                <span>
+                  Agent <strong>{agentPanelLabel(activeAgentPanel)}</strong>
+                </span>
+              ) : null}
             </div>
           </header>
 
@@ -381,7 +449,7 @@ function App() {
                 />
               ) : null}
 
-              {activeSection === 'agent' ? <AgentWorkspace /> : null}
+              {activeSection === 'agent' ? <AgentWorkspace activePanel={activeAgentPanel} /> : null}
 
               {activeSection === 'capabilities' ? (
                 <CapabilityWorkspace selectedCapabilityId={selectedCapability?.id ?? ''} />
