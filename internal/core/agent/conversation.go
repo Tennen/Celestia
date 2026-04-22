@@ -34,11 +34,13 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 	if err := requireText(req.Input, "input"); err != nil {
 		return models.AgentConversation{}, err
 	}
+	sessionID := firstNonEmpty(req.SessionID, "default")
 	resolved, mapped, err := s.ResolveDirectInput(ctx, req.Input)
 	if err != nil {
 		return models.AgentConversation{}, err
 	}
 	response, status := "", "succeeded"
+	metadata := map[string]any{"direct_input_mapped": mapped, "actor": firstNonEmpty(req.Actor, "agent")}
 	if commandResponse, handled, commandErr := s.RunDirectCommand(ctx, resolved); handled {
 		response = commandResponse
 		if commandErr != nil {
@@ -47,7 +49,15 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 			err = commandErr
 		}
 	} else {
-		response, err = s.GenerateText(ctx, resolved)
+		prompt := resolved
+		if snapshot, snapshotErr := s.Snapshot(ctx); snapshotErr == nil {
+			var memoryMetadata map[string]any
+			prompt, memoryMetadata = buildMemoryPrompt(snapshot, sessionID, resolved)
+			for key, value := range memoryMetadata {
+				metadata[key] = value
+			}
+		}
+		response, err = s.GenerateText(ctx, prompt)
 		if err != nil {
 			response = err.Error()
 			status = "failed"
@@ -56,15 +66,18 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 	now := time.Now().UTC()
 	item := models.AgentConversation{
 		ID:        uuid.NewString(),
-		SessionID: firstNonEmpty(req.SessionID, "default"),
+		SessionID: sessionID,
 		Input:     strings.TrimSpace(req.Input),
 		Resolved:  resolved,
 		Response:  response,
 		Status:    status,
-		Metadata:  map[string]any{"direct_input_mapped": mapped, "actor": firstNonEmpty(req.Actor, "agent")},
+		Metadata:  metadata,
 		CreatedAt: now,
 	}
 	_, saveErr := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
+		for key, value := range appendConversationMemory(snapshot, item, now) {
+			item.Metadata[key] = value
+		}
 		snapshot.Conversations = append([]models.AgentConversation{item}, snapshot.Conversations...)
 		snapshot.Conversations = truncateList(snapshot.Conversations, 80)
 		snapshot.UpdatedAt = now

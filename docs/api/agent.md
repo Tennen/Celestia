@@ -11,11 +11,12 @@ GET /api/v1/agent
 
 Returns the full agent snapshot:
 
-- `settings`: LLM, STT, WeCom, terminal, search, and evolution runner configuration
+- `settings`: LLM, STT, WeCom, terminal, search, memory, md2img, and evolution runner configuration
 - `direct_input`: fixed text mapping rules
 - `wecom_menu`: WeCom menu config, publish payload, validation errors, and recent click events
 - `push`: WeCom push users and interval tasks
 - `conversations`: retained agent conversation turns
+- `memory`: raw turns, compacted summary memory, and active short conversation windows
 - `topic_summary`: RSS topic profiles and run history
 - `writing`: writing organizer topics, materials, summary, outline, and draft state
 - `market`: fund portfolio and portfolio-only analysis run history
@@ -33,7 +34,7 @@ Each endpoint accepts the corresponding object from the snapshot and returns the
 
 LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ollama`, `gemini`, and `gemini-like` through HTTP-compatible transports. `codex` invokes the local `codex exec --json --sandbox workspace-write` runner.
 
-Terminal execution is disabled unless `settings.terminal.enabled` is true.
+Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/md2img/render.mjs`.
 
 ## Search Engine
 
@@ -103,6 +104,14 @@ Body:
 
 The runtime applies direct-input mapping first, then calls the configured LLM provider. Device command execution remains owned by `/api/ai/v1/commands`.
 
+When `settings.memory.enabled=true`, non-command conversation turns inject Paimon-style session memory before the LLM call:
+
+- active `conversation_window`: recent real user/assistant messages within `settings.memory.window_timeout_seconds`
+- `hybrid_memory`: summary hits ranked by hashed vector similarity plus lexical coverage
+- `raw_replay`: raw records referenced by summary hits, limited by `raw_ref_limit` and `raw_record_limit`
+
+After each turn Celestia appends a raw memory record, refreshes the active short window, and compacts unsummarized raw turns into summary memory once `compact_every_rounds` is reached. The deterministic fallback compactor preserves raw text references through `raw_refs`.
+
 Paimon-style direct commands are handled before the LLM:
 
 - `/search <query>`
@@ -169,6 +178,25 @@ POST /api/v1/agent/market/run
 ```
 
 The market module stores fund holdings and cash. A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
+
+If `settings.md2img.enabled=true`, the generated markdown report is rendered through the md2img pipeline and returned in `images[]`. A missing Playwright browser, missing npm dependency, empty markdown, or screenshot failure returns `MARKET_IMAGE_PIPELINE_FAILED` rather than silently falling back to text-only output.
+
+## md2img
+
+```http
+POST /api/v1/agent/md2img/render
+```
+
+Body:
+
+```json
+{
+  "markdown": "# Report\n\n- item",
+  "mode": "long-image"
+}
+```
+
+`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/agent/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
 
 ## Evolution And Terminal
 

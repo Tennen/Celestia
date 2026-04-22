@@ -22,6 +22,7 @@ import {
   fetchAgentSnapshot,
   parseJSONObject,
   publishAgentWeComMenu,
+  renderAgentMarkdown,
   runAgentCodex,
   runAgentConversation,
   runAgentSearch,
@@ -66,7 +67,8 @@ type Busy =
   | 'terminal'
   | 'search'
   | 'stt'
-  | 'codex';
+  | 'codex'
+  | 'md2img';
 
 export function AgentWorkspace() {
   const [snapshot, setSnapshot] = useState<AgentSnapshot | null>(null);
@@ -92,6 +94,7 @@ export function AgentWorkspace() {
   const [searchQuery, setSearchQuery] = useState('');
   const [audioPath, setAudioPath] = useState('');
   const [codexPrompt, setCodexPrompt] = useState('');
+  const [markdownInput, setMarkdownInput] = useState('# Celestia\n\n- md2img smoke render');
   const [resultText, setResultText] = useState('');
 
   const activeWritingTopic = snapshot?.writing.topics[0] ?? null;
@@ -169,6 +172,7 @@ export function AgentWorkspace() {
             {snapshot.settings.llm_providers.length} LLM
           </Badge>
           <Badge tone={snapshot.settings.wecom.enabled ? 'good' : 'neutral'}>WeCom</Badge>
+          <Badge tone={snapshot.settings.md2img?.enabled ? 'good' : 'neutral'}>md2img</Badge>
           <Badge tone={snapshot.settings.terminal.enabled ? 'warn' : 'neutral'}>Terminal</Badge>
           <Button variant="secondary" onClick={() => void load()} disabled={busy === 'load'}>
             <RefreshCw className={`mr-2 h-4 w-4 ${busy === 'load' ? 'animate-spin' : ''}`} />
@@ -395,6 +399,24 @@ export function AgentWorkspace() {
                 <TerminalSquare className="mr-2 h-4 w-4" />
                 Run Codex
               </Button>
+            </CardContent>
+          </Card>
+          <Card className="panel">
+            <CardHeader>
+              <CardTitle>md2img</CardTitle>
+              <CardDescription>Renders markdown through Playwright Chromium</CardDescription>
+            </CardHeader>
+            <CardContent className="stack">
+              <Textarea value={markdownInput} onChange={(event) => setMarkdownInput(event.target.value)} />
+              <div className="button-row">
+                <Button onClick={() => run('md2img', () => renderAgentMarkdown({ markdown: markdownInput, mode: 'long-image' }), false)}>
+                  <Image className="mr-2 h-4 w-4" />
+                  Long Image
+                </Button>
+                <Button variant="secondary" onClick={() => run('md2img', () => renderAgentMarkdown({ markdown: markdownInput, mode: 'multi-page' }), false)}>
+                  Multi Page
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

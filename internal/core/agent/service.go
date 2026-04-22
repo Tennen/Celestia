@@ -228,6 +228,12 @@ func defaultSnapshot() models.AgentSnapshot {
 			UpdatedAt: now,
 		},
 		Conversations: []models.AgentConversation{},
+		Memory: models.AgentMemorySnapshot{
+			RawRecords: []models.AgentRawMemoryRecord{},
+			Summaries:  []models.AgentSummaryMemoryRecord{},
+			Windows:    []models.AgentConversationWindow{},
+			UpdatedAt:  now,
+		},
 		TopicSummary: models.AgentTopicSnapshot{
 			Profiles:  []models.AgentTopicProfile{},
 			Runs:      []models.AgentTopicRun{},
@@ -267,11 +273,55 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.WeComMenu.Config.Buttons == nil {
 		snapshot.WeComMenu.Config.Buttons = []models.AgentWeComButton{}
 	}
+	if snapshot.Memory.RawRecords == nil {
+		snapshot.Memory.RawRecords = []models.AgentRawMemoryRecord{}
+	}
+	if snapshot.Memory.Summaries == nil {
+		snapshot.Memory.Summaries = []models.AgentSummaryMemoryRecord{}
+	}
+	if snapshot.Memory.Windows == nil {
+		snapshot.Memory.Windows = []models.AgentConversationWindow{}
+	}
 	return snapshot
 }
 
 func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
+	memoryWasEmpty := settings.Memory == (models.AgentMemoryConfig{})
+	md2imgWasEmpty := settings.MD2Img == (models.AgentMD2ImgConfig{})
 	settings.RuntimeMode = firstNonEmpty(settings.RuntimeMode, "classic")
+	if memoryWasEmpty {
+		settings.Memory.Enabled = true
+	}
+	if settings.Memory.CompactEveryRounds <= 0 {
+		settings.Memory.CompactEveryRounds = 4
+	}
+	if settings.Memory.CompactMaxBatchSize <= 0 {
+		settings.Memory.CompactMaxBatchSize = 8
+	}
+	if settings.Memory.SummaryTopK <= 0 {
+		settings.Memory.SummaryTopK = 4
+	}
+	if settings.Memory.RawRefLimit <= 0 {
+		settings.Memory.RawRefLimit = 8
+	}
+	if settings.Memory.RawRecordLimit <= 0 {
+		settings.Memory.RawRecordLimit = 3
+	}
+	if settings.Memory.WindowTimeoutSeconds <= 0 {
+		settings.Memory.WindowTimeoutSeconds = 180
+	}
+	if settings.Memory.WindowMaxTurns <= 0 {
+		settings.Memory.WindowMaxTurns = 6
+	}
+	if md2imgWasEmpty {
+		settings.MD2Img.Enabled = true
+	}
+	settings.MD2Img.Mode = firstNonEmpty(settings.MD2Img.Mode, "long-image")
+	settings.MD2Img.Command = firstNonEmpty(settings.MD2Img.Command, "node internal/core/agent/md2img/render.mjs")
+	settings.MD2Img.OutputDir = firstNonEmpty(settings.MD2Img.OutputDir, "data/agent/md2img")
+	if settings.MD2Img.TimeoutMS <= 0 {
+		settings.MD2Img.TimeoutMS = 60000
+	}
 	if settings.Terminal.TimeoutMS <= 0 {
 		settings.Terminal.TimeoutMS = 30000
 	}

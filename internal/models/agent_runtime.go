@@ -61,6 +61,28 @@ type AgentCodexResult struct {
 	FinishedAt time.Time `json:"finished_at"`
 }
 
+type AgentMarkdownRenderRequest struct {
+	Markdown  string `json:"markdown"`
+	Mode      string `json:"mode,omitempty"`
+	OutputDir string `json:"output_dir,omitempty"`
+}
+
+type AgentMarkdownImage struct {
+	Path        string `json:"path"`
+	ContentType string `json:"content_type"`
+	SizeBytes   int64  `json:"size_bytes"`
+	Width       int    `json:"width,omitempty"`
+	Height      int    `json:"height,omitempty"`
+}
+
+type AgentMarkdownRenderResult struct {
+	Mode        string               `json:"mode"`
+	Images      []AgentMarkdownImage `json:"images"`
+	OutputDir   string               `json:"output_dir"`
+	SourceChars int                  `json:"source_chars"`
+	RenderedAt  time.Time            `json:"rendered_at"`
+}
+
 type AgentTopicSentLogItem struct {
 	URLNormalized string    `json:"url_normalized"`
 	SentAt        time.Time `json:"sent_at"`

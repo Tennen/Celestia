@@ -9,7 +9,7 @@ Celestia is a monorepo for a process-isolated home gateway written in Go with a 
 - Phase 2: Petkit cloud integration with feeder/litter/fountain support
 - Phase 3: Haier hOn washer integration with model capability matrices
 - Phase 4: Hikvision/EZVIZ LAN HCNetSDK plus Ezviz cloud camera integration
-- Integrated Agent Runtime: Paimon-derived LLM orchestration, WeCom operations, direct input mapping, topic summary, writing organizer, market portfolio analysis, evolution queue, and guarded terminal execution. Home Assistant and ChatGPT bridge paths are intentionally excluded.
+- Integrated Agent Runtime: Paimon-derived LLM orchestration, WeCom operations, direct input mapping, hybrid memory, md2img report rendering, topic summary, writing organizer, market portfolio analysis, evolution queue, and guarded terminal execution. Home Assistant and ChatGPT bridge paths are intentionally excluded.
 
 ## Local Commands
 

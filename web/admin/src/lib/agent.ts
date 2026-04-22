@@ -48,6 +48,8 @@ export type AgentSettings = {
   };
   stt?: Record<string, unknown>;
   search_engines?: Array<Record<string, unknown>>;
+  memory?: Record<string, unknown>;
+  md2img?: Record<string, unknown>;
   updated_at: string;
 };
 
@@ -104,6 +106,14 @@ export type AgentConversation = {
   status: string;
   metadata?: Record<string, unknown>;
   created_at: string;
+};
+
+export type AgentMarkdownRenderResult = {
+  mode: string;
+  images: Array<{ path: string; content_type: string; size_bytes: number; width?: number; height?: number }>;
+  output_dir: string;
+  source_chars: number;
+  rendered_at: string;
 };
 
 export type AgentTopicSnapshot = {
@@ -308,6 +318,10 @@ export function runAgentCodex(payload: {
   cwd?: string;
 }) {
   return request<Record<string, unknown>>('/agent/codex/run', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function renderAgentMarkdown(payload: { markdown: string; mode?: 'long-image' | 'multi-page'; output_dir?: string }) {
+  return request<AgentMarkdownRenderResult>('/agent/md2img/render', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export function stableJSON(value: unknown) {

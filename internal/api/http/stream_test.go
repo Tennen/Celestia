@@ -162,6 +162,9 @@ func (g *stubGateway) TranscribeAgentSpeech(_ context.Context, _ models.AgentSpe
 func (g *stubGateway) RunAgentCodex(_ context.Context, _ models.AgentCodexRequest) (models.AgentCodexResult, error) {
 	return models.AgentCodexResult{}, nil
 }
+func (g *stubGateway) RunAgentMarkdownRender(_ context.Context, _ models.AgentMarkdownRenderRequest) (models.AgentMarkdownRenderResult, error) {
+	return models.AgentMarkdownRenderResult{}, nil
+}
 func (g *stubGateway) ListDevices(_ context.Context, _ gatewayapi.DeviceFilter) ([]models.DeviceView, error) {
 	return nil, nil
 }

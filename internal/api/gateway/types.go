@@ -56,6 +56,7 @@ type Service interface {
 	RunAgentSearch(ctx context.Context, req models.AgentSearchRequest) (models.AgentSearchResult, error)
 	TranscribeAgentSpeech(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error)
 	RunAgentCodex(ctx context.Context, req models.AgentCodexRequest) (models.AgentCodexResult, error)
+	RunAgentMarkdownRender(ctx context.Context, req models.AgentMarkdownRenderRequest) (models.AgentMarkdownRenderResult, error)
 
 	ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error)
 	GetDevice(ctx context.Context, deviceID string) (models.DeviceView, error)

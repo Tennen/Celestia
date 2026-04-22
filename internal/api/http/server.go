@@ -79,6 +79,7 @@ func New(addr string, runtime *runtimepkg.Runtime) *Server {
 	mux.HandleFunc("POST /api/v1/agent/search/run", s.handleAgentSearchRun)
 	mux.HandleFunc("POST /api/v1/agent/stt/transcribe", s.handleAgentSTT)
 	mux.HandleFunc("POST /api/v1/agent/codex/run", s.handleAgentCodexRun)
+	mux.HandleFunc("POST /api/v1/agent/md2img/render", s.handleAgentMarkdownRender)
 	mux.HandleFunc("PUT /api/v1/plugins/{id}/config", s.handleUpdatePluginConfig)
 	mux.HandleFunc("POST /api/v1/plugins/{id}/enable", s.handleEnablePlugin)
 	mux.HandleFunc("POST /api/v1/plugins/{id}/disable", s.handleDisablePlugin)

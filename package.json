@@ -9,6 +9,15 @@
     "build": "npm run build --workspace web/admin",
     "preview": "npm run preview --workspace web/admin",
     "build:web": "npm run build --workspace web/admin",
-    "dev:web": "npm run dev --workspace web/admin"
+    "dev:web": "npm run dev --workspace web/admin",
+    "playwright:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.59.1",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5"
   }
 }

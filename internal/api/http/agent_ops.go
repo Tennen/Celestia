@@ -92,3 +92,16 @@ func (s *Server) handleAgentCodexRun(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, result)
 }
+
+func (s *Server) handleAgentMarkdownRender(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentMarkdownRenderRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.RunAgentMarkdownRender(r.Context(), payload)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}

@@ -82,12 +82,25 @@ func (s *Service) RunMarketAnalysis(ctx context.Context, req MarketRunRequest) (
 	if generated, genErr := s.GenerateText(ctx, buildMarketPrompt(snapshot.Market.Portfolio, assets, phase, req.Notes)); genErr == nil {
 		summary = generated
 	}
+	images := []models.AgentMarkdownImage{}
+	if snapshot.Settings.MD2Img.Enabled {
+		rendered, renderErr := s.RunMarkdownRender(ctx, models.AgentMarkdownRenderRequest{
+			Markdown: summary,
+			Mode:     snapshot.Settings.MD2Img.Mode,
+		})
+		if renderErr != nil {
+			return models.AgentMarketRun{}, fmt.Errorf("MARKET_IMAGE_PIPELINE_FAILED: %w", renderErr)
+		}
+		images = rendered.Images
+		sourceChain = appendUniqueStrings(sourceChain, "md2img:"+rendered.Mode)
+	}
 	run := models.AgentMarketRun{
 		ID:          uuid.NewString(),
 		CreatedAt:   time.Now().UTC(),
 		Phase:       phase,
 		MarketState: "eastmoney_search",
 		Summary:     summary,
+		Images:      images,
 		Assets:      assets,
 		SourceChain: sourceChain,
 		Errors:      errorsOut,

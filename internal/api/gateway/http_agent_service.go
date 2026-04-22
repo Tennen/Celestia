@@ -200,6 +200,14 @@ func (s *HTTPService) RunAgentCodex(ctx context.Context, req models.AgentCodexRe
 	return out, nil
 }
 
+func (s *HTTPService) RunAgentMarkdownRender(ctx context.Context, req models.AgentMarkdownRenderRequest) (models.AgentMarkdownRenderResult, error) {
+	var out models.AgentMarkdownRenderResult
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/md2img/render", nil, req, &out, ""); err != nil {
+		return models.AgentMarkdownRenderResult{}, err
+	}
+	return out, nil
+}
+
 func (s *HTTPService) putAgentSnapshot(ctx context.Context, path string, body any) (models.AgentSnapshot, error) {
 	var out models.AgentSnapshot
 	if err := s.request(ctx, http.MethodPut, path, nil, body, &out, ""); err != nil {

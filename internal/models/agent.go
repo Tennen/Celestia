@@ -18,6 +18,7 @@ type AgentSnapshot struct {
 	WeComMenu     AgentWeComMenuSnapshot `json:"wecom_menu"`
 	Push          AgentPushSnapshot      `json:"push"`
 	Conversations []AgentConversation    `json:"conversations"`
+	Memory        AgentMemorySnapshot    `json:"memory"`
 	TopicSummary  AgentTopicSnapshot     `json:"topic_summary"`
 	Writing       AgentWritingSnapshot   `json:"writing"`
 	Market        AgentMarketSnapshot    `json:"market"`
@@ -34,6 +35,8 @@ type AgentSettings struct {
 	Evolution            AgentEvolutionConfig  `json:"evolution"`
 	STT                  AgentSpeechConfig     `json:"stt"`
 	SearchEngines        []AgentSearchProvider `json:"search_engines"`
+	Memory               AgentMemoryConfig     `json:"memory"`
+	MD2Img               AgentMD2ImgConfig     `json:"md2img"`
 	UpdatedAt            time.Time             `json:"updated_at"`
 }
 
@@ -60,6 +63,25 @@ type AgentSpeechConfig struct {
 	Provider  string `json:"provider,omitempty"`
 	Command   string `json:"command,omitempty"`
 	Enabled   bool   `json:"enabled"`
+	TimeoutMS int    `json:"timeout_ms,omitempty"`
+}
+
+type AgentMemoryConfig struct {
+	Enabled              bool `json:"enabled"`
+	CompactEveryRounds   int  `json:"compact_every_rounds,omitempty"`
+	CompactMaxBatchSize  int  `json:"compact_max_batch_size,omitempty"`
+	SummaryTopK          int  `json:"summary_top_k,omitempty"`
+	RawRefLimit          int  `json:"raw_ref_limit,omitempty"`
+	RawRecordLimit       int  `json:"raw_record_limit,omitempty"`
+	WindowTimeoutSeconds int  `json:"window_timeout_seconds,omitempty"`
+	WindowMaxTurns       int  `json:"window_max_turns,omitempty"`
+}
+
+type AgentMD2ImgConfig struct {
+	Enabled   bool   `json:"enabled"`
+	Mode      string `json:"mode,omitempty"`
+	Command   string `json:"command,omitempty"`
+	OutputDir string `json:"output_dir,omitempty"`
 	TimeoutMS int    `json:"timeout_ms,omitempty"`
 }
 
@@ -362,6 +384,7 @@ type AgentMarketRun struct {
 	Phase       string                    `json:"phase"`
 	MarketState string                    `json:"market_state"`
 	Summary     string                    `json:"summary"`
+	Images      []AgentMarkdownImage      `json:"images,omitempty"`
 	Assets      []AgentMarketAssetContext `json:"assets,omitempty"`
 	SourceChain []string                  `json:"source_chain,omitempty"`
 	Errors      []AgentRunError           `json:"errors,omitempty"`

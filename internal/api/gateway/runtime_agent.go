@@ -182,6 +182,14 @@ func (s *RuntimeService) RunAgentCodex(ctx context.Context, req models.AgentCode
 	return result, nil
 }
 
+func (s *RuntimeService) RunAgentMarkdownRender(ctx context.Context, req models.AgentMarkdownRenderRequest) (models.AgentMarkdownRenderResult, error) {
+	result, err := s.runtime.Agent.RunMarkdownRender(ctx, req)
+	if err != nil {
+		return result, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
 func (s *RuntimeService) agentSnapshot(_ context.Context, snapshot models.AgentSnapshot, err error) (models.AgentSnapshot, error) {
 	if err != nil {
 		return models.AgentSnapshot{}, statusError(http.StatusBadRequest, err)
