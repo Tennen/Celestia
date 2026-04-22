@@ -50,15 +50,35 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 		}
 	} else {
 		prompt := resolved
+		var routeSnapshot models.AgentSnapshot
+		var routeSnapshotOK bool
 		if snapshot, snapshotErr := s.Snapshot(ctx); snapshotErr == nil {
+			routeSnapshot = snapshot
+			routeSnapshotOK = true
 			var memoryMetadata map[string]any
 			prompt, memoryMetadata = buildMemoryPrompt(snapshot, sessionID, resolved)
 			for key, value := range memoryMetadata {
 				metadata[key] = value
 			}
 		}
-		response, err = s.GenerateText(ctx, prompt)
-		if err != nil {
+		if routeSnapshotOK {
+			var routeMetadata map[string]any
+			var routed bool
+			response, routeMetadata, routed, err = s.RouteConversation(ctx, resolved, prompt, routeSnapshot)
+			for key, value := range routeMetadata {
+				metadata[key] = value
+			}
+			if routed && err != nil {
+				status = "failed"
+				response = strings.TrimSpace(response + "\n" + err.Error())
+			}
+			if !routed {
+				response, err = s.GenerateText(ctx, prompt)
+			}
+		} else {
+			response, err = s.GenerateText(ctx, prompt)
+		}
+		if err != nil && status != "failed" {
 			response = err.Error()
 			status = "failed"
 		}

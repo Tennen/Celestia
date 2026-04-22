@@ -30,6 +30,8 @@ func (s *Service) RunDirectCommand(ctx context.Context, input string) (string, b
 		return s.commandTerminal(ctx, rest)
 	case "/codex":
 		return s.commandCodex(ctx, rest)
+	case "/md2img":
+		return s.commandMD2Img(ctx, rest)
 	case "/sync":
 		return s.commandTerminal(ctx, "git pull")
 	case "/build":
@@ -127,6 +129,11 @@ func (s *Service) commandTerminal(ctx context.Context, command string) (string, 
 
 func (s *Service) commandCodex(ctx context.Context, prompt string) (string, bool, error) {
 	result, err := s.RunCodex(ctx, models.AgentCodexRequest{Prompt: prompt})
+	return marshalCommandResult(result), true, err
+}
+
+func (s *Service) commandMD2Img(ctx context.Context, markdown string) (string, bool, error) {
+	result, err := s.RunMarkdownRender(ctx, models.AgentMarkdownRenderRequest{Markdown: markdown})
 	return marshalCommandResult(result), true, err
 }
 

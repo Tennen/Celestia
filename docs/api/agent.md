@@ -102,7 +102,7 @@ Body:
 }
 ```
 
-The runtime applies direct-input mapping first, then calls the configured LLM provider. Device command execution remains owned by `/api/ai/v1/commands`.
+The runtime applies direct-input mapping first, then handles slash commands. For non-command text, Celestia now runs a Paimon-style routing step over built-in tool contracts before falling back to a direct LLM response. The router can call local search, topic summary, writing organizer, market analysis, evolution, terminal, Codex, md2img, or the Celestia device handoff response. Device command execution remains owned by `/api/ai/v1/commands`.
 
 When `settings.memory.enabled=true`, non-command conversation turns inject Paimon-style session memory before the LLM call:
 
@@ -121,6 +121,7 @@ Paimon-style direct commands are handled before the LLM:
 - `/evolution queue <goal>`, `/evolution run <goal_id>`
 - `/terminal <command>`
 - `/codex <prompt>`
+- `/md2img <markdown>`
 - `/sync`, `/build`, `/restart`, `/deploy`
 - `/celestia` returns the gateway-owned AI command path; device execution remains in `/api/ai/v1/commands`
 
