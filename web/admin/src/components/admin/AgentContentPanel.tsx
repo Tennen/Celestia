@@ -15,6 +15,7 @@ import {
 } from '../../lib/agent';
 import { Field, FieldGrid, ToggleField, requiredNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -64,6 +65,8 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
     const id = textOf(profileDraft.id) || slugId(textOf(profileDraft.name), 'profile');
     const next = { ...profileDraft, id, sources: profileDraft.sources ?? [] };
     const profiles = replaceRecord(snapshot.topic_summary.profiles, next);
+    setProfileId(id);
+    setProfileDraft(next);
     onRun('topic-save', () => saveAgentTopic({ ...snapshot.topic_summary, active_profile_id: snapshot.topic_summary.active_profile_id || id, profiles }), false);
   };
 
@@ -71,6 +74,7 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
     const selected = activeProfile ?? profileDraft;
     const sourceID = textOf(sourceDraft.id) || slugId(textOf(sourceDraft.name), 'source');
     const nextSource = { ...sourceDraft, id: sourceID, weight: numOf(sourceDraft.weight) ?? 1, enabled: sourceDraft.enabled !== false };
+    setSourceDraft(nextSource);
     const profiles = snapshot.topic_summary.profiles.map((item) => {
       if (textOf(item.id) !== textOf(selected.id)) return item;
       const profile = item as TopicProfile;
@@ -90,24 +94,28 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>Topic Profiles</CardTitle>
-            <CardDescription>{snapshot.topic_summary.profiles.length} profiles, {snapshot.topic_summary.runs.length} runs</CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            <div className="button-row">
-              {snapshot.topic_summary.profiles.map((item) => (
-                <Button
+          <CardDescription>{snapshot.topic_summary.profiles.length} profiles, {snapshot.topic_summary.runs.length} runs</CardDescription>
+        </CardHeader>
+        <CardContent className="stack">
+          <div className="list-stack">
+            {snapshot.topic_summary.profiles.map((item) => (
+                <SelectableListItem
                   key={textOf(item.id)}
-                  variant={textOf(item.id) === profileId ? 'default' : 'secondary'}
+                  title={textOf(item.name) || textOf(item.id)}
+                  description={`${((item as TopicProfile).sources ?? []).length} sources`}
+                  selected={textOf(item.id) === profileId}
+                  badges={<Badge tone={textOf(item.id) === snapshot.topic_summary.active_profile_id ? 'accent' : 'neutral'} size="xxs">{textOf(item.id) === snapshot.topic_summary.active_profile_id ? 'active' : 'profile'}</Badge>}
                   onClick={() => {
                     const profile = item as TopicProfile;
                     setProfileId(textOf(profile.id));
                     setProfileDraft(profile);
                     setSourceDraft((profile.sources ?? [])[0] ?? { id: '', name: '', category: '', feed_url: '', weight: 1, enabled: true });
                   }}
-                >
-                  {textOf(item.name) || textOf(item.id)}
-                </Button>
+                />
               ))}
+              {snapshot.topic_summary.profiles.length === 0 ? <div className="detail">No topic profiles configured.</div> : null}
+            </div>
+            <div className="button-row">
               <Button variant="secondary" onClick={() => setProfileDraft({ id: '', name: '', sources: [] })}>
                 <Plus className="mr-2 h-4 w-4" />
                 New
@@ -134,15 +142,23 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>Topic Sources</CardTitle>
-            <CardDescription>{activeProfile?.sources?.length ?? 0} RSS sources for {activeProfile?.name ?? 'profile'}</CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            <div className="button-row">
+          <CardDescription>{activeProfile?.sources?.length ?? 0} RSS sources for {activeProfile?.name ?? 'profile'}</CardDescription>
+        </CardHeader>
+        <CardContent className="stack">
+            <div className="list-stack">
               {(activeProfile?.sources ?? []).map((source) => (
-                <Button key={textOf(source.id)} variant={textOf(source.id) === textOf(sourceDraft.id) ? 'default' : 'secondary'} onClick={() => setSourceDraft(source)}>
-                  {textOf(source.name) || textOf(source.id)}
-                </Button>
+                <SelectableListItem
+                  key={textOf(source.id)}
+                  title={textOf(source.name) || textOf(source.id)}
+                  description={textOf(source.feed_url)}
+                  selected={textOf(source.id) === textOf(sourceDraft.id)}
+                  badges={<Badge tone={source.enabled === false ? 'neutral' : 'good'} size="xxs">{source.enabled === false ? 'disabled' : textOf(source.category) || 'source'}</Badge>}
+                  onClick={() => setSourceDraft(source)}
+                />
               ))}
+              {(activeProfile?.sources ?? []).length === 0 ? <div className="detail">No RSS sources configured.</div> : null}
+            </div>
+            <div className="button-row">
               <Button variant="secondary" onClick={() => setSourceDraft({ id: '', name: '', category: '', feed_url: '', weight: 1, enabled: true })}>
                 <Plus className="mr-2 h-4 w-4" />
                 New
@@ -173,15 +189,21 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>Writing Organizer</CardTitle>
-            <CardDescription>{snapshot.writing.topics.length} topics</CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            <div className="button-row">
+          <CardDescription>{snapshot.writing.topics.length} topics</CardDescription>
+        </CardHeader>
+        <CardContent className="stack">
+            <div className="list-stack">
               {snapshot.writing.topics.map((topic) => (
-                <Button key={topic.id} variant={topic.id === writingTopicId ? 'default' : 'secondary'} onClick={() => setWritingTopicId(topic.id)}>
-                  {topic.title}
-                </Button>
+                <SelectableListItem
+                  key={topic.id}
+                  title={topic.title}
+                  description={`${topic.materials.length} materials`}
+                  selected={topic.id === writingTopicId}
+                  badges={<Badge tone={topic.status === 'done' ? 'good' : 'neutral'} size="xxs">{topic.status}</Badge>}
+                  onClick={() => setWritingTopicId(topic.id)}
+                />
               ))}
+              {snapshot.writing.topics.length === 0 ? <div className="detail">No writing topics configured.</div> : null}
             </div>
             <Field label="New topic title" value={writingTitle} onChange={setWritingTitle} />
             <Button onClick={() => onRun('writing', () => createWritingTopic({ title: writingTitle }))} disabled={!writingTitle.trim()}>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Play, Plus, Save, Trash2 } from 'lucide-react';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import {
@@ -9,6 +10,7 @@ import {
 } from '../../lib/agent';
 import { Field, FieldGrid, SelectField, ToggleField, parseOptionalNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -59,6 +61,7 @@ export function AgentSearchPanel({ snapshot, busy, onRun }: Props) {
   const saveProvider = () => {
     const id = textOf(provider.id) || slugId(textOf(provider.name) || normalizeType(provider.type), 'search');
     const next = { ...provider, id, type: normalizeType(provider.type), enabled: provider.enabled !== false, config: provider.config ?? {} };
+    setProvider(next);
     onRun('settings-save', () => saveAgentSettings({ ...snapshot.settings, search_engines: replaceRecord(snapshot.settings.search_engines ?? [], next) }), false);
   };
 
@@ -87,18 +90,22 @@ export function AgentSearchPanel({ snapshot, busy, onRun }: Props) {
           <CardDescription>Global search profiles used by Market and other Agent workflows</CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <div className="button-row">
+          <div className="list-stack">
             {(snapshot.settings.search_engines ?? []).map((item) => (
-              <Button
+              <SelectableListItem
                 key={textOf(item.id)}
-                variant={textOf(item.id) === textOf(provider.id) ? 'default' : 'secondary'}
+                title={textOf(item.name) || textOf(item.id)}
+                description={normalizeType(item.type)}
+                selected={textOf(item.id) === textOf(provider.id)}
+                badges={<Badge tone={item.enabled === false ? 'neutral' : 'good'} size="xxs">{item.enabled === false ? 'disabled' : 'enabled'}</Badge>}
                 onClick={() => {
                   setProvider(item as SearchProvider);
                 }}
-              >
-                {textOf(item.name) || textOf(item.id)}
-              </Button>
+              />
             ))}
+            {(snapshot.settings.search_engines ?? []).length === 0 ? <div className="detail">No search engine profiles configured.</div> : null}
+          </div>
+          <div className="button-row">
             <Button
               variant="secondary"
               onClick={() => {

@@ -12,6 +12,7 @@ import {
 } from '../../lib/agent';
 import { Field, FieldGrid, SelectField, ToggleField } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -43,6 +44,7 @@ export function AgentInputPanel({ snapshot, busy, onRun }: Props) {
 
   const saveRule = () => {
     const id = rule.id || slugId(rule.name || rule.pattern, 'direct');
+    setRule({ ...rule, id });
     onRun('direct-save', () => saveAgentDirectInput({ ...snapshot.direct_input, rules: replaceById(snapshot.direct_input.rules, { ...rule, id }) }), false);
   };
 
@@ -56,18 +58,22 @@ export function AgentInputPanel({ snapshot, busy, onRun }: Props) {
           <CardDescription>Maps friendly text to an Agent command before normal orchestration</CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <div className="button-row">
+          <div className="list-stack">
             {snapshot.direct_input.rules.map((item) => (
-              <Button
+              <SelectableListItem
                 key={item.id}
-                variant={item.id === rule.id ? 'default' : 'secondary'}
+                title={item.name || item.pattern}
+                description={`${item.match_mode} · ${item.pattern}`}
+                selected={item.id === rule.id}
+                badges={<Badge tone={item.enabled ? 'good' : 'neutral'} size="xxs">{item.enabled ? 'enabled' : 'disabled'}</Badge>}
                 onClick={() => {
                   setRule(item);
                 }}
-              >
-                {item.name || item.pattern}
-              </Button>
+              />
             ))}
+            {snapshot.direct_input.rules.length === 0 ? <div className="detail">No direct input mappings configured.</div> : null}
+          </div>
+          <div className="button-row">
             <Button
               variant="secondary"
               onClick={() => {

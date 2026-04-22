@@ -12,6 +12,7 @@ import {
 } from '../../lib/agent';
 import { Field, FieldGrid, SelectField, numberValue, parseOptionalNumber, requiredNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -47,6 +48,7 @@ export function AgentMarketPanel({ snapshot, onRun }: Props) {
     const funds = snapshot.market.portfolio.funds.some((item) => item.code === nextHolding.code)
       ? snapshot.market.portfolio.funds.map((item) => (item.code === nextHolding.code ? nextHolding : item))
       : [...snapshot.market.portfolio.funds, nextHolding];
+    setHolding(nextHolding);
     onRun('market-save', () => saveMarketPortfolio({ ...snapshot.market.portfolio, cash: requiredNumber(cash), funds }), false);
   };
 
@@ -59,12 +61,19 @@ export function AgentMarketPanel({ snapshot, onRun }: Props) {
         </CardHeader>
         <CardContent className="stack">
           <Field label="Cash" value={cash} onChange={setCash} />
-          <div className="button-row">
+          <div className="list-stack">
             {snapshot.market.portfolio.funds.map((item) => (
-              <Button key={item.code} variant={item.code === holding.code ? 'default' : 'secondary'} onClick={() => setHolding(item)}>
-                {item.name || item.code}
-              </Button>
+              <SelectableListItem
+                key={item.code}
+                title={item.name || item.code}
+                description={`${item.code}${item.quantity ? ` · qty ${item.quantity}` : ''}${item.avg_cost ? ` · avg ${item.avg_cost}` : ''}`}
+                selected={item.code === holding.code}
+                onClick={() => setHolding(item)}
+              />
             ))}
+            {snapshot.market.portfolio.funds.length === 0 ? <div className="detail">No holdings configured.</div> : null}
+          </div>
+          <div className="button-row">
             <Button variant="secondary" onClick={() => setHolding({ code: '', name: '' })}>
               <Plus className="mr-2 h-4 w-4" />
               New

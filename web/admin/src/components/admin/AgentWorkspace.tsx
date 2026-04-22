@@ -53,8 +53,9 @@ export function AgentWorkspace({ activePanel }: Props) {
     setNotice('');
     try {
       const output = await action();
-      setResultText(stableJSON(output));
-      setNotice(label.includes('save') ? 'Saved' : 'Done');
+      const isSave = label.includes('save');
+      setResultText(isSave ? '' : stableJSON(output));
+      setNotice(isSave ? 'Saved' : 'Done');
       if (refresh) {
         syncSnapshot(await fetchAgentSnapshot());
       } else if (output && typeof output === 'object' && 'settings' in output) {

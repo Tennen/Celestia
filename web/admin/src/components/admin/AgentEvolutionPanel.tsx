@@ -12,6 +12,7 @@ import {
 } from '../../lib/agent';
 import { Field, FieldGrid, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -90,12 +91,22 @@ export function AgentEvolutionPanel({ snapshot, onRun }: Props) {
               Run Next
             </Button>
           </div>
-          {runnableGoal ? (
-            <div className="rounded-md border border-border-light p-3 text-sm">
-              <Badge tone={runnableGoal.status === 'succeeded' ? 'good' : 'neutral'}>{runnableGoal.status}</Badge>
-              <p className="mt-2">{runnableGoal.goal}</p>
-            </div>
-          ) : null}
+          <div className="list-stack">
+            {snapshot.evolution.goals.map((item) => (
+              <SelectableListItem
+                key={item.id}
+                title={item.goal}
+                description={item.commit_message ?? ''}
+                selected={item.id === runnableGoal?.id}
+                badges={<Badge tone={item.status === 'succeeded' ? 'good' : item.status === 'failed' ? 'bad' : 'neutral'} size="xxs">{item.status}</Badge>}
+                onClick={() => {
+                  setGoal(item.goal);
+                  setCommitMessage(item.commit_message ?? '');
+                }}
+              />
+            ))}
+            {snapshot.evolution.goals.length === 0 ? <div className="detail">No evolution goals queued.</div> : null}
+          </div>
         </CardContent>
       </Card>
 

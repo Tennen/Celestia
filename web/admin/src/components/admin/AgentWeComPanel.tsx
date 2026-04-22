@@ -16,6 +16,7 @@ import {
 } from '../../lib/agent';
 import { Field, FieldGrid, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -57,6 +58,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
 
   const savePushUser = () => {
     const id = textOf(pushUser.id) || slugId(textOf(pushUser.name) || textOf(pushUser.wecom_user), 'user');
+    setPushUser({ ...pushUser, id });
     onRun('push-save', () => saveAgentPush({ ...snapshot.push, users: replaceRecordById(snapshot.push.users, { ...pushUser, id }) }), false);
   };
 
@@ -65,7 +67,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
       <TabsList className="flex-wrap justify-start">
         <TabsTrigger value="settings">Settings</TabsTrigger>
         <TabsTrigger value="menu">Menu</TabsTrigger>
-        <TabsTrigger value="touchpoints">Touchpoints</TabsTrigger>
+        <TabsTrigger value="users">Users</TabsTrigger>
         <TabsTrigger value="message">Message</TabsTrigger>
       </TabsList>
 
@@ -132,19 +134,35 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         </Card>
       </TabsContent>
 
-      <TabsContent value="touchpoints" className="grid grid--two">
+      <TabsContent value="users" className="grid grid--two">
         <Card className="panel">
           <CardHeader>
-            <CardTitle>WeCom Touchpoints</CardTitle>
+            <CardTitle>WeCom Users</CardTitle>
+            <CardDescription>{snapshot.push.users.length} users available as Agent output recipients</CardDescription>
+          </CardHeader>
+          <CardContent className="stack">
+            <div className="list-stack">
+              {snapshot.push.users.map((user) => (
+                <SelectableListItem
+                  key={textOf(user.id)}
+                  title={textOf(user.name) || textOf(user.wecom_user)}
+                  description={textOf(user.wecom_user)}
+                  selected={textOf(user.id) === textOf(pushUser.id)}
+                  badges={<Badge tone={user.enabled === false ? 'neutral' : 'good'} size="xxs">{user.enabled === false ? 'disabled' : 'enabled'}</Badge>}
+                  onClick={() => setPushUser(user)}
+                />
+              ))}
+              {snapshot.push.users.length === 0 ? <div className="detail">No WeCom users configured.</div> : null}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="panel">
+          <CardHeader>
+            <CardTitle>User Editor</CardTitle>
             <CardDescription>Recipient aliases for Automation Agent outputs; schedules live in Automation</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="button-row">
-              {snapshot.push.users.map((user) => (
-                <Button key={textOf(user.id)} variant={textOf(user.id) === textOf(pushUser.id) ? 'default' : 'secondary'} onClick={() => setPushUser(user)}>
-                  {textOf(user.name) || textOf(user.wecom_user)}
-                </Button>
-              ))}
               <Button variant="secondary" onClick={() => setPushUser(emptyPushUser())}>
                 <Plus className="mr-2 h-4 w-4" />
                 New
@@ -158,7 +176,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
             <div className="button-row">
               <Button onClick={savePushUser}>
                 <Save className="mr-2 h-4 w-4" />
-                Save Touchpoint
+                Save User
               </Button>
               <Button variant="danger" disabled={!pushUser.id} onClick={() => onRun('push-save', () => saveAgentPush({ ...snapshot.push, users: snapshot.push.users.filter((user) => textOf(user.id) !== textOf(pushUser.id)) }), false)}>
                 <Trash2 className="mr-2 h-4 w-4" />

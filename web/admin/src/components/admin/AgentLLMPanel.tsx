@@ -11,6 +11,7 @@ import {
 } from '../../lib/agent';
 import { Field, FieldGrid, SelectField, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
+import { SelectableListItem } from './shared/SelectableListItem';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -80,6 +81,7 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
     const id = provider.id || slugId(provider.name || provider.model || provider.type, 'llm');
     const nextProvider = { ...provider, id, type: normalizeProviderType(provider.type), timeout_ms: parseOptionalNumber(String(provider.timeout_ms ?? '')) };
     const providers = replaceById(snapshot.settings.llm_providers, nextProvider);
+    setProvider(nextProvider);
     onRun(
       'settings-save',
       () => saveAgentSettings({ ...snapshot.settings, llm_providers: providers, default_llm_provider_id: snapshot.settings.default_llm_provider_id || id }),
@@ -126,18 +128,22 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
           <CardDescription>Provider profile for routing, planning, and business runtimes</CardDescription>
         </CardHeader>
         <CardContent className="stack">
-          <div className="button-row">
+          <div className="list-stack">
             {snapshot.settings.llm_providers.map((item) => (
-              <Button
+              <SelectableListItem
                 key={item.id}
-                variant={item.id === provider.id ? 'default' : 'secondary'}
+                title={item.name || item.model || item.type}
+                description={`${normalizeProviderType(item.type)}${item.model ? ` · ${item.model}` : ''}`}
+                selected={item.id === provider.id}
+                badges={<Badge tone={item.id === snapshot.settings.default_llm_provider_id ? 'accent' : 'neutral'} size="xxs">{item.id === snapshot.settings.default_llm_provider_id ? 'default' : 'profile'}</Badge>}
                 onClick={() => {
                   setProvider(item);
                 }}
-              >
-                {item.name || item.model || item.type}
-              </Button>
+              />
             ))}
+            {snapshot.settings.llm_providers.length === 0 ? <div className="detail">No LLM providers configured.</div> : null}
+          </div>
+          <div className="button-row">
             <Button
               variant="secondary"
               onClick={() => {
