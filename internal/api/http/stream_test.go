@@ -141,6 +141,9 @@ func (g *stubGateway) SummarizeAgentWritingTopic(_ context.Context, _ string) (m
 func (g *stubGateway) SaveAgentMarketPortfolio(_ context.Context, _ models.AgentMarketPortfolio) (models.AgentSnapshot, error) {
 	return models.AgentSnapshot{}, nil
 }
+func (g *stubGateway) ImportAgentMarketPortfolioCodes(_ context.Context, _ models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error) {
+	return models.AgentMarketImportCodesResponse{}, nil
+}
 func (g *stubGateway) RunAgentMarketAnalysis(_ context.Context, _ gatewayapi.AgentMarketRunRequest) (models.AgentMarketRun, error) {
 	return models.AgentMarketRun{}, nil
 }

@@ -20,6 +20,11 @@ type WritingMaterialRequest struct {
 	Content string `json:"content"`
 }
 
+type WritingStateUpdateRequest struct {
+	Section string `json:"section"`
+	Content string `json:"content"`
+}
+
 func (s *Service) SaveWritingTopic(ctx context.Context, req WritingTopicRequest) (models.AgentWritingTopic, error) {
 	if err := requireText(req.Title, "title"); err != nil {
 		return models.AgentWritingTopic{}, err
@@ -132,6 +137,71 @@ func (s *Service) SummarizeWritingTopic(ctx context.Context, topicID string) (mo
 		current.UpdatedAt = now
 		var persistErr error
 		current, persistErr = persistWritingState(current, current.Backup, state, now)
+		if persistErr != nil {
+			return persistErr
+		}
+		saved = current
+		replaceWritingTopic(snapshot, current)
+		return nil
+	})
+	return saved, err
+}
+
+func (s *Service) RestoreWritingTopic(ctx context.Context, topicID string) (models.AgentWritingTopic, error) {
+	if err := requireText(topicID, "topic_id"); err != nil {
+		return models.AgentWritingTopic{}, err
+	}
+	now := time.Now().UTC()
+	var saved models.AgentWritingTopic
+	_, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
+		current, ok := findWritingTopic(snapshot.Writing.Topics, topicID)
+		if !ok {
+			return errors.New("writing topic not found")
+		}
+		current.State, current.Backup = current.Backup, current.State
+		current.UpdatedAt = now
+		var persistErr error
+		current, persistErr = persistWritingState(current, current.Backup, current.State, now)
+		if persistErr != nil {
+			return persistErr
+		}
+		saved = current
+		replaceWritingTopic(snapshot, current)
+		return nil
+	})
+	return saved, err
+}
+
+func (s *Service) SetWritingTopicState(ctx context.Context, topicID string, req WritingStateUpdateRequest) (models.AgentWritingTopic, error) {
+	if err := requireText(topicID, "topic_id"); err != nil {
+		return models.AgentWritingTopic{}, err
+	}
+	section := strings.ToLower(strings.TrimSpace(req.Section))
+	if section != "summary" && section != "outline" && section != "draft" {
+		return models.AgentWritingTopic{}, errors.New("section must be summary, outline, or draft")
+	}
+	if err := requireText(req.Content, "content"); err != nil {
+		return models.AgentWritingTopic{}, err
+	}
+	now := time.Now().UTC()
+	var saved models.AgentWritingTopic
+	_, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
+		current, ok := findWritingTopic(snapshot.Writing.Topics, topicID)
+		if !ok {
+			return errors.New("writing topic not found")
+		}
+		current.Backup = current.State
+		switch section {
+		case "summary":
+			current.State.Summary = strings.TrimSpace(req.Content)
+		case "outline":
+			current.State.Outline = strings.TrimSpace(req.Content)
+		case "draft":
+			current.State.Draft = strings.TrimSpace(req.Content)
+		}
+		current.UpdatedAt = now
+		var persistErr error
+		current, persistErr = persistWritingState(current, current.Backup, current.State, now)
 		if persistErr != nil {
 			return persistErr
 		}

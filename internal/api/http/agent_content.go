@@ -83,6 +83,19 @@ func (s *Server) handleAgentMarketPortfolio(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, snapshot)
 }
 
+func (s *Server) handleAgentMarketImportCodes(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentMarketImportCodesRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.ImportAgentMarketPortfolioCodes(r.Context(), payload)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (s *Server) handleAgentMarketRun(w http.ResponseWriter, r *http.Request) {
 	var payload gatewayapi.AgentMarketRunRequest
 	if !decodeJSON(w, r, &payload) {

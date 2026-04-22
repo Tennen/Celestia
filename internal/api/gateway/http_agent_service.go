@@ -143,6 +143,14 @@ func (s *HTTPService) SaveAgentMarketPortfolio(ctx context.Context, portfolio mo
 	return s.putAgentSnapshot(ctx, "/api/v1/agent/market/portfolio", portfolio)
 }
 
+func (s *HTTPService) ImportAgentMarketPortfolioCodes(ctx context.Context, req models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error) {
+	var out models.AgentMarketImportCodesResponse
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/market/portfolio/import-codes", nil, req, &out, ""); err != nil {
+		return models.AgentMarketImportCodesResponse{}, err
+	}
+	return out, nil
+}
+
 func (s *HTTPService) RunAgentMarketAnalysis(ctx context.Context, req AgentMarketRunRequest) (models.AgentMarketRun, error) {
 	var out models.AgentMarketRun
 	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/market/run", nil, req, &out, ""); err != nil {

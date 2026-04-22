@@ -99,3 +99,21 @@ type AgentMarketAssetContext struct {
 	SourceChain []string                `json:"source_chain,omitempty"`
 	Errors      []string                `json:"errors,omitempty"`
 }
+
+type AgentMarketImportCodesRequest struct {
+	Codes string `json:"codes"`
+}
+
+type AgentMarketImportCodeResult struct {
+	Code    string `json:"code"`
+	Name    string `json:"name,omitempty"`
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+type AgentMarketImportCodesResponse struct {
+	OK        bool                          `json:"ok"`
+	Portfolio AgentMarketPortfolio          `json:"portfolio"`
+	Results   []AgentMarketImportCodeResult `json:"results"`
+	Summary   map[string]int                `json:"summary"`
+}

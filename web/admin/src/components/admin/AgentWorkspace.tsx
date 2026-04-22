@@ -20,6 +20,7 @@ import {
   createEvolutionGoal,
   createWritingTopic,
   fetchAgentSnapshot,
+  importMarketPortfolioCodes,
   parseJSONObject,
   publishAgentWeComMenu,
   renderAgentMarkdown,
@@ -88,6 +89,7 @@ export function AgentWorkspace() {
   const [wecomImageName, setWecomImageName] = useState('');
   const [writingTitle, setWritingTitle] = useState('');
   const [writingMaterial, setWritingMaterial] = useState('');
+  const [marketCodes, setMarketCodes] = useState('');
   const [marketNotes, setMarketNotes] = useState('');
   const [evolutionGoal, setEvolutionGoal] = useState('');
   const [terminalCommand, setTerminalCommand] = useState('');
@@ -317,6 +319,10 @@ export function AgentWorkspace() {
             busy={busy === 'market'}
             extra={
               <div className="stack">
+                <Textarea value={marketCodes} onChange={(event) => setMarketCodes(event.target.value)} placeholder="Import fund/security codes" />
+                <Button variant="secondary" onClick={() => run('market', () => importMarketPortfolioCodes({ codes: marketCodes }))}>
+                  Import Codes
+                </Button>
                 <Textarea value={marketNotes} onChange={(event) => setMarketNotes(event.target.value)} placeholder="Run notes" />
                 <Button variant="secondary" onClick={() => run('market', () => runMarketAnalysis({ phase: 'close', notes: marketNotes }))}>Run Close</Button>
               </div>

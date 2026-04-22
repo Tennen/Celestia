@@ -280,6 +280,10 @@ export function saveMarketPortfolio(payload: AgentMarketPortfolio) {
   return request<AgentSnapshot>('/agent/market/portfolio', { method: 'PUT', body: JSON.stringify(payload) });
 }
 
+export function importMarketPortfolioCodes(payload: { codes: string }) {
+  return request<Record<string, unknown>>('/agent/market/portfolio/import-codes', { method: 'POST', body: JSON.stringify(payload) });
+}
+
 export function runMarketAnalysis(payload: { phase: string; notes?: string }) {
   return request<Record<string, unknown>>('/agent/market/run', { method: 'POST', body: JSON.stringify(payload) });
 }

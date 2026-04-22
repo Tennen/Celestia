@@ -126,6 +126,14 @@ func (s *RuntimeService) SaveAgentMarketPortfolio(ctx context.Context, portfolio
 	return s.agentSnapshot(ctx, snapshot, err)
 }
 
+func (s *RuntimeService) ImportAgentMarketPortfolioCodes(ctx context.Context, req models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error) {
+	result, err := s.runtime.Agent.ImportMarketPortfolioCodes(ctx, req)
+	if err != nil {
+		return models.AgentMarketImportCodesResponse{}, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
 func (s *RuntimeService) RunAgentMarketAnalysis(ctx context.Context, req AgentMarketRunRequest) (models.AgentMarketRun, error) {
 	run, err := s.runtime.Agent.RunMarketAnalysis(ctx, coreagent.MarketRunRequest(req))
 	if err != nil {

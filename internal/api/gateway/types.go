@@ -49,6 +49,7 @@ type Service interface {
 	AddAgentWritingMaterial(ctx context.Context, topicID string, req AgentWritingMaterialRequest) (models.AgentWritingTopic, error)
 	SummarizeAgentWritingTopic(ctx context.Context, topicID string) (models.AgentWritingTopic, error)
 	SaveAgentMarketPortfolio(ctx context.Context, portfolio models.AgentMarketPortfolio) (models.AgentSnapshot, error)
+	ImportAgentMarketPortfolioCodes(ctx context.Context, req models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error)
 	RunAgentMarketAnalysis(ctx context.Context, req AgentMarketRunRequest) (models.AgentMarketRun, error)
 	CreateAgentEvolutionGoal(ctx context.Context, req AgentEvolutionGoalRequest) (models.AgentEvolutionGoal, error)
 	RunAgentEvolutionGoal(ctx context.Context, goalID string) (models.AgentEvolutionGoal, error)

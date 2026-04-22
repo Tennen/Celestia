@@ -34,6 +34,8 @@ func (s *Service) RunDirectCommand(ctx context.Context, input string) (string, b
 		return s.commandTerminal(ctx, "git pull")
 	case "/build":
 		return s.commandTerminal(ctx, "npm install && npm run build")
+	case "/restart":
+		return s.commandTerminal(ctx, "pm2 restart 0")
 	case "/deploy":
 		return s.commandTerminal(ctx, "./deploy.sh")
 	case "/celestia":
@@ -62,6 +64,19 @@ func (s *Service) commandTopic(ctx context.Context, profileID string) (string, b
 func (s *Service) commandWriting(ctx context.Context, rest string) (string, bool, error) {
 	action, tail := splitWord(rest)
 	switch action {
+	case "", "topics", "list":
+		snapshot, err := s.Snapshot(ctx)
+		return marshalCommandResult(snapshot.Writing.Topics), true, err
+	case "show":
+		snapshot, err := s.Snapshot(ctx)
+		if err != nil {
+			return "", true, err
+		}
+		topic, ok := findWritingTopic(snapshot.Writing.Topics, strings.TrimSpace(tail))
+		if !ok {
+			return "", true, errors.New("writing topic not found")
+		}
+		return marshalCommandResult(topic), true, nil
 	case "topic", "create":
 		topic, err := s.SaveWritingTopic(ctx, WritingTopicRequest{Title: tail})
 		return marshalCommandResult(topic), true, err
@@ -72,8 +87,16 @@ func (s *Service) commandWriting(ctx context.Context, rest string) (string, bool
 	case "summarize":
 		topic, err := s.SummarizeWritingTopic(ctx, strings.TrimSpace(tail))
 		return marshalCommandResult(topic), true, err
+	case "restore":
+		topic, err := s.RestoreWritingTopic(ctx, strings.TrimSpace(tail))
+		return marshalCommandResult(topic), true, err
+	case "set":
+		topicID, rest := splitWord(tail)
+		section, content := splitWord(rest)
+		topic, err := s.SetWritingTopicState(ctx, topicID, WritingStateUpdateRequest{Section: section, Content: content})
+		return marshalCommandResult(topic), true, err
 	default:
-		return "Writing commands: /writing create <title>, /writing append <topic_id> <content>, /writing summarize <topic_id>", true, nil
+		return "Writing commands: /writing topics, /writing show <topic_id>, /writing create <title>, /writing append <topic_id> <content>, /writing summarize <topic_id>, /writing restore <topic_id>, /writing set <topic_id> <summary|outline|draft> <content>", true, nil
 	}
 }
 

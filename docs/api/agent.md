@@ -116,12 +116,12 @@ Paimon-style direct commands are handled before the LLM:
 
 - `/search <query>`
 - `/topic [profile_id]`
-- `/writing create <title>`, `/writing append <topic_id> <content>`, `/writing summarize <topic_id>`
+- `/writing topics`, `/writing show <topic_id>`, `/writing create <title>`, `/writing append <topic_id> <content>`, `/writing summarize <topic_id>`, `/writing restore <topic_id>`, `/writing set <topic_id> <summary|outline|draft> <content>`
 - `/market [phase]`
 - `/evolution queue <goal>`, `/evolution run <goal_id>`
 - `/terminal <command>`
 - `/codex <prompt>`
-- `/sync`, `/build`, `/deploy`
+- `/sync`, `/build`, `/restart`, `/deploy`
 - `/celestia` returns the gateway-owned AI command path; device execution remains in `/api/ai/v1/commands`
 
 ## STT
@@ -174,10 +174,13 @@ The topic snapshot includes `artifact_root`, `raw_files`, `artifacts`, and `last
 
 ```http
 PUT /api/v1/agent/market/portfolio
+POST /api/v1/agent/market/portfolio/import-codes
 POST /api/v1/agent/market/run
 ```
 
 The market module stores fund holdings and cash. A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
+
+`/market/portfolio/import-codes` accepts `{ "codes": "510300, 159915" }`, resolves names through Eastmoney suggest endpoints, preserves existing quantity/cost fields, and returns per-code `added`, `updated`, `exists`, `not_found`, or `error` status.
 
 If `settings.md2img.enabled=true`, the generated markdown report is rendered through the md2img pipeline and returned in `images[]`. A missing Playwright browser, missing npm dependency, empty markdown, or screenshot failure returns `MARKET_IMAGE_PIPELINE_FAILED` rather than silently falling back to text-only output.
 
