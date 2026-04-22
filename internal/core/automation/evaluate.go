@@ -3,6 +3,7 @@ package automation
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -177,55 +178,18 @@ func (s *Service) executeAutomation(ctx context.Context, automation models.Autom
 	actor := "automation:" + automation.ID
 	var failures []string
 	for _, action := range automation.Actions {
-		device, ok, err := s.registry.Get(ctx, action.DeviceID)
+		var err error
+		if normalizeActionKind(action) == models.AutomationActionKindAgent {
+			err = s.executeAgentAction(ctx, automation, action)
+		} else {
+			err = s.executeDeviceAction(ctx, actor, action)
+		}
 		if err != nil {
 			failures = append(failures, err.Error())
-			continue
 		}
-		if !ok {
-			failures = append(failures, fmt.Sprintf("device %q not found", action.DeviceID))
-			continue
-		}
-		decision := s.policy.Evaluate(actor, action.Action)
-		auditRecord := models.AuditRecord{
-			ID:        uuid.NewString(),
-			Actor:     actor,
-			DeviceID:  device.ID,
-			Action:    action.Action,
-			Params:    cloneParams(action.Params),
-			Allowed:   decision.Allowed,
-			RiskLevel: decision.RiskLevel,
-			CreatedAt: time.Now().UTC(),
-		}
-		if !decision.Allowed {
-			auditRecord.Result = "denied"
-			_ = s.audit.Append(ctx, auditRecord)
-			failures = append(failures, fmt.Sprintf("action %q denied: %s", action.Action, decision.Reason))
-			continue
-		}
-		resp, err := s.pluginMgr.ExecuteCommand(ctx, device, models.CommandRequest{
-			DeviceID:  device.ID,
-			Action:    action.Action,
-			Params:    cloneParams(action.Params),
-			RequestID: uuid.NewString(),
-		})
-		if err != nil {
-			auditRecord.Result = "failed"
-			_ = s.audit.Append(ctx, auditRecord)
-			failures = append(failures, fmt.Sprintf("action %q failed: %v", action.Action, err))
-			continue
-		}
-		if !resp.Accepted {
-			auditRecord.Result = "failed"
-			_ = s.audit.Append(ctx, auditRecord)
-			failures = append(failures, fmt.Sprintf("action %q rejected: %s", action.Action, strings.TrimSpace(resp.Message)))
-			continue
-		}
-		auditRecord.Result = "accepted"
-		_ = s.audit.Append(ctx, auditRecord)
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf(strings.Join(failures, "; "))
+		return errors.New(strings.Join(failures, "; "))
 	}
 	log.Printf("automation: triggered id=%s name=%q source_event=%s device=%s", automation.ID, automation.Name, sourceEvent.ID, sourceEvent.DeviceID)
 	return nil

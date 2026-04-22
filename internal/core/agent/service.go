@@ -49,11 +49,7 @@ func (s *Service) Init(ctx context.Context) error {
 	}
 	s.started = true
 	s.mu.Unlock()
-	s.wg.Add(2)
-	go func() {
-		defer s.wg.Done()
-		s.runScheduler()
-	}()
+	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
 		s.runWeComBridge()
@@ -119,14 +115,6 @@ func (s *Service) SavePush(ctx context.Context, push models.AgentPushSnapshot) (
 		for idx := range push.Users {
 			push.Users[idx].ID = firstNonEmpty(push.Users[idx].ID, uuid.NewString())
 			push.Users[idx].UpdatedAt = now
-		}
-		for idx := range push.Tasks {
-			push.Tasks[idx].ID = firstNonEmpty(push.Tasks[idx].ID, uuid.NewString())
-			push.Tasks[idx].UpdatedAt = now
-			if push.Tasks[idx].Enabled && push.Tasks[idx].NextRunAt == nil {
-				next := now.Add(time.Duration(maxInt(push.Tasks[idx].IntervalM, 1)) * time.Minute)
-				push.Tasks[idx].NextRunAt = &next
-			}
 		}
 		push.UpdatedAt = now
 		snapshot.Push = push
@@ -226,7 +214,6 @@ func defaultSnapshot() models.AgentSnapshot {
 		},
 		Push: models.AgentPushSnapshot{
 			Users:     []models.AgentPushUser{},
-			Tasks:     []models.AgentPushTask{},
 			UpdatedAt: now,
 		},
 		Conversations: []models.AgentConversation{},
@@ -287,9 +274,6 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	}
 	if snapshot.Push.Users == nil {
 		snapshot.Push.Users = []models.AgentPushUser{}
-	}
-	if snapshot.Push.Tasks == nil {
-		snapshot.Push.Tasks = []models.AgentPushTask{}
 	}
 	if snapshot.Memory.RawRecords == nil {
 		snapshot.Memory.RawRecords = []models.AgentRawMemoryRecord{}

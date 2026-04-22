@@ -93,7 +93,6 @@ export type AgentWeComMenuSnapshot = {
 
 export type AgentPushSnapshot = {
   users: Array<Record<string, unknown>>;
-  tasks: Array<Record<string, unknown>>;
   updated_at: string;
 };
 
@@ -417,7 +416,6 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
     push: {
       ...push,
       users: arrayOrEmpty(push.users),
-      tasks: arrayOrEmpty(push.tasks),
     },
     conversations: arrayOrEmpty(snapshot.conversations),
     topic_summary: {

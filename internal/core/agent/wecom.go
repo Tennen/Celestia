@@ -99,6 +99,10 @@ func (s *Service) SendWeComMessage(ctx context.Context, req WeComSendRequest) er
 	return nil
 }
 
+func (s *Service) SendWeComText(ctx context.Context, toUser string, text string) error {
+	return s.SendWeComMessage(ctx, WeComSendRequest{ToUser: toUser, Text: text})
+}
+
 func (s *Service) RecordWeComXML(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {
 	result, err := s.HandleWeComXML(ctx, raw)
 	return result.Record, err

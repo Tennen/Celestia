@@ -39,15 +39,23 @@ type AutomationConditionType string
 const (
 	AutomationConditionTypeStateChanged AutomationConditionType = "state_changed"
 	AutomationConditionTypeCurrentState AutomationConditionType = "current_state"
+	AutomationConditionTypeTime         AutomationConditionType = "time"
 )
+
+type AutomationTimeCondition struct {
+	Schedule string `json:"schedule"`
+	At       string `json:"at"`
+	Timezone string `json:"timezone,omitempty"`
+}
 
 type AutomationCondition struct {
 	Type     AutomationConditionType `json:"type,omitempty"`
-	DeviceID string                  `json:"device_id"`
-	StateKey string                  `json:"state_key"`
+	DeviceID string                  `json:"device_id,omitempty"`
+	StateKey string                  `json:"state_key,omitempty"`
 	From     *AutomationStateMatch   `json:"from,omitempty"`
 	To       *AutomationStateMatch   `json:"to,omitempty"`
 	Match    *AutomationStateMatch   `json:"match,omitempty"`
+	Time     *AutomationTimeCondition `json:"time,omitempty"`
 }
 
 type AutomationTimeWindow struct {
@@ -55,7 +63,15 @@ type AutomationTimeWindow struct {
 	End   string `json:"end"`
 }
 
+type AutomationActionKind string
+
+const (
+	AutomationActionKindDevice AutomationActionKind = "device"
+	AutomationActionKindAgent  AutomationActionKind = "agent"
+)
+
 type AutomationAction struct {
+	Kind     AutomationActionKind `json:"kind,omitempty"`
 	DeviceID string         `json:"device_id"`
 	Label    string         `json:"label,omitempty"`
 	Action   string         `json:"action"`

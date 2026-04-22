@@ -26,25 +26,33 @@ func (s *Service) reloadIndex(ctx context.Context) error {
 	index := make(map[string][]string, len(automations))
 	cache := make(map[string]models.Automation, len(automations))
 	devices := make(map[string]string, len(automations))
+	timeIDs := make(map[string]struct{}, len(automations))
 	for _, automation := range automations {
 		if !automation.Enabled {
 			continue
 		}
 		trigger, ok := stateChangedCondition(automation.Conditions)
 		deviceID := strings.TrimSpace(trigger.DeviceID)
-		if !ok || deviceID == "" {
-			log.Printf("automation: skip index id=%s invalid state_changed configuration", automation.ID)
+		timeTrigger, hasTimeTrigger := timeCondition(automation.Conditions)
+		if (!ok || deviceID == "") && !hasTimeTrigger {
+			log.Printf("automation: skip index id=%s invalid trigger configuration", automation.ID)
 			continue
 		}
 		cache[automation.ID] = automation
-		devices[automation.ID] = deviceID
-		index[deviceID] = append(index[deviceID], automation.ID)
+		if ok && deviceID != "" {
+			devices[automation.ID] = deviceID
+			index[deviceID] = append(index[deviceID], automation.ID)
+		}
+		if hasTimeTrigger && timeTrigger.Time != nil {
+			timeIDs[automation.ID] = struct{}{}
+		}
 	}
 
 	s.mu.Lock()
 	s.automationIndex = index
 	s.automationCache = cache
 	s.automationDevices = devices
+	s.timeAutomationIDs = timeIDs
 	s.mu.Unlock()
 	return nil
 }
@@ -52,16 +60,22 @@ func (s *Service) reloadIndex(ctx context.Context) error {
 func (s *Service) upsertIndexedAutomation(automation models.Automation) {
 	trigger, ok := stateChangedCondition(automation.Conditions)
 	deviceID := strings.TrimSpace(trigger.DeviceID)
+	timeTrigger, hasTimeTrigger := timeCondition(automation.Conditions)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.removeIndexedAutomationLocked(automation.ID)
-	if !automation.Enabled || !ok || deviceID == "" {
+	if !automation.Enabled || ((!ok || deviceID == "") && !hasTimeTrigger) {
 		return
 	}
 	s.automationCache[automation.ID] = automation
-	s.automationDevices[automation.ID] = deviceID
-	s.automationIndex[deviceID] = append(s.automationIndex[deviceID], automation.ID)
+	if ok && deviceID != "" {
+		s.automationDevices[automation.ID] = deviceID
+		s.automationIndex[deviceID] = append(s.automationIndex[deviceID], automation.ID)
+	}
+	if hasTimeTrigger && timeTrigger.Time != nil {
+		s.timeAutomationIDs[automation.ID] = struct{}{}
+	}
 }
 
 func (s *Service) removeIndexedAutomation(id string) {
@@ -74,6 +88,7 @@ func (s *Service) removeIndexedAutomationLocked(id string) {
 	deviceID := s.automationDevices[id]
 	delete(s.automationCache, id)
 	delete(s.automationDevices, id)
+	delete(s.timeAutomationIDs, id)
 	if deviceID == "" {
 		return
 	}
@@ -89,6 +104,18 @@ func (s *Service) removeIndexedAutomationLocked(id string) {
 		return
 	}
 	s.automationIndex[deviceID] = append([]string(nil), filtered...)
+}
+
+func (s *Service) timeAutomations() []models.Automation {
+	s.mu.RLock()
+	automations := make([]models.Automation, 0, len(s.timeAutomationIDs))
+	for id := range s.timeAutomationIDs {
+		if automation, ok := s.automationCache[id]; ok {
+			automations = append(automations, automation)
+		}
+	}
+	s.mu.RUnlock()
+	return automations
 }
 
 func (s *Service) indexedAutomationsForDevice(deviceID string) []models.Automation {
@@ -125,6 +152,24 @@ func stateChangedCondition(conditions []models.AutomationCondition) (models.Auto
 	)
 	for _, condition := range conditions {
 		if normalizeConditionType(condition) != models.AutomationConditionTypeStateChanged {
+			continue
+		}
+		if found {
+			return models.AutomationCondition{}, false
+		}
+		match = condition
+		found = true
+	}
+	return match, found
+}
+
+func timeCondition(conditions []models.AutomationCondition) (models.AutomationCondition, bool) {
+	var (
+		match models.AutomationCondition
+		found bool
+	)
+	for _, condition := range conditions {
+		if normalizeConditionType(condition) != models.AutomationConditionTypeTime {
 			continue
 		}
 		if found {

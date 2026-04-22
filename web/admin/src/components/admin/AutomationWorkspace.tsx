@@ -9,7 +9,8 @@ import { Switch } from '../ui/switch';
 import {
   defaultAutomation,
   cloneAutomation,
-  getStateChangedConditionDeviceId,
+  describeAutomationTrigger,
+  getActionKind,
   parseActionParams,
   prettyActionParams,
   type AutomationActionTemplate,
@@ -113,7 +114,7 @@ export function AutomationWorkspace() {
       const payload = cloneAutomation(draft);
       payload.actions = payload.actions.map((action, index) => ({
         ...action,
-        params: parseActionParams(actionParamDrafts[index] ?? prettyActionParams(action.params)),
+        params: getActionKind(action) === 'agent' ? action.params ?? {} : parseActionParams(actionParamDrafts[index] ?? prettyActionParams(action.params)),
       }));
       const saved = await saveAutomation(payload);
       setSelectedId(saved.id);
@@ -185,7 +186,7 @@ export function AutomationWorkspace() {
                     onClick={() => loadDraft(automation)}
                     selected={selectedAutomationId === automation.id}
                     title={automation.name || automation.id}
-                    description={getStateChangedConditionDeviceId(automation) || 'No state-change condition'}
+                    description={describeAutomationTrigger(automation)}
                     badges={
                       <Badge tone={statusBadge.tone} size="xxs">
                         {statusBadge.label}
@@ -206,7 +207,7 @@ export function AutomationWorkspace() {
             <CardHeader>
               <CardHeading
                 title={selectedAutomationId ? 'Automation Editor' : 'New Automation'}
-                description="Define one or more event/state conditions, optionally limit them by time, then execute actions on existing devices."
+                description="Define a state or daily time trigger, optional current-state gates, then execute device commands or Agent output flows."
                 aside={
                   draft ? (
                     <div className="automation-editor__meta">

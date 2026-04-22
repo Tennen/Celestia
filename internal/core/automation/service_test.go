@@ -15,6 +15,27 @@ import (
 	sqlitestore "github.com/chentianyu/celestia/internal/storage/sqlite"
 )
 
+type fakeAgentRuntime struct {
+	requests []models.AgentConversationRequest
+	sends    []struct {
+		to   string
+		text string
+	}
+}
+
+func (f *fakeAgentRuntime) Converse(_ context.Context, req models.AgentConversationRequest) (models.AgentConversation, error) {
+	f.requests = append(f.requests, req)
+	return models.AgentConversation{Response: "agent output"}, nil
+}
+
+func (f *fakeAgentRuntime) SendWeComText(_ context.Context, toUser string, text string) error {
+	f.sends = append(f.sends, struct {
+		to   string
+		text string
+	}{to: toUser, text: text})
+	return nil
+}
+
 func newAutomationTestService(t *testing.T) (*Service, *sqlitestore.Store) {
 	t.Helper()
 	ctx := context.Background()
@@ -180,7 +201,7 @@ func TestServiceSaveNormalizesListMatchers(t *testing.T) {
 	}
 }
 
-func TestServiceSaveRequiresExactlyOneStateChangedCondition(t *testing.T) {
+func TestServiceSaveRequiresExactlyOneTriggerCondition(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAutomationTestService(t)
 
@@ -189,7 +210,7 @@ func TestServiceSaveRequiresExactlyOneStateChangedCondition(t *testing.T) {
 		conditions []models.AutomationCondition
 	}{
 		{
-			name: "missing state_changed",
+			name: "missing trigger condition",
 			conditions: []models.AutomationCondition{
 				{
 					Type:     models.AutomationConditionTypeCurrentState,
@@ -200,7 +221,7 @@ func TestServiceSaveRequiresExactlyOneStateChangedCondition(t *testing.T) {
 			},
 		},
 		{
-			name: "multiple state_changed",
+			name: "multiple trigger conditions",
 			conditions: []models.AutomationCondition{
 				{
 					Type:     models.AutomationConditionTypeStateChanged,
@@ -234,12 +255,95 @@ func TestServiceSaveRequiresExactlyOneStateChangedCondition(t *testing.T) {
 				},
 			})
 			if err == nil {
-				t.Fatal("Save() should reject automations without exactly one state_changed condition")
+				t.Fatal("Save() should reject automations without exactly one trigger condition")
 			}
-			if got := err.Error(); got != "automation requires exactly one state_changed condition" {
+			if got := err.Error(); got != "automation requires exactly one trigger condition" {
 				t.Fatalf("Save() error = %q, want exact single-trigger error", got)
 			}
 		})
+	}
+}
+
+func TestServiceSaveAllowsDailyTimeTrigger(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAutomationTestService(t)
+
+	saved, err := svc.Save(ctx, models.Automation{
+		Name:    "Daily digest",
+		Enabled: true,
+		Conditions: []models.AutomationCondition{
+			{
+				Type: models.AutomationConditionTypeTime,
+				Time: &models.AutomationTimeCondition{
+					Schedule: "daily",
+					At:       "08:30",
+					Timezone: "Asia/Shanghai",
+				},
+			},
+		},
+		Actions: []models.AutomationAction{
+			{
+				Kind:   models.AutomationActionKindAgent,
+				Action: "agent.run",
+				Params: map[string]any{
+					"input": "生成每日摘要",
+					"touchpoints": []any{
+						map[string]any{"type": "wecom", "to_user": "chentianyu"},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if saved.Conditions[0].Time == nil || saved.Conditions[0].Time.At != "08:30" {
+		t.Fatalf("time trigger not normalized: %#v", saved.Conditions[0].Time)
+	}
+	if saved.Actions[0].DeviceID != "" || saved.Actions[0].Kind != models.AutomationActionKindAgent {
+		t.Fatalf("agent action not normalized: %#v", saved.Actions[0])
+	}
+}
+
+func TestExecuteAgentActionSendsWeComTouchpoint(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAutomationTestService(t)
+	agent := &fakeAgentRuntime{}
+	svc.SetAgentRuntime(agent)
+
+	automation, err := svc.Save(ctx, models.Automation{
+		Name:    "Daily agent output",
+		Enabled: true,
+		Conditions: []models.AutomationCondition{
+			{
+				Type: models.AutomationConditionTypeTime,
+				Time: &models.AutomationTimeCondition{Schedule: "daily", At: "08:30"},
+			},
+		},
+		Actions: []models.AutomationAction{
+			{
+				Kind:   models.AutomationActionKindAgent,
+				Action: "agent.run",
+				Params: map[string]any{
+					"input": "run digest",
+					"touchpoints": []any{
+						map[string]any{"type": "wecom", "to_user": "chentianyu"},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if err := svc.executeAutomation(ctx, automation, models.Event{ID: "source", Type: "automation.time"}); err != nil {
+		t.Fatalf("executeAutomation() error = %v", err)
+	}
+	if len(agent.requests) != 1 || agent.requests[0].Input != "run digest" || agent.requests[0].Actor != "automation:"+automation.ID {
+		t.Fatalf("agent requests = %#v", agent.requests)
+	}
+	if len(agent.sends) != 1 || agent.sends[0].to != "chentianyu" || agent.sends[0].text != "agent output" {
+		t.Fatalf("wecom sends = %#v", agent.sends)
 	}
 }
 

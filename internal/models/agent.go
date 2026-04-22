@@ -188,7 +188,6 @@ type AgentWeComInboundResult struct {
 
 type AgentPushSnapshot struct {
 	Users     []AgentPushUser `json:"users"`
-	Tasks     []AgentPushTask `json:"tasks"`
 	UpdatedAt time.Time       `json:"updated_at"`
 }
 
@@ -198,18 +197,6 @@ type AgentPushUser struct {
 	WeComUser string    `json:"wecom_user,omitempty"`
 	Enabled   bool      `json:"enabled"`
 	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type AgentPushTask struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	UserID    string     `json:"user_id"`
-	Text      string     `json:"text"`
-	IntervalM int        `json:"interval_minutes"`
-	Enabled   bool       `json:"enabled"`
-	LastRunAt *time.Time `json:"last_run_at,omitempty"`
-	NextRunAt *time.Time `json:"next_run_at,omitempty"`
-	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 type AgentConversation struct {

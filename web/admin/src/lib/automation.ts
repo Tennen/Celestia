@@ -18,6 +18,8 @@ export type AutomationActionTemplate = {
   params: Record<string, unknown>;
 };
 
+export type AutomationActionKind = 'device' | 'agent';
+
 export function cloneAutomation<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -136,8 +138,11 @@ function conditionStateValue(device: DeviceView | null | undefined, stateKey: st
 }
 
 export function getConditionType(condition: AutomationCondition): AutomationConditionType {
-  if (condition.type === 'state_changed' || condition.type === 'current_state') {
+  if (condition.type === 'state_changed' || condition.type === 'current_state' || condition.type === 'time') {
     return condition.type;
+  }
+  if (condition.time) {
+    return 'time';
   }
   return condition.from || condition.to ? 'state_changed' : 'current_state';
 }
@@ -146,6 +151,15 @@ export function getStateChangedConditionDeviceId(automation: Automation) {
   const conditions = automation.conditions ?? [];
   const eventCondition = conditions.find((condition) => getConditionType(condition) === 'state_changed');
   return eventCondition?.device_id || conditions[0]?.device_id || '';
+}
+
+export function describeAutomationTrigger(automation: Automation) {
+  const conditions = automation.conditions ?? [];
+  const timeCondition = conditions.find((condition) => getConditionType(condition) === 'time');
+  if (timeCondition?.time?.at) {
+    return `${timeCondition.time.schedule || 'daily'} at ${timeCondition.time.at}`;
+  }
+  return getStateChangedConditionDeviceId(automation) || 'No trigger condition';
 }
 
 export function createDefaultCondition(
@@ -181,6 +195,17 @@ export function createDefaultCondition(
     match: {
       operator: 'equals',
       value,
+    },
+  };
+}
+
+export function createDefaultTimeCondition(): AutomationCondition {
+  return {
+    type: 'time',
+    time: {
+      schedule: 'daily',
+      at: '08:00',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
     },
   };
 }
@@ -286,6 +311,7 @@ export function defaultAutomation(devices: DeviceView[]): Automation {
   }
   const actionTemplate = buildActionTemplates(actionDevice)[0] ?? null;
   const action: AutomationAction = {
+    kind: 'device',
     device_id: actionDevice?.device.id ?? '',
     label: actionTemplate?.label ?? '',
     action: actionTemplate?.action ?? '',
@@ -313,4 +339,31 @@ export const stateOperators: AutomationMatchOperator[] = ['equals', 'not_equals'
 
 export function countStateChangedConditions(conditions: AutomationCondition[] | undefined): number {
   return (conditions ?? []).filter((condition) => getConditionType(condition) === 'state_changed').length;
+}
+
+export function countTriggerConditions(conditions: AutomationCondition[] | undefined): number {
+  return (conditions ?? []).filter((condition) => {
+    const type = getConditionType(condition);
+    return type === 'state_changed' || type === 'time';
+  }).length;
+}
+
+export function getActionKind(action: AutomationAction): AutomationActionKind {
+  if (action.kind === 'agent' || action.action === 'agent.run') {
+    return 'agent';
+  }
+  return 'device';
+}
+
+export function createDefaultAgentAction(): AutomationAction {
+  return {
+    kind: 'agent',
+    device_id: '',
+    label: 'Agent',
+    action: 'agent.run',
+    params: {
+      input: '',
+      touchpoints: [],
+    },
+  };
 }

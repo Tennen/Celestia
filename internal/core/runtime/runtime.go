@@ -45,6 +45,7 @@ func New(store storage.Store) *Runtime {
 	visionSvc := vision.New(store, registrySvc, stateSvc, bus)
 	agentSvc := agent.New(store, bus)
 	automationSvc := automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr)
+	automationSvc.SetAgentRuntime(agentSvc)
 	return &Runtime{
 		Store:      store,
 		EventBus:   bus,

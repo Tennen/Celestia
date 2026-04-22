@@ -75,15 +75,22 @@ export type AutomationStateMatch = {
   value?: unknown;
 };
 
-export type AutomationConditionType = 'state_changed' | 'current_state';
+export type AutomationConditionType = 'state_changed' | 'current_state' | 'time';
+
+export type AutomationTimeCondition = {
+  schedule: 'daily' | string;
+  at: string;
+  timezone?: string;
+};
 
 export type AutomationCondition = {
   type?: AutomationConditionType;
-  device_id: string;
-  state_key: string;
+  device_id?: string;
+  state_key?: string;
   from?: AutomationStateMatch;
   to?: AutomationStateMatch;
   match?: AutomationStateMatch;
+  time?: AutomationTimeCondition;
 };
 
 export type AutomationTimeWindow = {
@@ -92,6 +99,7 @@ export type AutomationTimeWindow = {
 };
 
 export type AutomationAction = {
+  kind?: 'device' | 'agent';
   device_id: string;
   label?: string;
   action: string;

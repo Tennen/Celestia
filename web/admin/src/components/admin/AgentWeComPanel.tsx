@@ -14,7 +14,7 @@ import {
   type AgentSnapshot,
   type AgentWeComButton,
 } from '../../lib/agent';
-import { Field, FieldGrid, SelectField, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
+import { Field, FieldGrid, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
 
 type Props = {
@@ -25,17 +25,14 @@ type Props = {
 
 type WeComSettings = AgentSnapshot['settings']['wecom'];
 type PushUser = Record<string, unknown>;
-type PushTask = Record<string, unknown>;
 
 const textOf = (value: unknown) => (typeof value === 'string' ? value : '');
-const valueText = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? String(value) : textOf(value));
 
 export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   const [settings, setSettings] = useState<WeComSettings>(snapshot.settings.wecom);
   const [textMaxBytes, setTextMaxBytes] = useState(numberValue(snapshot.settings.wecom.text_max_bytes));
   const [buttons, setButtons] = useState<AgentWeComButton[]>(snapshot.wecom_menu.config.buttons);
   const [pushUser, setPushUser] = useState<PushUser>(snapshot.push.users[0] ?? emptyPushUser());
-  const [pushTask, setPushTask] = useState<PushTask>(snapshot.push.tasks[0] ?? emptyPushTask(textOf(snapshot.push.users[0]?.id)));
   const [toUser, setToUser] = useState('');
   const [message, setMessage] = useState('');
 
@@ -44,7 +41,6 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
     setTextMaxBytes(numberValue(snapshot.settings.wecom.text_max_bytes));
     setButtons(snapshot.wecom_menu.config.buttons);
     setPushUser(snapshot.push.users[0] ?? emptyPushUser());
-    setPushTask(snapshot.push.tasks[0] ?? emptyPushTask(textOf(snapshot.push.users[0]?.id)));
   }, [snapshot]);
 
   const saveSettings = () => {
@@ -64,27 +60,12 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
     onRun('push-save', () => saveAgentPush({ ...snapshot.push, users: replaceRecordById(snapshot.push.users, { ...pushUser, id }) }), false);
   };
 
-  const savePushTask = () => {
-    const id = textOf(pushTask.id) || slugId(textOf(pushTask.name), 'task');
-    const interval = parseOptionalNumber(valueText(pushTask.interval_minutes));
-    onRun(
-      'push-save',
-      () => saveAgentPush({ ...snapshot.push, tasks: replaceRecordById(snapshot.push.tasks, { ...pushTask, id, interval_minutes: interval }) }),
-      false,
-    );
-  };
-
-  const userOptions = [
-    { value: '', label: 'Select recipient' },
-    ...snapshot.push.users.map((user) => ({ value: textOf(user.id), label: textOf(user.name) || textOf(user.wecom_user) || textOf(user.id) })),
-  ];
-
   return (
     <Tabs defaultValue="settings">
       <TabsList className="flex-wrap justify-start">
         <TabsTrigger value="settings">Settings</TabsTrigger>
         <TabsTrigger value="menu">Menu</TabsTrigger>
-        <TabsTrigger value="push">Push</TabsTrigger>
+        <TabsTrigger value="touchpoints">Touchpoints</TabsTrigger>
         <TabsTrigger value="message">Message</TabsTrigger>
       </TabsList>
 
@@ -151,11 +132,11 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         </Card>
       </TabsContent>
 
-      <TabsContent value="push" className="grid grid--two">
+      <TabsContent value="touchpoints" className="grid grid--two">
         <Card className="panel">
           <CardHeader>
-            <CardTitle>Push Users</CardTitle>
-            <CardDescription>WeCom recipients used by scheduled push tasks</CardDescription>
+            <CardTitle>WeCom Touchpoints</CardTitle>
+            <CardDescription>Recipient aliases for Automation Agent outputs; schedules live in Automation</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="button-row">
@@ -177,46 +158,9 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
             <div className="button-row">
               <Button onClick={savePushUser}>
                 <Save className="mr-2 h-4 w-4" />
-                Save User
+                Save Touchpoint
               </Button>
               <Button variant="danger" disabled={!pushUser.id} onClick={() => onRun('push-save', () => saveAgentPush({ ...snapshot.push, users: snapshot.push.users.filter((user) => textOf(user.id) !== textOf(pushUser.id)) }), false)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="panel">
-          <CardHeader>
-            <CardTitle>Push Tasks</CardTitle>
-            <CardDescription>Scheduled WeCom messages</CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            <div className="button-row">
-              {snapshot.push.tasks.map((task) => (
-                <Button key={textOf(task.id)} variant={textOf(task.id) === textOf(pushTask.id) ? 'default' : 'secondary'} onClick={() => setPushTask(task)}>
-                  {textOf(task.name)}
-                </Button>
-              ))}
-              <Button variant="secondary" onClick={() => setPushTask(emptyPushTask(textOf(snapshot.push.users[0]?.id)))}>
-                <Plus className="mr-2 h-4 w-4" />
-                New
-              </Button>
-            </div>
-            <ToggleField label="Enabled" checked={pushTask.enabled !== false} onChange={(enabled) => setPushTask({ ...pushTask, enabled })} />
-            <FieldGrid>
-              <Field label="Name" value={textOf(pushTask.name)} onChange={(name) => setPushTask({ ...pushTask, name })} />
-              <SelectField label="Recipient" value={textOf(pushTask.user_id)} options={userOptions} onChange={(user_id) => setPushTask({ ...pushTask, user_id })} />
-              <Field label="Interval minutes" value={valueText(pushTask.interval_minutes)} onChange={(interval_minutes) => setPushTask({ ...pushTask, interval_minutes })} />
-            </FieldGrid>
-            <Textarea value={textOf(pushTask.text)} onChange={(event) => setPushTask({ ...pushTask, text: event.target.value })} placeholder="Push text" />
-            <div className="button-row">
-              <Button onClick={savePushTask} disabled={!pushTask.name || !pushTask.user_id}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Task
-              </Button>
-              <Button variant="danger" disabled={!pushTask.id} onClick={() => onRun('push-save', () => saveAgentPush({ ...snapshot.push, tasks: snapshot.push.tasks.filter((task) => textOf(task.id) !== textOf(pushTask.id)) }), false)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
@@ -326,10 +270,6 @@ function buildButton(prefix: string): AgentWeComButton {
 
 function emptyPushUser(): PushUser {
   return { id: '', name: '', wecom_user: '', enabled: true };
-}
-
-function emptyPushTask(userID: string): PushTask {
-  return { id: '', name: '', user_id: userID, text: '', interval_minutes: 60, enabled: true };
 }
 
 function replaceRecordById(items: Array<Record<string, unknown>>, next: Record<string, unknown>) {

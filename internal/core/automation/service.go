@@ -27,13 +27,22 @@ type Service struct {
 	policy    *policy.Service
 	audit     *audit.Service
 	pluginMgr *pluginmgr.Manager
+	agent     AgentRuntime
 
 	mu                sync.RWMutex
 	automationIndex   map[string][]string
 	automationCache   map[string]models.Automation
 	automationDevices map[string]string
+	timeAutomationIDs map[string]struct{}
 
 	subscriptionID int
+	stop           chan struct{}
+	stopOnce       sync.Once
+}
+
+type AgentRuntime interface {
+	Converse(context.Context, models.AgentConversationRequest) (models.AgentConversation, error)
+	SendWeComText(context.Context, string, string) error
 }
 
 func New(
@@ -56,10 +65,18 @@ func New(
 		automationIndex:   map[string][]string{},
 		automationCache:   map[string]models.Automation{},
 		automationDevices: map[string]string{},
+		timeAutomationIDs: map[string]struct{}{},
+		stop:              make(chan struct{}),
 	}
 	svc.loadIndexOnStart()
 	svc.start()
 	return svc
+}
+
+func (s *Service) SetAgentRuntime(agent AgentRuntime) {
+	s.mu.Lock()
+	s.agent = agent
+	s.mu.Unlock()
 }
 
 func (s *Service) start() {
@@ -73,9 +90,13 @@ func (s *Service) start() {
 			go s.handleStateChange(event)
 		}
 	}()
+	go s.runTimeScheduler()
 }
 
 func (s *Service) Close() {
+	s.stopOnce.Do(func() {
+		close(s.stop)
+	})
 	if s.bus != nil {
 		s.bus.Unsubscribe(s.subscriptionID)
 	}
@@ -152,19 +173,19 @@ func (s *Service) normalizeAutomation(ctx context.Context, automation models.Aut
 	if len(automation.Conditions) == 0 {
 		return models.Automation{}, errors.New("automation requires at least one condition")
 	}
-	eventConditionCount := 0
+	triggerConditionCount := 0
 	for idx := range automation.Conditions {
 		normalized, err := s.normalizeCondition(ctx, automation.Conditions[idx], idx)
 		if err != nil {
 			return models.Automation{}, err
 		}
-		if normalized.Type == models.AutomationConditionTypeStateChanged {
-			eventConditionCount++
+		if normalized.Type == models.AutomationConditionTypeStateChanged || normalized.Type == models.AutomationConditionTypeTime {
+			triggerConditionCount++
 		}
 		automation.Conditions[idx] = normalized
 	}
-	if eventConditionCount != 1 {
-		return models.Automation{}, errors.New("automation requires exactly one state_changed condition")
+	if triggerConditionCount != 1 {
+		return models.Automation{}, errors.New("automation requires exactly one trigger condition")
 	}
 	if automation.TimeWindow != nil {
 		automation.TimeWindow.Start = strings.TrimSpace(automation.TimeWindow.Start)
@@ -187,9 +208,29 @@ func (s *Service) normalizeAutomation(ctx context.Context, automation models.Aut
 	}
 	for idx := range automation.Actions {
 		action := &automation.Actions[idx]
+		action.Kind = normalizeActionKind(*action)
 		action.DeviceID = strings.TrimSpace(action.DeviceID)
 		action.Label = strings.TrimSpace(action.Label)
 		action.Action = strings.TrimSpace(action.Action)
+		if action.Params == nil {
+			action.Params = map[string]any{}
+		}
+		if action.Kind == models.AutomationActionKindAgent {
+			action.DeviceID = ""
+			if action.Action == "" {
+				action.Action = "agent.run"
+			}
+			if action.Action != "agent.run" {
+				return models.Automation{}, fmt.Errorf("action %d has unsupported agent action %q", idx, action.Action)
+			}
+			if strings.TrimSpace(stringParam(action.Params["input"])) == "" {
+				return models.Automation{}, fmt.Errorf("action %d requires agent input", idx)
+			}
+			if err := s.validateAgentTouchpoints(ctx, action.Params); err != nil {
+				return models.Automation{}, fmt.Errorf("action %d has invalid touchpoints: %w", idx, err)
+			}
+			continue
+		}
 		if action.DeviceID == "" || action.Action == "" {
 			return models.Automation{}, fmt.Errorf("action %d requires device_id and action", idx)
 		}
@@ -198,14 +239,22 @@ func (s *Service) normalizeAutomation(ctx context.Context, automation models.Aut
 		} else if !ok {
 			return models.Automation{}, fmt.Errorf("action device %q not found", action.DeviceID)
 		}
-		if action.Params == nil {
-			action.Params = map[string]any{}
-		}
 	}
 	return automation, nil
 }
 
 func (s *Service) normalizeCondition(ctx context.Context, condition models.AutomationCondition, idx int) (models.AutomationCondition, error) {
+	condition.Type = normalizeConditionType(condition)
+	if condition.Type == models.AutomationConditionTypeTime {
+		timeCondition, err := normalizeTimeCondition(condition.Time)
+		if err != nil {
+			return models.AutomationCondition{}, fmt.Errorf("condition %d has invalid time trigger: %w", idx, err)
+		}
+		return models.AutomationCondition{
+			Type: condition.Type,
+			Time: &timeCondition,
+		}, nil
+	}
 	condition.DeviceID = strings.TrimSpace(condition.DeviceID)
 	condition.StateKey = strings.TrimSpace(condition.StateKey)
 	if condition.DeviceID == "" || condition.StateKey == "" {
@@ -216,7 +265,6 @@ func (s *Service) normalizeCondition(ctx context.Context, condition models.Autom
 	} else if !ok {
 		return models.AutomationCondition{}, fmt.Errorf("condition device %q not found", condition.DeviceID)
 	}
-	condition.Type = normalizeConditionType(condition)
 	switch condition.Type {
 	case models.AutomationConditionTypeStateChanged:
 		from := derefMatch(condition.From)
@@ -240,6 +288,7 @@ func (s *Service) normalizeCondition(ctx context.Context, condition models.Autom
 		condition.Match = &match
 		condition.From = nil
 		condition.To = nil
+		condition.Time = nil
 	default:
 		return models.AutomationCondition{}, fmt.Errorf("condition %d has unsupported type %q", idx, condition.Type)
 	}
@@ -248,13 +297,29 @@ func (s *Service) normalizeCondition(ctx context.Context, condition models.Autom
 
 func normalizeConditionType(condition models.AutomationCondition) models.AutomationConditionType {
 	switch condition.Type {
-	case models.AutomationConditionTypeStateChanged, models.AutomationConditionTypeCurrentState:
+	case models.AutomationConditionTypeStateChanged, models.AutomationConditionTypeCurrentState, models.AutomationConditionTypeTime:
 		return condition.Type
+	}
+	if condition.Time != nil {
+		return models.AutomationConditionTypeTime
 	}
 	if condition.From != nil || condition.To != nil {
 		return models.AutomationConditionTypeStateChanged
 	}
 	return models.AutomationConditionTypeCurrentState
+}
+
+func normalizeActionKind(action models.AutomationAction) models.AutomationActionKind {
+	switch action.Kind {
+	case models.AutomationActionKindAgent:
+		return models.AutomationActionKindAgent
+	case models.AutomationActionKindDevice:
+		return models.AutomationActionKindDevice
+	}
+	if strings.TrimSpace(action.Action) == "agent.run" {
+		return models.AutomationActionKindAgent
+	}
+	return models.AutomationActionKindDevice
 }
 
 func derefMatch(match *models.AutomationStateMatch) models.AutomationStateMatch {
