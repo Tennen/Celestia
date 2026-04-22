@@ -62,7 +62,15 @@
   }
 
   .sidemenu__nav {
-    @apply flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1;
+    @apply min-h-0 flex-1;
+  }
+
+  .sidemenu__nav-scroll {
+    @apply h-full min-h-0;
+  }
+
+  .sidemenu__nav-content {
+    @apply flex flex-col gap-2 pr-3;
   }
 
   .sidemenu__button {

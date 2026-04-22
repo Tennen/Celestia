@@ -18,6 +18,7 @@ import { PluginWorkspace } from './components/admin/PluginWorkspace';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
+import { ScrollArea } from './components/ui/scroll-area';
 import { agentPanelItems, agentPanelLabel, type AgentPanelId } from './lib/agent-admin';
 import { getApiBase } from './lib/api';
 import { capabilityDisplayName, summaryNumber } from './lib/capability';
@@ -193,160 +194,157 @@ function App() {
             </div>
           </div>
           <nav className="sidemenu__nav">
-            {primarySectionItems.map((section) => {
-              const Icon = section.icon;
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
-                  onClick={() => openSection(section.id)}
-                >
-                  <span className="flex items-center gap-3">
-                    <Icon className="h-4 w-4" />
-                    {section.label}
-                  </span>
-                  <Badge
-                    tone={activeSection === section.id ? 'accent' : 'neutral'}
-                    size="xs"
-                    className="min-w-6 tabular-nums"
-                  >
-                    {section.count}
-                  </Badge>
-                </button>
-              );
-            })}
-
-            <div className={cn('sidemenu__group', activeSection === 'agent' && 'is-active')}>
-              <div className={cn('sidemenu__button', activeSection === 'agent' && 'is-active', 'sidemenu__button--group')}>
-                <button type="button" className="sidemenu__button-main" onClick={() => openSection('agent')}>
-                  <span className="flex items-center gap-3">
-                    <Bot className="h-4 w-4" />
-                    Agent
-                  </span>
-                  <Badge
-                    tone={activeSection === 'agent' ? 'accent' : 'neutral'}
-                    size="xs"
-                    className="min-w-6 tabular-nums"
-                  >
-                    {agentPanelItems.length}
-                  </Badge>
-                </button>
-                <button
-                  type="button"
-                  className={cn('sidemenu__disclosure', agentExpanded && 'is-open')}
-                  aria-label={agentExpanded ? 'Collapse agent' : 'Expand agent'}
-                  aria-expanded={agentExpanded}
-                  onClick={() => setAgentExpanded((current) => !current)}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-
-              {agentExpanded ? (
-                <div className="sidemenu__submenu">
-                  {agentPanelItems.map((item) => (
+            <ScrollArea className="sidemenu__nav-scroll">
+              <div className="sidemenu__nav-content">
+                {primarySectionItems.map((section) => {
+                  const Icon = section.icon;
+                  return (
                     <button
-                      key={item.id}
+                      key={section.id}
                       type="button"
-                      className={cn(
-                        'sidemenu__subbutton',
-                        activeSection === 'agent' && activeAgentPanel === item.id && 'is-active',
-                      )}
-                      onClick={() => openAgentPanel(item.id)}
+                      className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
+                      onClick={() => openSection(section.id)}
                     >
-                      <span className="sidemenu__subbutton-label">{item.label}</span>
+                      <span className="flex items-center gap-3">
+                        <Icon className="h-4 w-4" />
+                        {section.label}
+                      </span>
                       <Badge
-                        tone={activeSection === 'agent' && activeAgentPanel === item.id ? 'accent' : 'neutral'}
-                        size="xs"
-                        className="min-w-6"
-                      >
-                        {item.badge}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className={cn('sidemenu__group', activeSection === 'capabilities' && 'is-active')}>
-              <div className={cn('sidemenu__button', activeSection === 'capabilities' && 'is-active', 'sidemenu__button--group')}>
-                <button type="button" className="sidemenu__button-main" onClick={() => openSection('capabilities')}>
-                  <span className="flex items-center gap-3">
-                    <Layers3 className="h-4 w-4" />
-                    Capabilities
-                  </span>
-                  <Badge
-                    tone={activeSection === 'capabilities' ? 'accent' : 'neutral'}
-                    size="xs"
-                    className="min-w-6 tabular-nums"
-                  >
-                    {capabilities.length}
-                  </Badge>
-                </button>
-                <button
-                  type="button"
-                  className={cn('sidemenu__disclosure', capabilitiesExpanded && 'is-open')}
-                  aria-label={capabilitiesExpanded ? 'Collapse capabilities' : 'Expand capabilities'}
-                  aria-expanded={capabilitiesExpanded}
-                  onClick={() => setCapabilitiesExpanded((current) => !current)}
-                  disabled={capabilities.length === 0}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-
-              {capabilitiesExpanded ? (
-                <div className="sidemenu__submenu">
-                  {capabilities.map((capability) => (
-                    <button
-                      key={capability.id}
-                      type="button"
-                      className={cn(
-                        'sidemenu__subbutton',
-                        activeSection === 'capabilities' && selectedCapability?.id === capability.id && 'is-active',
-                      )}
-                      onClick={() => openCapability(capability.id)}
-                    >
-                      <span className="sidemenu__subbutton-label">{capabilityDisplayName(capability)}</span>
-                      <Badge
-                        tone={
-                          activeSection === 'capabilities' && selectedCapability?.id === capability.id ? 'accent' : 'neutral'
-                        }
+                        tone={activeSection === section.id ? 'accent' : 'neutral'}
                         size="xs"
                         className="min-w-6 tabular-nums"
                       >
-                        {capabilityItemCount(capability)}
+                        {section.count}
                       </Badge>
                     </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+                  );
+                })}
 
-            {trailingSectionItems.map((section) => {
-              const Icon = section.icon;
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
-                  onClick={() => openSection(section.id)}
-                >
-                  <span className="flex items-center gap-3">
-                    <Icon className="h-4 w-4" />
-                    {section.label}
-                  </span>
-                  <Badge
-                    tone={activeSection === section.id ? 'accent' : 'neutral'}
-                    size="xs"
-                    className="min-w-6 tabular-nums"
-                  >
-                    {section.count}
-                  </Badge>
-                </button>
-              );
-            })}
+                <div className={cn('sidemenu__group', activeSection === 'agent' && 'is-active')}>
+                  <div className={cn('sidemenu__button', activeSection === 'agent' && 'is-active', 'sidemenu__button--group')}>
+                    <button type="button" className="sidemenu__button-main" onClick={() => openSection('agent')}>
+                      <span className="flex items-center gap-3">
+                        <Bot className="h-4 w-4" />
+                        Agent
+                      </span>
+                      <Badge
+                        tone={activeSection === 'agent' ? 'accent' : 'neutral'}
+                        size="xs"
+                        className="min-w-6 tabular-nums"
+                      >
+                        {agentPanelItems.length}
+                      </Badge>
+                    </button>
+                    <button
+                      type="button"
+                      className={cn('sidemenu__disclosure', agentExpanded && 'is-open')}
+                      aria-label={agentExpanded ? 'Collapse agent' : 'Expand agent'}
+                      aria-expanded={agentExpanded}
+                      onClick={() => setAgentExpanded((current) => !current)}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {agentExpanded ? (
+                    <div className="sidemenu__submenu">
+                      {agentPanelItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={cn(
+                            'sidemenu__subbutton',
+                            activeSection === 'agent' && activeAgentPanel === item.id && 'is-active',
+                          )}
+                          onClick={() => openAgentPanel(item.id)}
+                        >
+                          <span className="sidemenu__subbutton-label">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className={cn('sidemenu__group', activeSection === 'capabilities' && 'is-active')}>
+                  <div className={cn('sidemenu__button', activeSection === 'capabilities' && 'is-active', 'sidemenu__button--group')}>
+                    <button type="button" className="sidemenu__button-main" onClick={() => openSection('capabilities')}>
+                      <span className="flex items-center gap-3">
+                        <Layers3 className="h-4 w-4" />
+                        Capabilities
+                      </span>
+                      <Badge
+                        tone={activeSection === 'capabilities' ? 'accent' : 'neutral'}
+                        size="xs"
+                        className="min-w-6 tabular-nums"
+                      >
+                        {capabilities.length}
+                      </Badge>
+                    </button>
+                    <button
+                      type="button"
+                      className={cn('sidemenu__disclosure', capabilitiesExpanded && 'is-open')}
+                      aria-label={capabilitiesExpanded ? 'Collapse capabilities' : 'Expand capabilities'}
+                      aria-expanded={capabilitiesExpanded}
+                      onClick={() => setCapabilitiesExpanded((current) => !current)}
+                      disabled={capabilities.length === 0}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {capabilitiesExpanded ? (
+                    <div className="sidemenu__submenu">
+                      {capabilities.map((capability) => (
+                        <button
+                          key={capability.id}
+                          type="button"
+                          className={cn(
+                            'sidemenu__subbutton',
+                            activeSection === 'capabilities' && selectedCapability?.id === capability.id && 'is-active',
+                          )}
+                          onClick={() => openCapability(capability.id)}
+                        >
+                          <span className="sidemenu__subbutton-label">{capabilityDisplayName(capability)}</span>
+                          <Badge
+                            tone={
+                              activeSection === 'capabilities' && selectedCapability?.id === capability.id ? 'accent' : 'neutral'
+                            }
+                            size="xs"
+                            className="min-w-6 tabular-nums"
+                          >
+                            {capabilityItemCount(capability)}
+                          </Badge>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                {trailingSectionItems.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <button
+                      key={section.id}
+                      type="button"
+                      className={`sidemenu__button ${activeSection === section.id ? 'is-active' : ''}`}
+                      onClick={() => openSection(section.id)}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Icon className="h-4 w-4" />
+                        {section.label}
+                      </span>
+                      <Badge
+                        tone={activeSection === section.id ? 'accent' : 'neutral'}
+                        size="xs"
+                        className="min-w-6 tabular-nums"
+                      >
+                        {section.count}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
           </nav>
           <div className="sidemenu__footer">
             <Badge tone={error ? 'bad' : 'good'} size="xs">

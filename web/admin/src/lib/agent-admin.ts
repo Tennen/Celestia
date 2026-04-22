@@ -1,10 +1,10 @@
 export type AgentPanelId = 'runtime' | 'wecom' | 'content' | 'ops';
 
-export const agentPanelItems: Array<{ id: AgentPanelId; label: string; badge: string }> = [
-  { id: 'runtime', label: 'Runtime', badge: 'Core' },
-  { id: 'wecom', label: 'WeCom', badge: 'Msg' },
-  { id: 'content', label: 'Content', badge: 'Data' },
-  { id: 'ops', label: 'Ops', badge: 'Ops' },
+export const agentPanelItems: Array<{ id: AgentPanelId; label: string }> = [
+  { id: 'runtime', label: 'Runtime' },
+  { id: 'wecom', label: 'WeCom' },
+  { id: 'content', label: 'Content' },
+  { id: 'ops', label: 'Ops' },
 ];
 
 export function agentPanelLabel(id: AgentPanelId) {
