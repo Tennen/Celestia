@@ -154,7 +154,7 @@ export type AgentConversation = {
   created_at: string;
 };
 
-export type AgentCapabilityInfo = {
+export type AgentToolInfo = {
   name: string;
   description: string;
   terminal?: boolean;
@@ -169,9 +169,8 @@ export type AgentCapabilityInfo = {
   detail?: string;
 };
 
-export type AgentCapabilityRunResult = {
-  capability: string;
-  tool?: string;
+export type AgentToolRunResult = {
+  tool: string;
   action?: string;
   input?: string;
   used_command?: string;
@@ -249,7 +248,7 @@ export type AgentEvolutionGoal = {
 export type AgentSnapshot = {
   settings: AgentSettings;
   search: AgentSearchSnapshot;
-  capabilities: AgentCapabilityInfo[];
+  tools: AgentToolInfo[];
   direct_input: AgentDirectInputConfig;
   wecom_menu: AgentWeComMenuSnapshot;
   push: AgentPushSnapshot;
@@ -324,16 +323,16 @@ export function runAgentConversation(payload: { input: string; session_id?: stri
   return request<AgentConversation>('/agent/conversation', { method: 'POST', body: JSON.stringify(payload) });
 }
 
-export function fetchAgentCapabilities() {
-  return request<AgentCapabilityInfo[]>('/agent/capabilities').then((items) => (Array.isArray(items) ? items : []));
+export function fetchAgentTools() {
+  return request<AgentToolInfo[]>('/agent/tools').then((items) => (Array.isArray(items) ? items : []));
 }
 
-export function fetchAgentCapability(name: string) {
-  return request<AgentCapabilityInfo>(`/agent/capabilities/${encodeURIComponent(name)}`);
+export function fetchAgentTool(name: string) {
+  return request<AgentToolInfo>(`/agent/tools/${encodeURIComponent(name)}`);
 }
 
-export function runAgentCapability(name: string, payload: { input?: string; command?: string; args?: string[] }) {
-  return request<AgentCapabilityRunResult>(`/agent/capabilities/${encodeURIComponent(name)}/run`, {
+export function runAgentTool(name: string, payload: { input?: string; command?: string; args?: string[] }) {
+  return request<AgentToolRunResult>(`/agent/tools/${encodeURIComponent(name)}/run`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -452,7 +451,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
       ...search,
       recent_queries: arrayOrEmpty(search.recent_queries),
     },
-    capabilities: arrayOrEmpty(snapshot.capabilities),
+    tools: arrayOrEmpty(snapshot.tools),
     direct_input: {
       ...directInput,
       rules: arrayOrEmpty(directInput.rules),

@@ -1,14 +1,14 @@
 export type AgentPanelId = 'llm' | 'conversation' | 'content' | 'market' | 'evolution' | 'search';
 
 export const agentPanelItems: Array<{ id: AgentPanelId; label: string }> = [
-  { id: 'llm', label: 'LLM' },
+  { id: 'llm', label: 'Runtime' },
   { id: 'conversation', label: 'Conversation' },
-  { id: 'content', label: 'Content' },
-  { id: 'market', label: 'Market' },
+  { id: 'content', label: 'Skills' },
+  { id: 'market', label: 'Workflows' },
   { id: 'evolution', label: 'Evolution' },
-  { id: 'search', label: 'Search' },
+  { id: 'search', label: 'Providers' },
 ];
 
 export function agentPanelLabel(id: AgentPanelId) {
-  return agentPanelItems.find((item) => item.id === id)?.label ?? 'LLM';
+  return agentPanelItems.find((item) => item.id === id)?.label ?? 'Runtime';
 }

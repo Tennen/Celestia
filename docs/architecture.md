@@ -156,7 +156,7 @@ Top-level workspaces:
 - Devices
 - Activity
 
-Agent sidebar subpages are limited to Agent-owned domains: LLM, Conversation, Content, Market, Evolution, and Search. WeCom, slash commands, voice provider settings, and input mappings live under Touchpoints.
+Agent sidebar subpages are limited to Agent-owned domains: Runtime, Conversation, Skills, Workflows, Evolution, and Providers. WeCom, slash commands, voice provider settings, and input mappings live under Touchpoints.
 
 ## Persistence
 
@@ -166,9 +166,11 @@ Core persistence is SQLite-backed. Agent and touchpoint configuration currently 
 - `internal/core/project/slash`: deterministic slash workflows
 - `internal/core/project/touchpoint`: project touchpoint facade
 - `internal/core/project/voice`: STT provider execution
-- `internal/core/agent/capabilities/search`: search provider execution
-- `internal/core/agent/capabilities/market`: Eastmoney estimate/security lookup and Market prompt helpers
-- `internal/core/agent/capabilities/renderer`: md2img renderer assets
-- `internal/core/agent`: Eino Agent loop, memory, tool registry, and Agent-owned workflow state
+- `internal/core/agent`: public Agent facade only
+- `internal/core/agent/runtime`: Eino Agent loop, tool registry, Agent-owned orchestration, and persistence
+- `internal/core/agent/runtime/memory`: Agent memory windowing, retrieval, and compaction
+- `internal/core/agent/providers/search`: search provider execution
+- `internal/core/agent/workflows/market`: Eastmoney estimate/security lookup and Market prompt helpers
+- `internal/core/agent/workflows/renderer`: md2img renderer implementation and assets
 
 New runtime behavior should follow those ownership boundaries even when existing persisted document keys still contain historical `agent/*` names.

@@ -15,7 +15,7 @@ GET /api/v1/agent
 Returns the full Agent snapshot:
 
 - `settings`: LLM, terminal, search, memory, md2img, evolution, WeCom, and STT configuration. WeCom/STT settings are retained in the snapshot for migrated storage compatibility but are owned by Touchpoints at runtime.
-- `capabilities`: Agent-owned tool contracts.
+- `tools`: Agent-owned Eino tool contracts.
 - `direct_input`: input mapping rules owned by Touchpoints before Agent execution.
 - `wecom_menu` and `push`: Touchpoint-owned WeCom menu/users stored in the migrated snapshot document store.
 - `conversations`: retained Agent conversation turns, including slash command result records.
@@ -33,7 +33,7 @@ Accepts `settings` from the snapshot and returns the updated snapshot.
 
 LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ollama`, `gemini`, and `gemini-like` through HTTP-compatible transports. `codex` invokes the local `codex exec --json --sandbox workspace-write` runner.
 
-Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/capabilities/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden.
+Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/workflows/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden.
 
 ## Conversation
 
@@ -77,7 +77,7 @@ The Agent tool registry is built through Eino-compatible tool specs. Agent-owned
 - `evolution_operator`
 - `terminal_run`
 - `codex_runner`
-- `markdown_renderer`
+- `markdown_render`
 - `apple_notes`
 - `apple_reminders`
 
@@ -111,19 +111,19 @@ Search engines are read from `settings.search_engines`. Supported providers:
 - `serpapi`: calls `GET /search.json` with `engine`, `q`, `hl`, `gl`, `num`, and `api_key`
 - `qianfan`: calls Baidu Qianfan `POST /v2/ai_search/web_search`
 
-Provider execution lives in `internal/core/agent/capabilities/search`; the Agent wrapper records the latest 50 query logs into `snapshot.search.recent_queries`.
+Provider execution lives in `internal/core/agent/providers/search`; the Agent wrapper records the latest 50 query logs into `snapshot.search.recent_queries`.
 
 If no profile is configured, Celestia bootstraps from `SERPAPI_KEY` and `QIANFAN_SEARCH_*` environment variables.
 
-## Agent Capabilities
+## Tool Metadata API
 
 ```http
-GET /api/v1/agent/capabilities
-GET /api/v1/agent/capabilities/{name}
-POST /api/v1/agent/capabilities/{name}/run
+GET /api/v1/agent/tools
+GET /api/v1/agent/tools/{name}
+POST /api/v1/agent/tools/{name}/run
 ```
 
-Capabilities expose Celestia-owned Agent tool metadata. A capability record contains `name`, `description`, optional terminal dependency metadata, direct commands, and the internal action contract.
+These endpoints expose Celestia-owned Agent tool metadata. A tool record contains `name`, `description`, optional terminal dependency metadata, direct commands, and the internal action contract.
 
 `POST /run` accepts:
 
@@ -173,7 +173,7 @@ POST /api/v1/agent/market/portfolio/import-codes
 POST /api/v1/agent/market/run
 ```
 
-The Agent owns the Market workflow state and report generation. Reusable Eastmoney estimate/security lookup code lives in `internal/core/agent/capabilities/market`.
+The Agent owns the Market workflow state and report generation. Reusable Eastmoney estimate/security lookup code lives in `internal/core/agent/workflows/market`.
 
 A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
 
@@ -196,7 +196,7 @@ Body:
 }
 ```
 
-`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/agent/capabilities/renderer/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
+`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/agent/workflows/renderer/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
 
 ## Evolution And Terminal
 

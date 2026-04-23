@@ -93,10 +93,12 @@ Use these boundaries when deciding where code belongs:
 - `internal/core/project/slash`: deterministic project workflows invoked by slash commands. Native home control belongs here and must use Core registry/state/control/policy/audit/command execution, not LLM intent inference.
 - `internal/core/project/touchpoint`: project-level touchpoint facade for WeCom users, menu publishing, ingress, and output delivery.
 - `internal/core/project/voice`: STT provider execution. Voice ingress currently belongs to the WeCom touchpoint chain, not to a separate Agent page.
-- `internal/core/agent/capabilities/search`: search provider execution and provider payload normalization. Agent may store search settings/logs, but provider HTTP execution belongs here.
-- `internal/core/agent/capabilities/market`: Eastmoney estimate/security lookup and reusable Market report helpers. Agent may orchestrate Market analysis, but vendor/data lookup code belongs here.
-- `internal/core/agent/capabilities/renderer`: renderer assets and scripts such as md2img. Agent may call the renderer, but renderer implementation does not belong under `internal/core/agent`.
-- `internal/core/agent`: Eino ReAct Agent loop, memory, tool registry, and Agent-owned workflow state. Transport adapters, slash dispatch, provider HTTP clients, renderer assets, and device command ownership do not belong here.
+- `internal/core/agent`: public Agent facade only. Do not add migrated feature files directly to this package root.
+- `internal/core/agent/runtime`: Eino ReAct loop, Agent tools, memory integration, persistence, and Agent-owned orchestration. A thing belongs here only when it is part of the Agent runtime itself.
+- `internal/core/agent/runtime/memory`: memory windowing, retrieval, and compaction implementation used by the Agent loop.
+- `internal/core/agent/providers/search`: search provider execution and provider payload normalization. Search engines are provider profiles, not Agent capabilities. Agent may store search settings/logs, but provider HTTP execution belongs here.
+- `internal/core/agent/workflows/market`: Eastmoney estimate/security lookup and reusable Market report helpers. Agent may orchestrate Market analysis, but vendor/data lookup code belongs here.
+- `internal/core/agent/workflows/renderer`: renderer workflow implementation and assets such as md2img. Agent may call the renderer, but renderer implementation does not belong under `internal/core/agent/runtime`.
 - `internal/coreapi`: the approved plugin-to-Core backchannel, including persisted config updates.
 - `internal/models`: shared canonical models and payload shapes. Do not leak vendor-specific structs past this layer.
 - `internal/pluginapi`: plugin RPC contract helpers and protobuf/grpc bindings.

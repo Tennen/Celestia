@@ -209,10 +209,12 @@ These repositories are reference material for protocol and behavior research, no
 - `internal/core/project/slash`: deterministic project workflows such as `/home` native device control and `/market` workflow execution.
 - `internal/core/project/touchpoint`: project-level touchpoint facade for WeCom users, menus, ingress, and output delivery.
 - `internal/core/project/voice`: STT provider execution used by touchpoint voice input.
-- `internal/core/agent/capabilities/search`: search provider execution and provider-specific HTTP payload normalization.
-- `internal/core/agent/capabilities/market`: Eastmoney fund/security lookup and reusable Market report helpers.
-- `internal/core/agent/capabilities/renderer`: renderer assets such as the md2img Playwright script.
-- `internal/core/agent`: Eino ReAct Agent runtime and Agent-owned capabilities excluding transport/touchpoint ownership, Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance.
+- `internal/core/agent`: public Agent facade; implementation is split below instead of keeping all migrated code in the package root.
+- `internal/core/agent/runtime`: Eino ReAct loop, Agent tools, memory integration, persistence, and Agent-owned workflow orchestration.
+- `internal/core/agent/runtime/memory`: hybrid memory/window compaction implementation used by the Agent loop.
+- `internal/core/agent/providers/search`: search provider execution and provider-specific HTTP payload normalization. Search engines are provider profiles, not Agent capabilities.
+- `internal/core/agent/workflows/market`: Eastmoney fund/security lookup and reusable Market report helpers.
+- `internal/core/agent/workflows/renderer`: renderer workflow implementation and md2img Playwright assets.
 - `internal/coreapi`: Core-owned gRPC helpers that plugins use for approved back-calls such as config persistence.
 - `internal/models`: shared runtime models exchanged across Core, plugins, storage, and API layers.
 - `internal/pluginapi`: generated/handwritten gRPC protocol bindings and struct encoding helpers for plugin RPCs.
@@ -242,7 +244,7 @@ The container exposes the gateway and admin UI on port `8080`.
 ## API Docs
 
 - HTTP API reference grouped by domain, including runtime management, devices, AI, events, OAuth, and streaming: [docs/api.md](docs/api.md)
-- Agent runtime API for the directly integrated Agent capabilities: [docs/api/agent.md](docs/api/agent.md)
+- Agent runtime API for directly integrated Agent tools, memory, providers, and workflows: [docs/api/agent.md](docs/api/agent.md)
 - Touchpoint API for WeCom and project input mapping: [docs/api/touchpoints.md](docs/api/touchpoints.md)
 
 ## Admin Surface

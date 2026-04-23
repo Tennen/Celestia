@@ -100,29 +100,29 @@ func (s *RuntimeService) RunAgentConversation(ctx context.Context, req models.Ag
 	return item, nil
 }
 
-func (s *RuntimeService) ListAgentCapabilities(ctx context.Context) ([]models.AgentCapabilityInfo, error) {
-	items, err := s.runtime.Agent.ListAgentCapabilities(ctx)
+func (s *RuntimeService) ListAgentTools(ctx context.Context) ([]models.AgentToolInfo, error) {
+	items, err := s.runtime.Agent.ListAgentTools(ctx)
 	if err != nil {
 		return nil, statusError(http.StatusBadRequest, err)
 	}
 	return items, nil
 }
 
-func (s *RuntimeService) DescribeAgentCapability(ctx context.Context, name string) (models.AgentCapabilityInfo, error) {
-	item, err := s.runtime.Agent.DescribeAgentCapability(ctx, name)
+func (s *RuntimeService) DescribeAgentTool(ctx context.Context, name string) (models.AgentToolInfo, error) {
+	item, err := s.runtime.Agent.DescribeAgentTool(ctx, name)
 	if err != nil {
-		return models.AgentCapabilityInfo{}, statusError(http.StatusNotFound, err)
+		return models.AgentToolInfo{}, statusError(http.StatusNotFound, err)
 	}
 	return item, nil
 }
 
-func (s *RuntimeService) RunAgentCapability(
+func (s *RuntimeService) RunAgentTool(
 	ctx context.Context,
 	name string,
-	req models.AgentCapabilityRunRequest,
-) (models.AgentCapabilityRunResult, error) {
-	result, err := s.runtime.Agent.RunAgentCapability(ctx, name, req)
-	if err != nil && result.Capability == "" {
+	req models.AgentToolRunRequest,
+) (models.AgentToolRunResult, error) {
+	result, err := s.runtime.Agent.RunAgentTool(ctx, name, req)
+	if err != nil && result.Tool == "" {
 		return result, statusError(http.StatusBadRequest, err)
 	}
 	return result, nil

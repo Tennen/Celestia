@@ -15,7 +15,7 @@ type AgentDocument struct {
 type AgentSnapshot struct {
 	Settings      AgentSettings          `json:"settings"`
 	Search        AgentSearchSnapshot    `json:"search"`
-	Capabilities  []AgentCapabilityInfo  `json:"capabilities"`
+	Tools         []AgentToolInfo        `json:"tools"`
 	DirectInput   AgentDirectInputConfig `json:"direct_input"`
 	WeComMenu     AgentWeComMenuSnapshot `json:"wecom_menu"`
 	Push          AgentPushSnapshot      `json:"push"`
@@ -242,7 +242,7 @@ type AgentConversationRequest struct {
 	Actor     string `json:"actor,omitempty"`
 }
 
-type AgentCapabilityInfo struct {
+type AgentToolInfo struct {
 	Name                  string   `json:"name"`
 	Description           string   `json:"description"`
 	Terminal              bool     `json:"terminal,omitempty"`
@@ -260,15 +260,14 @@ type AgentCapabilityInfo struct {
 	Detail                string   `json:"detail,omitempty"`
 }
 
-type AgentCapabilityRunRequest struct {
+type AgentToolRunRequest struct {
 	Input   string   `json:"input,omitempty"`
 	Command string   `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
 }
 
-type AgentCapabilityRunResult struct {
-	Capability  string               `json:"capability"`
-	Tool        string               `json:"tool,omitempty"`
+type AgentToolRunResult struct {
+	Tool        string               `json:"tool"`
 	Action      string               `json:"action,omitempty"`
 	Input       string               `json:"input,omitempty"`
 	UsedCommand string               `json:"used_command,omitempty"`

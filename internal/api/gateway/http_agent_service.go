@@ -100,30 +100,30 @@ func (s *HTTPService) RunAgentConversation(ctx context.Context, req models.Agent
 	return out, nil
 }
 
-func (s *HTTPService) ListAgentCapabilities(ctx context.Context) ([]models.AgentCapabilityInfo, error) {
-	var out []models.AgentCapabilityInfo
-	if err := s.get(ctx, "/api/v1/agent/capabilities", nil, &out); err != nil {
+func (s *HTTPService) ListAgentTools(ctx context.Context) ([]models.AgentToolInfo, error) {
+	var out []models.AgentToolInfo
+	if err := s.get(ctx, "/api/v1/agent/tools", nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (s *HTTPService) DescribeAgentCapability(ctx context.Context, name string) (models.AgentCapabilityInfo, error) {
-	var out models.AgentCapabilityInfo
-	path := fmt.Sprintf("/api/v1/agent/capabilities/%s", url.PathEscape(name))
+func (s *HTTPService) DescribeAgentTool(ctx context.Context, name string) (models.AgentToolInfo, error) {
+	var out models.AgentToolInfo
+	path := fmt.Sprintf("/api/v1/agent/tools/%s", url.PathEscape(name))
 	if err := s.get(ctx, path, nil, &out); err != nil {
-		return models.AgentCapabilityInfo{}, err
+		return models.AgentToolInfo{}, err
 	}
 	return out, nil
 }
 
-func (s *HTTPService) RunAgentCapability(
+func (s *HTTPService) RunAgentTool(
 	ctx context.Context,
 	name string,
-	req models.AgentCapabilityRunRequest,
-) (models.AgentCapabilityRunResult, error) {
-	var out models.AgentCapabilityRunResult
-	path := fmt.Sprintf("/api/v1/agent/capabilities/%s/run", url.PathEscape(name))
+	req models.AgentToolRunRequest,
+) (models.AgentToolRunResult, error) {
+	var out models.AgentToolRunResult
+	path := fmt.Sprintf("/api/v1/agent/tools/%s/run", url.PathEscape(name))
 	if err := s.request(ctx, http.MethodPost, path, nil, req, &out, ""); err != nil {
 		return out, err
 	}
