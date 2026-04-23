@@ -41,6 +41,14 @@ func (s *Service) SaveWeComMenu(ctx context.Context, config models.AgentWeComMen
 	})
 }
 
+func (s *Service) ResolveWeComRecipient(ctx context.Context, target string) (models.AgentPushUser, error) {
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return models.AgentPushUser{}, err
+	}
+	return resolveWeComRecipient(snapshot.Push.Users, target)
+}
+
 func (s *Service) PublishWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
 	snapshot, err := s.Snapshot(ctx)
 	if err != nil {
@@ -84,10 +92,14 @@ func (s *Service) SendWeComMessage(ctx context.Context, req WeComSendRequest) er
 	if err != nil {
 		return err
 	}
+	recipient, err := resolveWeComRecipient(snapshot.Push.Users, req.ToUser)
+	if err != nil {
+		return err
+	}
 	chunks := splitTextByUTF8Bytes(req.Text, maxInt(snapshot.Settings.WeCom.TextMaxBytes, 1800))
 	for _, chunk := range chunks {
 		payload := map[string]any{
-			"touser":  strings.TrimSpace(req.ToUser),
+			"touser":  strings.TrimSpace(recipient.WeComUser),
 			"msgtype": "text",
 			"agentid": parseAgentID(snapshot.Settings.WeCom.AgentID),
 			"text":    map[string]any{"content": chunk},
@@ -101,6 +113,26 @@ func (s *Service) SendWeComMessage(ctx context.Context, req WeComSendRequest) er
 
 func (s *Service) SendWeComText(ctx context.Context, toUser string, text string) error {
 	return s.SendWeComMessage(ctx, WeComSendRequest{ToUser: toUser, Text: text})
+}
+
+func resolveWeComRecipient(users []models.AgentPushUser, target string) (models.AgentPushUser, error) {
+	trimmedTarget := strings.TrimSpace(target)
+	if trimmedTarget == "" {
+		return models.AgentPushUser{}, errors.New("wecom user target is required")
+	}
+	for _, user := range users {
+		if strings.TrimSpace(user.ID) != trimmedTarget && strings.TrimSpace(user.WeComUser) != trimmedTarget {
+			continue
+		}
+		if !user.Enabled {
+			return models.AgentPushUser{}, fmt.Errorf("wecom user %q is disabled", firstNonEmpty(user.Name, user.WeComUser, user.ID))
+		}
+		if strings.TrimSpace(user.WeComUser) == "" {
+			return models.AgentPushUser{}, fmt.Errorf("wecom user %q has no wecom_user", firstNonEmpty(user.Name, user.ID))
+		}
+		return user, nil
+	}
+	return models.AgentPushUser{}, fmt.Errorf("wecom target %q is not a configured user", trimmedTarget)
 }
 
 func (s *Service) RecordWeComXML(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {

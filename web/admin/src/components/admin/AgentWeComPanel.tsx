@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Send, Trash2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -13,6 +13,7 @@ import {
   sendAgentWeComMessage,
   type AgentSnapshot,
   type AgentWeComButton,
+  type AgentWeComUser,
 } from '../../lib/agent';
 import { Field, FieldGrid, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
@@ -25,7 +26,7 @@ type Props = {
 };
 
 type WeComSettings = AgentSnapshot['settings']['wecom'];
-type PushUser = Record<string, unknown>;
+type PushUser = AgentWeComUser;
 
 const textOf = (value: unknown) => (typeof value === 'string' ? value : '');
 
@@ -36,13 +37,15 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   const [pushUser, setPushUser] = useState<PushUser>(snapshot.push.users[0] ?? emptyPushUser());
   const [toUser, setToUser] = useState('');
   const [message, setMessage] = useState('');
+  const sendableUsers = useMemo(() => wecomUserOptions(snapshot.push.users), [snapshot.push.users]);
 
   useEffect(() => {
     setSettings(snapshot.settings.wecom);
     setTextMaxBytes(numberValue(snapshot.settings.wecom.text_max_bytes));
     setButtons(snapshot.wecom_menu.config.buttons);
     setPushUser(snapshot.push.users[0] ?? emptyPushUser());
-  }, [snapshot]);
+    setToUser((current) => (sendableUsers.some((user) => user.id === current) ? current : (sendableUsers[0]?.id ?? '')));
+  }, [snapshot, sendableUsers]);
 
   const saveSettings = () => {
     onRun(
@@ -194,7 +197,17 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
             <CardDescription>One-off WeCom text delivery for operator checks</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <Field label="To user" value={toUser} onChange={setToUser} />
+            <label className="stack text-sm font-medium">
+              <span>User</span>
+              <select className="select" value={toUser} onChange={(event) => setToUser(event.target.value)} disabled={sendableUsers.length === 0}>
+                {sendableUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {wecomUserLabel(user)}
+                  </option>
+                ))}
+                {sendableUsers.length === 0 ? <option value="">Create an enabled WeCom user first</option> : null}
+              </select>
+            </label>
             <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Text message" />
             <Button onClick={() => onRun('wecom-send', () => sendAgentWeComMessage({ to_user: toUser, text: message }))} disabled={!toUser || !message}>
               <Send className="mr-2 h-4 w-4" />
@@ -290,7 +303,17 @@ function emptyPushUser(): PushUser {
   return { id: '', name: '', wecom_user: '', enabled: true };
 }
 
-function replaceRecordById(items: Array<Record<string, unknown>>, next: Record<string, unknown>) {
+function wecomUserOptions(users: AgentWeComUser[]) {
+  return users.filter((user) => user.enabled !== false && textOf(user.wecom_user) !== '');
+}
+
+function wecomUserLabel(user: AgentWeComUser) {
+  const name = textOf(user.name);
+  const wecomUser = textOf(user.wecom_user);
+  return name && name !== wecomUser ? `${name} · ${wecomUser}` : wecomUser;
+}
+
+function replaceRecordById<T extends { id?: string }>(items: T[], next: T) {
   const id = textOf(next.id);
   return items.some((item) => textOf(item.id) === id) ? items.map((item) => (textOf(item.id) === id ? next : item)) : [...items, next];
 }

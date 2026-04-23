@@ -30,12 +30,16 @@ func (s *Service) SendWeComImage(ctx context.Context, req WeComImageRequest) err
 		return err
 	}
 	config := snapshot.Settings.WeCom
+	recipient, err := resolveWeComRecipient(snapshot.Push.Users, req.ToUser)
+	if err != nil {
+		return err
+	}
 	mediaID, err := s.uploadWeComImage(ctx, config, req)
 	if err != nil {
 		return err
 	}
 	payload := map[string]any{
-		"touser":  strings.TrimSpace(req.ToUser),
+		"touser":  strings.TrimSpace(recipient.WeComUser),
 		"msgtype": "image",
 		"agentid": parseAgentID(config.AgentID),
 		"image":   map[string]any{"media_id": mediaID},

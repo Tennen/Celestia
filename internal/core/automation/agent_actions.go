@@ -67,6 +67,15 @@ func (s *Service) validateAgentTouchpoints(ctx context.Context, params map[strin
 			if strings.TrimSpace(touchpoint.ToUser) == "" {
 				return errors.New("wecom touchpoint requires to_user")
 			}
+			s.mu.RLock()
+			agent := s.agent
+			s.mu.RUnlock()
+			if agent == nil {
+				return errors.New("agent runtime is not available")
+			}
+			if _, err := agent.ResolveWeComRecipient(ctx, touchpoint.ToUser); err != nil {
+				return err
+			}
 		case "device":
 			if strings.TrimSpace(touchpoint.DeviceID) == "" {
 				return errors.New("device touchpoint requires device_id")

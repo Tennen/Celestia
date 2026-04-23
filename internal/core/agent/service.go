@@ -109,8 +109,22 @@ func (s *Service) SaveDirectInput(ctx context.Context, config models.AgentDirect
 func (s *Service) SavePush(ctx context.Context, push models.AgentPushSnapshot) (models.AgentSnapshot, error) {
 	return s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		now := time.Now().UTC()
+		seenWeComUsers := map[string]struct{}{}
 		for idx := range push.Users {
 			push.Users[idx].ID = firstNonEmpty(push.Users[idx].ID, uuid.NewString())
+			push.Users[idx].Name = strings.TrimSpace(push.Users[idx].Name)
+			push.Users[idx].WeComUser = strings.TrimSpace(push.Users[idx].WeComUser)
+			if push.Users[idx].WeComUser == "" {
+				return errors.New("wecom user is required")
+			}
+			normalizedWeComUser := strings.ToLower(push.Users[idx].WeComUser)
+			if _, ok := seenWeComUsers[normalizedWeComUser]; ok {
+				return errors.New("wecom user must be unique")
+			}
+			seenWeComUsers[normalizedWeComUser] = struct{}{}
+			if push.Users[idx].Name == "" {
+				push.Users[idx].Name = push.Users[idx].WeComUser
+			}
 			push.Users[idx].UpdatedAt = now
 		}
 		push.UpdatedAt = now

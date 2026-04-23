@@ -12,11 +12,13 @@ import {
   type AutomationActionKind,
 } from '../../../lib/automation';
 import type { Automation, AutomationAction, DeviceView } from '../../../lib/types';
+import type { AgentWeComUser } from '../../../lib/agent';
 import { AutomationSection } from './AutomationSection';
 
 type Props = {
   draft: Automation;
   devices: DeviceView[];
+  wecomUsers: AgentWeComUser[];
   actionParamDrafts: Record<number, string>;
   onChange: (updater: (current: Automation) => Automation) => void;
   onParamDraftChange: (index: number, value: string) => void;
@@ -35,6 +37,7 @@ type TouchpointDraft = {
 export function ActionsEditor({
   draft,
   devices,
+  wecomUsers,
   actionParamDrafts,
   onChange,
   onParamDraftChange,
@@ -101,7 +104,7 @@ export function ActionsEditor({
                 </div>
 
                 {kind === 'agent' ? (
-                  <AgentActionEditor action={action} index={index} devices={devices} onChange={onChange} />
+                  <AgentActionEditor action={action} index={index} devices={devices} wecomUsers={wecomUsers} onChange={onChange} />
                 ) : (
                   <DeviceActionEditor
                     action={action}
@@ -172,9 +175,10 @@ function DeviceActionEditor(props: {
   );
 }
 
-function AgentActionEditor(props: { action: AutomationAction; index: number; devices: DeviceView[]; onChange: Props['onChange'] }) {
+function AgentActionEditor(props: { action: AutomationAction; index: number; devices: DeviceView[]; wecomUsers: AgentWeComUser[]; onChange: Props['onChange'] }) {
   const params = props.action.params ?? {};
   const touchpoints = actionTouchpoints(props.action);
+  const users = wecomUserOptions(props.wecomUsers);
   return (
     <>
       <div className="automation-field-grid">
@@ -189,7 +193,7 @@ function AgentActionEditor(props: { action: AutomationAction; index: number; dev
       </div>
       <div className="automation-rule-list">
         <div className="button-row">
-          <Button variant="secondary" size="sm" onClick={() => updateTouchpoints(props.onChange, props.index, [...touchpoints, { type: 'wecom', to_user: '' }])}>
+          <Button variant="secondary" size="sm" disabled={users.length === 0} onClick={() => updateTouchpoints(props.onChange, props.index, [...touchpoints, { type: 'wecom', to_user: defaultWeComUser(users) }])}>
             Add WeCom Touchpoint
           </Button>
           <Button variant="secondary" size="sm" onClick={() => updateTouchpoints(props.onChange, props.index, [...touchpoints, { type: 'device', device_id: defaultVoiceDevice(props.devices), action: 'push_voice_message', params: {} }])}>
@@ -201,6 +205,7 @@ function AgentActionEditor(props: { action: AutomationAction; index: number; dev
             key={`${touchpoint.type}-${touchpointIndex}`}
             touchpoint={touchpoint}
             devices={props.devices}
+            wecomUsers={users}
             onChange={(next) => updateTouchpoints(props.onChange, props.index, touchpoints.map((item, itemIndex) => (itemIndex === touchpointIndex ? next : item)))}
             onRemove={() => updateTouchpoints(props.onChange, props.index, touchpoints.filter((_, itemIndex) => itemIndex !== touchpointIndex))}
           />
@@ -210,9 +215,10 @@ function AgentActionEditor(props: { action: AutomationAction; index: number; dev
   );
 }
 
-function TouchpointEditor(props: { touchpoint: TouchpointDraft; devices: DeviceView[]; onChange: (next: TouchpointDraft) => void; onRemove: () => void }) {
+function TouchpointEditor(props: { touchpoint: TouchpointDraft; devices: DeviceView[]; wecomUsers: AgentWeComUser[]; onChange: (next: TouchpointDraft) => void; onRemove: () => void }) {
   const type = props.touchpoint.type === 'device' ? 'device' : 'wecom';
   const voiceDevices = voiceDeviceOptions(props.devices);
+  const selectedUser = selectedWeComUserValue(props.wecomUsers, props.touchpoint.to_user);
   return (
     <div className="automation-rule">
       <div className="automation-rule__header">
@@ -226,7 +232,7 @@ function TouchpointEditor(props: { touchpoint: TouchpointDraft; devices: DeviceV
       <div className="automation-field-grid">
         <div className="automation-field">
           <label>Touchpoint</label>
-          <select className="select" value={type} onChange={(event) => props.onChange(event.target.value === 'device' ? { type: 'device', device_id: defaultVoiceDevice(props.devices), action: 'push_voice_message', params: {} } : { type: 'wecom', to_user: '' })}>
+          <select className="select" value={type} onChange={(event) => props.onChange(event.target.value === 'device' ? { type: 'device', device_id: defaultVoiceDevice(props.devices), action: 'push_voice_message', params: {} } : { type: 'wecom', to_user: defaultWeComUser(props.wecomUsers) })}>
             <option value="wecom">WeCom message</option>
             <option value="device">Voice device</option>
           </select>
@@ -234,7 +240,15 @@ function TouchpointEditor(props: { touchpoint: TouchpointDraft; devices: DeviceV
         {type === 'wecom' ? (
           <div className="automation-field">
             <label>WeCom User</label>
-            <Input value={props.touchpoint.to_user ?? ''} onChange={(event) => props.onChange({ ...props.touchpoint, type: 'wecom', to_user: event.target.value })} placeholder="@all or user id" />
+            <select className="select" value={selectedUser} onChange={(event) => props.onChange({ ...props.touchpoint, type: 'wecom', to_user: event.target.value })} disabled={props.wecomUsers.length === 0}>
+              <option value="">Select User</option>
+              {props.wecomUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {wecomUserLabel(user)}
+                </option>
+              ))}
+              {props.wecomUsers.length === 0 ? <option value="">Create an enabled WeCom user first</option> : null}
+            </select>
           </div>
         ) : (
           <>
@@ -318,6 +332,25 @@ function voiceDeviceOptions(devices: DeviceView[]) {
 
 function defaultVoiceDevice(devices: DeviceView[]) {
   return voiceDeviceOptions(devices)[0]?.device.id ?? '';
+}
+
+function wecomUserOptions(users: AgentWeComUser[]) {
+  return users.filter((user) => user.enabled !== false && textParam(user.wecom_user) !== '');
+}
+
+function defaultWeComUser(users: AgentWeComUser[]) {
+  return users[0]?.id ?? '';
+}
+
+function selectedWeComUserValue(users: AgentWeComUser[], value: string | undefined) {
+  const target = textParam(value);
+  return users.find((user) => user.id === target || user.wecom_user === target)?.id ?? '';
+}
+
+function wecomUserLabel(user: AgentWeComUser) {
+  const name = textParam(user.name);
+  const wecomUser = textParam(user.wecom_user);
+  return name && name !== wecomUser ? `${name} · ${wecomUser}` : wecomUser;
 }
 
 function textParam(value: unknown) {

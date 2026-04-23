@@ -91,8 +91,16 @@ export type AgentWeComMenuSnapshot = {
   validation_errors?: string[];
 };
 
+export type AgentWeComUser = {
+  id: string;
+  name: string;
+  wecom_user: string;
+  enabled: boolean;
+  updated_at?: string;
+};
+
 export type AgentPushSnapshot = {
-  users: Array<Record<string, unknown>>;
+  users: AgentWeComUser[];
   updated_at: string;
 };
 

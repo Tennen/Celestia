@@ -16,6 +16,7 @@ import {
   type AutomationActionTemplate,
 } from '../../lib/automation';
 import { deleteAutomation, saveAutomation } from '../../lib/api';
+import { fetchAgentSnapshot, type AgentWeComUser } from '../../lib/agent';
 import { formatTime } from '../../lib/utils';
 import { useAdminStore } from '../../stores/adminStore';
 import type { Automation } from '../../lib/types';
@@ -51,6 +52,7 @@ export function AutomationWorkspace() {
   const { automations, devices, refreshAll, reportError } = useAdminStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionParamDrafts, setActionParamDrafts] = useState<Record<number, string>>({});
+  const [wecomUsers, setWecomUsers] = useState<AgentWeComUser[]>([]);
   const [busy, setBusy] = useState('');
 
   const defaultDraft = useMemo(() => defaultAutomation(devices), [devices]);
@@ -91,6 +93,24 @@ export function AutomationWorkspace() {
   useEffect(() => {
     setActionParamDrafts(draft ? buildActionParamDrafts(draft.actions) : {});
   }, [draft, revision]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAgentSnapshot()
+      .then((snapshot) => {
+        if (!cancelled) {
+          setWecomUsers(snapshot.push.users);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWecomUsers([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadDraft = (automation: Automation) => {
     setSelectedId(automation.id);
@@ -254,6 +274,7 @@ export function AutomationWorkspace() {
                   <ActionsEditor
                     draft={draft}
                     devices={devices}
+                    wecomUsers={wecomUsers}
                     actionParamDrafts={actionParamDrafts}
                     onChange={updateDraft}
                     onParamDraftChange={(index, value) =>

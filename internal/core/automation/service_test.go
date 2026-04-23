@@ -2,7 +2,9 @@ package automation
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ type fakeAgentRuntime struct {
 		to   string
 		text string
 	}
+	users map[string]models.AgentPushUser
 }
 
 func (f *fakeAgentRuntime) Converse(_ context.Context, req models.AgentConversationRequest) (models.AgentConversation, error) {
@@ -28,12 +31,39 @@ func (f *fakeAgentRuntime) Converse(_ context.Context, req models.AgentConversat
 	return models.AgentConversation{Response: "agent output"}, nil
 }
 
-func (f *fakeAgentRuntime) SendWeComText(_ context.Context, toUser string, text string) error {
+func (f *fakeAgentRuntime) ResolveWeComRecipient(_ context.Context, target string) (models.AgentPushUser, error) {
+	if f.users == nil {
+		return models.AgentPushUser{}, errors.New("wecom target not configured")
+	}
+	if user, ok := f.users[target]; ok && user.Enabled && user.WeComUser != "" {
+		return user, nil
+	}
+	for _, user := range f.users {
+		if user.WeComUser == target && user.Enabled {
+			return user, nil
+		}
+	}
+	return models.AgentPushUser{}, errors.New("wecom target not configured")
+}
+
+func (f *fakeAgentRuntime) SendWeComText(ctx context.Context, toUser string, text string) error {
+	user, err := f.ResolveWeComRecipient(ctx, toUser)
+	if err != nil {
+		return err
+	}
 	f.sends = append(f.sends, struct {
 		to   string
 		text string
-	}{to: toUser, text: text})
+	}{to: user.WeComUser, text: text})
 	return nil
+}
+
+func fakeAgentWithWeComUsers(users ...models.AgentPushUser) *fakeAgentRuntime {
+	index := map[string]models.AgentPushUser{}
+	for _, user := range users {
+		index[user.ID] = user
+	}
+	return &fakeAgentRuntime{users: index}
 }
 
 func newAutomationTestService(t *testing.T) (*Service, *sqlitestore.Store) {
@@ -267,6 +297,7 @@ func TestServiceSaveRequiresExactlyOneTriggerCondition(t *testing.T) {
 func TestServiceSaveAllowsDailyTimeTrigger(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAutomationTestService(t)
+	svc.SetAgentRuntime(fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-chentianyu", Name: "Chentianyu", WeComUser: "chentianyu", Enabled: true}))
 
 	saved, err := svc.Save(ctx, models.Automation{
 		Name:    "Daily digest",
@@ -288,7 +319,7 @@ func TestServiceSaveAllowsDailyTimeTrigger(t *testing.T) {
 				Params: map[string]any{
 					"input": "生成每日摘要",
 					"touchpoints": []any{
-						map[string]any{"type": "wecom", "to_user": "chentianyu"},
+						map[string]any{"type": "wecom", "to_user": "user-chentianyu"},
 					},
 				},
 			},
@@ -305,10 +336,45 @@ func TestServiceSaveAllowsDailyTimeTrigger(t *testing.T) {
 	}
 }
 
+func TestServiceSaveRejectsUnknownWeComTouchpoint(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAutomationTestService(t)
+	svc.SetAgentRuntime(fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-known", Name: "Known", WeComUser: "known", Enabled: true}))
+
+	_, err := svc.Save(ctx, models.Automation{
+		Name:    "Unknown wecom user",
+		Enabled: true,
+		Conditions: []models.AutomationCondition{
+			{
+				Type: models.AutomationConditionTypeTime,
+				Time: &models.AutomationTimeCondition{Schedule: "daily", At: "08:30"},
+			},
+		},
+		Actions: []models.AutomationAction{
+			{
+				Kind:   models.AutomationActionKindAgent,
+				Action: "agent.run",
+				Params: map[string]any{
+					"input": "run digest",
+					"touchpoints": []any{
+						map[string]any{"type": "wecom", "to_user": "missing"},
+					},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("Save() error = nil, want unknown wecom user rejection")
+	}
+	if got := err.Error(); !strings.Contains(got, "wecom target not configured") {
+		t.Fatalf("Save() error = %q, want unknown wecom user rejection", got)
+	}
+}
+
 func TestExecuteAgentActionSendsWeComTouchpoint(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAutomationTestService(t)
-	agent := &fakeAgentRuntime{}
+	agent := fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-chentianyu", Name: "Chentianyu", WeComUser: "chentianyu", Enabled: true})
 	svc.SetAgentRuntime(agent)
 
 	automation, err := svc.Save(ctx, models.Automation{
@@ -327,7 +393,7 @@ func TestExecuteAgentActionSendsWeComTouchpoint(t *testing.T) {
 				Params: map[string]any{
 					"input": "run digest",
 					"touchpoints": []any{
-						map[string]any{"type": "wecom", "to_user": "chentianyu"},
+						map[string]any{"type": "wecom", "to_user": "user-chentianyu"},
 					},
 				},
 			},

@@ -42,6 +42,7 @@ type Service struct {
 
 type AgentRuntime interface {
 	Converse(context.Context, models.AgentConversationRequest) (models.AgentConversation, error)
+	ResolveWeComRecipient(context.Context, string) (models.AgentPushUser, error)
 	SendWeComText(context.Context, string, string) error
 }
 
