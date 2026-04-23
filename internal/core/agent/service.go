@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -14,8 +13,6 @@ import (
 	"github.com/chentianyu/celestia/internal/storage"
 	"github.com/google/uuid"
 )
-
-const stateDocumentKey = "agent/state"
 
 type Service struct {
 	store    storage.Store
@@ -141,32 +138,11 @@ func (s *Service) update(ctx context.Context, mutate func(*models.AgentSnapshot)
 }
 
 func (s *Service) load(ctx context.Context) (models.AgentSnapshot, error) {
-	doc, ok, err := s.store.GetAgentDocument(ctx, stateDocumentKey)
-	if err != nil {
-		return models.AgentSnapshot{}, err
-	}
-	if !ok {
-		snapshot := defaultSnapshot()
-		return snapshot, s.save(ctx, snapshot)
-	}
-	var snapshot models.AgentSnapshot
-	if err := json.Unmarshal(doc.Payload, &snapshot); err != nil {
-		return models.AgentSnapshot{}, err
-	}
-	return normalizeSnapshot(snapshot), nil
+	return s.loadSplitSnapshot(ctx)
 }
 
 func (s *Service) save(ctx context.Context, snapshot models.AgentSnapshot) error {
-	payload, err := json.Marshal(normalizeSnapshot(snapshot))
-	if err != nil {
-		return err
-	}
-	return s.store.UpsertAgentDocument(ctx, models.AgentDocument{
-		Key:       stateDocumentKey,
-		Domain:    "agent",
-		Payload:   payload,
-		UpdatedAt: snapshot.UpdatedAt,
-	})
+	return s.saveSplitSnapshot(ctx, normalizeSnapshot(snapshot))
 }
 
 func (s *Service) emit(ctx context.Context, eventType models.EventType, payload map[string]any) error {
