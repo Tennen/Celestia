@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/flow/agent/react"
+	"github.com/cloudwego/eino/schema"
 	"github.com/google/uuid"
 )
 
@@ -39,49 +42,12 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 	if err != nil {
 		return models.AgentConversation{}, err
 	}
-	response, status := "", "succeeded"
-	metadata := map[string]any{"direct_input_mapped": mapped, "actor": firstNonEmpty(req.Actor, "agent")}
-	if commandResponse, handled, commandErr := s.RunDirectCommand(ctx, resolved); handled {
-		response = commandResponse
-		if commandErr != nil {
-			response = strings.TrimSpace(commandResponse + "\n" + commandErr.Error())
-			status = "failed"
-			err = commandErr
-		}
-	} else {
-		prompt := resolved
-		var routeSnapshot models.AgentSnapshot
-		var routeSnapshotOK bool
-		if snapshot, snapshotErr := s.Snapshot(ctx); snapshotErr == nil {
-			routeSnapshot = snapshot
-			routeSnapshotOK = true
-			var memoryMetadata map[string]any
-			prompt, memoryMetadata = buildMemoryPrompt(snapshot, sessionID, resolved)
-			for key, value := range memoryMetadata {
-				metadata[key] = value
-			}
-		}
-		if routeSnapshotOK {
-			var routeMetadata map[string]any
-			var routed bool
-			response, routeMetadata, routed, err = s.RouteConversation(ctx, resolved, prompt, routeSnapshot)
-			for key, value := range routeMetadata {
-				metadata[key] = value
-			}
-			if routed && err != nil {
-				status = "failed"
-				response = strings.TrimSpace(response + "\n" + err.Error())
-			}
-			if !routed {
-				response, err = s.GenerateText(ctx, prompt)
-			}
-		} else {
-			response, err = s.GenerateText(ctx, prompt)
-		}
-		if err != nil && status != "failed" {
-			response = err.Error()
-			status = "failed"
-		}
+	response, metadata, err := s.runReactConversation(ctx, sessionID, resolved, firstNonEmpty(req.Actor, "agent"))
+	status := "succeeded"
+	metadata["direct_input_mapped"] = mapped
+	if err != nil {
+		response = firstNonEmpty(response, err.Error())
+		status = "failed"
 	}
 	now := time.Now().UTC()
 	item := models.AgentConversation{
@@ -107,4 +73,70 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 		return models.AgentConversation{}, saveErr
 	}
 	return item, err
+}
+
+func (s *Service) runReactConversation(ctx context.Context, sessionID string, input string, actor string) (string, map[string]any, error) {
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	model, err := newEinoChatModel(snapshot.Settings)
+	if err != nil {
+		return "", map[string]any{"runtime_mode": "react", "actor": actor}, err
+	}
+	runtimes, err := s.buildAgentToolRuntimes(ctx)
+	if err != nil {
+		return "", map[string]any{"runtime_mode": "react", "actor": actor}, err
+	}
+	memoryPrompt, memoryMetadata := buildMemoryPrompt(snapshot, sessionID, input)
+	systemPrompt := buildReactSystemPrompt(memoryPrompt, runtimes)
+	metadata := map[string]any{
+		"runtime_mode": "react",
+		"actor":        actor,
+		"tool_count":   len(runtimes),
+	}
+	for key, value := range memoryMetadata {
+		metadata[key] = value
+	}
+	agent, err := react.NewAgent(ctx, &react.AgentConfig{
+		ToolCallingModel: model,
+		ToolsConfig: compose.ToolsNodeConfig{
+			Tools: agentBaseTools(runtimes),
+		},
+		MaxStep:            12,
+		ToolReturnDirectly: agentReturnDirectly(runtimes),
+	})
+	if err != nil {
+		return "", metadata, err
+	}
+	msg, err := agent.Generate(ctx, []*schema.Message{
+		schema.SystemMessage(systemPrompt),
+		schema.UserMessage(input),
+	})
+	if err != nil {
+		return "", metadata, err
+	}
+	if msg == nil {
+		return "", metadata, nil
+	}
+	return strings.TrimSpace(msg.Content), metadata, nil
+}
+
+func buildReactSystemPrompt(memoryPrompt string, runtimes []agentToolRuntime) string {
+	toolNames := make([]string, 0, len(runtimes))
+	for _, runtime := range runtimes {
+		toolNames = append(toolNames, runtime.spec.Name)
+	}
+	return strings.Join([]string{
+		"You are Celestia's local Agent. Use Eino ReAct tool calling for actions, retrieval, and local integrations.",
+		"The available capabilities are Celestia Agent tools.",
+		"Home Assistant and ChatGPT bridge tools are not available.",
+		"Use search_web for current external information. Use terminal_run, codex_runner, Apple, and WeCom tools only for explicit user intent.",
+		"WeCom messages must target configured Celestia Users; do not invent recipients.",
+		"After tool calls, return a concise final answer in the user's language.",
+		"Available tool names: " + strings.Join(toolNames, ", "),
+		"",
+		"[session_context]",
+		memoryPrompt,
+	}, "\n")
 }

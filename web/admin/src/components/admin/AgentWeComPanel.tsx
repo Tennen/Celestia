@@ -273,7 +273,7 @@ function LeafFields(props: { button: AgentWeComButton; onChange: (next: AgentWeC
   return (
     <>
       <Field label="EventKey" value={props.button.key} onChange={(key) => props.onChange({ ...props.button, key })} />
-      <Textarea value={props.button.dispatch_text} onChange={(event) => props.onChange({ ...props.button, dispatch_text: event.target.value })} placeholder="Text sent into the Agent, e.g. /market close" />
+      <Textarea value={props.button.dispatch_text} onChange={(event) => props.onChange({ ...props.button, dispatch_text: event.target.value })} placeholder="Text sent into the Agent, e.g. Run the close market analysis" />
     </>
   );
 }

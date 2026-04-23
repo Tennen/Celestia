@@ -189,7 +189,7 @@ function AgentActionEditor(props: { action: AutomationAction; index: number; dev
       </div>
       <div className="automation-field">
         <label>Agent Input</label>
-        <Textarea value={textParam(params.input)} onChange={(event) => updateActionParam(props.onChange, props.index, 'input', event.target.value)} rows={4} placeholder="/market close or Generate daily digest" />
+        <Textarea value={textParam(params.input)} onChange={(event) => updateActionParam(props.onChange, props.index, 'input', event.target.value)} rows={4} placeholder="Run the close market analysis or generate the daily digest" />
       </div>
       <div className="automation-rule-list">
         <div className="button-row">

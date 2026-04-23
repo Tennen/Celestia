@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	agentcaps "github.com/chentianyu/celestia/internal/core/agent/capabilities"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/storage"
@@ -179,7 +178,7 @@ func defaultSnapshot() models.AgentSnapshot {
 	now := time.Now().UTC()
 	return models.AgentSnapshot{
 		Settings: normalizeSettings(models.AgentSettings{
-			RuntimeMode: "classic",
+			RuntimeMode: "react",
 			Terminal: models.AgentTerminalConfig{
 				TimeoutMS: 30000,
 			},
@@ -188,7 +187,7 @@ func defaultSnapshot() models.AgentSnapshot {
 			},
 			UpdatedAt: now,
 		}),
-		Capabilities: agentcaps.List(),
+		Capabilities: defaultAgentCapabilityInfos(),
 		DirectInput: models.AgentDirectInputConfig{
 			Version:   1,
 			Rules:     []models.AgentDirectInputRule{},
@@ -240,7 +239,7 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 		snapshot.UpdatedAt = time.Now().UTC()
 	}
 	snapshot.Settings = normalizeSettings(snapshot.Settings)
-	snapshot.Capabilities = agentcaps.List()
+	snapshot.Capabilities = defaultAgentCapabilityInfos()
 	if snapshot.Conversations == nil {
 		snapshot.Conversations = []models.AgentConversation{}
 	}
@@ -301,7 +300,7 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	memoryWasEmpty := settings.Memory == (models.AgentMemoryConfig{})
 	md2imgWasEmpty := settings.MD2Img == (models.AgentMD2ImgConfig{})
-	settings.RuntimeMode = firstNonEmpty(settings.RuntimeMode, "classic")
+	settings.RuntimeMode = "react"
 	if settings.LLMProviders == nil {
 		settings.LLMProviders = []models.AgentLLMProvider{}
 	}
