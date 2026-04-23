@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 	einomodel "github.com/cloudwego/eino/components/model"
@@ -45,15 +46,20 @@ func (m *einoChatModel) WithTools(tools []*schema.ToolInfo) (einomodel.ToolCalli
 }
 
 func (m *einoChatModel) Generate(ctx context.Context, input []*schema.Message, opts ...einomodel.Option) (*schema.Message, error) {
+	started := time.Now().UTC()
 	common := einomodel.GetCommonOptions(&einomodel.Options{Tools: m.tools}, opts...)
+	var msg *schema.Message
+	var err error
 	switch strings.ToLower(strings.TrimSpace(m.provider.Type)) {
 	case "openai", "openai-like", "llama-server", "gpt-plugin":
-		return m.generateOpenAICompatible(ctx, input, common)
+		msg, err = m.generateOpenAICompatible(ctx, input, common)
 	case "ollama":
-		return m.generateOllama(ctx, input, common)
+		msg, err = m.generateOllama(ctx, input, common)
 	default:
-		return nil, fmt.Errorf("unsupported Eino chat model provider type %q", m.provider.Type)
+		err = fmt.Errorf("unsupported Eino chat model provider type %q", m.provider.Type)
 	}
+	m.recordModelTrace(ctx, started, input, common, msg, err)
+	return msg, err
 }
 
 func (m *einoChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...einomodel.Option) (*schema.StreamReader[*schema.Message], error) {
@@ -62,6 +68,36 @@ func (m *einoChatModel) Stream(ctx context.Context, input []*schema.Message, opt
 		return nil, err
 	}
 	return schema.StreamReaderFromArray([]*schema.Message{msg}), nil
+}
+
+func (m *einoChatModel) recordModelTrace(ctx context.Context, started time.Time, input []*schema.Message, opts *einomodel.Options, msg *schema.Message, err error) {
+	logger := conversationTraceFromContext(ctx)
+	if logger == nil {
+		return
+	}
+	finished := time.Now().UTC()
+	toolNames := make([]string, 0)
+	for _, call := range outputToolCalls(msg) {
+		toolNames = append(toolNames, call.Function.Name)
+	}
+	logger.record(conversationTraceEvent{
+		Kind:       "model_call",
+		Name:       firstNonEmpty(m.provider.Name, m.provider.ID, m.provider.Type),
+		Status:     statusFromError(err),
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMS: finished.Sub(started).Milliseconds(),
+		Error:      errorString(err),
+		Metadata: map[string]any{
+			"provider_id":     m.provider.ID,
+			"provider_type":   m.provider.Type,
+			"model":           firstNonEmpty(optionModel(opts), m.provider.Model),
+			"message_count":   len(input),
+			"available_tools": len(opts.Tools),
+			"tool_calls":      toolNames,
+			"content_chars":   messageContentChars(msg),
+		},
+	})
 }
 
 type llmToolCall struct {
@@ -162,6 +198,20 @@ func toLLMChatMessages(input []*schema.Message) []llmChatMessage {
 
 func fromLLMChatMessage(msg llmChatMessage) *schema.Message {
 	return schema.AssistantMessage(msg.Content, toSchemaToolCalls(msg.ToolCalls))
+}
+
+func outputToolCalls(msg *schema.Message) []schema.ToolCall {
+	if msg == nil {
+		return nil
+	}
+	return msg.ToolCalls
+}
+
+func messageContentChars(msg *schema.Message) int {
+	if msg == nil {
+		return 0
+	}
+	return len([]rune(msg.Content))
 }
 
 func toSchemaToolCalls(calls []llmToolCall) []schema.ToolCall {

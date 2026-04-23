@@ -76,6 +76,8 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 }
 
 func (s *Service) runReactConversation(ctx context.Context, sessionID string, input string, actor string) (string, map[string]any, error) {
+	trace := newConversationTraceLogger()
+	ctx = withConversationTrace(ctx, trace)
 	snapshot, err := s.Snapshot(ctx)
 	if err != nil {
 		return "", nil, err
@@ -88,6 +90,7 @@ func (s *Service) runReactConversation(ctx context.Context, sessionID string, in
 	if err != nil {
 		return "", map[string]any{"runtime_mode": "react", "actor": actor}, err
 	}
+	runtimes = traceToolRuntimes(runtimes)
 	memoryPrompt, memoryMetadata := buildMemoryPrompt(snapshot, sessionID, input)
 	systemPrompt := buildReactSystemPrompt(memoryPrompt, runtimes)
 	metadata := map[string]any{
@@ -114,11 +117,17 @@ func (s *Service) runReactConversation(ctx context.Context, sessionID string, in
 		schema.UserMessage(input),
 	})
 	if err != nil {
+		metadata["process_log"] = trace.eventsSnapshot()
+		metadata["process_event_count"] = len(trace.eventsSnapshot())
 		return "", metadata, err
 	}
 	if msg == nil {
+		metadata["process_log"] = trace.eventsSnapshot()
+		metadata["process_event_count"] = len(trace.eventsSnapshot())
 		return "", metadata, nil
 	}
+	metadata["process_log"] = trace.eventsSnapshot()
+	metadata["process_event_count"] = len(trace.eventsSnapshot())
 	return strings.TrimSpace(msg.Content), metadata, nil
 }
 

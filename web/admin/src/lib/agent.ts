@@ -129,6 +129,20 @@ export type AgentPushSnapshot = {
   updated_at: string;
 };
 
+export type AgentProcessLogEvent = {
+  id: string;
+  kind: string;
+  name?: string;
+  status: string;
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  input?: string;
+  output?: string;
+  error?: string;
+  metadata?: Record<string, unknown>;
+};
+
 export type AgentConversation = {
   id: string;
   session_id: string;
@@ -136,7 +150,7 @@ export type AgentConversation = {
   resolved?: string;
   response: string;
   status: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> & { process_log?: AgentProcessLogEvent[]; process_event_count?: number };
   created_at: string;
 };
 
