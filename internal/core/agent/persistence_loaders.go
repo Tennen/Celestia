@@ -16,6 +16,16 @@ func loadAgentConversationsDocument(doc models.AgentDocument, snapshot *models.A
 	return nil
 }
 
+func loadAgentSearchLogDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
+	var payload agentSearchLogDocument
+	if err := decodeAgentDocument(doc, &payload); err != nil {
+		return err
+	}
+	snapshot.Search.RecentQueries = payload.RecentQueries
+	snapshot.Search.UpdatedAt = firstTime(payload.UpdatedAt, doc.UpdatedAt)
+	return nil
+}
+
 func loadAgentMemoryRawDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
 	var payload agentMemoryRawDocument
 	if err := decodeAgentDocument(doc, &payload); err != nil {
@@ -186,6 +196,7 @@ func maxTime(left time.Time, right time.Time) time.Time {
 func clearSnapshotPersistenceTimes(snapshot *models.AgentSnapshot) {
 	snapshot.UpdatedAt = time.Time{}
 	snapshot.Settings.UpdatedAt = time.Time{}
+	snapshot.Search.UpdatedAt = time.Time{}
 	snapshot.DirectInput.UpdatedAt = time.Time{}
 	snapshot.WeComMenu.Config.UpdatedAt = time.Time{}
 	snapshot.Push.UpdatedAt = time.Time{}

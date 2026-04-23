@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import {
   runAgentSearch,
   saveAgentSettings,
+  type AgentSearchQueryLog,
   type AgentSnapshot,
 } from '../../lib/agent';
 import { Field, FieldGrid, SelectField, ToggleField, parseOptionalNumber } from './AgentFormFields';
@@ -75,7 +76,6 @@ export function AgentSearchPanel({ snapshot, busy, onRun }: Props) {
           timeout_ms: 12000,
           plans: [{ label: 'manual', query, sites: splitSites(sites), recency: textOf((provider.config ?? {}).recencyFilter) || 'month' }],
         }),
-      false,
     );
   };
 
@@ -181,6 +181,45 @@ export function AgentSearchPanel({ snapshot, busy, onRun }: Props) {
           </Button>
         </CardContent>
       </Card>
+
+      <Card className="panel grid__full">
+        <CardHeader>
+          <CardTitle>Search Query Log</CardTitle>
+          <CardDescription>Last 50 calls from conversation tools, Market, and manual smoke runs</CardDescription>
+        </CardHeader>
+        <CardContent className="stack">
+          <div className="list-stack">
+            {(snapshot.search?.recent_queries ?? []).map((item) => (
+              <SearchLogItem key={item.id} item={item} />
+            ))}
+            {(snapshot.search?.recent_queries ?? []).length === 0 ? <div className="detail">No search queries recorded yet.</div> : null}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SearchLogItem({ item }: { item: AgentSearchQueryLog }) {
+  const provider = [item.engine_name || item.engine_id || 'unselected', item.engine_type].filter(Boolean).join(' / ');
+  const tone = item.status === 'succeeded' ? 'good' : item.status === 'failed' ? 'bad' : 'warn';
+  return (
+    <div className="rounded-xl border bg-card/80 p-3 text-sm">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="break-words font-medium">{item.query || '(empty query)'}</div>
+          <div className="mt-1 break-words text-xs text-muted-foreground">
+            {provider} / {item.result_count} results / {item.error_count} errors / {item.duration_ms}ms
+          </div>
+        </div>
+        <Badge tone={tone} size="xxs">{item.status}</Badge>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+        {item.log_context ? <span>{item.log_context}</span> : null}
+        {item.max_items ? <span>max {item.max_items}</span> : null}
+        {item.finished_at ? <span>{new Date(item.finished_at).toLocaleString()}</span> : null}
+      </div>
+      {(item.errors ?? []).length > 0 ? <div className="mt-2 break-words text-xs text-destructive">{(item.errors ?? []).join('; ')}</div> : null}
     </div>
   );
 }

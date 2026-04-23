@@ -53,6 +53,31 @@ export type AgentSettings = {
   updated_at: string;
 };
 
+export type AgentSearchQueryLog = {
+  id: string;
+  query: string;
+  plans?: Array<{ label: string; query: string; sites?: string[]; recency?: string }>;
+  engine_selector?: string;
+  engine_id?: string;
+  engine_name?: string;
+  engine_type?: string;
+  log_context?: string;
+  max_items?: number;
+  status: string;
+  result_count: number;
+  error_count: number;
+  errors?: string[];
+  source_chain?: string[];
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+};
+
+export type AgentSearchSnapshot = {
+  recent_queries: AgentSearchQueryLog[];
+  updated_at: string;
+};
+
 export type AgentDirectInputRule = {
   id: string;
   name: string;
@@ -209,6 +234,7 @@ export type AgentEvolutionGoal = {
 
 export type AgentSnapshot = {
   settings: AgentSettings;
+  search: AgentSearchSnapshot;
   capabilities: AgentCapabilityInfo[];
   direct_input: AgentDirectInputConfig;
   wecom_menu: AgentWeComMenuSnapshot;
@@ -384,6 +410,7 @@ export function stableJSON(value: unknown) {
 export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
   const snapshot = input ?? ({} as AgentSnapshot);
   const settings = snapshot.settings ?? ({} as AgentSettings);
+  const search = snapshot.search ?? ({} as AgentSearchSnapshot);
   const directInput = snapshot.direct_input ?? ({} as AgentDirectInputConfig);
   const wecomMenu = snapshot.wecom_menu ?? ({} as AgentWeComMenuSnapshot);
   const wecomConfig = wecomMenu.config ?? ({} as AgentWeComMenuConfig);
@@ -406,6 +433,10 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
         ...(settings.evolution ?? {}),
         test_commands: arrayOrEmpty(settings.evolution?.test_commands),
       },
+    },
+    search: {
+      ...search,
+      recent_queries: arrayOrEmpty(search.recent_queries),
     },
     capabilities: arrayOrEmpty(snapshot.capabilities),
     direct_input: {

@@ -187,6 +187,10 @@ func defaultSnapshot() models.AgentSnapshot {
 			},
 			UpdatedAt: now,
 		}),
+		Search: models.AgentSearchSnapshot{
+			RecentQueries: []models.AgentSearchQueryLog{},
+			UpdatedAt:     now,
+		},
 		Capabilities: defaultAgentCapabilityInfos(),
 		DirectInput: models.AgentDirectInputConfig{
 			Version:   1,
@@ -239,6 +243,10 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 		snapshot.UpdatedAt = time.Now().UTC()
 	}
 	snapshot.Settings = normalizeSettings(snapshot.Settings)
+	if snapshot.Search.RecentQueries == nil {
+		snapshot.Search.RecentQueries = []models.AgentSearchQueryLog{}
+	}
+	snapshot.Search.RecentQueries = truncateList(snapshot.Search.RecentQueries, 50)
 	snapshot.Capabilities = defaultAgentCapabilityInfos()
 	if snapshot.Conversations == nil {
 		snapshot.Conversations = []models.AgentConversation{}

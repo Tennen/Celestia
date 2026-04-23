@@ -46,6 +46,7 @@ func (s *Service) runSearchTool(ctx context.Context, input searchToolInput) (mod
 	return s.RunSearch(ctx, models.AgentSearchRequest{
 		EngineSelector: input.EngineSelector,
 		MaxItems:       maxInt(input.MaxItems, 8),
+		LogContext:     "conversation:search_web",
 		Plans: []models.AgentSearchPlan{{
 			Label:   "agent",
 			Query:   strings.TrimSpace(input.Query),

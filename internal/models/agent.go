@@ -14,6 +14,7 @@ type AgentDocument struct {
 
 type AgentSnapshot struct {
 	Settings      AgentSettings          `json:"settings"`
+	Search        AgentSearchSnapshot    `json:"search"`
 	Capabilities  []AgentCapabilityInfo  `json:"capabilities"`
 	DirectInput   AgentDirectInputConfig `json:"direct_input"`
 	WeComMenu     AgentWeComMenuSnapshot `json:"wecom_menu"`
@@ -58,6 +59,31 @@ type AgentSearchProvider struct {
 	Type    string         `json:"type"`
 	Enabled bool           `json:"enabled"`
 	Config  map[string]any `json:"config,omitempty"`
+}
+
+type AgentSearchSnapshot struct {
+	RecentQueries []AgentSearchQueryLog `json:"recent_queries"`
+	UpdatedAt     time.Time             `json:"updated_at"`
+}
+
+type AgentSearchQueryLog struct {
+	ID             string            `json:"id"`
+	Query          string            `json:"query"`
+	Plans          []AgentSearchPlan `json:"plans,omitempty"`
+	EngineSelector string            `json:"engine_selector,omitempty"`
+	EngineID       string            `json:"engine_id,omitempty"`
+	EngineName     string            `json:"engine_name,omitempty"`
+	EngineType     string            `json:"engine_type,omitempty"`
+	LogContext     string            `json:"log_context,omitempty"`
+	MaxItems       int               `json:"max_items,omitempty"`
+	Status         string            `json:"status"`
+	ResultCount    int               `json:"result_count"`
+	ErrorCount     int               `json:"error_count"`
+	Errors         []string          `json:"errors,omitempty"`
+	SourceChain    []string          `json:"source_chain,omitempty"`
+	StartedAt      time.Time         `json:"started_at"`
+	FinishedAt     time.Time         `json:"finished_at"`
+	DurationMS     int64             `json:"duration_ms"`
 }
 
 type AgentSpeechConfig struct {

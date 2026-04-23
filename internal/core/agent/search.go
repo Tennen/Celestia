@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/google/uuid"
 )
 
 func (s *Service) RunSearch(ctx context.Context, req models.AgentSearchRequest) (models.AgentSearchResult, error) {
+	started := time.Now().UTC()
 	if len(req.Plans) == 0 {
 		return models.AgentSearchResult{}, errors.New("at least one search plan is required")
 	}
@@ -25,27 +27,92 @@ func (s *Service) RunSearch(ctx context.Context, req models.AgentSearchRequest) 
 	}
 	profile, ok := selectSearchProvider(snapshot.Settings.SearchEngines, req.EngineSelector)
 	if !ok {
-		return models.AgentSearchResult{
+		result := models.AgentSearchResult{
 			SourceChain: []string{"search_engine:missing"},
 			Errors:      []string{"search engine profile not found"},
-		}, nil
+		}
+		s.recordSearchQuery(ctx, req, profile, started, result, nil)
+		return result, nil
 	}
 	if !profile.Enabled {
-		return models.AgentSearchResult{
+		result := models.AgentSearchResult{
 			SourceChain: []string{"search_engine:" + profile.ID + ":disabled", "search_provider:" + profile.Type},
-		}, nil
+			Errors:      []string{"search engine profile is disabled"},
+		}
+		s.recordSearchQuery(ctx, req, profile, started, result, nil)
+		return result, nil
 	}
+	var result models.AgentSearchResult
 	switch strings.ToLower(strings.TrimSpace(profile.Type)) {
 	case "serpapi":
-		return runSerpAPI(ctx, profile, req)
+		result, err = runSerpAPI(ctx, profile, req)
 	case "qianfan":
-		return runQianfan(ctx, profile, req)
+		result, err = runQianfan(ctx, profile, req)
 	default:
-		return models.AgentSearchResult{
+		result = models.AgentSearchResult{
 			SourceChain: []string{"search_provider:" + profile.Type},
 			Errors:      []string{"unsupported search engine type: " + profile.Type},
-		}, nil
+		}
 	}
+	s.recordSearchQuery(ctx, req, profile, started, result, err)
+	return result, err
+}
+
+func (s *Service) recordSearchQuery(ctx context.Context, req models.AgentSearchRequest, profile models.AgentSearchProvider, started time.Time, result models.AgentSearchResult, runErr error) {
+	finished := time.Now().UTC()
+	entry := models.AgentSearchQueryLog{
+		ID:             uuid.NewString(),
+		Query:          joinedSearchQueries(req.Plans),
+		Plans:          cloneSearchPlans(req.Plans),
+		EngineSelector: strings.TrimSpace(req.EngineSelector),
+		EngineID:       strings.TrimSpace(profile.ID),
+		EngineName:     strings.TrimSpace(profile.Name),
+		EngineType:     strings.TrimSpace(profile.Type),
+		LogContext:     strings.TrimSpace(req.LogContext),
+		MaxItems:       req.MaxItems,
+		Status:         "succeeded",
+		ResultCount:    len(result.Items),
+		ErrorCount:     len(result.Errors),
+		Errors:         append([]string{}, result.Errors...),
+		SourceChain:    append([]string{}, result.SourceChain...),
+		StartedAt:      started,
+		FinishedAt:     finished,
+		DurationMS:     finished.Sub(started).Milliseconds(),
+	}
+	if runErr != nil {
+		entry.Status = "failed"
+		entry.Errors = append(entry.Errors, runErr.Error())
+		entry.ErrorCount = len(entry.Errors)
+	} else if len(result.Errors) > 0 || len(result.Items) == 0 {
+		entry.Status = "degraded"
+	}
+	_, _ = s.update(ctx, func(snapshot *models.AgentSnapshot) error {
+		now := time.Now().UTC()
+		snapshot.Search.RecentQueries = append([]models.AgentSearchQueryLog{entry}, snapshot.Search.RecentQueries...)
+		snapshot.Search.RecentQueries = truncateList(snapshot.Search.RecentQueries, 50)
+		snapshot.Search.UpdatedAt = now
+		snapshot.UpdatedAt = now
+		return nil
+	})
+}
+
+func joinedSearchQueries(plans []models.AgentSearchPlan) string {
+	queries := make([]string, 0, len(plans))
+	for _, plan := range plans {
+		if query := strings.TrimSpace(plan.Query); query != "" {
+			queries = append(queries, query)
+		}
+	}
+	return strings.Join(queries, " | ")
+}
+
+func cloneSearchPlans(plans []models.AgentSearchPlan) []models.AgentSearchPlan {
+	out := make([]models.AgentSearchPlan, 0, len(plans))
+	for _, plan := range plans {
+		plan.Sites = append([]string{}, plan.Sites...)
+		out = append(out, plan)
+	}
+	return out
 }
 
 func selectSearchProvider(profiles []models.AgentSearchProvider, selector string) (models.AgentSearchProvider, bool) {

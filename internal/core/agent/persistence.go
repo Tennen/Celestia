@@ -22,6 +22,7 @@ const (
 	agentSettingsMemoryDocumentKey    = "agent/settings/memory"
 	agentSettingsMD2ImgDocumentKey    = "agent/settings/md2img"
 
+	agentSearchLogDocumentKey       = "agent/search/log"
 	agentDirectInputDocumentKey     = "agent/direct-input"
 	agentWeComMenuDocumentKey       = "agent/wecom/menu"
 	agentWeComEventsDocumentKey     = "agent/wecom/events"
@@ -53,6 +54,11 @@ type agentSettingsLLMDocument struct {
 
 type agentSettingsSearchDocument struct {
 	SearchEngines []models.AgentSearchProvider `json:"search_engines"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
+}
+
+type agentSearchLogDocument struct {
+	RecentQueries []models.AgentSearchQueryLog `json:"recent_queries"`
 	UpdatedAt     time.Time                    `json:"updated_at"`
 }
 
@@ -190,6 +196,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 	snapshot = normalizeSnapshot(snapshot)
 	settings := snapshot.Settings
 	settingsUpdatedAt := firstTime(settings.UpdatedAt, snapshot.UpdatedAt)
+	searchUpdatedAt := firstTime(snapshot.Search.UpdatedAt, snapshot.UpdatedAt)
 	wecomMenuUpdatedAt := firstTime(snapshot.WeComMenu.Config.UpdatedAt, snapshot.UpdatedAt)
 	memoryUpdatedAt := firstTime(snapshot.Memory.UpdatedAt, snapshot.UpdatedAt)
 	topicUpdatedAt := firstTime(snapshot.TopicSummary.UpdatedAt, snapshot.UpdatedAt)
@@ -226,6 +233,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 		},
 		{key: agentSettingsMemoryDocumentKey, domain: "agent.settings.memory", payload: withUpdatedAt(settings.Memory, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
 		{key: agentSettingsMD2ImgDocumentKey, domain: "agent.settings.md2img", payload: withUpdatedAt(settings.MD2Img, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
+		{key: agentSearchLogDocumentKey, domain: "agent.search.log", payload: agentSearchLogDocument{RecentQueries: snapshot.Search.RecentQueries, UpdatedAt: searchUpdatedAt}, updatedAt: searchUpdatedAt},
 		{key: agentDirectInputDocumentKey, domain: "agent.input.direct", payload: snapshot.DirectInput, updatedAt: firstTime(snapshot.DirectInput.UpdatedAt, snapshot.UpdatedAt)},
 		{
 			key:    agentWeComMenuDocumentKey,
@@ -331,6 +339,7 @@ func agentDocumentLoaders() []agentDocumentLoader {
 		{key: agentSettingsMD2ImgDocumentKey, load: loadWrappedAgentDocument[models.AgentMD2ImgConfig](func(snapshot *models.AgentSnapshot, payload models.AgentMD2ImgConfig, _ time.Time) {
 			snapshot.Settings.MD2Img = payload
 		})},
+		{key: agentSearchLogDocumentKey, load: loadAgentSearchLogDocument},
 		{key: agentDirectInputDocumentKey, load: loadPlainAgentDocument[models.AgentDirectInputConfig](func(snapshot *models.AgentSnapshot, payload models.AgentDirectInputConfig, updatedAt time.Time) {
 			if payload.UpdatedAt.IsZero() {
 				payload.UpdatedAt = updatedAt
