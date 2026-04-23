@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/core/eventbus"
-	"github.com/chentianyu/celestia/internal/core/touchpoint"
+	"github.com/chentianyu/celestia/internal/core/project/touchpoint"
 	"github.com/chentianyu/celestia/internal/models"
 	sqlitestore "github.com/chentianyu/celestia/internal/storage/sqlite"
 )

@@ -17,7 +17,7 @@ ProjectInput
         +-- no slash: Agent Eino ReAct conversation
 ```
 
-Slash commands are project workflows in `internal/core/slash`. WeCom transport lives in `internal/core/touchpoint`. Voice transcription lives in `internal/core/voice` and is currently used by the WeCom voice-message path.
+Slash commands are project workflows in `internal/core/project/slash`. WeCom transport lives in `internal/core/project/touchpoint`. Voice transcription lives in `internal/core/project/voice` and is currently used by the WeCom voice-message path.
 
 ## Input Mappings
 
@@ -115,7 +115,7 @@ POST /api/v1/touchpoints/wecom/ingress
 
 The HTTP response is WeCom XML text. Send `Accept: application/json` to inspect the structured result instead.
 
-If `settings.wecom.bridge_stream_enabled=true` and `settings.wecom.bridge_url` is configured, `internal/core/touchpoint` starts a background SSE client against `{bridge_url}/stream`. Incoming bridge text, voice, image, and click events enter the same ProjectInput path and replies are sent with the bridge-compatible sender.
+If `settings.wecom.bridge_stream_enabled=true` and `settings.wecom.bridge_url` is configured, `internal/core/project/touchpoint` starts a background SSE client against `{bridge_url}/stream`. Incoming bridge text, voice, image, and click events enter the same ProjectInput path and replies are sent with the bridge-compatible sender.
 
 Downloaded voice media is stored under `settings.wecom.audio_dir` (default `data/touchpoints/wecom-audio`).
 

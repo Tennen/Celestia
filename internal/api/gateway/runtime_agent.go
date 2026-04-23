@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	coreagent "github.com/chentianyu/celestia/internal/core/agent"
-	"github.com/chentianyu/celestia/internal/core/touchpoint"
+	"github.com/chentianyu/celestia/internal/core/project/touchpoint"
 	"github.com/chentianyu/celestia/internal/models"
 )
 

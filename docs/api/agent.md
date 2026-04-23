@@ -33,7 +33,7 @@ Accepts `settings` from the snapshot and returns the updated snapshot.
 
 LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ollama`, `gemini`, and `gemini-like` through HTTP-compatible transports. `codex` invokes the local `codex exec --json --sandbox workspace-write` runner.
 
-Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/renderer/md2img/render.mjs`, writing to `data/renderer/md2img` unless overridden.
+Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/capabilities/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden.
 
 ## Conversation
 
@@ -52,7 +52,7 @@ Body:
 
 The HTTP conversation endpoint enters the project input layer first:
 
-1. Slash commands are dispatched by `internal/core/slash`.
+1. Slash commands are dispatched by `internal/core/project/slash`.
 2. A matched slash command records a conversation row with `runtime_mode: "slash"` and does not run the Agent loop.
 3. Non-slash input falls through to the Agent.
 4. Agent direct-input mappings are resolved before the Eino ReAct loop.
@@ -111,7 +111,7 @@ Search engines are read from `settings.search_engines`. Supported providers:
 - `serpapi`: calls `GET /search.json` with `engine`, `q`, `hl`, `gl`, `num`, and `api_key`
 - `qianfan`: calls Baidu Qianfan `POST /v2/ai_search/web_search`
 
-Provider execution lives in `internal/core/search`; the Agent wrapper records the latest 50 query logs into `snapshot.search.recent_queries`.
+Provider execution lives in `internal/core/agent/capabilities/search`; the Agent wrapper records the latest 50 query logs into `snapshot.search.recent_queries`.
 
 If no profile is configured, Celestia bootstraps from `SERPAPI_KEY` and `QIANFAN_SEARCH_*` environment variables.
 
@@ -173,7 +173,7 @@ POST /api/v1/agent/market/portfolio/import-codes
 POST /api/v1/agent/market/run
 ```
 
-The Agent owns the Market workflow state and report generation. Reusable Eastmoney estimate/security lookup code lives in `internal/core/market`.
+The Agent owns the Market workflow state and report generation. Reusable Eastmoney estimate/security lookup code lives in `internal/core/agent/capabilities/market`.
 
 A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
 
@@ -196,7 +196,7 @@ Body:
 }
 ```
 
-`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/renderer/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
+`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/agent/capabilities/renderer/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
 
 ## Evolution And Terminal
 

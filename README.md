@@ -205,13 +205,13 @@ These repositories are reference material for protocol and behavior research, no
 - `cmd/celctl`: agent-oriented CLI built on Cobra with a structured subcommand surface for plugins/devices/events/audits and normalized command dispatch.
 - `internal/api/http`: the only supported admin and external control surface. It serves device, plugin, audit, event, and OAuth endpoints.
 - `internal/core`: Core runtime services for plugin management, registry, state, audit, policy, event bus, quick-control modeling, touchpoint input, slash commands, Agent runtime, and Xiaomi OAuth orchestration.
-- `internal/core/input`: project-level input envelope that routes HTTP, WeCom, and automation input through slash dispatch before falling through to the Agent.
-- `internal/core/slash`: deterministic project workflows such as `/home` native device control and `/market` workflow execution.
-- `internal/core/touchpoint`: project-level touchpoint facade for WeCom users, menus, ingress, and output delivery.
-- `internal/core/voice`: STT provider execution used by touchpoint voice input.
-- `internal/core/search`: search provider execution and provider-specific HTTP payload normalization.
-- `internal/core/market`: Eastmoney fund/security lookup and reusable Market report helpers.
-- `internal/core/renderer`: renderer assets such as the md2img Playwright script.
+- `internal/core/project/input`: project-level input envelope that routes HTTP, WeCom, and automation input through slash dispatch before falling through to the Agent.
+- `internal/core/project/slash`: deterministic project workflows such as `/home` native device control and `/market` workflow execution.
+- `internal/core/project/touchpoint`: project-level touchpoint facade for WeCom users, menus, ingress, and output delivery.
+- `internal/core/project/voice`: STT provider execution used by touchpoint voice input.
+- `internal/core/agent/capabilities/search`: search provider execution and provider-specific HTTP payload normalization.
+- `internal/core/agent/capabilities/market`: Eastmoney fund/security lookup and reusable Market report helpers.
+- `internal/core/agent/capabilities/renderer`: renderer assets such as the md2img Playwright script.
 - `internal/core/agent`: Eino ReAct Agent runtime and Agent-owned capabilities excluding transport/touchpoint ownership, Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance.
 - `internal/coreapi`: Core-owned gRPC helpers that plugins use for approved back-calls such as config persistence.
 - `internal/models`: shared runtime models exchanged across Core, plugins, storage, and API layers.

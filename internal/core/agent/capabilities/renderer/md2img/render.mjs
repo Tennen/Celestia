@@ -29,7 +29,7 @@ async function main() {
   const markdown = String(input.markdown || "").trim();
   if (!markdown) throw new Error("markdown is empty");
   const mode = input.mode === "multi-page" ? "multi-page" : "long-image";
-  const outputDir = path.resolve(process.cwd(), String(input.output_dir || "data/renderer/md2img"));
+  const outputDir = path.resolve(process.cwd(), String(input.output_dir || "data/agent/renderer/md2img"));
   await fs.mkdir(outputDir, { recursive: true });
 
   const document = await buildHtml(markdown);

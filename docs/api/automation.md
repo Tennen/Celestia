@@ -73,7 +73,7 @@ Agent action:
 }
 ```
 
-Agent actions enter `internal/core/input` just like HTTP or WeCom text. Slash commands run first; non-slash input falls through to the Agent ReAct loop. WeCom output touchpoints must reference configured enabled WeCom users.
+Agent actions enter `internal/core/project/input` just like HTTP or WeCom text. Slash commands run first; non-slash input falls through to the Agent ReAct loop. WeCom output touchpoints must reference configured enabled WeCom users.
 
 ## List Automations
 

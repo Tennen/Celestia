@@ -162,13 +162,13 @@ Agent sidebar subpages are limited to Agent-owned domains: LLM, Conversation, Co
 
 Core persistence is SQLite-backed. Agent and touchpoint configuration currently share the Agent snapshot document store for migrated data, while the active runtime ownership is split through Core services:
 
-- `internal/core/input`: project input envelope and pre-Agent routing
-- `internal/core/slash`: deterministic slash workflows
-- `internal/core/touchpoint`: project touchpoint facade
-- `internal/core/voice`: STT provider execution
-- `internal/core/search`: search provider execution
-- `internal/core/market`: Eastmoney estimate/security lookup and Market prompt helpers
-- `internal/core/renderer`: md2img renderer assets
+- `internal/core/project/input`: project input envelope and pre-Agent routing
+- `internal/core/project/slash`: deterministic slash workflows
+- `internal/core/project/touchpoint`: project touchpoint facade
+- `internal/core/project/voice`: STT provider execution
+- `internal/core/agent/capabilities/search`: search provider execution
+- `internal/core/agent/capabilities/market`: Eastmoney estimate/security lookup and Market prompt helpers
+- `internal/core/agent/capabilities/renderer`: md2img renderer assets
 - `internal/core/agent`: Eino Agent loop, memory, tool registry, and Agent-owned workflow state
 
 New runtime behavior should follow those ownership boundaries even when existing persisted document keys still contain historical `agent/*` names.

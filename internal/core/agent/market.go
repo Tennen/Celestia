@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	coremarket "github.com/chentianyu/celestia/internal/core/market"
+	coremarket "github.com/chentianyu/celestia/internal/core/agent/capabilities/market"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )
