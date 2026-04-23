@@ -34,15 +34,16 @@ func (s *Service) executeAgentAction(ctx context.Context, automation models.Auto
 	if sessionID == "" {
 		sessionID = "automation:" + automation.ID
 	}
-	conversation, err := agent.Converse(ctx, models.AgentConversationRequest{
+	result, err := agent.HandleInput(ctx, models.ProjectInputRequest{
 		SessionID: sessionID,
 		Input:     input,
 		Actor:     "automation:" + automation.ID,
+		Source:    "automation",
 	})
 	if err != nil {
 		return err
 	}
-	message := strings.TrimSpace(conversation.Response)
+	message := strings.TrimSpace(result.ResponseText)
 	if message == "" {
 		return errors.New("agent returned empty response")
 	}
@@ -68,12 +69,12 @@ func (s *Service) validateAgentTouchpoints(ctx context.Context, params map[strin
 				return errors.New("wecom touchpoint requires to_user")
 			}
 			s.mu.RLock()
-			agent := s.agent
+			wecom := s.wecom
 			s.mu.RUnlock()
-			if agent == nil {
-				return errors.New("agent runtime is not available")
+			if wecom == nil {
+				return errors.New("wecom runtime is not available")
 			}
-			if _, err := agent.ResolveWeComRecipient(ctx, touchpoint.ToUser); err != nil {
+			if _, err := wecom.ResolveWeComRecipient(ctx, touchpoint.ToUser); err != nil {
 				return err
 			}
 		case "device":
@@ -98,12 +99,12 @@ func (s *Service) deliverTouchpoint(ctx context.Context, automation models.Autom
 		return nil
 	case "wecom":
 		s.mu.RLock()
-		agent := s.agent
+		wecom := s.wecom
 		s.mu.RUnlock()
-		if agent == nil {
-			return errors.New("agent runtime is not available")
+		if wecom == nil {
+			return errors.New("wecom runtime is not available")
 		}
-		return agent.SendWeComText(ctx, touchpoint.ToUser, message)
+		return wecom.SendWeComText(ctx, touchpoint.ToUser, message)
 	case "device":
 		params := cloneParams(touchpoint.Params)
 		if _, ok := params["message"]; !ok {

@@ -12,7 +12,6 @@ import { AgentInputPanel } from './AgentInputPanel';
 import { AgentLLMPanel } from './AgentLLMPanel';
 import { AgentMarketPanel } from './AgentMarketPanel';
 import { AgentSearchPanel } from './AgentSearchPanel';
-import { AgentWeComPanel } from './AgentWeComPanel';
 
 export type AgentRunner = (label: string, action: () => Promise<unknown>, refresh?: boolean) => void;
 
@@ -97,7 +96,6 @@ export function AgentWorkspace({ activePanel }: Props) {
             <Badge tone={snapshot.settings.llm_providers.length ? 'good' : 'warn'}>
               {snapshot.settings.llm_providers.length} LLM
             </Badge>
-            <Badge tone={snapshot.settings.wecom.enabled ? 'good' : 'neutral'}>WeCom</Badge>
             <Badge tone={snapshot.settings.md2img?.enabled ? 'good' : 'neutral'}>md2img</Badge>
             <Badge tone={snapshot.settings.terminal.enabled ? 'warn' : 'neutral'}>Terminal</Badge>
             <Button variant="secondary" onClick={() => void load()} disabled={busy === 'load'}>
@@ -111,8 +109,7 @@ export function AgentWorkspace({ activePanel }: Props) {
         {notice ? <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">{notice}</div> : null}
 
         {activePanel === 'llm' ? <AgentLLMPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
-        {activePanel === 'wecom' ? <AgentWeComPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
-        {activePanel === 'input' ? <AgentInputPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'conversation' ? <AgentInputPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'content' ? <AgentContentPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'market' ? <AgentMarketPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'evolution' ? <AgentEvolutionPanel snapshot={snapshot} onRun={run} /> : null}

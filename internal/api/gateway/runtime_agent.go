@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	coreagent "github.com/chentianyu/celestia/internal/core/agent"
+	"github.com/chentianyu/celestia/internal/core/touchpoint"
 	"github.com/chentianyu/celestia/internal/models"
 )
 
@@ -27,17 +28,17 @@ func (s *RuntimeService) SaveAgentDirectInput(ctx context.Context, config models
 }
 
 func (s *RuntimeService) SaveAgentPush(ctx context.Context, push models.AgentPushSnapshot) (models.AgentSnapshot, error) {
-	snapshot, err := s.runtime.Agent.SavePush(ctx, push)
+	snapshot, err := s.runtime.Touchpoint.SaveWeComUsers(ctx, push)
 	return s.agentSnapshot(ctx, snapshot, err)
 }
 
 func (s *RuntimeService) SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
-	snapshot, err := s.runtime.Agent.SaveWeComMenu(ctx, config)
+	snapshot, err := s.runtime.Touchpoint.SaveWeComMenu(ctx, config)
 	return s.agentSnapshot(ctx, snapshot, err)
 }
 
 func (s *RuntimeService) PublishAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
-	menu, err := s.runtime.Agent.PublishWeComMenu(ctx)
+	menu, err := s.runtime.Touchpoint.PublishWeComMenu(ctx)
 	if err != nil {
 		return models.AgentWeComMenuSnapshot{}, statusError(http.StatusBadRequest, err)
 	}
@@ -45,7 +46,7 @@ func (s *RuntimeService) PublishAgentWeComMenu(ctx context.Context) (models.Agen
 }
 
 func (s *RuntimeService) SendAgentWeComMessage(ctx context.Context, req AgentWeComSendRequest) error {
-	err := s.runtime.Agent.SendWeComMessage(ctx, coreagent.WeComSendRequest(req))
+	err := s.runtime.Touchpoint.SendWeComMessage(ctx, touchpoint.WeComSendRequest(req))
 	if err != nil {
 		return statusError(http.StatusBadRequest, err)
 	}
@@ -53,7 +54,7 @@ func (s *RuntimeService) SendAgentWeComMessage(ctx context.Context, req AgentWeC
 }
 
 func (s *RuntimeService) SendAgentWeComImage(ctx context.Context, req AgentWeComImageRequest) error {
-	err := s.runtime.Agent.SendWeComImage(ctx, coreagent.WeComImageRequest(req))
+	err := s.runtime.Touchpoint.SendWeComImage(ctx, touchpoint.WeComImageRequest(req))
 	if err != nil {
 		return statusError(http.StatusBadRequest, err)
 	}
@@ -61,7 +62,7 @@ func (s *RuntimeService) SendAgentWeComImage(ctx context.Context, req AgentWeCom
 }
 
 func (s *RuntimeService) RecordAgentWeComCallback(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {
-	record, err := s.runtime.Agent.RecordWeComXML(ctx, raw)
+	record, err := s.runtime.Touchpoint.RecordWeComXML(ctx, raw)
 	if err != nil {
 		return models.AgentWeComEventRecord{}, statusError(http.StatusBadRequest, err)
 	}
@@ -69,7 +70,7 @@ func (s *RuntimeService) RecordAgentWeComCallback(ctx context.Context, raw []byt
 }
 
 func (s *RuntimeService) HandleAgentWeComIngress(ctx context.Context, raw []byte) (models.AgentWeComInboundResult, error) {
-	result, err := s.runtime.Agent.HandleWeComXML(ctx, raw)
+	result, err := s.runtime.Touchpoint.HandleWeComXML(ctx, raw)
 	if err != nil {
 		return models.AgentWeComInboundResult{}, statusError(http.StatusBadRequest, err)
 	}
@@ -77,7 +78,22 @@ func (s *RuntimeService) HandleAgentWeComIngress(ctx context.Context, raw []byte
 }
 
 func (s *RuntimeService) RunAgentConversation(ctx context.Context, req models.AgentConversationRequest) (models.AgentConversation, error) {
-	item, err := s.runtime.Agent.Converse(ctx, req)
+	var (
+		item models.AgentConversation
+		err  error
+	)
+	if s.runtime.Input != nil {
+		result, inputErr := s.runtime.Input.HandleInput(ctx, models.ProjectInputRequest{
+			SessionID: req.SessionID,
+			Input:     req.Input,
+			Actor:     firstNonEmpty(req.Actor, "http"),
+			Source:    "http",
+		})
+		item = result.Conversation
+		err = inputErr
+	} else {
+		item, err = s.runtime.Agent.Converse(ctx, req)
+	}
 	if err != nil && item.ID == "" {
 		return models.AgentConversation{}, statusError(http.StatusBadRequest, err)
 	}
@@ -203,7 +219,7 @@ func (s *RuntimeService) RunAgentSearch(ctx context.Context, req models.AgentSea
 }
 
 func (s *RuntimeService) TranscribeAgentSpeech(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error) {
-	result, err := s.runtime.Agent.Transcribe(ctx, req)
+	result, err := s.runtime.Touchpoint.Transcribe(ctx, req)
 	if err != nil {
 		return models.AgentSpeechResult{}, statusError(http.StatusBadRequest, err)
 	}

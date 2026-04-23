@@ -1,4 +1,4 @@
-package agent
+package touchpoint
 
 import (
 	"bufio"
@@ -53,7 +53,7 @@ func (s *Service) runWeComBridge() {
 			continue
 		}
 		if err := s.consumeWeComBridgeStream(ctx, config); err != nil && ctx.Err() == nil {
-			log.Printf("[agent-wecom-bridge] stream disconnected: %v", err)
+			log.Printf("[touchpoint-wecom-bridge] stream disconnected: %v", err)
 			sleepOrStop(ctx, 3*time.Second)
 		}
 	}
@@ -104,14 +104,14 @@ func (s *Service) dispatchWeComBridgeEvent(ctx context.Context, raw string) {
 	}
 	var payload weComBridgePayload
 	if err := json.Unmarshal([]byte(data), &payload); err != nil {
-		log.Printf("[agent-wecom-bridge] invalid event: %v", err)
+		log.Printf("[touchpoint-wecom-bridge] invalid event: %v", err)
 		return
 	}
 	if strings.TrimSpace(payload.MessageID) == "" || strings.TrimSpace(payload.FromUser) == "" {
 		return
 	}
 	if err := s.handleWeComBridgePayload(ctx, payload); err != nil {
-		log.Printf("[agent-wecom-bridge] handle message=%s failed: %v", payload.MessageID, err)
+		log.Printf("[touchpoint-wecom-bridge] handle message=%s failed: %v", payload.MessageID, err)
 	}
 }
 
@@ -125,7 +125,7 @@ func (s *Service) handleWeComBridgePayload(ctx context.Context, payload weComBri
 		if strings.TrimSpace(record.DispatchText) == "" {
 			return nil
 		}
-		conversation, err := s.Converse(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: record.DispatchText, Actor: "wecom-bridge"})
+		conversation, err := s.runTouchpointInput(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: record.DispatchText, Actor: "wecom-bridge"})
 		return s.replyWeComBridge(ctx, payload.FromUser, conversation.Response, err)
 	}
 	input := strings.TrimSpace(payload.Text)
@@ -145,7 +145,7 @@ func (s *Service) handleWeComBridgePayload(ctx context.Context, payload weComBri
 	if _, err := s.recordWeComMessage(ctx, msgType, payload.FromUser, payload.ToUser, payload.AgentID, payload.MessageID, input); err != nil {
 		return err
 	}
-	conversation, err := s.Converse(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: input, Actor: "wecom-bridge"})
+	conversation, err := s.runTouchpointInput(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: input, Actor: "wecom-bridge"})
 	return s.replyWeComBridge(ctx, payload.FromUser, conversation.Response, err)
 }
 

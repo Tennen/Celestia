@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/core/eventbus"
+	"github.com/chentianyu/celestia/internal/core/touchpoint"
 	"github.com/chentianyu/celestia/internal/models"
 	sqlitestore "github.com/chentianyu/celestia/internal/storage/sqlite"
 )
@@ -59,12 +60,13 @@ func TestAgentPersistenceWritesBusinessDocuments(t *testing.T) {
 	}}}); err != nil {
 		t.Fatalf("SaveDirectInput() error = %v", err)
 	}
-	if _, err := svc.SavePush(ctx, models.AgentPushSnapshot{Users: []models.AgentPushUser{{
+	touchpoints := touchpoint.New(svc, svc)
+	if _, err := touchpoints.SaveWeComUsers(ctx, models.AgentPushSnapshot{Users: []models.AgentPushUser{{
 		Name:      "Alice",
 		WeComUser: "alice",
 		Enabled:   true,
 	}}}); err != nil {
-		t.Fatalf("SavePush() error = %v", err)
+		t.Fatalf("SaveWeComUsers() error = %v", err)
 	}
 
 	assertNoAgentDocument(t, store, agentLegacyStateDocumentKey)

@@ -1,4 +1,4 @@
-package agent
+package search
 
 import (
 	"fmt"
@@ -166,6 +166,29 @@ func minInt(left int, right int) int {
 		return left
 	}
 	return right
+}
+
+func maxInt(value int, fallback int) int {
+	if value > 0 {
+		return value
+	}
+	return fallback
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func truncateList[T any](items []T, limit int) []T {
+	if limit <= 0 || len(items) <= limit {
+		return items
+	}
+	return items[:limit]
 }
 
 func appendUniqueStrings(base []string, values ...string) []string {

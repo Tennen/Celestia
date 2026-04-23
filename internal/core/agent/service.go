@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -14,65 +15,24 @@ import (
 )
 
 type Service struct {
-	store    storage.Store
-	bus      *eventbus.Bus
-	mu       sync.Mutex
-	stop     chan struct{}
-	stopOnce sync.Once
-	done     chan struct{}
-	wg       sync.WaitGroup
-	started  bool
+	store storage.Store
+	bus   *eventbus.Bus
+	mu    sync.Mutex
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
 	return &Service{
 		store: store,
 		bus:   bus,
-		stop:  make(chan struct{}),
-		done:  make(chan struct{}),
 	}
 }
 
 func (s *Service) Init(ctx context.Context) error {
 	_, err := s.Snapshot(ctx)
-	if err != nil {
-		return err
-	}
-	s.mu.Lock()
-	if s.started {
-		s.mu.Unlock()
-		return nil
-	}
-	s.started = true
-	s.mu.Unlock()
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		s.runWeComBridge()
-	}()
-	go func() {
-		s.wg.Wait()
-		close(s.done)
-	}()
-	return nil
+	return err
 }
 
 func (s *Service) Close() {
-	s.mu.Lock()
-	started := s.started
-	s.mu.Unlock()
-	if !started {
-		return
-	}
-	select {
-	case <-s.done:
-		return
-	default:
-	}
-	s.stopOnce.Do(func() {
-		close(s.stop)
-	})
-	<-s.done
 }
 
 func (s *Service) Snapshot(ctx context.Context) (models.AgentSnapshot, error) {
@@ -105,34 +65,6 @@ func (s *Service) SaveDirectInput(ctx context.Context, config models.AgentDirect
 	})
 }
 
-func (s *Service) SavePush(ctx context.Context, push models.AgentPushSnapshot) (models.AgentSnapshot, error) {
-	return s.update(ctx, func(snapshot *models.AgentSnapshot) error {
-		now := time.Now().UTC()
-		seenWeComUsers := map[string]struct{}{}
-		for idx := range push.Users {
-			push.Users[idx].ID = firstNonEmpty(push.Users[idx].ID, uuid.NewString())
-			push.Users[idx].Name = strings.TrimSpace(push.Users[idx].Name)
-			push.Users[idx].WeComUser = strings.TrimSpace(push.Users[idx].WeComUser)
-			if push.Users[idx].WeComUser == "" {
-				return errors.New("wecom user is required")
-			}
-			normalizedWeComUser := strings.ToLower(push.Users[idx].WeComUser)
-			if _, ok := seenWeComUsers[normalizedWeComUser]; ok {
-				return errors.New("wecom user must be unique")
-			}
-			seenWeComUsers[normalizedWeComUser] = struct{}{}
-			if push.Users[idx].Name == "" {
-				push.Users[idx].Name = push.Users[idx].WeComUser
-			}
-			push.Users[idx].UpdatedAt = now
-		}
-		push.UpdatedAt = now
-		snapshot.Push = push
-		snapshot.UpdatedAt = now
-		return nil
-	})
-}
-
 func (s *Service) update(ctx context.Context, mutate func(*models.AgentSnapshot) error) (models.AgentSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -148,6 +80,10 @@ func (s *Service) update(ctx context.Context, mutate func(*models.AgentSnapshot)
 	}
 	_ = s.emit(ctx, models.EventAgentStateChanged, map[string]any{"updated_at": snapshot.UpdatedAt})
 	return snapshot, nil
+}
+
+func (s *Service) UpdateSnapshot(ctx context.Context, mutate func(*models.AgentSnapshot) error) (models.AgentSnapshot, error) {
+	return s.update(ctx, mutate)
 }
 
 func (s *Service) load(ctx context.Context) (models.AgentSnapshot, error) {
@@ -346,8 +282,8 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 		settings.MD2Img.Enabled = true
 	}
 	settings.MD2Img.Mode = firstNonEmpty(settings.MD2Img.Mode, "long-image")
-	settings.MD2Img.Command = firstNonEmpty(settings.MD2Img.Command, "node internal/core/agent/md2img/render.mjs")
-	settings.MD2Img.OutputDir = firstNonEmpty(settings.MD2Img.OutputDir, "data/agent/md2img")
+	settings.MD2Img.Command = firstNonEmpty(settings.MD2Img.Command, "node internal/core/renderer/md2img/render.mjs")
+	settings.MD2Img.OutputDir = firstNonEmpty(settings.MD2Img.OutputDir, "data/renderer/md2img")
 	if settings.MD2Img.TimeoutMS <= 0 {
 		settings.MD2Img.TimeoutMS = 60000
 	}
@@ -364,7 +300,7 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 		settings.WeCom.BaseURL = "https://qyapi.weixin.qq.com"
 	}
 	if strings.TrimSpace(settings.WeCom.AudioDir) == "" {
-		settings.WeCom.AudioDir = "data/agent/wecom-audio"
+		settings.WeCom.AudioDir = "data/touchpoints/wecom-audio"
 	}
 	if settings.WeCom.TextMaxBytes <= 0 {
 		settings.WeCom.TextMaxBytes = 1800
@@ -401,6 +337,29 @@ func truncateList[T any](items []T, limit int) []T {
 		return items
 	}
 	return items[:limit]
+}
+
+func appendUniqueStrings(base []string, values ...string) []string {
+	seen := map[string]struct{}{}
+	for _, item := range base {
+		seen[item] = struct{}{}
+	}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		base = append(base, trimmed)
+	}
+	return base
+}
+
+func stringFrom(value any) string {
+	return strings.TrimSpace(fmt.Sprint(value))
 }
 
 func requireText(value string, field string) error {

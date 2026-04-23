@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	agentmarket "github.com/chentianyu/celestia/internal/core/agent/market"
+	coremarket "github.com/chentianyu/celestia/internal/core/market"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )
@@ -41,7 +41,7 @@ func (s *Service) RunMarketAnalysis(ctx context.Context, req MarketRunRequest) (
 	errorsOut := []models.AgentRunError{}
 	for _, holding := range snapshot.Market.Portfolio.Funds {
 		asset := models.AgentMarketAssetContext{Code: holding.Code, Name: holding.Name}
-		estimate, estimateErr := agentmarket.FetchEastmoneyEstimate(ctx, holding.Code, 12000)
+		estimate, estimateErr := coremarket.FetchEastmoneyEstimate(ctx, holding.Code, 12000)
 		if estimateErr != nil {
 			asset.Errors = append(asset.Errors, estimateErr.Error())
 			errorsOut = append(errorsOut, models.AgentRunError{Target: holding.Code, Error: estimateErr.Error()})
@@ -74,8 +74,8 @@ func (s *Service) RunMarketAnalysis(ctx context.Context, req MarketRunRequest) (
 		sourceChain = appendUniqueStrings(sourceChain, asset.SourceChain...)
 		assets = append(assets, asset)
 	}
-	summary := agentmarket.FallbackSummary(snapshot.Market.Portfolio, assets, req.Notes)
-	if generated, genErr := s.GenerateText(ctx, agentmarket.BuildPrompt(snapshot.Market.Portfolio, assets, phase, req.Notes)); genErr == nil {
+	summary := coremarket.FallbackSummary(snapshot.Market.Portfolio, assets, req.Notes)
+	if generated, genErr := s.GenerateText(ctx, coremarket.BuildPrompt(snapshot.Market.Portfolio, assets, phase, req.Notes)); genErr == nil {
 		summary = generated
 	}
 	images := []models.AgentMarkdownImage{}

@@ -59,6 +59,9 @@ Treat the end-to-end runtime as a fixed pipeline unless the user explicitly asks
 5. Plugins keep vendor sessions, poll vendor APIs when required, translate vendor payloads into unified models, and emit runtime events back to Core.
 6. HTTP command requests enter through `internal/api/http`, pass policy and audit, then are forwarded by Core to the owning plugin for real vendor execution.
 7. Admin UI in `web/admin` reads and writes only through the gateway HTTP API.
+8. Project touchpoints such as WeCom and HTTP are input/output adapters, not Agent tools.
+9. Slash commands are project-level pre-Agent workflows. They must run before the Agent loop and may directly call Core-owned workflows such as native device control or Market.
+10. Voice input is currently a provider in the WeCom voice-message chain. Do not add a separate project-level voice ingress until a non-WeCom touchpoint needs it.
 
 ## Directory Responsibilities
 
@@ -86,6 +89,14 @@ Use these boundaries when deciding where code belongs:
 - `internal/core/audit`: command audit recording.
 - `internal/core/eventbus`: in-process event fanout inside Core.
 - `internal/core/oauth`: Core-owned Xiaomi OAuth session lifecycle and callback completion.
+- `internal/core/input`: project-level input envelope and pre-Agent dispatch. HTTP, WeCom, and automation input should enter here before reaching the Agent.
+- `internal/core/slash`: deterministic project workflows invoked by slash commands. Native home control belongs here and must use Core registry/state/control/policy/audit/command execution, not LLM intent inference.
+- `internal/core/touchpoint`: project-level touchpoint facade for WeCom users, menu publishing, ingress, and output delivery.
+- `internal/core/voice`: STT provider execution. Voice ingress currently belongs to the WeCom touchpoint chain, not to a separate Agent page.
+- `internal/core/search`: search provider execution and provider payload normalization. Agent may store search settings/logs, but provider HTTP execution belongs here.
+- `internal/core/market`: Eastmoney estimate/security lookup and reusable Market report helpers. Agent may orchestrate Market analysis, but vendor/data lookup code belongs here.
+- `internal/core/renderer`: renderer assets and scripts such as md2img. Agent may call the renderer, but renderer implementation does not belong under `internal/core/agent`.
+- `internal/core/agent`: Eino ReAct Agent loop, memory, tool registry, and Agent-owned workflow state. Transport adapters, slash dispatch, provider HTTP clients, renderer assets, and device command ownership do not belong here.
 - `internal/coreapi`: the approved plugin-to-Core backchannel, including persisted config updates.
 - `internal/models`: shared canonical models and payload shapes. Do not leak vendor-specific structs past this layer.
 - `internal/pluginapi`: plugin RPC contract helpers and protobuf/grpc bindings.
@@ -113,6 +124,10 @@ Use these boundaries when deciding where code belongs:
 ## Backend Implementation Rules
 
 - Keep vendor-specific code inside its plugin tree.
+- Keep touchpoint transport code out of Agent tools. The Agent may consume normalized input and produce text, but it must not own WeCom/HTTP/voice transport semantics.
+- Keep provider execution and reusable engines in their Core packages (`search`, `market`, `voice`, `renderer`) instead of adding more provider/client code to `internal/core/agent`.
+- New slash commands must live under `internal/core/slash`, run before the Agent loop, and be covered by backend tests when they dispatch real Core actions.
+- Home/device slash commands must call Celestia native device control APIs and must pass through policy and audit before reaching plugins.
 - Prefer package boundaries that match the real integration flow: `auth`, `api/cloud`, `discovery`, `mapper`, `state`, `events`, `capability`.
 - Map vendor models into `internal/models` without leaking vendor payloads into core behavior.
 - Use polling only when it is a real vendor API strategy or a deliberate fallback for a real endpoint. Polling is not a substitute for missing logic.
@@ -124,6 +139,7 @@ Use these boundaries when deciding where code belongs:
 ## Frontend Implementation Rules
 
 - Admin must expose the real plugin configuration fields required to authenticate and operate against vendor APIs.
+- Agent admin pages must only show Agent-owned domains. Touchpoints, slash commands, WeCom users/menus, and voice-provider settings belong under a project-level Touchpoints workspace.
 - If a vendor integration depends on app-signature values or compatibility knobs that may drift over time, model them in the Core-owned plugin config with documented defaults rather than hardcoding them only in frontend or plugin internals.
 - Do not preload fake accounts, fake devices, or fake command presets that imply the backend is already connected.
 - UI examples may illustrate JSON structure, but they must not masquerade as runnable demo sessions.

@@ -82,7 +82,6 @@ func (s *Service) agentToolSpecs() []agentToolSpec {
 		s.markdownToolSpec(),
 		s.appleNotesToolSpec(),
 		s.appleRemindersToolSpec(),
-		s.wecomSendToolSpec(),
 	}
 }
 

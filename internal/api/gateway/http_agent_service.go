@@ -24,36 +24,36 @@ func (s *HTTPService) SaveAgentSettings(ctx context.Context, settings models.Age
 }
 
 func (s *HTTPService) SaveAgentDirectInput(ctx context.Context, config models.AgentDirectInputConfig) (models.AgentSnapshot, error) {
-	return s.putAgentSnapshot(ctx, "/api/v1/agent/direct-input", config)
+	return s.putAgentSnapshot(ctx, "/api/v1/touchpoints/input-mappings", config)
 }
 
 func (s *HTTPService) SaveAgentPush(ctx context.Context, push models.AgentPushSnapshot) (models.AgentSnapshot, error) {
-	return s.putAgentSnapshot(ctx, "/api/v1/agent/push", push)
+	return s.putAgentSnapshot(ctx, "/api/v1/touchpoints/wecom/users", push)
 }
 
 func (s *HTTPService) SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
-	return s.putAgentSnapshot(ctx, "/api/v1/agent/wecom/menu", config)
+	return s.putAgentSnapshot(ctx, "/api/v1/touchpoints/wecom/menu", config)
 }
 
 func (s *HTTPService) PublishAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
 	var out models.AgentWeComMenuSnapshot
-	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/wecom/menu/publish", nil, nil, &out, ""); err != nil {
+	if err := s.request(ctx, http.MethodPost, "/api/v1/touchpoints/wecom/menu/publish", nil, nil, &out, ""); err != nil {
 		return models.AgentWeComMenuSnapshot{}, err
 	}
 	return out, nil
 }
 
 func (s *HTTPService) SendAgentWeComMessage(ctx context.Context, req AgentWeComSendRequest) error {
-	return s.request(ctx, http.MethodPost, "/api/v1/agent/wecom/send", nil, req, nil, "")
+	return s.request(ctx, http.MethodPost, "/api/v1/touchpoints/wecom/send", nil, req, nil, "")
 }
 
 func (s *HTTPService) SendAgentWeComImage(ctx context.Context, req AgentWeComImageRequest) error {
-	return s.request(ctx, http.MethodPost, "/api/v1/agent/wecom/image", nil, req, nil, "")
+	return s.request(ctx, http.MethodPost, "/api/v1/touchpoints/wecom/image", nil, req, nil, "")
 }
 
 func (s *HTTPService) RecordAgentWeComCallback(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {
 	var out models.AgentWeComEventRecord
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/agent/wecom/callback", bytes.NewReader(raw))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/touchpoints/wecom/callback", bytes.NewReader(raw))
 	if err != nil {
 		return models.AgentWeComEventRecord{}, statusError(http.StatusInternalServerError, err)
 	}
@@ -73,7 +73,7 @@ func (s *HTTPService) RecordAgentWeComCallback(ctx context.Context, raw []byte) 
 
 func (s *HTTPService) HandleAgentWeComIngress(ctx context.Context, raw []byte) (models.AgentWeComInboundResult, error) {
 	var out models.AgentWeComInboundResult
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/agent/wecom/ingress", bytes.NewReader(raw))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/touchpoints/wecom/ingress", bytes.NewReader(raw))
 	if err != nil {
 		return models.AgentWeComInboundResult{}, statusError(http.StatusInternalServerError, err)
 	}
@@ -224,7 +224,7 @@ func (s *HTTPService) RunAgentSearch(ctx context.Context, req models.AgentSearch
 
 func (s *HTTPService) TranscribeAgentSpeech(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error) {
 	var out models.AgentSpeechResult
-	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/stt/transcribe", nil, req, &out, ""); err != nil {
+	if err := s.request(ctx, http.MethodPost, "/api/v1/touchpoints/voice/transcribe", nil, req, &out, ""); err != nil {
 		return models.AgentSpeechResult{}, err
 	}
 	return out, nil

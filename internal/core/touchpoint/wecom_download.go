@@ -1,4 +1,4 @@
-package agent
+package touchpoint
 
 import (
 	"bytes"
@@ -29,7 +29,13 @@ func (s *Service) resolveWeComVoiceInput(ctx context.Context, config models.Agen
 	if err != nil {
 		return firstNonEmpty(fallback, "语音下载失败: "+err.Error())
 	}
-	result, err := s.Transcribe(ctx, models.AgentSpeechRequest{AudioPath: audioPath})
+	s.mu.Lock()
+	provider := s.voice
+	s.mu.Unlock()
+	if provider == nil {
+		return firstNonEmpty(fallback, "语音已保存但没有配置 STT provider; file="+audioPath)
+	}
+	result, err := provider.Transcribe(ctx, models.AgentSpeechRequest{AudioPath: audioPath})
 	if err != nil {
 		return firstNonEmpty(fallback, "语音已保存但 STT 转写失败: "+err.Error()+"; file="+audioPath)
 	}
@@ -125,7 +131,7 @@ func writeWeComMediaFile(config models.AgentWeComConfig, data []byte, filename s
 		return "", errors.New("WeCom media payload is empty")
 	}
 	day := time.Now().UTC().Format("2006-01-02")
-	dir := filepath.Join(firstNonEmpty(config.AudioDir, "data/agent/wecom-audio"), day)
+	dir := filepath.Join(firstNonEmpty(config.AudioDir, "data/touchpoints/wecom-audio"), day)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

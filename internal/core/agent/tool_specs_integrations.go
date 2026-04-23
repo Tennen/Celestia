@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/chentianyu/celestia/internal/models"
@@ -112,41 +111,4 @@ This tool invokes the remindctl CLI. Examples:
 func (s *Service) runAppleRemindersTool(ctx context.Context, input appleRemindersToolInput) (models.AgentTerminalResult, error) {
 	args := strings.TrimSpace(firstNonEmpty(input.Args, "today"))
 	return s.RunTerminal(ctx, models.AgentTerminalRequest{Command: "remindctl " + args})
-}
-
-type wecomSendToolInput struct {
-	UserID string `json:"user_id" jsonschema:"required" jsonschema_description:"Configured Celestia WeCom user id or WeCom user id."`
-	Text   string `json:"text" jsonschema:"required" jsonschema_description:"Text message to send."`
-}
-
-type wecomSendToolOutput struct {
-	OK     bool   `json:"ok"`
-	UserID string `json:"user_id"`
-}
-
-func (s *Service) wecomSendToolSpec() agentToolSpec {
-	desc := "Send a WeCom text message to a configured Celestia User. The backend rejects targets that were not created as users."
-	return agentToolSpec{
-		Name:        "wecom_send_message",
-		Description: desc,
-		Keywords:    []string{"wecom", "wechat work", "企业微信", "消息"},
-		Params:      []string{"user_id", "text"},
-		NewTool: func(s *Service) (einotool.InvokableTool, error) {
-			return utils.InferTool("wecom_send_message", desc, s.runWeComSendTool)
-		},
-		RequestToJSON: func(req models.AgentCapabilityRunRequest) (string, error) {
-			text := strings.TrimSpace(req.Input)
-			if text != "" && isJSONObject(text) {
-				return text, nil
-			}
-			return "", errors.New("wecom_send_message requires JSON input with user_id and text")
-		},
-	}
-}
-
-func (s *Service) runWeComSendTool(ctx context.Context, input wecomSendToolInput) (wecomSendToolOutput, error) {
-	if err := s.SendWeComMessage(ctx, WeComSendRequest{ToUser: input.UserID, Text: input.Text}); err != nil {
-		return wecomSendToolOutput{OK: false, UserID: input.UserID}, err
-	}
-	return wecomSendToolOutput{OK: true, UserID: input.UserID}, nil
 }

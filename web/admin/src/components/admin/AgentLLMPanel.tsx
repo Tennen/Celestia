@@ -28,7 +28,6 @@ const providerTypes = [
   { value: 'gpt-plugin', label: 'gpt-plugin' },
 ];
 
-const sttProviders = [{ value: 'fast-whisper', label: 'fast-whisper' }];
 const md2imgModes = [
   { value: 'long-image', label: 'long-image' },
   { value: 'multi-page', label: 'multi-page' },
@@ -49,10 +48,6 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
   const [terminalEnabled, setTerminalEnabled] = useState(snapshot.settings.terminal.enabled);
   const [terminalCwd, setTerminalCwd] = useState(snapshot.settings.terminal.cwd ?? '');
   const [terminalTimeout, setTerminalTimeout] = useState(numberValue(snapshot.settings.terminal.timeout_ms));
-  const [sttEnabled, setSttEnabled] = useState(snapshot.settings.stt?.enabled === true);
-  const [sttProvider, setSttProvider] = useState(textOf(snapshot.settings.stt?.provider) || 'fast-whisper');
-  const [sttCommand, setSttCommand] = useState(textOf(snapshot.settings.stt?.command));
-  const [sttTimeout, setSttTimeout] = useState(numberValue(snapshot.settings.stt?.timeout_ms));
   const [memoryEnabled, setMemoryEnabled] = useState(snapshot.settings.memory?.enabled === true);
   const [memoryRounds, setMemoryRounds] = useState(numberValue(snapshot.settings.memory?.compact_every_rounds));
   const [md2imgEnabled, setMd2imgEnabled] = useState(snapshot.settings.md2img?.enabled === true);
@@ -65,10 +60,6 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
     setTerminalEnabled(snapshot.settings.terminal.enabled);
     setTerminalCwd(snapshot.settings.terminal.cwd ?? '');
     setTerminalTimeout(numberValue(snapshot.settings.terminal.timeout_ms));
-    setSttEnabled(snapshot.settings.stt?.enabled === true);
-    setSttProvider(textOf(snapshot.settings.stt?.provider) || 'fast-whisper');
-    setSttCommand(textOf(snapshot.settings.stt?.command));
-    setSttTimeout(numberValue(snapshot.settings.stt?.timeout_ms));
     setMemoryEnabled(snapshot.settings.memory?.enabled === true);
     setMemoryRounds(numberValue(snapshot.settings.memory?.compact_every_rounds));
     setMd2imgEnabled(snapshot.settings.md2img?.enabled === true);
@@ -96,13 +87,6 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
         enabled: terminalEnabled,
         cwd: terminalCwd.trim() || undefined,
         timeout_ms: parseOptionalNumber(terminalTimeout),
-      },
-      stt: {
-        ...(snapshot.settings.stt ?? {}),
-        enabled: sttEnabled,
-        provider: sttProvider,
-        command: sttCommand.trim(),
-        timeout_ms: parseOptionalNumber(sttTimeout),
       },
       memory: {
         ...(snapshot.settings.memory ?? {}),
@@ -227,12 +211,6 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
           <FieldGrid>
             <Field label="Terminal cwd" value={terminalCwd} onChange={setTerminalCwd} />
             <Field label="Terminal timeout ms" value={terminalTimeout} onChange={setTerminalTimeout} />
-          </FieldGrid>
-          <ToggleField label="Voice input transcription enabled" checked={sttEnabled} onChange={setSttEnabled} />
-          <FieldGrid>
-            <SelectField label="STT provider" value={sttProvider} options={sttProviders} onChange={setSttProvider} />
-            <Field label="STT command" value={sttCommand} onChange={setSttCommand} />
-            <Field label="STT timeout ms" value={sttTimeout} onChange={setSttTimeout} />
           </FieldGrid>
           <ToggleField label="Memory context enabled" checked={memoryEnabled} onChange={setMemoryEnabled} />
           <Field label="Compact every rounds" value={memoryRounds} onChange={setMemoryRounds} />

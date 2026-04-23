@@ -49,13 +49,35 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 		response = firstNonEmpty(response, err.Error())
 		status = "failed"
 	}
+	item, saveErr := s.RecordConversationResult(ctx, req, resolved, response, status, metadata)
+	if saveErr != nil {
+		return models.AgentConversation{}, saveErr
+	}
+	return item, err
+}
+
+func (s *Service) RecordConversationResult(
+	ctx context.Context,
+	req models.AgentConversationRequest,
+	resolved string,
+	response string,
+	status string,
+	metadata map[string]any,
+) (models.AgentConversation, error) {
+	if err := requireText(req.Input, "input"); err != nil {
+		return models.AgentConversation{}, err
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	status = firstNonEmpty(status, "succeeded")
 	now := time.Now().UTC()
 	item := models.AgentConversation{
 		ID:        uuid.NewString(),
-		SessionID: sessionID,
+		SessionID: firstNonEmpty(req.SessionID, "default"),
 		Input:     strings.TrimSpace(req.Input),
-		Resolved:  resolved,
-		Response:  response,
+		Resolved:  strings.TrimSpace(resolved),
+		Response:  strings.TrimSpace(response),
 		Status:    status,
 		Metadata:  metadata,
 		CreatedAt: now,
@@ -72,7 +94,7 @@ func (s *Service) Converse(ctx context.Context, req models.AgentConversationRequ
 	if saveErr != nil {
 		return models.AgentConversation{}, saveErr
 	}
-	return item, err
+	return item, nil
 }
 
 func (s *Service) runReactConversation(ctx context.Context, sessionID string, input string, actor string) (string, map[string]any, error) {
@@ -140,8 +162,8 @@ func buildReactSystemPrompt(memoryPrompt string, runtimes []agentToolRuntime) st
 		"You are Celestia's local Agent. Use Eino ReAct tool calling for actions, retrieval, and local integrations.",
 		"The available capabilities are Celestia Agent tools.",
 		"Home Assistant and ChatGPT bridge tools are not available.",
-		"Use search_web for current external information. Use terminal_run, codex_runner, Apple, and WeCom tools only for explicit user intent.",
-		"WeCom messages must target configured Celestia Users; do not invent recipients.",
+		"Use search_web for current external information. Use terminal_run, codex_runner, and Apple tools only for explicit user intent.",
+		"Project touchpoints such as WeCom and HTTP are handled before this Agent loop, not as Agent tools.",
 		"After tool calls, return a concise final answer in the user's language.",
 		"Available tool names: " + strings.Join(toolNames, ", "),
 		"",

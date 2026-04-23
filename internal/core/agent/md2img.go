@@ -26,7 +26,7 @@ func (s *Service) RunMarkdownRender(ctx context.Context, req models.AgentMarkdow
 		return models.AgentMarkdownRenderResult{}, errors.New("md2img is disabled in agent settings")
 	}
 	mode := firstNonEmpty(req.Mode, settings.Mode, "long-image")
-	outputDir := firstNonEmpty(req.OutputDir, settings.OutputDir, "data/agent/md2img")
+	outputDir := firstNonEmpty(req.OutputDir, settings.OutputDir, "data/renderer/md2img")
 	payload := map[string]any{
 		"markdown":   req.Markdown,
 		"mode":       mode,
@@ -40,7 +40,7 @@ func (s *Service) RunMarkdownRender(ctx context.Context, req models.AgentMarkdow
 	timeout := time.Duration(maxInt(settings.TimeoutMS, 60000)) * time.Millisecond
 	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(reqCtx, "/bin/sh", "-lc", firstNonEmpty(settings.Command, "node internal/core/agent/md2img/render.mjs"))
+	cmd := exec.CommandContext(reqCtx, "/bin/sh", "-lc", firstNonEmpty(settings.Command, "node internal/core/renderer/md2img/render.mjs"))
 	cmd.Stdin = bytes.NewReader(raw)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

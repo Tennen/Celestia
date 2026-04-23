@@ -9,12 +9,16 @@ import (
 	"github.com/chentianyu/celestia/internal/core/capability"
 	"github.com/chentianyu/celestia/internal/core/control"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
+	"github.com/chentianyu/celestia/internal/core/input"
 	oauthsvc "github.com/chentianyu/celestia/internal/core/oauth"
 	"github.com/chentianyu/celestia/internal/core/pluginmgr"
 	"github.com/chentianyu/celestia/internal/core/policy"
 	"github.com/chentianyu/celestia/internal/core/registry"
+	"github.com/chentianyu/celestia/internal/core/slash"
 	"github.com/chentianyu/celestia/internal/core/state"
+	"github.com/chentianyu/celestia/internal/core/touchpoint"
 	"github.com/chentianyu/celestia/internal/core/vision"
+	"github.com/chentianyu/celestia/internal/core/voice"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/storage"
 )
@@ -33,6 +37,9 @@ type Runtime struct {
 	PluginMgr  *pluginmgr.Manager
 	Vision     *vision.Service
 	Agent      *agent.Service
+	Slash      *slash.Service
+	Input      *input.Service
+	Touchpoint *touchpoint.Service
 }
 
 func New(store storage.Store) *Runtime {
@@ -44,8 +51,16 @@ func New(store storage.Store) *Runtime {
 	pluginMgr := pluginmgr.New(store, registrySvc, stateSvc, bus)
 	visionSvc := vision.New(store, registrySvc, stateSvc, bus)
 	agentSvc := agent.New(store, bus)
+	controlSvc := control.New()
+	slashSvc := slash.New(store, registrySvc, stateSvc, controlSvc, policySvc, auditSvc, pluginMgr, agentSvc)
+	inputSvc := input.New(agentSvc, slashSvc)
+	voiceSvc := voice.New(agentSvc)
+	touchpointSvc := touchpoint.New(agentSvc, agentSvc)
+	touchpointSvc.SetInputRunner(inputSvc)
+	touchpointSvc.SetVoiceProvider(voiceSvc)
 	automationSvc := automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr)
-	automationSvc.SetAgentRuntime(agentSvc)
+	automationSvc.SetAgentRuntime(inputSvc)
+	automationSvc.SetWeComRuntime(touchpointSvc)
 	return &Runtime{
 		Store:      store,
 		EventBus:   bus,
@@ -54,12 +69,15 @@ func New(store storage.Store) *Runtime {
 		Audit:      auditSvc,
 		Automation: automationSvc,
 		Capability: capability.New(automationSvc, visionSvc),
-		Controls:   control.New(),
+		Controls:   controlSvc,
 		Policy:     policySvc,
 		OAuth:      oauthsvc.New(store),
 		PluginMgr:  pluginMgr,
 		Vision:     visionSvc,
 		Agent:      agentSvc,
+		Slash:      slashSvc,
+		Input:      inputSvc,
+		Touchpoint: touchpointSvc,
 	}
 }
 
@@ -74,6 +92,11 @@ func (r *Runtime) Reconcile(ctx context.Context) error {
 			return err
 		}
 	}
+	if r.Touchpoint != nil {
+		if err := r.Touchpoint.Init(ctx); err != nil {
+			return err
+		}
+	}
 	return r.PluginMgr.Reconcile(ctx)
 }
 
@@ -83,6 +106,9 @@ func (r *Runtime) Shutdown(ctx context.Context) error {
 	}
 	if r.Vision != nil {
 		r.Vision.Close()
+	}
+	if r.Touchpoint != nil {
+		r.Touchpoint.Close()
 	}
 	if r.Agent != nil {
 		r.Agent.Close()

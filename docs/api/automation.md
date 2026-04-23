@@ -4,15 +4,15 @@ Back to the [API index](../api.md).
 
 The automation capability is exposed in the capability inventory under id `automation`.
 
-These routes stay under `/api/v1` and let the admin UI manage Core-owned state-change automations.
+These routes stay under `/api/v1` and let the admin UI manage Core-owned automations.
 
 Each automation has:
 
 - one or more `conditions`
-- exactly one `type: "state_changed"` condition; that single state-change condition starts the automation
+- exactly one trigger condition: either `type: "state_changed"` or `type: "time"`
 - zero or more `type: "current_state"` conditions combined by `condition_logic` as extra runtime gates
 - an optional daily time window
-- one or more actions executed against existing devices
+- one or more actions executed against existing devices or the project input layer
 
 Supported match operators:
 
@@ -28,12 +28,52 @@ Condition shapes:
 
 - `type: "state_changed"` uses `from` and `to`
 - `type: "current_state"` uses `match` against the latest persisted device state
+- `type: "time"` uses `time.schedule`, `time.at`, and optional `time.timezone`; currently `schedule: "daily"` plus `at: "HH:MM"` is the supported daily trigger
 
-Requests with zero or multiple `state_changed` conditions are rejected.
+Requests with zero or multiple trigger conditions are rejected. A time-only automation is valid when it has exactly one `type: "time"` condition and no `state_changed` condition.
 
 For `in` and `not_in`, `value` must be a JSON array. This allows one rule to match transitions like `D -> A/B/C` on the same state key.
 
 `time_window.start` and `time_window.end` use `HH:MM` in the gateway's local timezone. Ranges that cross midnight are supported.
+
+## Actions
+
+Device action:
+
+```json
+{
+  "kind": "device",
+  "device_id": "xiaomi:cn:speaker-1",
+  "label": "Voice push",
+  "action": "push_voice_message",
+  "params": {
+    "message": "洗衣机已结束",
+    "volume": 55
+  }
+}
+```
+
+Agent action:
+
+```json
+{
+  "kind": "agent",
+  "label": "Daily market report",
+  "action": "run",
+  "params": {
+    "input": "/market run close",
+    "session_id": "market-daily",
+    "touchpoints": [
+      {
+        "type": "wecom",
+        "to_user": "user-alice"
+      }
+    ]
+  }
+}
+```
+
+Agent actions enter `internal/core/input` just like HTTP or WeCom text. Slash commands run first; non-slash input falls through to the Agent ReAct loop. WeCom output touchpoints must reference configured enabled WeCom users.
 
 ## List Automations
 

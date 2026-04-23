@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Home,
   Layers3,
+  MessagesSquare,
   PlugZap,
   RefreshCw,
   Smartphone,
@@ -15,6 +16,7 @@ import { CapabilityWorkspace } from './components/admin/CapabilityWorkspace';
 import { DeviceWorkspace } from './components/admin/DeviceWorkspace';
 import { OverviewSection } from './components/admin/OverviewSection';
 import { PluginWorkspace } from './components/admin/PluginWorkspace';
+import { TouchpointWorkspace } from './components/admin/TouchpointWorkspace';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
@@ -107,6 +109,7 @@ function App() {
     overview: 'Overview',
     plugins: 'Plugins',
     agent: 'Agent',
+    touchpoints: 'Touchpoints',
     capabilities: 'Capabilities',
     devices: 'Devices',
     activity: 'Activity',
@@ -120,6 +123,7 @@ function App() {
   }> = [
     { id: 'overview', label: 'Overview', count: dashboard?.plugins ?? 0, icon: Home },
     { id: 'plugins', label: 'Plugins', count: catalog.length, icon: PlugZap },
+    { id: 'touchpoints', label: 'Touchpoints', count: 3, icon: MessagesSquare },
   ];
 
   const trailingSectionItems: Array<{
@@ -395,6 +399,11 @@ function App() {
                   Agent <strong>{agentPanelLabel(activeAgentPanel)}</strong>
                 </span>
               ) : null}
+              {activeSection === 'touchpoints' ? (
+                <span>
+                  Project <strong>Touchpoints</strong>
+                </span>
+              ) : null}
             </div>
           </header>
 
@@ -448,6 +457,8 @@ function App() {
               ) : null}
 
               {activeSection === 'agent' ? <AgentWorkspace activePanel={activeAgentPanel} /> : null}
+
+              {activeSection === 'touchpoints' ? <TouchpointWorkspace /> : null}
 
               {activeSection === 'capabilities' ? (
                 <CapabilityWorkspace selectedCapabilityId={selectedCapability?.id ?? ''} />

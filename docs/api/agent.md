@@ -1,6 +1,9 @@
 # Agent Runtime API
 
-Celestia embeds the migrated agent runtime directly in Core under `/api/v1/agent`.
+Back to the [API index](../api.md).
+
+Celestia embeds one Agent runtime under `/api/v1/agent`: an Eino ReAct loop with Agent-owned tools and memory. Project touchpoints, WeCom transport, voice message ingress, slash command dispatch, and device command ownership are outside this package and documented in [Project Touchpoints API](touchpoints.md).
+
 Home Assistant, ChatGPT bridge, OpenAI quota management, and system maintenance behavior are intentionally not included.
 
 ## Snapshot
@@ -9,33 +12,76 @@ Home Assistant, ChatGPT bridge, OpenAI quota management, and system maintenance 
 GET /api/v1/agent
 ```
 
-Returns the full agent snapshot:
+Returns the full Agent snapshot:
 
-- `settings`: LLM, STT, WeCom, terminal, search, memory, md2img, and evolution runner configuration
-- `capabilities`: built-in Celestia Agent capability contracts and direct command metadata
-- `direct_input`: fixed text mapping rules
-- `wecom_menu`: WeCom menu config, publish payload, validation errors, and recent click events
-- `push`: WeCom push users and interval tasks
-- `conversations`: retained agent conversation turns
-- `memory`: raw turns, compacted summary memory, and active short conversation windows
-- `topic_summary`: RSS topic profiles and run history
-- `writing`: writing organizer topics, materials, summary, outline, and draft state
-- `market`: fund portfolio and portfolio-only analysis run history
-- `evolution`: queued evolution goals and runner events
+- `settings`: LLM, terminal, search, memory, md2img, evolution, WeCom, and STT configuration. WeCom/STT settings are retained in the snapshot for migrated storage compatibility but are owned by Touchpoints at runtime.
+- `capabilities`: Agent-owned tool contracts.
+- `direct_input`: input mapping rules owned by Touchpoints before Agent execution.
+- `wecom_menu` and `push`: Touchpoint-owned WeCom menu/users stored in the migrated snapshot document store.
+- `conversations`: retained Agent conversation turns, including slash command result records.
+- `memory`: raw turns, compacted summary memory, and active short conversation windows.
+- `search`: recent search query logs, capped at the latest 50 runs.
+- `topic_summary`, `writing`, `market`, and `evolution`: Agent-owned workflow state.
 
-## Runtime Config
+## Runtime Settings
 
 ```http
 PUT /api/v1/agent/settings
-PUT /api/v1/agent/direct-input
-PUT /api/v1/agent/push
 ```
 
-Each endpoint accepts the corresponding object from the snapshot and returns the updated snapshot.
+Accepts `settings` from the snapshot and returns the updated snapshot.
 
 LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ollama`, `gemini`, and `gemini-like` through HTTP-compatible transports. `codex` invokes the local `codex exec --json --sandbox workspace-write` runner.
 
-Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/md2img/render.mjs`.
+Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/renderer/md2img/render.mjs`, writing to `data/renderer/md2img` unless overridden.
+
+## Conversation
+
+```http
+POST /api/v1/agent/conversation
+```
+
+Body:
+
+```json
+{
+  "session_id": "default",
+  "input": "summarize today's topic feed"
+}
+```
+
+The HTTP conversation endpoint enters the project input layer first:
+
+1. Slash commands are dispatched by `internal/core/slash`.
+2. A matched slash command records a conversation row with `runtime_mode: "slash"` and does not run the Agent loop.
+3. Non-slash input falls through to the Agent.
+4. Agent direct-input mappings are resolved before the Eino ReAct loop.
+5. Eino may call standard Agent tools and then records the final response plus process trace.
+
+When `settings.memory.enabled=true`, non-command turns inject session memory before the model call:
+
+- active `conversation_window`: recent real user/assistant messages within `settings.memory.window_timeout_seconds`
+- `hybrid_memory`: summary hits ranked by hashed vector similarity plus lexical coverage
+- `raw_replay`: raw records referenced by summary hits, limited by `raw_ref_limit` and `raw_record_limit`
+
+After each turn Celestia appends a raw memory record, refreshes the active short window, and compacts unsummarized raw turns once `compact_every_rounds` is reached.
+
+## Agent Tools
+
+The Agent tool registry is built through Eino-compatible tool specs. Agent-owned tools include:
+
+- `search_web`
+- `topic_summary`
+- `writing_organizer`
+- `market_analysis`
+- `evolution_operator`
+- `terminal_run`
+- `codex_runner`
+- `markdown_renderer`
+- `apple_notes`
+- `apple_reminders`
+
+WeCom send, HTTP ingress, slash command dispatch, voice message input, and native device execution are not Agent tools.
 
 ## Search Engine
 
@@ -65,68 +111,9 @@ Search engines are read from `settings.search_engines`. Supported providers:
 - `serpapi`: calls `GET /search.json` with `engine`, `q`, `hl`, `gl`, `num`, and `api_key`
 - `qianfan`: calls Baidu Qianfan `POST /v2/ai_search/web_search`
 
+Provider execution lives in `internal/core/search`; the Agent wrapper records the latest 50 query logs into `snapshot.search.recent_queries`.
+
 If no profile is configured, Celestia bootstraps from `SERPAPI_KEY` and `QIANFAN_SEARCH_*` environment variables.
-
-## WeCom
-
-```http
-PUT /api/v1/agent/wecom/menu
-POST /api/v1/agent/wecom/menu/publish
-POST /api/v1/agent/wecom/send
-POST /api/v1/agent/wecom/image
-POST /api/v1/agent/wecom/callback
-POST /api/v1/agent/wecom/ingress
-```
-
-`/wecom/menu` stores and validates a menu config. `/wecom/menu/publish` publishes the generated payload to the real WeCom menu API using `settings.wecom`. `/wecom/send` sends text to a real WeCom user and splits long content by UTF-8 bytes using `settings.wecom.text_max_bytes` (default `1800`).
-
-`/wecom/image` accepts `{ "to_user", "base64", "filename", "content_type" }`, uploads the image as WeCom media, then sends an image message. If `settings.wecom.bridge_url` is set, Celestia uses bridge-compatible routes `/proxy/gettoken`, `/proxy/media/upload`, and `/proxy/send`; otherwise it calls the WeCom API directly.
-
-`/wecom/callback` records unencrypted WeCom XML callbacks and returns JSON. `/wecom/ingress` is the synchronous WeCom entrypoint: text and click events enter the agent conversation, voice messages download media and run STT when `settings.stt.enabled=true`, then fall back to WeCom `Recognition` text when present. The HTTP response is a WeCom XML text reply. Send `Accept: application/json` to `/wecom/ingress` to inspect the structured result instead.
-
-If `settings.wecom.bridge_stream_enabled=true` and `settings.wecom.bridge_url` is configured, the agent starts a background SSE client against `{bridge_url}/stream`. Incoming bridge text, voice, image, and click events enter the same conversation path and replies are sent with the bridge-compatible sender. Voice media is fetched through `/proxy/media/get` first and then falls back to direct WeCom media download. Downloaded audio is stored under `settings.wecom.audio_dir` (default `data/agent/wecom-audio`).
-
-Encrypted callback verification is not implemented in these endpoints; deployments that require encrypted callbacks must terminate and decrypt before forwarding XML here.
-
-## Conversation
-
-```http
-POST /api/v1/agent/conversation
-```
-
-Body:
-
-```json
-{
-  "session_id": "default",
-  "input": "summarize today's topic feed"
-}
-```
-
-The runtime applies direct-input mapping first, then handles slash commands. For non-command text, Celestia runs a local capability routing step over built-in tool contracts before falling back to a direct LLM response. The router can call local search, topic summary, writing organizer, market analysis, evolution, terminal, Codex, md2img, Apple Notes/Reminders, or the Celestia device handoff response. Device command execution remains owned by `/api/ai/v1/commands`.
-
-When `settings.memory.enabled=true`, non-command conversation turns inject session memory before the LLM call:
-
-- active `conversation_window`: recent real user/assistant messages within `settings.memory.window_timeout_seconds`
-- `hybrid_memory`: summary hits ranked by hashed vector similarity plus lexical coverage
-- `raw_replay`: raw records referenced by summary hits, limited by `raw_ref_limit` and `raw_record_limit`
-
-After each turn Celestia appends a raw memory record, refreshes the active short window, and compacts unsummarized raw turns into summary memory once `compact_every_rounds` is reached. The deterministic fallback compactor preserves raw text references through `raw_refs`.
-
-Direct commands are handled before the LLM:
-
-- `/search <query>`
-- `/agent-capability list`, `/agent-capability describe <name>`, `/agent-capability run <name> <input>`
-- `/apple-notes <memo notes args>` and `/apple-reminders <remindctl args>`; both require terminal execution to be enabled and the corresponding macOS CLI to be installed
-- `/topic`, `/topic run [--profile id]`, `/topic profile list/add/use/update/delete`, `/topic source list/add/update/enable/disable/delete`, `/topic config`, `/topic state`
-- `/writing topics`, `/writing show <topic_id>`, `/writing create <title>`, `/writing append <topic_id> <content>`, `/writing summarize <topic_id>`, `/writing restore <topic_id>`, `/writing set <topic_id> <summary|outline|draft> <content>`
-- `/market midday`, `/market close`, `/market status`, `/market portfolio`, `/market add <code> <quantity> <avg_cost> [name]`
-- `/evolve <goal>`, `/coding <goal>`, `/evolve status [goal_id]`, `/evolve tick`, `/evolution queue <goal>`, `/evolution run <goal_id>`
-- `/terminal <command>`
-- `/codex <prompt>`, `/codex status`, `/codex model [model]`, `/codex effort [effort]`
-- `/md2img <markdown>`
-- `/sync`, `/build`, `/restart`, `/deploy`
-- `/celestia` returns the gateway-owned AI command path; device execution remains in `/api/ai/v1/commands`
 
 ## Agent Capabilities
 
@@ -136,7 +123,7 @@ GET /api/v1/agent/capabilities/{name}
 POST /api/v1/agent/capabilities/{name}/run
 ```
 
-Capabilities expose the migrated local Agent contracts as Celestia-owned capability metadata. A capability record contains `name`, `description`, optional terminal dependency metadata, direct commands, and the internal action contract.
+Capabilities expose Celestia-owned Agent tool metadata. A capability record contains `name`, `description`, optional terminal dependency metadata, direct commands, and the internal action contract.
 
 `POST /run` accepts:
 
@@ -148,23 +135,7 @@ Capabilities expose the migrated local Agent contracts as Celestia-owned capabil
 }
 ```
 
-For terminal-backed capabilities such as `apple-notes` and `apple-reminders`, Celestia executes the configured CLI through the same terminal runner used by `/agent/terminal`; `settings.terminal.enabled` must be true. Missing CLI binaries, macOS permission errors, and non-zero command exits are returned as explicit terminal errors.
-
-## STT
-
-```http
-POST /api/v1/agent/stt/transcribe
-```
-
-Body:
-
-```json
-{
-  "audio_path": "/path/to/audio.wav"
-}
-```
-
-STT requires `settings.stt.enabled=true`. The supported provider is `fast-whisper`; Celestia runs `settings.stt.command` when provided, otherwise it runs `python3 tools/fast-whisper-transcribe.py --audio <audio_path>`.
+Terminal-backed tools such as Apple Notes and Apple Reminders execute through the same guarded terminal runner used by `/agent/terminal`; `settings.terminal.enabled` must be true.
 
 ## Topic Summary
 
@@ -173,7 +144,7 @@ PUT /api/v1/agent/topic
 POST /api/v1/agent/topic/run
 ```
 
-Topic profiles store RSS sources. A run fetches enabled feeds, parses RSS or Atom entries, and optionally summarizes the selected items through the configured LLM provider. If no LLM provider is configured, the run still records the fetched feed items and a deterministic summary.
+Topic profiles store RSS or Atom sources. A run fetches enabled feeds, deduplicates against the sent log, and optionally summarizes selected items through the configured LLM provider. If no LLM provider is configured, the run still records fetched feed items and a deterministic summary.
 
 ## Writing Organizer
 
@@ -185,7 +156,7 @@ POST /api/v1/agent/writing/topics/{id}/summarize
 
 Writing topics store raw materials and maintain `summary`, `outline`, and `draft` state with a backup of the previous state. Summarization uses the configured LLM when available and otherwise generates a deterministic material-based draft.
 
-Celestia also writes organizer artifacts to disk under `data/agent/writing/topics/{topic_id}`:
+Celestia writes organizer artifacts under `data/agent/writing/topics/{topic_id}`:
 
 - `raw/*.md`: appended source material with rollover
 - `state/{summary,outline,draft}.md`: latest topic state
@@ -193,8 +164,6 @@ Celestia also writes organizer artifacts to disk under `data/agent/writing/topic
 - `knowledge/materials/YYYY/MM/*.json`: normalized material records
 - `knowledge/insights/YYYY/MM/*.json`: extracted insight records
 - `knowledge/documents/YYYY/MM/*.md` and `.meta.json`: composed documents
-
-The topic snapshot includes `artifact_root`, `raw_files`, `artifacts`, and `last_summarized_at` so the admin UI and API callers can inspect the file-backed pipeline.
 
 ## Market Analysis
 
@@ -204,11 +173,13 @@ POST /api/v1/agent/market/portfolio/import-codes
 POST /api/v1/agent/market/run
 ```
 
-The market module stores fund holdings and cash. A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
+The Agent owns the Market workflow state and report generation. Reusable Eastmoney estimate/security lookup code lives in `internal/core/market`.
+
+A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
 
 `/market/portfolio/import-codes` accepts `{ "codes": "510300, 159915" }`, resolves names through Eastmoney suggest endpoints, preserves existing quantity/cost fields, and returns per-code `added`, `updated`, `exists`, `not_found`, or `error` status.
 
-If `settings.md2img.enabled=true`, the generated markdown report is rendered through the md2img pipeline and returned in `images[]`. A missing Playwright browser, missing npm dependency, empty markdown, or screenshot failure returns `MARKET_IMAGE_PIPELINE_FAILED` rather than silently falling back to text-only output.
+If `settings.md2img.enabled=true`, the generated markdown report is rendered through the Core renderer and returned in `images[]`. A renderer failure returns `MARKET_IMAGE_PIPELINE_FAILED` instead of silently falling back to text-only output.
 
 ## md2img
 
@@ -225,7 +196,7 @@ Body:
 }
 ```
 
-`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/agent/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
+`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/renderer/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
 
 ## Evolution And Terminal
 
@@ -236,16 +207,7 @@ POST /api/v1/agent/terminal
 POST /api/v1/agent/codex/run
 ```
 
-Evolution goals are queued in Celestia state. Running a goal follows the Agent operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push when `settings.evolution.auto_commit` or `settings.evolution.auto_push` are enabled.
-
-Relevant `settings.evolution` fields:
-
-- `cwd`, `timeout_ms`, `codex_model`, `codex_reasoning`
-- `test_commands`: ordered shell checks; if empty Celestia auto-detects Go and web build checks
-- `max_fix_attempts`: default `2`
-- `structure_review`: runs an extra Codex structure review
-- `auto_commit`, `auto_push`, `push_remote`, `push_branch`
-- `command`: legacy fallback command used only when Codex planning cannot run
+Evolution goals are queued in Agent state. Running a goal follows the Agent operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push when `settings.evolution.auto_commit` or `settings.evolution.auto_push` are enabled.
 
 Terminal commands require `settings.terminal.enabled=true` and execute through `/bin/sh -lc` with the configured timeout.
 

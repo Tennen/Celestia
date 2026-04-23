@@ -16,6 +16,7 @@ import {
   type AgentWeComUser,
 } from '../../lib/agent';
 import { Field, FieldGrid, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
+import { SelectField } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
 import { SelectableListItem } from './shared/SelectableListItem';
 
@@ -29,10 +30,15 @@ type WeComSettings = AgentSnapshot['settings']['wecom'];
 type PushUser = AgentWeComUser;
 
 const textOf = (value: unknown) => (typeof value === 'string' ? value : '');
+const sttProviders = [{ value: 'fast-whisper', label: 'fast-whisper' }];
 
 export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   const [settings, setSettings] = useState<WeComSettings>(snapshot.settings.wecom);
   const [textMaxBytes, setTextMaxBytes] = useState(numberValue(snapshot.settings.wecom.text_max_bytes));
+  const [sttEnabled, setSttEnabled] = useState(snapshot.settings.stt?.enabled === true);
+  const [sttProvider, setSttProvider] = useState(textOf(snapshot.settings.stt?.provider) || 'fast-whisper');
+  const [sttCommand, setSttCommand] = useState(textOf(snapshot.settings.stt?.command));
+  const [sttTimeout, setSttTimeout] = useState(numberValue(snapshot.settings.stt?.timeout_ms));
   const [buttons, setButtons] = useState<AgentWeComButton[]>(snapshot.wecom_menu.config.buttons);
   const [pushUser, setPushUser] = useState<PushUser>(snapshot.push.users[0] ?? emptyPushUser());
   const [toUser, setToUser] = useState('');
@@ -42,6 +48,10 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   useEffect(() => {
     setSettings(snapshot.settings.wecom);
     setTextMaxBytes(numberValue(snapshot.settings.wecom.text_max_bytes));
+    setSttEnabled(snapshot.settings.stt?.enabled === true);
+    setSttProvider(textOf(snapshot.settings.stt?.provider) || 'fast-whisper');
+    setSttCommand(textOf(snapshot.settings.stt?.command));
+    setSttTimeout(numberValue(snapshot.settings.stt?.timeout_ms));
     setButtons(snapshot.wecom_menu.config.buttons);
     setPushUser(snapshot.push.users[0] ?? emptyPushUser());
     setToUser((current) => (sendableUsers.some((user) => user.id === current) ? current : (sendableUsers[0]?.id ?? '')));
@@ -50,7 +60,18 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   const saveSettings = () => {
     onRun(
       'settings-save',
-      () => saveAgentSettings({ ...snapshot.settings, wecom: { ...settings, text_max_bytes: parseOptionalNumber(textMaxBytes) } }),
+      () =>
+        saveAgentSettings({
+          ...snapshot.settings,
+          wecom: { ...settings, text_max_bytes: parseOptionalNumber(textMaxBytes) },
+          stt: {
+            ...(snapshot.settings.stt ?? {}),
+            enabled: sttEnabled,
+            provider: sttProvider,
+            command: sttCommand.trim(),
+            timeout_ms: parseOptionalNumber(sttTimeout),
+          },
+        }),
       false,
     );
   };
@@ -69,6 +90,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
     <Tabs defaultValue="settings" className="agent-tabs">
       <TabsList className="agent-tabs__list flex-wrap">
         <TabsTrigger value="settings">Settings</TabsTrigger>
+        <TabsTrigger value="voice">Voice</TabsTrigger>
         <TabsTrigger value="menu">Menu</TabsTrigger>
         <TabsTrigger value="users">Users</TabsTrigger>
         <TabsTrigger value="message">Message</TabsTrigger>
@@ -78,7 +100,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>WeCom Settings</CardTitle>
-            <CardDescription>WeCom app, bridge, and message settings</CardDescription>
+            <CardDescription>Project touchpoint app, bridge, and message delivery settings</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <ToggleField label="WeCom enabled" checked={settings.enabled} onChange={(enabled) => setSettings({ ...settings, enabled })} />
@@ -96,6 +118,28 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
             <Button onClick={saveSettings} disabled={busy === 'settings-save'}>
               <Save className="mr-2 h-4 w-4" />
               Save Settings
+            </Button>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="voice" className="agent-tab-content grid grid--two">
+        <Card className="panel">
+          <CardHeader>
+            <CardTitle>WeCom Voice Provider</CardTitle>
+            <CardDescription>Voice messages are transcribed in the WeCom input chain before slash command or Agent dispatch</CardDescription>
+          </CardHeader>
+          <CardContent className="stack">
+            <ToggleField label="Voice transcription enabled" checked={sttEnabled} onChange={setSttEnabled} />
+            <FieldGrid>
+              <SelectField label="Provider" value={sttProvider} options={sttProviders} onChange={setSttProvider} />
+              <Field label="Command" value={sttCommand} onChange={setSttCommand} />
+              <Field label="Timeout ms" value={sttTimeout} onChange={setSttTimeout} />
+              <Field label="Audio directory" value={settings.audio_dir ?? ''} onChange={(audio_dir) => setSettings({ ...settings, audio_dir })} />
+            </FieldGrid>
+            <Button onClick={saveSettings} disabled={busy === 'settings-save'}>
+              <Save className="mr-2 h-4 w-4" />
+              Save Voice
             </Button>
           </CardContent>
         </Card>
@@ -141,7 +185,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>WeCom Users</CardTitle>
-            <CardDescription>{snapshot.push.users.length} users available as Agent output recipients</CardDescription>
+            <CardDescription>{snapshot.push.users.length} project users available for WeCom delivery</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="list-stack">
@@ -162,7 +206,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>User Editor</CardTitle>
-            <CardDescription>Recipient aliases for Automation Agent outputs; schedules live in Automation</CardDescription>
+            <CardDescription>Recipient aliases used by touchpoints, automations, and manual sends</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="button-row">

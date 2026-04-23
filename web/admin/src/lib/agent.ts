@@ -297,27 +297,27 @@ export function saveAgentSettings(payload: AgentSettings) {
 }
 
 export function saveAgentDirectInput(payload: AgentDirectInputConfig) {
-  return request<AgentSnapshot>('/agent/direct-input', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
+  return request<AgentSnapshot>('/touchpoints/input-mappings', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function saveAgentPush(payload: AgentPushSnapshot) {
-  return request<AgentSnapshot>('/agent/push', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
+  return request<AgentSnapshot>('/touchpoints/wecom/users', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function saveAgentWeComMenu(payload: AgentWeComMenuConfig) {
-  return request<AgentSnapshot>('/agent/wecom/menu', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
+  return request<AgentSnapshot>('/touchpoints/wecom/menu', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
 export function publishAgentWeComMenu() {
-  return request<AgentWeComMenuSnapshot>('/agent/wecom/menu/publish', { method: 'POST' });
+  return request<AgentWeComMenuSnapshot>('/touchpoints/wecom/menu/publish', { method: 'POST' });
 }
 
 export function sendAgentWeComMessage(payload: { to_user: string; text: string }) {
-  return request<{ ok: boolean }>('/agent/wecom/send', { method: 'POST', body: JSON.stringify(payload) });
+  return request<{ ok: boolean }>('/touchpoints/wecom/send', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export function sendAgentWeComImage(payload: { to_user: string; base64: string; filename?: string; content_type?: string }) {
-  return request<{ ok: boolean }>('/agent/wecom/image', { method: 'POST', body: JSON.stringify(payload) });
+  return request<{ ok: boolean }>('/touchpoints/wecom/image', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export function runAgentConversation(payload: { input: string; session_id?: string }) {
@@ -399,7 +399,7 @@ export function runAgentSearch(payload: {
 }
 
 export function transcribeAgentSpeech(payload: { audio_path: string }) {
-  return request<Record<string, unknown>>('/agent/stt/transcribe', { method: 'POST', body: JSON.stringify(payload) });
+  return request<Record<string, unknown>>('/touchpoints/voice/transcribe', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export function runAgentCodex(payload: {

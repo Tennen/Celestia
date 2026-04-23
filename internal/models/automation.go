@@ -49,12 +49,12 @@ type AutomationTimeCondition struct {
 }
 
 type AutomationCondition struct {
-	Type     AutomationConditionType `json:"type,omitempty"`
-	DeviceID string                  `json:"device_id,omitempty"`
-	StateKey string                  `json:"state_key,omitempty"`
-	From     *AutomationStateMatch   `json:"from,omitempty"`
-	To       *AutomationStateMatch   `json:"to,omitempty"`
-	Match    *AutomationStateMatch   `json:"match,omitempty"`
+	Type     AutomationConditionType  `json:"type,omitempty"`
+	DeviceID string                   `json:"device_id,omitempty"`
+	StateKey string                   `json:"state_key,omitempty"`
+	From     *AutomationStateMatch    `json:"from,omitempty"`
+	To       *AutomationStateMatch    `json:"to,omitempty"`
+	Match    *AutomationStateMatch    `json:"match,omitempty"`
 	Time     *AutomationTimeCondition `json:"time,omitempty"`
 }
 
@@ -72,10 +72,10 @@ const (
 
 type AutomationAction struct {
 	Kind     AutomationActionKind `json:"kind,omitempty"`
-	DeviceID string         `json:"device_id"`
-	Label    string         `json:"label,omitempty"`
-	Action   string         `json:"action"`
-	Params   map[string]any `json:"params,omitempty"`
+	DeviceID string               `json:"device_id"`
+	Label    string               `json:"label,omitempty"`
+	Action   string               `json:"action"`
+	Params   map[string]any       `json:"params,omitempty"`
 }
 
 type Automation struct {

@@ -1,4 +1,4 @@
-package agent
+package voice
 
 import (
 	"bytes"
@@ -13,11 +13,23 @@ import (
 	"github.com/chentianyu/celestia/internal/models"
 )
 
+type SnapshotSource interface {
+	Snapshot(context.Context) (models.AgentSnapshot, error)
+}
+
+type Service struct {
+	source SnapshotSource
+}
+
+func New(source SnapshotSource) *Service {
+	return &Service{source: source}
+}
+
 func (s *Service) Transcribe(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error) {
 	if err := requireText(req.AudioPath, "audio_path"); err != nil {
 		return models.AgentSpeechResult{}, err
 	}
-	snapshot, err := s.Snapshot(ctx)
+	snapshot, err := s.source.Snapshot(ctx)
 	if err != nil {
 		return models.AgentSpeechResult{}, err
 	}
@@ -45,6 +57,29 @@ func (s *Service) Transcribe(ctx context.Context, req models.AgentSpeechRequest)
 	}
 	text := parseSTTText(stdout.String())
 	return models.AgentSpeechResult{Text: text, Provider: "fast-whisper", At: time.Now().UTC()}, nil
+}
+
+func requireText(value string, field string) error {
+	if strings.TrimSpace(value) == "" {
+		return errors.New(field + " is required")
+	}
+	return nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func maxInt(value int, fallback int) int {
+	if value > 0 {
+		return value
+	}
+	return fallback
 }
 
 func parseSTTText(output string) string {

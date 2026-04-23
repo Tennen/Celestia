@@ -31,6 +31,16 @@ func (f *fakeAgentRuntime) Converse(_ context.Context, req models.AgentConversat
 	return models.AgentConversation{Response: "agent output"}, nil
 }
 
+func (f *fakeAgentRuntime) HandleInput(_ context.Context, req models.ProjectInputRequest) (models.ProjectInputResult, error) {
+	f.requests = append(f.requests, models.AgentConversationRequest{
+		SessionID: req.SessionID,
+		Input:     req.Input,
+		Actor:     req.Actor,
+	})
+	conversation := models.AgentConversation{Response: "agent output"}
+	return models.ProjectInputResult{Conversation: conversation, ResponseText: conversation.Response}, nil
+}
+
 func (f *fakeAgentRuntime) ResolveWeComRecipient(_ context.Context, target string) (models.AgentPushUser, error) {
 	if f.users == nil {
 		return models.AgentPushUser{}, errors.New("wecom target not configured")
@@ -297,7 +307,9 @@ func TestServiceSaveRequiresExactlyOneTriggerCondition(t *testing.T) {
 func TestServiceSaveAllowsDailyTimeTrigger(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAutomationTestService(t)
-	svc.SetAgentRuntime(fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-chentianyu", Name: "Chentianyu", WeComUser: "chentianyu", Enabled: true}))
+	agent := fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-chentianyu", Name: "Chentianyu", WeComUser: "chentianyu", Enabled: true})
+	svc.SetAgentRuntime(agent)
+	svc.SetWeComRuntime(agent)
 
 	saved, err := svc.Save(ctx, models.Automation{
 		Name:    "Daily digest",
@@ -339,7 +351,9 @@ func TestServiceSaveAllowsDailyTimeTrigger(t *testing.T) {
 func TestServiceSaveRejectsUnknownWeComTouchpoint(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAutomationTestService(t)
-	svc.SetAgentRuntime(fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-known", Name: "Known", WeComUser: "known", Enabled: true}))
+	agent := fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-known", Name: "Known", WeComUser: "known", Enabled: true})
+	svc.SetAgentRuntime(agent)
+	svc.SetWeComRuntime(agent)
 
 	_, err := svc.Save(ctx, models.Automation{
 		Name:    "Unknown wecom user",
@@ -376,6 +390,7 @@ func TestExecuteAgentActionSendsWeComTouchpoint(t *testing.T) {
 	svc, _ := newAutomationTestService(t)
 	agent := fakeAgentWithWeComUsers(models.AgentPushUser{ID: "user-chentianyu", Name: "Chentianyu", WeComUser: "chentianyu", Enabled: true})
 	svc.SetAgentRuntime(agent)
+	svc.SetWeComRuntime(agent)
 
 	automation, err := svc.Save(ctx, models.Automation{
 		Name:    "Daily agent output",

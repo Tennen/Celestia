@@ -9,7 +9,29 @@ Celestia is a monorepo for a process-isolated home gateway written in Go with a 
 - Phase 2: Petkit cloud integration with feeder/litter/fountain support
 - Phase 3: Haier hOn washer integration with model capability matrices
 - Phase 4: Hikvision/EZVIZ LAN HCNetSDK plus Ezviz cloud camera integration
-- Integrated Agent Runtime: migrated LLM orchestration, WeCom operations, direct input mapping, hybrid memory, md2img report rendering, topic summary, writing organizer, market portfolio analysis, evolution queue, and guarded terminal execution. Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance paths are intentionally excluded.
+- Project Touchpoints + Agent Runtime: migrated WeCom touchpoints, voice provider chain, slash command dispatch, Eino ReAct Agent, hybrid memory, search logs, Core search providers, Core Market data helpers, md2img report rendering, topic summary, writing organizer, market portfolio analysis, evolution queue, and guarded terminal execution. Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance paths are intentionally excluded.
+
+## Software Architecture
+
+Celestia now treats vendor plugins, touchpoints, slash commands, automations, and the Agent as separate runtime layers:
+
+```text
+HTTP / WeCom / Automation
+        |
+        v
+Project Input Layer
+        |
+        +-- Slash Commands: /home, /market
+        |
+        +-- Agent Eino ReAct Runtime
+        |
+        v
+Touchpoint response delivery
+```
+
+Device control stays in Core and vendor plugins: registry/state/control metadata, policy, audit, and `PluginMgr.ExecuteCommand` are the only path to real devices. WeCom is a project-level touchpoint, not an Agent tool. Voice currently belongs to the WeCom voice-message chain through a Core voice provider.
+
+The full current architecture is documented in [docs/architecture.md](docs/architecture.md).
 
 ## Local Commands
 
@@ -182,8 +204,15 @@ These repositories are reference material for protocol and behavior research, no
 - `cmd/gateway`: gateway entrypoint that wires SQLite storage, runtime reconciliation, HTTP API, and graceful shutdown.
 - `cmd/celctl`: agent-oriented CLI built on Cobra with a structured subcommand surface for plugins/devices/events/audits and normalized command dispatch.
 - `internal/api/http`: the only supported admin and external control surface. It serves device, plugin, audit, event, and OAuth endpoints.
-- `internal/core`: Core runtime services for plugin management, registry, state, audit, policy, event bus, quick-control modeling, and Xiaomi OAuth orchestration.
-- `internal/core/agent`: direct Core integration of the migrated Agent/admin runtime excluding Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance.
+- `internal/core`: Core runtime services for plugin management, registry, state, audit, policy, event bus, quick-control modeling, touchpoint input, slash commands, Agent runtime, and Xiaomi OAuth orchestration.
+- `internal/core/input`: project-level input envelope that routes HTTP, WeCom, and automation input through slash dispatch before falling through to the Agent.
+- `internal/core/slash`: deterministic project workflows such as `/home` native device control and `/market` workflow execution.
+- `internal/core/touchpoint`: project-level touchpoint facade for WeCom users, menus, ingress, and output delivery.
+- `internal/core/voice`: STT provider execution used by touchpoint voice input.
+- `internal/core/search`: search provider execution and provider-specific HTTP payload normalization.
+- `internal/core/market`: Eastmoney fund/security lookup and reusable Market report helpers.
+- `internal/core/renderer`: renderer assets such as the md2img Playwright script.
+- `internal/core/agent`: Eino ReAct Agent runtime and Agent-owned capabilities excluding transport/touchpoint ownership, Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance.
 - `internal/coreapi`: Core-owned gRPC helpers that plugins use for approved back-calls such as config persistence.
 - `internal/models`: shared runtime models exchanged across Core, plugins, storage, and API layers.
 - `internal/pluginapi`: generated/handwritten gRPC protocol bindings and struct encoding helpers for plugin RPCs.
@@ -214,12 +243,14 @@ The container exposes the gateway and admin UI on port `8080`.
 
 - HTTP API reference grouped by domain, including runtime management, devices, AI, events, OAuth, and streaming: [docs/api.md](docs/api.md)
 - Agent runtime API for the directly integrated Agent capabilities: [docs/api/agent.md](docs/api/agent.md)
+- Touchpoint API for WeCom and project input mapping: [docs/api/touchpoints.md](docs/api/touchpoints.md)
 
 ## Admin Surface
 
 - Dashboard summary
 - Plugin catalog, install, runtime view, Core-owned config view, enable/disable, discover, uninstall, logs
-- Agent workspace for LLM/provider settings, direct input mapping, WeCom menu/message operations, topic summary, writing organizer, market portfolio analysis, evolution goals, and guarded terminal execution
+- Touchpoints workspace for WeCom settings/menu/users/message checks, WeCom voice provider settings, slash command smoke runs, and input mappings
+- Agent workspace for LLM/provider settings, conversation inspection, topic summary, writing organizer, market portfolio analysis, evolution goals, search profiles/logs, and guarded runtime settings
 - Device inventory with live state
 - Command dispatch with actor header support
 - Event feed and audit feed

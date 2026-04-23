@@ -28,6 +28,7 @@ type Service struct {
 	audit     *audit.Service
 	pluginMgr *pluginmgr.Manager
 	agent     AgentRuntime
+	wecom     WeComRuntime
 
 	mu                sync.RWMutex
 	automationIndex   map[string][]string
@@ -41,7 +42,10 @@ type Service struct {
 }
 
 type AgentRuntime interface {
-	Converse(context.Context, models.AgentConversationRequest) (models.AgentConversation, error)
+	HandleInput(context.Context, models.ProjectInputRequest) (models.ProjectInputResult, error)
+}
+
+type WeComRuntime interface {
 	ResolveWeComRecipient(context.Context, string) (models.AgentPushUser, error)
 	SendWeComText(context.Context, string, string) error
 }
@@ -77,6 +81,12 @@ func New(
 func (s *Service) SetAgentRuntime(agent AgentRuntime) {
 	s.mu.Lock()
 	s.agent = agent
+	s.mu.Unlock()
+}
+
+func (s *Service) SetWeComRuntime(wecom WeComRuntime) {
+	s.mu.Lock()
+	s.wecom = wecom
 	s.mu.Unlock()
 }
 
