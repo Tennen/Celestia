@@ -348,6 +348,14 @@ func (s *HTTPService) decodeError(resp *http.Response) error {
 					}
 				}
 			}
+			value, _ := payload["value"].(string)
+			return &StatusError{
+				StatusCode: resp.StatusCode,
+				Err: &ReferenceNotFoundError{
+					Field: field,
+					Value: value,
+				},
+			}
 		}
 		if text, ok := payload["error"].(string); ok && strings.TrimSpace(text) != "" {
 			return statusError(resp.StatusCode, fmt.Errorf(text))

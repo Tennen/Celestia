@@ -167,6 +167,8 @@ function SlashCommandPanel({ busy, onRun }: { busy: string; onRun: AgentRunner }
         <CardContent>
           <pre className="agent-result-pre">{`/home list [query]
 /home "<device>" <command> [value|key=value ...]
+/home "<device-or-room.command>" [value|key=value ...]
+/home <command> [value|key=value ...]
 /home action "<device>" <raw_action> [key=value ...]
 /market portfolio
 /market run [open|midday|close] [notes]

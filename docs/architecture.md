@@ -87,6 +87,8 @@ Slash commands are deterministic project workflows that run before Agent inferen
 
 - `/home list [query]`
 - `/home <device> <command> [value|key=value ...]`
+- `/home <device-or-room.command> [value|key=value ...]`
+- `/home <command> [value|key=value ...]`
 - `/home action <device> <raw_action> [key=value ...]`
 - `/market portfolio`
 - `/market run [open|midday|close] [notes]`

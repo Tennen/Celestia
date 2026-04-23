@@ -47,6 +47,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(newDashboardCommand(&opts))
 	cmd.AddCommand(newPluginsCommand(&opts))
 	cmd.AddCommand(newDevicesCommand(&opts))
+	cmd.AddCommand(newHomeCommand(&opts))
 	cmd.AddCommand(newEventsCommand(&opts))
 	cmd.AddCommand(newAuditsCommand(&opts))
 	return cmd

@@ -102,6 +102,16 @@ Alternative explicit form:
 }
 ```
 
+Shortcut-style positional form:
+
+```json
+{
+  "device_name": "Kitchen Feeder",
+  "command": "Feed Once",
+  "values": ["2"]
+}
+```
+
 Direct command-only form:
 
 ```json
@@ -188,6 +198,8 @@ Parameter handling:
 - toggle commands require `on`
 - number and select commands require their declared value parameter
 - action commands only accept user parameters explicitly declared in control metadata
+- optional `values` can carry shortcut-style positional arguments; the shared Home service maps the first positional value to toggle `on` or the control's declared value parameter
+- when both `params` and `values` are supplied, named `params` take precedence over the positional value
 - parameter names are matched case-insensitively after punctuation normalization
 - number parameters accept numeric strings such as `"2"`
 - boolean parameters accept `true` / `false`, `on` / `off`, `yes` / `no`, and `1` / `0`

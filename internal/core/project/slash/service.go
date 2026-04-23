@@ -8,14 +8,8 @@ import (
 	"time"
 
 	coreagent "github.com/chentianyu/celestia/internal/core/agent"
-	"github.com/chentianyu/celestia/internal/core/audit"
 	"github.com/chentianyu/celestia/internal/core/control"
-	"github.com/chentianyu/celestia/internal/core/pluginmgr"
-	"github.com/chentianyu/celestia/internal/core/policy"
-	"github.com/chentianyu/celestia/internal/core/registry"
-	"github.com/chentianyu/celestia/internal/core/state"
 	"github.com/chentianyu/celestia/internal/models"
-	"github.com/chentianyu/celestia/internal/storage"
 )
 
 type AgentRuntime interface {
@@ -24,45 +18,21 @@ type AgentRuntime interface {
 	ImportMarketPortfolioCodes(context.Context, models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error)
 }
 
-type CommandExecutor interface {
-	ExecuteCommand(context.Context, models.Device, models.CommandRequest) (models.CommandResponse, error)
+type HomeRuntime interface {
+	ListViews(context.Context, control.HomeFilter) ([]models.DeviceView, error)
+	Execute(context.Context, control.HomeRequest) (control.HomeResult, error)
 }
 
 type Service struct {
-	store    storage.Store
-	registry *registry.Service
-	state    *state.Service
-	controls *control.Service
-	policy   *policy.Service
-	audit    *audit.Service
-	executor CommandExecutor
-	agent    AgentRuntime
+	home  HomeRuntime
+	agent AgentRuntime
 }
 
-func New(
-	store storage.Store,
-	registrySvc *registry.Service,
-	stateSvc *state.Service,
-	controls *control.Service,
-	policySvc *policy.Service,
-	auditSvc *audit.Service,
-	pluginMgr *pluginmgr.Manager,
-	agent AgentRuntime,
-) *Service {
+func New(home HomeRuntime, agent AgentRuntime) *Service {
 	return &Service{
-		store:    store,
-		registry: registrySvc,
-		state:    stateSvc,
-		controls: controls,
-		policy:   policySvc,
-		audit:    auditSvc,
-		executor: pluginMgr,
-		agent:    agent,
+		home:  home,
+		agent: agent,
 	}
-}
-
-func (s *Service) SetCommandExecutor(executor CommandExecutor) {
-	s.executor = executor
 }
 
 func (s *Service) Run(ctx context.Context, req models.ProjectInputRequest) (models.SlashCommandResult, bool, error) {

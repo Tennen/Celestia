@@ -32,6 +32,7 @@ type Runtime struct {
 	Automation *automation.Service
 	Capability *capability.Service
 	Controls   *control.Service
+	Home       *control.HomeService
 	Policy     *policy.Service
 	OAuth      *oauthsvc.Service
 	PluginMgr  *pluginmgr.Manager
@@ -52,7 +53,8 @@ func New(store storage.Store) *Runtime {
 	visionSvc := vision.New(store, registrySvc, stateSvc, bus)
 	agentSvc := agent.New(store, bus)
 	controlSvc := control.New()
-	slashSvc := slash.New(store, registrySvc, stateSvc, controlSvc, policySvc, auditSvc, pluginMgr, agentSvc)
+	homeSvc := control.NewHomeService(store, registrySvc, stateSvc, controlSvc, policySvc, auditSvc, pluginMgr, visionSvc)
+	slashSvc := slash.New(homeSvc, agentSvc)
 	inputSvc := input.New(agentSvc, slashSvc)
 	voiceSvc := voice.New(agentSvc)
 	touchpointSvc := touchpoint.New(agentSvc, agentSvc)
@@ -70,6 +72,7 @@ func New(store storage.Store) *Runtime {
 		Automation: automationSvc,
 		Capability: capability.New(automationSvc, visionSvc),
 		Controls:   controlSvc,
+		Home:       homeSvc,
 		Policy:     policySvc,
 		OAuth:      oauthsvc.New(store),
 		PluginMgr:  pluginMgr,

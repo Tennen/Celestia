@@ -33,6 +33,7 @@ func (s *HTTPService) ExecuteAICommand(ctx context.Context, req AICommandRequest
 		"command":     req.Command,
 		"action":      req.Action,
 		"params":      req.Params,
+		"values":      req.Values,
 	}
 	if err := s.request(ctx, http.MethodPost, "/api/ai/v1/commands", nil, payload, &out, req.Actor); err != nil {
 		return AICommandResult{}, err

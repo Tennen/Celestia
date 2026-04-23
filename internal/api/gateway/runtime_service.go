@@ -148,7 +148,7 @@ func (s *RuntimeService) DeleteAutomation(ctx context.Context, id string) error 
 }
 
 func (s *RuntimeService) ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error) {
-	devices, err := s.runtime.Registry.List(ctx, storage.DeviceFilter{
+	views, err := s.runtime.Home.ListViews(ctx, control.HomeFilter{
 		PluginID: filter.PluginID,
 		Kind:     filter.Kind,
 		Query:    filter.Query,
@@ -156,40 +156,13 @@ func (s *RuntimeService) ListDevices(ctx context.Context, filter DeviceFilter) (
 	if err != nil {
 		return nil, statusError(http.StatusInternalServerError, err)
 	}
-	states, err := s.runtime.State.List(ctx, storage.StateFilter{})
-	if err != nil {
-		return nil, statusError(http.StatusInternalServerError, err)
-	}
-	stateMap := map[string]models.DeviceStateSnapshot{}
-	for _, item := range states {
-		stateMap[item.DeviceID] = item
-	}
-	out := make([]models.DeviceView, 0, len(devices))
-	for _, device := range devices {
-		view, err := s.deviceView(ctx, device, stateMap[device.ID])
-		if err != nil {
-			return nil, statusError(http.StatusInternalServerError, err)
-		}
-		out = append(out, view)
-	}
-	return out, nil
+	return views, nil
 }
 
 func (s *RuntimeService) GetDevice(ctx context.Context, deviceID string) (models.DeviceView, error) {
-	device, ok, err := s.runtime.Registry.Get(ctx, deviceID)
+	view, err := s.runtime.Home.GetView(ctx, deviceID)
 	if err != nil {
-		return models.DeviceView{}, statusError(http.StatusInternalServerError, err)
-	}
-	if !ok {
-		return models.DeviceView{}, statusError(http.StatusNotFound, errors.New("device not found"))
-	}
-	state, _, err := s.runtime.State.Get(ctx, device.ID)
-	if err != nil {
-		return models.DeviceView{}, statusError(http.StatusInternalServerError, err)
-	}
-	view, err := s.deviceView(ctx, device, state)
-	if err != nil {
-		return models.DeviceView{}, statusError(http.StatusInternalServerError, err)
+		return models.DeviceView{}, mapHomeError(err)
 	}
 	return view, nil
 }
@@ -222,13 +195,9 @@ func (s *RuntimeService) UpdateControlPreference(ctx context.Context, req Update
 	if !ok {
 		return models.DeviceControlPreference{}, statusError(http.StatusNotFound, errors.New("device not found"))
 	}
-	state, _, err := s.runtime.State.Get(ctx, device.ID)
+	view, err := s.runtime.Home.GetView(ctx, device.ID)
 	if err != nil {
-		return models.DeviceControlPreference{}, statusError(http.StatusInternalServerError, err)
-	}
-	view, err := s.deviceView(ctx, device, state)
-	if err != nil {
-		return models.DeviceControlPreference{}, statusError(http.StatusInternalServerError, err)
+		return models.DeviceControlPreference{}, mapHomeError(err)
 	}
 
 	controlID := strings.TrimSpace(req.ControlID)
@@ -387,34 +356,6 @@ func (s *RuntimeService) executeDeviceCommand(ctx context.Context, actor string,
 		Decision: decision,
 		Result:   resp,
 	}, nil
-}
-
-func (s *RuntimeService) deviceView(ctx context.Context, device models.Device, state models.DeviceStateSnapshot) (models.DeviceView, error) {
-	if s.runtime.Vision != nil {
-		device = s.runtime.Vision.EnrichDevice(device)
-	}
-	view := s.runtime.Controls.BuildView(device, state)
-	devicePref, _, err := s.runtime.Store.GetDevicePreference(ctx, device.ID)
-	if err != nil {
-		return models.DeviceView{}, err
-	}
-	view.Device = applyDevicePreference(view.Device, devicePref)
-	prefs, err := s.runtime.Store.ListDeviceControlPreferences(ctx, device.ID)
-	if err != nil {
-		return models.DeviceView{}, err
-	}
-	return s.runtime.Controls.ApplyPreferences(view, prefs), nil
-}
-
-func applyDevicePreference(device models.Device, pref models.DevicePreference) models.Device {
-	alias := strings.TrimSpace(pref.Alias)
-	if alias == "" {
-		return device
-	}
-	device.DefaultName = device.Name
-	device.Alias = alias
-	device.Name = alias
-	return device
 }
 
 func hasControl(controls []models.DeviceControl, controlID string) bool {

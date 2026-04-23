@@ -13,6 +13,7 @@ import (
 	"github.com/chentianyu/celestia/internal/core/registry"
 	"github.com/chentianyu/celestia/internal/core/state"
 	"github.com/chentianyu/celestia/internal/models"
+	"github.com/chentianyu/celestia/internal/storage"
 	sqlitestore "github.com/chentianyu/celestia/internal/storage/sqlite"
 )
 
@@ -31,7 +32,7 @@ func (f *fakeCommandExecutor) ExecuteCommand(_ context.Context, device models.De
 	return models.CommandResponse{Accepted: true, Message: "accepted"}, nil
 }
 
-func newSlashHomeTestService(t *testing.T) (*Service, *fakeCommandExecutor) {
+func newSlashHomeTestService(t *testing.T) (*Service, *fakeCommandExecutor, storage.Store) {
 	t.Helper()
 	ctx := context.Background()
 	store, err := sqlitestore.New(filepath.Join(t.TempDir(), "celestia.db"))
@@ -97,14 +98,14 @@ func newSlashHomeTestService(t *testing.T) (*Service, *fakeCommandExecutor) {
 		t.Fatalf("state.Upsert() error = %v", err)
 	}
 	executor := &fakeCommandExecutor{}
-	svc := New(store, registrySvc, stateSvc, control.New(), policy.New(), audit.New(store), nil, nil)
-	svc.SetCommandExecutor(executor)
-	return svc, executor
+	home := control.NewHomeService(store, registrySvc, stateSvc, control.New(), policy.New(), audit.New(store), executor, nil)
+	svc := New(home, nil)
+	return svc, executor, store
 }
 
 func TestRunHomeListShowsDeviceControls(t *testing.T) {
 	ctx := context.Background()
-	svc, _ := newSlashHomeTestService(t)
+	svc, _, _ := newSlashHomeTestService(t)
 
 	result, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: "/home list kitchen", Actor: "test"})
 	if err != nil {
@@ -125,7 +126,7 @@ func TestRunHomeListShowsDeviceControls(t *testing.T) {
 
 func TestRunHomeToggleDispatchesResolvedCommand(t *testing.T) {
 	ctx := context.Background()
-	svc, executor := newSlashHomeTestService(t)
+	svc, executor, _ := newSlashHomeTestService(t)
 
 	result, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/home "Kitchen Light" Power off`, Actor: "admin"})
 	if err != nil {
@@ -151,7 +152,7 @@ func TestRunHomeToggleDispatchesResolvedCommand(t *testing.T) {
 
 func TestRunHomeNumberControlDispatchesValueParam(t *testing.T) {
 	ctx := context.Background()
-	svc, executor := newSlashHomeTestService(t)
+	svc, executor, _ := newSlashHomeTestService(t)
 
 	_, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/home "Kitchen Light" Brightness 60`, Actor: "admin"})
 	if err != nil {
@@ -169,5 +170,70 @@ func TestRunHomeNumberControlDispatchesValueParam(t *testing.T) {
 	}
 	if got, ok := call.req.Params["value"].(float64); !ok || got != 60 {
 		t.Fatalf("call.req.Params[value] = %#v, want 60", call.req.Params["value"])
+	}
+}
+
+func TestRunHomeResolvesDeviceAndControlAliases(t *testing.T) {
+	ctx := context.Background()
+	svc, executor, store := newSlashHomeTestService(t)
+
+	if err := store.UpsertDevicePreference(ctx, models.DevicePreference{
+		DeviceID:  "xiaomi:light:kitchen",
+		Alias:     "Dinner Lamp",
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("UpsertDevicePreference() error = %v", err)
+	}
+	if err := store.UpsertDeviceControlPreference(ctx, models.DeviceControlPreference{
+		DeviceID:  "xiaomi:light:kitchen",
+		ControlID: "brightness",
+		Alias:     "Glow",
+		Visible:   true,
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("UpsertDeviceControlPreference() error = %v", err)
+	}
+
+	_, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/home "Dinner Lamp" Glow 72`, Actor: "admin"})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if len(executor.calls) != 1 {
+		t.Fatalf("executor calls = %d, want 1", len(executor.calls))
+	}
+	if got, ok := executor.calls[0].req.Params["value"].(float64); !ok || got != 72 {
+		t.Fatalf("call.req.Params[value] = %#v, want 72", executor.calls[0].req.Params["value"])
+	}
+}
+
+func TestRunHomeResolvesGlobalControlAlias(t *testing.T) {
+	ctx := context.Background()
+	svc, executor, store := newSlashHomeTestService(t)
+
+	if err := store.UpsertDeviceControlPreference(ctx, models.DeviceControlPreference{
+		DeviceID:  "xiaomi:light:kitchen",
+		ControlID: "brightness",
+		Alias:     "Glow",
+		Visible:   true,
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("UpsertDeviceControlPreference() error = %v", err)
+	}
+
+	_, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/home Glow 55`, Actor: "admin"})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if len(executor.calls) != 1 {
+		t.Fatalf("executor calls = %d, want 1", len(executor.calls))
+	}
+	if got, ok := executor.calls[0].req.Params["value"].(float64); !ok || got != 55 {
+		t.Fatalf("call.req.Params[value] = %#v, want 55", executor.calls[0].req.Params["value"])
 	}
 }

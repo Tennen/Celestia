@@ -91,6 +91,19 @@ func writeAIServiceError(w http.ResponseWriter, err error) {
 		})
 		return
 	}
+	var missing *gatewayapi.ReferenceNotFoundError
+	if errors.As(err, &missing) {
+		status := gatewayapi.StatusCode(err)
+		if status == 0 {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]any{
+			"error": missing.Error(),
+			"field": missing.Field,
+			"value": missing.Value,
+		})
+		return
+	}
 	writeServiceError(w, err)
 }
 

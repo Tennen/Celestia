@@ -42,6 +42,7 @@ type AICommandRequest struct {
 	Action     string         `json:"action,omitempty"`
 	Actor      string         `json:"actor,omitempty"`
 	Params     map[string]any `json:"params,omitempty"`
+	Values     []string       `json:"values,omitempty"`
 }
 
 type AICommandResult struct {
@@ -88,4 +89,35 @@ func (e *AmbiguousReferenceError) Error() string {
 		return fmt.Sprintf("%s is ambiguous", field)
 	}
 	return fmt.Sprintf("%s %q is ambiguous", field, value)
+}
+
+type ReferenceNotFoundError struct {
+	Field string `json:"field"`
+	Value string `json:"value"`
+	Err   error  `json:"-"`
+}
+
+func (e *ReferenceNotFoundError) Error() string {
+	if e == nil {
+		return "reference not found"
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	field := strings.TrimSpace(e.Field)
+	if field == "" {
+		field = "reference"
+	}
+	value := strings.TrimSpace(e.Value)
+	if value == "" {
+		return field + " not found"
+	}
+	return fmt.Sprintf("%s %q not found", field, value)
+}
+
+func (e *ReferenceNotFoundError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
 }

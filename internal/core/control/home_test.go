@@ -1,4 +1,4 @@
-package gateway
+package control
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"github.com/chentianyu/celestia/internal/models"
 )
 
-func TestBuildAIDeviceCatalog_UsesAliasAndCommandMetadata(t *testing.T) {
+func TestBuildHomeDeviceCatalog_UsesAliasAndCommandMetadata(t *testing.T) {
 	device := models.Device{
 		ID:   "petkit:feeder:1",
 		Name: "Pet Feeder",
@@ -44,7 +44,7 @@ func TestBuildAIDeviceCatalog_UsesAliasAndCommandMetadata(t *testing.T) {
 		},
 	}}
 
-	catalog := buildAIDeviceCatalog(device, view, specs)
+	catalog := buildHomeDeviceCatalog(device, view, specs)
 	if catalog.device.Name != "Kitchen Feeder" {
 		t.Fatalf("device name = %q, want Kitchen Feeder", catalog.device.Name)
 	}
@@ -58,7 +58,7 @@ func TestBuildAIDeviceCatalog_UsesAliasAndCommandMetadata(t *testing.T) {
 	if command.Name != "Feed Now" {
 		t.Fatalf("command name = %q, want Feed Now", command.Name)
 	}
-	if !containsAIName(command.Aliases, "Feed Once") || !containsAIName(command.Aliases, "feed_once") || !containsAIName(command.Aliases, "feed-once") {
+	if !containsHomeName(command.Aliases, "Feed Once") || !containsHomeName(command.Aliases, "feed_once") || !containsHomeName(command.Aliases, "feed-once") {
 		t.Fatalf("command aliases = %#v, missing expected aliases", command.Aliases)
 	}
 	if len(command.Params) != 1 || command.Params[0].Name != "portions" {
@@ -69,7 +69,7 @@ func TestBuildAIDeviceCatalog_UsesAliasAndCommandMetadata(t *testing.T) {
 	}
 }
 
-func TestBuildAIDeviceCatalog_SkipsSharedActionAlias(t *testing.T) {
+func TestBuildHomeDeviceCatalog_SkipsSharedActionAlias(t *testing.T) {
 	device := models.Device{ID: "hikvision:camera:1", Name: "Front Door"}
 	view := models.DeviceView{
 		Device: models.Device{ID: device.ID, Name: "Front Door"},
@@ -99,55 +99,51 @@ func TestBuildAIDeviceCatalog_SkipsSharedActionAlias(t *testing.T) {
 		},
 	}
 
-	catalog := buildAIDeviceCatalog(device, view, specs)
+	catalog := buildHomeDeviceCatalog(device, view, specs)
 	for _, command := range catalog.device.Commands {
-		if containsAIName(command.Aliases, "ptz_move") {
+		if containsHomeName(command.Aliases, "ptz_move") {
 			t.Fatalf("shared action alias leaked into command aliases: %#v", command.Aliases)
 		}
 	}
 }
 
-func TestBuildAIDeviceCatalog_SkipsDisabledControls(t *testing.T) {
+func TestBuildHomeDeviceCatalog_SkipsDisabledControls(t *testing.T) {
 	device := models.Device{ID: "hikvision:camera:1", Name: "Front Door"}
 	view := models.DeviceView{
 		Device: models.Device{ID: device.ID, Name: "Front Door"},
-		Controls: []models.DeviceControl{
-			{
-				ID:             "ptz-up",
-				Kind:           models.DeviceControlKindAction,
-				Label:          "PTZ Up",
-				Disabled:       true,
-				DisabledReason: "configure cloud.username and cloud.password to enable Ezviz PTZ control",
-			},
-		},
-	}
-	specs := []models.DeviceControlSpec{
-		{
+		Controls: []models.DeviceControl{{
 			ID:             "ptz-up",
 			Kind:           models.DeviceControlKindAction,
 			Label:          "PTZ Up",
 			Disabled:       true,
 			DisabledReason: "configure cloud.username and cloud.password to enable Ezviz PTZ control",
-			Command: &models.DeviceControlCommand{
-				Action: "ptz_move",
-				Params: map[string]any{"direction": "up"},
-			},
-		},
+		}},
 	}
+	specs := []models.DeviceControlSpec{{
+		ID:             "ptz-up",
+		Kind:           models.DeviceControlKindAction,
+		Label:          "PTZ Up",
+		Disabled:       true,
+		DisabledReason: "configure cloud.username and cloud.password to enable Ezviz PTZ control",
+		Command: &models.DeviceControlCommand{
+			Action: "ptz_move",
+			Params: map[string]any{"direction": "up"},
+		},
+	}}
 
-	catalog := buildAIDeviceCatalog(device, view, specs)
+	catalog := buildHomeDeviceCatalog(device, view, specs)
 	if len(catalog.device.Commands) != 0 {
 		t.Fatalf("commands len = %d, want 0 for disabled controls", len(catalog.device.Commands))
 	}
 }
 
-func TestResolveAIDevice_AmbiguousAlias(t *testing.T) {
-	catalogs := []aiDeviceCatalog{
-		{device: AIDevice{ID: "dev-1", Name: "Kitchen Lamp"}, model: models.Device{Room: "Kitchen"}},
-		{device: AIDevice{ID: "dev-2", Name: "Kitchen Lamp"}, model: models.Device{Room: "Kitchen"}},
+func TestResolveHomeDevice_AmbiguousAlias(t *testing.T) {
+	catalogs := []homeDeviceCatalog{
+		{device: HomeDevice{ID: "dev-1", Name: "Kitchen Lamp"}, model: models.Device{Room: "Kitchen"}},
+		{device: HomeDevice{ID: "dev-2", Name: "Kitchen Lamp"}, model: models.Device{Room: "Kitchen"}},
 	}
 
-	_, err := resolveAIDevice(catalogs, "kitchen lamp")
+	_, err := resolveHomeDevice(catalogs, "kitchen lamp")
 	if err == nil {
 		t.Fatal("expected ambiguity error, got nil")
 	}
@@ -167,15 +163,15 @@ func TestResolveAIDevice_AmbiguousAlias(t *testing.T) {
 	}
 }
 
-func TestResolveAICommandAcrossCatalogs_ByCommandAlias(t *testing.T) {
-	catalogs := []aiDeviceCatalog{
-		newAITestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Main Power", []string{"power"}, "set_power"),
-		newAITestCatalog("dev-2", "Desk Fan", "Office", "Oscillate", []string{"oscillate"}, "set_oscillate"),
+func TestResolveHomeCommandAcrossCatalogs_ByCommandAlias(t *testing.T) {
+	catalogs := []homeDeviceCatalog{
+		newHomeTestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Main Power", []string{"power"}, "set_power"),
+		newHomeTestCatalog("dev-2", "Desk Fan", "Office", "Oscillate", []string{"oscillate"}, "set_oscillate"),
 	}
 
-	target, err := resolveAICommandAcrossCatalogs(catalogs, "power")
+	target, err := resolveHomeCommandAcrossCatalogs(catalogs, "power")
 	if err != nil {
-		t.Fatalf("resolveAICommandAcrossCatalogs() error = %v", err)
+		t.Fatalf("resolveHomeCommandAcrossCatalogs() error = %v", err)
 	}
 	if target.catalog.device.ID != "dev-1" {
 		t.Fatalf("device id = %q, want dev-1", target.catalog.device.ID)
@@ -185,13 +181,13 @@ func TestResolveAICommandAcrossCatalogs_ByCommandAlias(t *testing.T) {
 	}
 }
 
-func TestResolveAICommandAcrossCatalogs_Ambiguous(t *testing.T) {
-	catalogs := []aiDeviceCatalog{
-		newAITestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Power", []string{"power"}, "set_power"),
-		newAITestCatalog("dev-2", "Desk Lamp", "Office", "Power", []string{"power"}, "set_power"),
+func TestResolveHomeCommandAcrossCatalogs_Ambiguous(t *testing.T) {
+	catalogs := []homeDeviceCatalog{
+		newHomeTestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Power", []string{"power"}, "set_power"),
+		newHomeTestCatalog("dev-2", "Desk Lamp", "Office", "Power", []string{"power"}, "set_power"),
 	}
 
-	_, err := resolveAICommandAcrossCatalogs(catalogs, "power")
+	_, err := resolveHomeCommandAcrossCatalogs(catalogs, "power")
 	if err == nil {
 		t.Fatal("expected ambiguity error, got nil")
 	}
@@ -208,28 +204,28 @@ func TestResolveAICommandAcrossCatalogs_Ambiguous(t *testing.T) {
 	}
 }
 
-func TestResolveAICommandInScope_ByRoom(t *testing.T) {
-	catalogs := []aiDeviceCatalog{
-		newAITestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Power", []string{"power"}, "set_power"),
-		newAITestCatalog("dev-2", "Desk Lamp", "Office", "Power", []string{"power"}, "set_power"),
+func TestResolveHomeCommandInScope_ByRoom(t *testing.T) {
+	catalogs := []homeDeviceCatalog{
+		newHomeTestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Power", []string{"power"}, "set_power"),
+		newHomeTestCatalog("dev-2", "Desk Lamp", "Office", "Power", []string{"power"}, "set_power"),
 	}
 
-	target, err := resolveAICommandInScope(catalogs, "Kitchen", "power")
+	target, err := resolveHomeCommandInScope(catalogs, "Kitchen", "power")
 	if err != nil {
-		t.Fatalf("resolveAICommandInScope() error = %v", err)
+		t.Fatalf("resolveHomeCommandInScope() error = %v", err)
 	}
 	if target.catalog.device.Name != "Kitchen Lamp" {
 		t.Fatalf("device name = %q, want Kitchen Lamp", target.catalog.device.Name)
 	}
 }
 
-func TestResolveAICommandInScope_AmbiguousInRoom(t *testing.T) {
-	catalogs := []aiDeviceCatalog{
-		newAITestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Power", []string{"power"}, "set_power"),
-		newAITestCatalog("dev-2", "Kitchen Fan", "Kitchen", "Power", []string{"power"}, "set_power"),
+func TestResolveHomeCommandInScope_AmbiguousInRoom(t *testing.T) {
+	catalogs := []homeDeviceCatalog{
+		newHomeTestCatalog("dev-1", "Kitchen Lamp", "Kitchen", "Power", []string{"power"}, "set_power"),
+		newHomeTestCatalog("dev-2", "Kitchen Fan", "Kitchen", "Power", []string{"power"}, "set_power"),
 	}
 
-	_, err := resolveAICommandInScope(catalogs, "Kitchen", "power")
+	_, err := resolveHomeCommandInScope(catalogs, "Kitchen", "power")
 	if err == nil {
 		t.Fatal("expected ambiguity error, got nil")
 	}
@@ -246,11 +242,11 @@ func TestResolveAICommandInScope_AmbiguousInRoom(t *testing.T) {
 	}
 }
 
-func TestAIResolvedCommandBuildRequest_ValidatesAndCoerces(t *testing.T) {
-	command := aiResolvedCommand{
-		view: AICommand{
+func TestHomeResolvedCommandBuildRequest_ValidatesAndCoerces(t *testing.T) {
+	command := homeResolvedCommand{
+		view: HomeCommand{
 			Name: "Feed Once",
-			Params: []AICommandParam{{
+			Params: []HomeCommandParam{{
 				Name:    "portions",
 				Type:    models.DeviceCommandParamTypeNumber,
 				Default: 1,
@@ -263,7 +259,7 @@ func TestAIResolvedCommandBuildRequest_ValidatesAndCoerces(t *testing.T) {
 		},
 	}
 
-	action, params, err := command.buildRequest(map[string]any{"Portions": "2"})
+	action, params, err := command.buildRequest(map[string]any{"Portions": "2"}, nil)
 	if err != nil {
 		t.Fatalf("buildRequest() error = %v", err)
 	}
@@ -274,14 +270,43 @@ func TestAIResolvedCommandBuildRequest_ValidatesAndCoerces(t *testing.T) {
 		t.Fatalf("params = %#v, want portions=2", params)
 	}
 
-	if _, _, err := command.buildRequest(map[string]any{"unknown": 1}); err == nil {
+	if _, _, err := command.buildRequest(map[string]any{"unknown": 1}, nil); err == nil {
 		t.Fatal("expected unsupported parameter error, got nil")
 	}
 }
 
-func TestAIResolvedToggleBuildRequest_RequiresOn(t *testing.T) {
-	command := aiResolvedCommand{
-		view: AICommand{Name: "Power"},
+func TestHomeResolvedNumberBuildRequest_UsesPositionalValue(t *testing.T) {
+	command := homeResolvedCommand{
+		view: HomeCommand{
+			Name: "Brightness",
+			Params: []HomeCommandParam{{
+				Name:     "value",
+				Type:     models.DeviceCommandParamTypeNumber,
+				Required: true,
+			}},
+		},
+		kind: models.DeviceControlKindNumber,
+		command: &models.DeviceControlCommand{
+			Action:     "set_brightness",
+			ValueParam: "value",
+		},
+	}
+
+	action, params, err := command.buildRequest(nil, []string{"60"})
+	if err != nil {
+		t.Fatalf("buildRequest() error = %v", err)
+	}
+	if action != "set_brightness" {
+		t.Fatalf("action = %q, want set_brightness", action)
+	}
+	if value, ok := params["value"].(float64); !ok || value != 60 {
+		t.Fatalf("params = %#v, want value=60", params)
+	}
+}
+
+func TestHomeResolvedToggleBuildRequest_RequiresOn(t *testing.T) {
+	command := homeResolvedCommand{
+		view: HomeCommand{Name: "Power"},
 		kind: models.DeviceControlKindToggle,
 		onCommand: &models.DeviceControlCommand{
 			Action: "set_power",
@@ -293,7 +318,7 @@ func TestAIResolvedToggleBuildRequest_RequiresOn(t *testing.T) {
 		},
 	}
 
-	action, params, err := command.buildRequest(map[string]any{"ON": "true"})
+	action, params, err := command.buildRequest(nil, []string{"true"})
 	if err != nil {
 		t.Fatalf("toggle buildRequest() error = %v", err)
 	}
@@ -304,23 +329,23 @@ func TestAIResolvedToggleBuildRequest_RequiresOn(t *testing.T) {
 		t.Fatalf("params = %#v, want on=true", params)
 	}
 
-	if _, _, err := command.buildRequest(map[string]any{"value": true}); err == nil {
+	if _, _, err := command.buildRequest(map[string]any{"value": true}, nil); err == nil {
 		t.Fatal("expected unsupported parameter error, got nil")
 	}
 }
 
-func containsAIName(values []string, want string) bool {
+func containsHomeName(values []string, want string) bool {
 	for _, value := range values {
-		if normalizeAIRef(value) == normalizeAIRef(want) {
+		if normalizeHomeRef(value) == normalizeHomeRef(want) {
 			return true
 		}
 	}
 	return false
 }
 
-func newAITestCatalog(deviceID, deviceName, room, commandName string, aliases []string, action string) aiDeviceCatalog {
-	return aiDeviceCatalog{
-		device: AIDevice{
+func newHomeTestCatalog(deviceID, deviceName, room, commandName string, aliases []string, action string) homeDeviceCatalog {
+	return homeDeviceCatalog{
+		device: HomeDevice{
 			ID:   deviceID,
 			Name: deviceName,
 		},
@@ -329,8 +354,8 @@ func newAITestCatalog(deviceID, deviceName, room, commandName string, aliases []
 			Name: deviceName,
 			Room: room,
 		},
-		commands: []aiResolvedCommand{{
-			view: AICommand{
+		commands: []homeResolvedCommand{{
+			view: HomeCommand{
 				Name:    commandName,
 				Aliases: aliases,
 				Action:  action,

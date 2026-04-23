@@ -2,7 +2,6 @@ package slash
 
 import (
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -73,71 +72,6 @@ func parseBoolWord(value string) (bool, bool) {
 	}
 }
 
-func boolCommandRef(value string) (bool, bool) {
-	return parseBoolWord(value)
-}
-
-func boolParam(params map[string]any, key string) (bool, bool) {
-	value, ok := params[key]
-	if !ok {
-		return false, false
-	}
-	switch typed := value.(type) {
-	case bool:
-		return typed, true
-	case string:
-		return parseBoolWord(typed)
-	default:
-		return false, false
-	}
-}
-
-func singleToggle(controls []models.DeviceControl) (models.DeviceControl, error) {
-	var matches []models.DeviceControl
-	for _, control := range controls {
-		if control.Kind == models.DeviceControlKindToggle && !control.Disabled && control.Visible {
-			matches = append(matches, control)
-		}
-	}
-	switch len(matches) {
-	case 0:
-		return models.DeviceControl{}, errors.New("device has no executable toggle")
-	case 1:
-		return matches[0], nil
-	default:
-		names := make([]string, 0, len(matches))
-		for _, control := range matches {
-			names = append(names, firstNonEmpty(control.Label, control.ID))
-		}
-		return models.DeviceControl{}, fmt.Errorf("toggle is ambiguous: %s", strings.Join(names, ", "))
-	}
-}
-
-func findControl(controls []models.DeviceControl, ref string) (models.DeviceControl, bool) {
-	for _, control := range controls {
-		aliases := []string{control.ID, control.Label, control.DefaultLabel, control.Alias}
-		if control.Command != nil {
-			aliases = append(aliases, control.Command.Action)
-		}
-		for _, alias := range aliases {
-			if equalRef(alias, ref) {
-				return control, true
-			}
-		}
-	}
-	return models.DeviceControl{}, false
-}
-
-func deviceMatches(device models.Device, ref string) bool {
-	aliases := []string{device.ID, device.Name, device.DefaultName, device.Alias, device.Room, device.VendorDeviceID}
-	for _, alias := range aliases {
-		if equalRef(alias, ref) {
-			return true
-		}
-	}
-	return false
-}
-
 func equalRef(a string, b string) bool {
 	return normalizeRef(a) == normalizeRef(b) && normalizeRef(a) != ""
 }
@@ -146,14 +80,6 @@ func normalizeRef(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	replacer := strings.NewReplacer(" ", "", "_", "", "-", "", ".", "")
 	return replacer.Replace(value)
-}
-
-func cloneMap(input map[string]any) map[string]any {
-	out := map[string]any{}
-	for key, value := range input {
-		out[key] = value
-	}
-	return out
 }
 
 func actorOrInput(req models.ProjectInputRequest) string {
@@ -174,6 +100,8 @@ func slashHelp() string {
 Slash commands:
 - /home list [query]
 - /home <device> <command> [value|key=value ...]
+- /home <device-or-room.command> [value|key=value ...]
+- /home <command> [value|key=value ...]
 - /home action <device> <action> [key=value ...]
 - /market portfolio
 - /market run [open|midday|close] [notes]
@@ -186,6 +114,8 @@ func homeHelp() string {
 Home commands:
 - /home list
 - /home "Living Room Light" on
+- /home "Living Room Light.Power" off
+- /home Power on
 - /home "Living Room Light" Power off
 - /home action <device> <raw_action> key=value
 `)

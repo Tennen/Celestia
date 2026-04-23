@@ -19,6 +19,8 @@ ProjectInput
 
 Slash commands are project workflows in `internal/core/project/slash`. WeCom transport lives in `internal/core/project/touchpoint`. Voice transcription lives in `internal/core/project/voice` and is currently used by the WeCom voice-message path.
 
+Home slash commands support the same Core-owned home shortcut resolution used by `/api/ai/v1`: device aliases, quick-control aliases, room-qualified targets (`device-or-room.command`), and globally unique command aliases all resolve through the shared Home service before policy/audit and plugin dispatch.
+
 ## Input Mappings
 
 ```http
