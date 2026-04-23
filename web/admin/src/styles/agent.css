@@ -1,0 +1,33 @@
+@layer components {
+  .agent-tabs {
+    @apply min-h-0;
+  }
+
+  .agent-tabs__list {
+    @apply h-auto min-h-10 justify-start gap-1;
+  }
+
+  .agent-tabs .agent-tab-content {
+    @apply mt-2 gap-2.5;
+  }
+
+  .agent-tab-content .panel {
+    @apply rounded-xl;
+  }
+
+  .agent-tab-content .panel > div:first-child {
+    @apply p-4 pb-2;
+  }
+
+  .agent-tab-content .panel > div:last-child {
+    @apply p-4 pt-0;
+  }
+
+  .agent-tab-content .stack {
+    @apply gap-2.5;
+  }
+
+  .agent-tab-content .list-stack {
+    @apply gap-2;
+  }
+}

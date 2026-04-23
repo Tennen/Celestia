@@ -84,13 +84,13 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
   };
 
   return (
-    <Tabs defaultValue="topic">
-      <TabsList className="flex-wrap justify-start">
+    <Tabs defaultValue="topic" className="agent-tabs">
+      <TabsList className="agent-tabs__list flex-wrap">
         <TabsTrigger value="topic">Topic Summary</TabsTrigger>
         <TabsTrigger value="writing">Writing</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="topic" className="grid grid--two">
+      <TabsContent value="topic" className="agent-tab-content grid grid--two">
         <Card className="panel">
           <CardHeader>
             <CardTitle>Topic Profiles</CardTitle>
@@ -185,7 +185,7 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
         </Card>
       </TabsContent>
 
-      <TabsContent value="writing" className="grid grid--two">
+      <TabsContent value="writing" className="agent-tab-content grid grid--two">
         <Card className="panel">
           <CardHeader>
             <CardTitle>Writing Organizer</CardTitle>

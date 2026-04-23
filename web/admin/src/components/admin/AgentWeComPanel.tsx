@@ -66,15 +66,15 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   };
 
   return (
-    <Tabs defaultValue="settings">
-      <TabsList className="flex-wrap justify-start">
+    <Tabs defaultValue="settings" className="agent-tabs">
+      <TabsList className="agent-tabs__list flex-wrap">
         <TabsTrigger value="settings">Settings</TabsTrigger>
         <TabsTrigger value="menu">Menu</TabsTrigger>
         <TabsTrigger value="users">Users</TabsTrigger>
         <TabsTrigger value="message">Message</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="settings" className="grid grid--two">
+      <TabsContent value="settings" className="agent-tab-content grid grid--two">
         <Card className="panel">
           <CardHeader>
             <CardTitle>WeCom Settings</CardTitle>
@@ -101,7 +101,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         </Card>
       </TabsContent>
 
-      <TabsContent value="menu" className="grid grid--two">
+      <TabsContent value="menu" className="agent-tab-content grid grid--two">
         <Card className="panel grid__full">
           <CardHeader>
             <CardTitle>WeCom Click Menu</CardTitle>
@@ -137,7 +137,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         </Card>
       </TabsContent>
 
-      <TabsContent value="users" className="grid grid--two">
+      <TabsContent value="users" className="agent-tab-content grid grid--two">
         <Card className="panel">
           <CardHeader>
             <CardTitle>WeCom Users</CardTitle>
@@ -190,7 +190,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         </Card>
       </TabsContent>
 
-      <TabsContent value="message" className="grid grid--two">
+      <TabsContent value="message" className="agent-tab-content grid grid--two">
         <Card className="panel">
           <CardHeader>
             <CardTitle>Manual Message</CardTitle>
