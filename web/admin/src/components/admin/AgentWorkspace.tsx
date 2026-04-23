@@ -25,7 +25,7 @@ export function AgentWorkspace({ activePanel }: Props) {
   const [busy, setBusy] = useState('load');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [resultText, setResultText] = useState('');
+  const [result, setResult] = useState<{ panel: AgentPanelId; text: string } | null>(null);
 
   const syncSnapshot = (next: AgentSnapshot) => {
     setSnapshot(next);
@@ -47,14 +47,20 @@ export function AgentWorkspace({ activePanel }: Props) {
     void load();
   }, []);
 
+  useEffect(() => {
+    setResult(null);
+    setNotice('');
+  }, [activePanel]);
+
   const run: AgentRunner = async (label, action, refresh = true) => {
+    const panel = activePanel;
     setBusy(label);
     setError('');
     setNotice('');
     try {
       const output = await action();
       const isSave = label.includes('save');
-      setResultText(isSave ? '' : stableJSON(output));
+      setResult(isSave ? null : { panel, text: stableJSON(output) });
       setNotice(isSave ? 'Saved' : 'Done');
       if (refresh) {
         syncSnapshot(await fetchAgentSnapshot());
@@ -81,7 +87,7 @@ export function AgentWorkspace({ activePanel }: Props) {
 
   return (
     <ScrollArea className="detail-scroll">
-      <div className="detail-stack">
+      <div className="detail-stack agent-detail-stack">
         <div className="section-title">
           <div>
             <p className="eyebrow">Celestia Agent Runtime</p>
@@ -112,13 +118,13 @@ export function AgentWorkspace({ activePanel }: Props) {
         {activePanel === 'evolution' ? <AgentEvolutionPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'search' ? <AgentSearchPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
 
-        {resultText ? (
-          <Card className="panel log-panel">
+        {result?.panel === activePanel && result.text ? (
+          <Card className="panel log-panel agent-result-panel">
             <CardHeader>
               <CardTitle>Last Result</CardTitle>
             </CardHeader>
-            <CardContent>
-              <pre className="max-h-72 overflow-auto rounded-md bg-secondary/60 p-3 text-xs">{resultText}</pre>
+            <CardContent className="agent-result-content">
+              <pre className="agent-result-pre">{result.text}</pre>
             </CardContent>
           </Card>
         ) : null}

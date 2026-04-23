@@ -3,6 +3,26 @@
     @apply min-h-0;
   }
 
+  .agent-detail-stack {
+    @apply w-full max-w-full overflow-x-hidden;
+  }
+
+  .agent-detail-stack > * {
+    @apply min-w-0 max-w-full;
+  }
+
+  .agent-result-panel {
+    @apply w-full max-w-full overflow-hidden;
+  }
+
+  .agent-result-content {
+    @apply min-w-0 max-w-full;
+  }
+
+  .agent-result-pre {
+    @apply max-h-72 min-w-0 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-secondary/60 p-3 text-xs;
+  }
+
   .agent-tabs__list {
     @apply h-auto min-h-10 justify-start gap-1;
   }
