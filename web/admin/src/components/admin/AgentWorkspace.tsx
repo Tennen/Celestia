@@ -6,12 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import { agentPanelLabel, type AgentPanelId } from '../../lib/agent-admin';
 import { fetchAgentSnapshot, stableJSON, type AgentSnapshot } from '../../lib/agent';
-import { AgentContentPanel } from './AgentContentPanel';
 import { AgentEvolutionPanel } from './AgentEvolutionPanel';
 import { AgentInputPanel } from './AgentInputPanel';
 import { AgentLLMPanel } from './AgentLLMPanel';
 import { AgentMarketPanel } from './AgentMarketPanel';
 import { AgentSearchPanel } from './AgentSearchPanel';
+import { AgentWritingPanel } from './AgentWritingPanel';
 
 export type AgentRunner = (label: string, action: () => Promise<unknown>, refresh?: boolean) => void;
 
@@ -110,7 +110,7 @@ export function AgentWorkspace({ activePanel }: Props) {
 
         {activePanel === 'llm' ? <AgentLLMPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'conversation' ? <AgentInputPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
-        {activePanel === 'content' ? <AgentContentPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'writing' ? <AgentWritingPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'market' ? <AgentMarketPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'evolution' ? <AgentEvolutionPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'search' ? <AgentSearchPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}

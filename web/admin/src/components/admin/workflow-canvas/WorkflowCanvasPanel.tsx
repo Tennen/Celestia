@@ -14,9 +14,7 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
 } from '@xyflow/react';
-import { Play, Plus, Save, Trash2 } from 'lucide-react';
-import type { AgentRunner } from '../AgentWorkspace';
-import { SelectableListItem } from '../shared/SelectableListItem';
+import { ArrowLeft, Play, Plus, Save, Trash2 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
@@ -33,9 +31,9 @@ import {
   cloneWorkflow,
   createWorkflowDefinition,
   createWorkflowNode,
-  removeWorkflowDefinition,
   removeWorkflowEdgesForNode,
   removeWorkflowNode,
+  removeWorkflowDefinition,
   replaceWorkflowDefinition,
   replaceWorkflowNode,
   workflowGroups,
@@ -45,27 +43,25 @@ import {
 import { WorkflowCanvasInspector } from './WorkflowCanvasInspector';
 import { workflowCanvasNodeTypes } from './WorkflowCanvasNodes';
 
+type WorkflowRunner = (label: string, action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown>;
+
 type Props = {
   snapshot: AgentSnapshot;
   busy: string;
-  onRun: AgentRunner;
+  workflowId?: string;
+  onRun: WorkflowRunner;
+  onOpenList: () => void;
+  onWorkflowSaved: (workflowId: string) => void;
 };
 
-export function WorkflowCanvasPanel({ snapshot, busy, onRun }: Props) {
-  const firstWorkflow = snapshot.workflow.workflows[0] ?? createWorkflowDefinition();
-  const [workflowId, setWorkflowId] = useState(snapshot.workflow.active_workflow_id || firstWorkflow.id);
-  const [draft, setDraft] = useState<AgentWorkflowDefinition>(cloneWorkflow(firstWorkflow));
+export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenList, onWorkflowSaved }: Props) {
+  const [draft, setDraft] = useState<AgentWorkflowDefinition>(() => buildDraft(snapshot, workflowId));
   const [selectedNodeId, setSelectedNodeId] = useState('');
 
   useEffect(() => {
-    const nextWorkflow =
-      snapshot.workflow.workflows.find((workflow) => workflow.id === snapshot.workflow.active_workflow_id) ??
-      snapshot.workflow.workflows[0] ??
-      createWorkflowDefinition();
-    setWorkflowId(nextWorkflow.id);
-    setDraft(cloneWorkflow(nextWorkflow));
+    setDraft(buildDraft(snapshot, workflowId));
     setSelectedNodeId('');
-  }, [snapshot]);
+  }, [snapshot, workflowId]);
 
   const persisted = snapshot.workflow.workflows.some((workflow) => workflow.id === draft.id);
   const groups = workflowGroups(draft);
@@ -98,29 +94,32 @@ export function WorkflowCanvasPanel({ snapshot, busy, onRun }: Props) {
   const flowNodes = useMemo(() => draft.nodes.map((node) => toFlowNode(node)), [draft.nodes]);
   const flowEdges = useMemo(() => draft.edges.map((edge) => ({ ...edge, id: edge.id } satisfies Edge)), [draft.edges]);
 
-  const saveWorkflow = () => {
-    const workflow = {
-      ...snapshot.workflow,
-      active_workflow_id: draft.id,
-      workflows: replaceWorkflowDefinition(snapshot.workflow.workflows, draft),
-    };
-    onRun('workflow-save', () => saveAgentWorkflow(workflow));
+  const saveWorkflow = async () => {
+    onWorkflowSaved(draft.id);
+    await onRun('workflow-save', () =>
+      saveAgentWorkflow({
+        ...snapshot.workflow,
+        active_workflow_id: draft.id,
+        workflows: replaceWorkflowDefinition(snapshot.workflow.workflows, draft),
+      }),
+    );
   };
 
-  const runWorkflow = () => {
-    onRun('workflow-run', () => runAgentWorkflow(draft.id));
+  const runWorkflow = async () => {
+    await onRun('workflow-run', () => runAgentWorkflow(draft.id));
   };
 
-  const deleteWorkflow = () => {
+  const deleteWorkflow = async () => {
     const workflows = removeWorkflowDefinition(snapshot.workflow.workflows, draft.id);
     const nextActive = workflows[0]?.id ?? '';
-    onRun('workflow-save', () =>
+    await onRun('workflow-save', () =>
       saveAgentWorkflow({
         ...snapshot.workflow,
         active_workflow_id: nextActive,
         workflows,
       }),
     );
+    onOpenList();
   };
 
   const addNode = (type: WorkflowNodeType) => {
@@ -161,174 +160,129 @@ export function WorkflowCanvasPanel({ snapshot, busy, onRun }: Props) {
     }));
   };
 
-  const latestRuns = snapshot.workflow.runs.slice(0, 6);
-
   return (
-    <div className="workflow-canvas">
-      <div className="workflow-canvas__grid">
-        <Card className="panel">
-          <CardHeader>
-            <CardTitle>Workflows</CardTitle>
-            <CardDescription>{snapshot.workflow.workflows.length} saved workflows</CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            <div className="list-stack">
-              {snapshot.workflow.workflows.map((workflow) => (
-                <SelectableListItem
-                  key={workflow.id}
-                  title={workflow.name}
-                  description={`${workflow.nodes.length} nodes · ${workflow.edges.length} links`}
-                  selected={workflow.id === workflowId}
-                  badges={
-                    <Badge tone={workflow.id === snapshot.workflow.active_workflow_id ? 'accent' : 'neutral'} size="xxs">
-                      {workflow.id === snapshot.workflow.active_workflow_id ? 'active' : 'saved'}
-                    </Badge>
-                  }
-                  onClick={() => {
-                    setWorkflowId(workflow.id);
-                    setDraft(cloneWorkflow(workflow));
-                    setSelectedNodeId('');
-                  }}
-                />
-              ))}
-              {snapshot.workflow.workflows.length === 0 ? <div className="detail">No workflow saved yet.</div> : null}
+    <div className="workflow-builder">
+      <Card className="panel">
+        <CardHeader>
+          <div className="workflow-builder__header">
+            <div className="stack">
+              <CardTitle>{persisted ? 'Workflow Builder' : 'New Workflow'}</CardTitle>
+              <CardDescription>Build the graph here, then save it as a reusable workflow definition.</CardDescription>
             </div>
             <div className="button-row">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  const next = createWorkflowDefinition();
-                  setWorkflowId(next.id);
-                  setDraft(next);
-                  setSelectedNodeId('');
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Workflow
+              <Button variant="secondary" onClick={onOpenList}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to List
               </Button>
-              <Button onClick={saveWorkflow} disabled={busy === 'workflow-save' || !draft.name.trim()}>
+              <Button onClick={() => void saveWorkflow()} disabled={busy === 'workflow-save' || !draft.name.trim()}>
                 <Save className="mr-2 h-4 w-4" />
                 Save
               </Button>
-              <Button variant="secondary" onClick={runWorkflow} disabled={!persisted || busy === 'workflow-run'}>
+              <Button variant="secondary" onClick={() => void runWorkflow()} disabled={!persisted || busy === 'workflow-run'}>
                 <Play className="mr-2 h-4 w-4" />
                 Run
               </Button>
-              <Button variant="danger" onClick={deleteWorkflow} disabled={!persisted}>
+              <Button variant="danger" onClick={() => void deleteWorkflow()} disabled={!persisted || busy === 'workflow-save'}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
             </div>
-
+          </div>
+        </CardHeader>
+        <CardContent className="stack">
+          <div className="workflow-builder__meta">
             <Field label="Workflow Name" value={draft.name} onChange={(name) => setDraft((current) => ({ ...current, name }))} />
             <label className="stack text-sm font-medium">
               <span>Description</span>
               <Textarea
                 value={draft.description ?? ''}
                 onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Describe what this workflow is meant to do."
+                placeholder="Describe what this workflow does."
               />
             </label>
+          </div>
+          <div className="workflow-builder__library">
+            {workflowNodeCatalog.map((item) => (
+              <button key={item.type} type="button" className="workflow-builder__library-item" onClick={() => addNode(item.type)}>
+                <Plus className="h-3.5 w-3.5" />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="workflow-builder__status">
+            <Badge tone={persisted ? 'accent' : 'neutral'} size="xxs">
+              {persisted ? 'saved' : 'draft'}
+            </Badge>
+            <span className="detail">{draft.nodes.length} nodes · {draft.edges.length} links</span>
+          </div>
+        </CardContent>
+      </Card>
 
-            <div className="stack">
-              <div className="text-sm font-medium">Node Library</div>
-              <div className="workflow-canvas__library">
-                {workflowNodeCatalog.map((item) => (
-                  <button key={item.type} type="button" className="workflow-canvas__library-item" onClick={() => addNode(item.type)}>
-                    <strong>{item.label}</strong>
-                    <span>{item.description}</span>
-                  </button>
-                ))}
-              </div>
+      <div className="workflow-builder__workspace">
+        <Card className="panel workflow-builder__canvas-card">
+          <CardHeader>
+            <CardTitle>Canvas</CardTitle>
+            <CardDescription>Connect inputs, prompts, models, providers, and outputs into one reusable workflow.</CardDescription>
+          </CardHeader>
+          <CardContent className="workflow-builder__canvas-content">
+            <div className="workflow-builder__canvas">
+              <ReactFlow
+                nodes={flowNodes}
+                edges={flowEdges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                onPaneClick={() => setSelectedNodeId('')}
+                fitView
+                nodeTypes={workflowCanvasNodeTypes}
+              >
+                <MiniMap pannable zoomable />
+                <Controls />
+                <Background />
+              </ReactFlow>
             </div>
           </CardContent>
         </Card>
 
-        <div className="workflow-canvas__workspace">
-          <Card className="panel workflow-canvas__canvas-card">
-            <CardHeader>
-              <CardTitle>Canvas</CardTitle>
-              <CardDescription>
-                Connect nodes such as `RSS Sources`, `Prompt Unit`, `LLM`, `Search Provider`, and `WeCom Output` to define a reusable workflow.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="workflow-canvas__canvas-content">
-              <div className="workflow-canvas__canvas">
-                <ReactFlow
-                  nodes={flowNodes}
-                  edges={flowEdges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
-                  onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-                  onPaneClick={() => setSelectedNodeId('')}
-                  fitView
-                  nodeTypes={workflowCanvasNodeTypes}
-                >
-                  <MiniMap pannable zoomable />
-                  <Controls />
-                  <Background />
-                </ReactFlow>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="panel workflow-canvas__inspector-card">
-            <CardHeader>
-              <CardTitle>{selectedNode ? selectedNode.label || selectedNode.type : 'Inspector'}</CardTitle>
-              <CardDescription>
-                {selectedNode ? `Editing ${selectedNode.type}` : 'Select a node to configure its inputs, provider selection, and output target.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="stack">
-              {selectedNode ? (
-                <WorkflowCanvasInspector
-                  node={selectedNode}
-                  groups={groups}
-                  providerOptions={providerOptions}
-                  searchProviderOptions={searchProviderOptions}
-                  wecomOptions={wecomOptions}
-                  onChange={updateSelectedNode}
-                  onDelete={() => {
-                    setDraft((current) => ({
-                      ...current,
-                      nodes: removeWorkflowNode(current.nodes, selectedNode.id),
-                      edges: removeWorkflowEdgesForNode(current.edges, selectedNode.id),
-                    }));
-                    setSelectedNodeId('');
-                  }}
-                />
-              ) : (
-                <div className="detail">Select a node on the canvas to edit it.</div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="panel workflow-builder__inspector-card">
+          <CardHeader>
+            <CardTitle>{selectedNode ? selectedNode.label || selectedNode.type : 'Inspector'}</CardTitle>
+            <CardDescription>
+              {selectedNode ? `Editing ${selectedNode.type}` : 'Select a node to configure its inputs, provider selection, and output target.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="stack">
+            {selectedNode ? (
+              <WorkflowCanvasInspector
+                node={selectedNode}
+                groups={groups}
+                providerOptions={providerOptions}
+                searchProviderOptions={searchProviderOptions}
+                wecomOptions={wecomOptions}
+                onChange={updateSelectedNode}
+                onDelete={() => {
+                  setDraft((current) => ({
+                    ...current,
+                    nodes: removeWorkflowNode(current.nodes, selectedNode.id),
+                    edges: removeWorkflowEdgesForNode(current.edges, selectedNode.id),
+                  }));
+                  setSelectedNodeId('');
+                }}
+              />
+            ) : (
+              <div className="detail">Select a node on the canvas to edit it.</div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      <Card className="panel">
-        <CardHeader>
-          <CardTitle>Recent Runs</CardTitle>
-          <CardDescription>{snapshot.workflow.runs.length} recorded executions</CardDescription>
-        </CardHeader>
-        <CardContent className="workflow-canvas__runs">
-          {latestRuns.map((run) => (
-            <div key={run.id} className="workflow-canvas__run">
-              <div className="workflow-canvas__run-head">
-                <strong>{run.workflow_name || run.workflow_id || run.id}</strong>
-                <Badge tone={run.status === 'succeeded' ? 'good' : run.status === 'degraded' ? 'warn' : 'bad'} size="xxs">
-                  {run.status || 'unknown'}
-                </Badge>
-              </div>
-              <div className="detail">{run.summary}</div>
-              {run.output_text ? <Textarea readOnly value={run.output_text} /> : null}
-            </div>
-          ))}
-          {latestRuns.length === 0 ? <div className="detail">No runs recorded.</div> : null}
-        </CardContent>
-      </Card>
     </div>
   );
+}
+
+function buildDraft(snapshot: AgentSnapshot, workflowId?: string) {
+  const current = snapshot.workflow.workflows.find((workflow) => workflow.id === workflowId);
+  return current ? cloneWorkflow(current) : createWorkflowDefinition();
 }
 
 function toFlowNode(node: AgentWorkflowNode): Node {

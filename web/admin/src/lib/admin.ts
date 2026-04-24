@@ -17,7 +17,7 @@ export type StatusBanner = {
   text: string;
 };
 
-export type AppSection = 'overview' | 'plugins' | 'agent' | 'touchpoints' | 'capabilities' | 'devices' | 'activity';
+export type AppSection = 'overview' | 'plugins' | 'workflow' | 'agent' | 'touchpoints' | 'capabilities' | 'devices' | 'activity';
 
 export type LoadState = {
   dashboard: DashboardSummary | null;

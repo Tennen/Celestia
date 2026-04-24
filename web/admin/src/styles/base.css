@@ -27,6 +27,10 @@
     @apply mx-auto grid h-full min-h-0 max-w-[1600px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)];
   }
 
+  .app-frame--condensed {
+    @apply xl:grid-cols-[220px_minmax(0,1fr)];
+  }
+
   .workspace {
     @apply flex h-full min-h-0 min-w-0 flex-col gap-3;
   }
@@ -54,6 +58,10 @@
 
   .sidemenu__brand {
     @apply space-y-3;
+  }
+
+  .sidemenu__brand-row {
+    @apply flex items-start justify-between gap-3;
   }
 
   .sidemenu__meta,
@@ -123,6 +131,22 @@
 
   .sidemenu__footer {
     @apply mt-auto justify-between border-t border-slate-800 pt-4;
+  }
+
+  .sidemenu__compact-toggle {
+    @apply border-slate-800 bg-slate-900/70 text-slate-200 hover:border-slate-700 hover:bg-slate-900 hover:text-white;
+  }
+
+  .sidemenu.is-condensed {
+    @apply p-4;
+  }
+
+  .sidemenu.is-condensed .sidemenu__button {
+    @apply px-3 py-2.5;
+  }
+
+  .sidemenu.is-condensed .sidemenu__subbutton {
+    @apply px-2.5 py-2;
   }
 
   .module-header {

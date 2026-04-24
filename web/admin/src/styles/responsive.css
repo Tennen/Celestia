@@ -92,6 +92,9 @@
   }
 
   .capability-workspace,
+  .workflow-directory,
+  .workflow-builder__meta,
+  .workflow-builder__workspace,
   .vision-rule-layout {
     grid-template-columns: minmax(0, 1fr);
   }
