@@ -237,7 +237,7 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 		}
 	}
 	items = truncateWorkflowItems(items, 30)
-	return workflowNodeValue{Text: workflowItemsText(items), Items: items}, fmt.Sprintf("%d items from %d sources", len(items), len(config.Sources)), map[string]any{
+	return workflowNodeValue{Text: workflowItemsContextJSON(items), Items: items}, fmt.Sprintf("%d items from %d sources", len(items), len(config.Sources)), map[string]any{
 		"item_count":   len(items),
 		"source_count": len(config.Sources),
 		"error_count":  errorCount,
@@ -312,7 +312,19 @@ func (e *workflowExecutor) executeLLMNode(node models.AgentWorkflowNode) (workfl
 		return workflowNodeValue{}, "", nil, errors.New("llm skill handle is reserved but not executable yet")
 	}
 	promptText := strings.Join(uniqueWorkflowStrings(promptInputs.prompts), "\n\n")
-	contextText := strings.Join(uniqueWorkflowStrings(contextInputs.texts), "\n\n")
+	contextTexts := append([]string{}, contextInputs.texts...)
+	promptValues := workflowStringSet(promptInputs.prompts)
+	for _, text := range promptInputs.texts {
+		trimmed := strings.TrimSpace(text)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := promptValues[trimmed]; ok {
+			continue
+		}
+		contextTexts = append(contextTexts, trimmed)
+	}
+	contextText := strings.Join(uniqueWorkflowStrings(contextTexts), "\n\n")
 	searchText := strings.Join(uniqueWorkflowStrings(searchInputs.searches), "\n\n")
 	finalPrompt := buildWorkflowLLMPrompt(promptText, strings.TrimSpace(config.UserPrompt), contextText, searchText)
 	if strings.TrimSpace(finalPrompt) == "" {
@@ -322,12 +334,14 @@ func (e *workflowExecutor) executeLLMNode(node models.AgentWorkflowNode) (workfl
 	if genErr != nil {
 		return workflowNodeValue{}, "", nil, genErr
 	}
+	contextItems := append([]models.AgentWorkflowItem{}, contextInputs.items...)
+	contextItems = append(contextItems, promptInputs.items...)
 	return workflowNodeValue{
 			Text:  output,
-			Items: append([]models.AgentWorkflowItem{}, contextInputs.items...),
+			Items: contextItems,
 		}, fmt.Sprintf("Generated %d chars", len(output)), map[string]any{
 			"chars": len(output),
-			"items": len(contextInputs.items),
+			"items": len(contextItems),
 		}, nil
 }
 

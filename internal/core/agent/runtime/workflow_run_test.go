@@ -25,10 +25,11 @@ func (t *workflowTestOutput) SendWeComText(_ context.Context, toUser string, tex
 }
 
 type workflowTestTransport struct {
-	t *testing.T
+	t           *testing.T
+	lastLLMBody string
 }
 
-func (t workflowTestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *workflowTestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch req.URL.Host {
 	case "rss.test":
 		return response(http.StatusOK, "application/xml", `<?xml version="1.0" encoding="UTF-8"?>
@@ -43,6 +44,11 @@ func (t workflowTestTransport) RoundTrip(req *http.Request) (*http.Response, err
 		if got := req.Header.Get("Authorization"); got != "Bearer secret-token" {
 			t.t.Fatalf("authorization header = %q, want bearer secret-token", got)
 		}
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.t.Fatalf("read llm request body: %v", err)
+		}
+		t.lastLLMBody = string(body)
 		return response(http.StatusOK, "application/json", `{"choices":[{"message":{"role":"assistant","content":"Daily digest ready."}}]}`), nil
 	default:
 		t.t.Fatalf("unexpected request host %q", req.URL.Host)
@@ -56,7 +62,8 @@ func TestRunWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 	output := &workflowTestOutput{}
 	svc.SetWorkflowOutputRuntime(output)
 	previousTransport := http.DefaultClient.Transport
-	http.DefaultClient.Transport = workflowTestTransport{t: t}
+	transport := &workflowTestTransport{t: t}
+	http.DefaultClient.Transport = transport
 	defer func() {
 		http.DefaultClient.Transport = previousTransport
 	}()
@@ -173,6 +180,12 @@ func TestRunWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 	if output.messages[0].toUser != "alice" || strings.TrimSpace(output.messages[0].text) != "Daily digest ready." {
 		t.Fatalf("wecom message = %+v", output.messages[0])
 	}
+	if !strings.Contains(transport.lastLLMBody, "Celestia workflow launch") {
+		t.Fatalf("llm request body missing rss payload: %s", transport.lastLLMBody)
+	}
+	if strings.Contains(transport.lastLLMBody, "<rss>") {
+		t.Fatalf("llm request body unexpectedly contains raw xml: %s", transport.lastLLMBody)
+	}
 
 	updated, err := svc.Snapshot(ctx)
 	if err != nil {
@@ -183,6 +196,115 @@ func TestRunWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 	}
 	if updated.Workflow.Runs[0].WorkflowID != workflow.ID {
 		t.Fatalf("latest run workflow_id = %q, want %q", updated.Workflow.Runs[0].WorkflowID, workflow.ID)
+	}
+}
+
+func TestRunWorkflowTreatsTopLLMInputAsDefaultContext(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	output := &workflowTestOutput{}
+	svc.SetWorkflowOutputRuntime(output)
+	previousTransport := http.DefaultClient.Transport
+	transport := &workflowTestTransport{t: t}
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	settings := snapshot.Settings
+	settings.DefaultLLMProviderID = "topic-llm"
+	settings.LLMProviders = []models.AgentLLMProvider{{
+		ID:       "topic-llm",
+		Name:     "Topic LLM",
+		Type:     "openai-like",
+		BaseURL:  "https://llm.test",
+		APIKey:   "secret-token",
+		Model:    "gpt-4.1-mini",
+		ChatPath: "/v1/chat/completions",
+	}}
+	if _, err := svc.SaveSettings(ctx, settings); err != nil {
+		t.Fatalf("SaveSettings() error = %v", err)
+	}
+
+	workflow := models.AgentWorkflow{
+		ID:   "workflow-top-input",
+		Name: "Top Input Workflow",
+		Nodes: []models.AgentWorkflowNode{
+			{
+				ID:    "rss-main",
+				Type:  workflowNodeTypeRSSSources,
+				Label: "RSS Sources",
+				Position: models.AgentNodePoint{
+					X: 80,
+					Y: 80,
+				},
+				Data: map[string]any{
+					"sources": []models.AgentWorkflowSource{{
+						ID:       "feed-main",
+						Name:     "Main Feed",
+						Category: "news",
+						FeedURL:  "https://rss.test/feed",
+						Weight:   1,
+						Enabled:  true,
+					}},
+				},
+			},
+			{
+				ID:    "llm-main",
+				Type:  workflowNodeTypeLLM,
+				Label: "LLM",
+				Position: models.AgentNodePoint{
+					X: 380,
+					Y: 80,
+				},
+				Data: map[string]any{
+					"provider_id": "topic-llm",
+					"user_prompt": "Translate the above feed digest to Chinese.",
+				},
+			},
+			{
+				ID:    "wecom-main",
+				Type:  workflowNodeTypeWeComOutput,
+				Label: "WeCom Output",
+				Position: models.AgentNodePoint{
+					X: 620,
+					Y: 80,
+				},
+				Data: map[string]any{
+					"to_user": "alice",
+				},
+			},
+		},
+		Edges: []models.AgentWorkflowEdge{
+			{ID: "edge-rss-llm", Source: "rss-main", SourceHandle: "content", Target: "llm-main", TargetHandle: "prompt"},
+			{ID: "edge-llm-wecom", Source: "llm-main", SourceHandle: "text", Target: "wecom-main", TargetHandle: "text"},
+		},
+	}
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	run, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() error = %v", err)
+	}
+	if run.Status != "succeeded" {
+		t.Fatalf("run status = %q, want succeeded", run.Status)
+	}
+	if !strings.Contains(transport.lastLLMBody, "Celestia workflow launch") {
+		t.Fatalf("llm request body missing rss payload on top input: %s", transport.lastLLMBody)
+	}
+	contextIndex := strings.Index(transport.lastLLMBody, "Workflow Input")
+	userPromptIndex := strings.Index(transport.lastLLMBody, "User Prompt")
+	if contextIndex == -1 || userPromptIndex == -1 || contextIndex > userPromptIndex {
+		t.Fatalf("llm request body order is wrong: %s", transport.lastLLMBody)
 	}
 }
 

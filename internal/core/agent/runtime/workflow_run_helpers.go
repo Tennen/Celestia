@@ -9,17 +9,17 @@ import (
 
 func buildWorkflowLLMPrompt(promptText string, userPrompt string, contextText string, searchText string) string {
 	sections := make([]string, 0, 4)
+	if strings.TrimSpace(contextText) != "" {
+		sections = append(sections, "Workflow Input:\n"+strings.TrimSpace(contextText))
+	}
+	if strings.TrimSpace(searchText) != "" {
+		sections = append(sections, "Search Results:\n"+strings.TrimSpace(searchText))
+	}
 	if strings.TrimSpace(promptText) != "" {
 		sections = append(sections, "Prompt Unit:\n"+strings.TrimSpace(promptText))
 	}
 	if strings.TrimSpace(userPrompt) != "" {
 		sections = append(sections, "User Prompt:\n"+strings.TrimSpace(userPrompt))
-	}
-	if strings.TrimSpace(contextText) != "" {
-		sections = append(sections, "Workflow Context:\n"+strings.TrimSpace(contextText))
-	}
-	if strings.TrimSpace(searchText) != "" {
-		sections = append(sections, "Search Results:\n"+strings.TrimSpace(searchText))
 	}
 	return strings.Join(sections, "\n\n")
 }

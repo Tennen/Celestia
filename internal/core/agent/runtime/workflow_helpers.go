@@ -147,27 +147,42 @@ func workflowFirstTime(values ...time.Time) time.Time {
 	return time.Now().UTC()
 }
 
-func workflowItemsText(items []models.AgentWorkflowItem) string {
-	lines := make([]string, 0, len(items))
-	for idx, item := range items {
-		var b strings.Builder
-		b.WriteString(intString(idx + 1))
-		b.WriteString(". ")
-		b.WriteString(firstNonEmpty(strings.TrimSpace(item.Title), "(untitled)"))
-		if source := strings.TrimSpace(item.SourceName); source != "" {
-			b.WriteString(" [")
-			b.WriteString(source)
-			b.WriteString("]")
-		}
-		if summary := strings.TrimSpace(item.Summary); summary != "" {
-			b.WriteString("\n")
-			b.WriteString(summary)
-		}
-		if link := strings.TrimSpace(item.URL); link != "" {
-			b.WriteString("\n")
-			b.WriteString(link)
-		}
-		lines = append(lines, b.String())
+func workflowItemsContextJSON(items []models.AgentWorkflowItem) string {
+	type workflowContextItem struct {
+		Title       string `json:"title,omitempty"`
+		Source      string `json:"source,omitempty"`
+		PublishedAt string `json:"published_at,omitempty"`
+		Summary     string `json:"summary,omitempty"`
+		URL         string `json:"url,omitempty"`
 	}
-	return strings.Join(lines, "\n\n")
+	if len(items) == 0 {
+		return ""
+	}
+	payload := make([]workflowContextItem, 0, len(items))
+	for _, item := range items {
+		payload = append(payload, workflowContextItem{
+			Title:       strings.TrimSpace(item.Title),
+			Source:      strings.TrimSpace(item.SourceName),
+			PublishedAt: strings.TrimSpace(item.PublishedAt),
+			Summary:     strings.TrimSpace(item.Summary),
+			URL:         strings.TrimSpace(item.URL),
+		})
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(raw)
+}
+
+func workflowStringSet(values []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		out[trimmed] = struct{}{}
+	}
+	return out
 }
