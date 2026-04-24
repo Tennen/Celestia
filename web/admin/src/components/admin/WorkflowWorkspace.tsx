@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import { fetchAgentSnapshot, type AgentSnapshot } from '../../lib/agent';
-import { workflowPageLabel, type WorkflowPageId } from '../../lib/workflow-admin';
+import type { WorkflowPageId } from '../../lib/workflow-admin';
 import { WorkflowCanvasPanel } from './workflow-canvas/WorkflowCanvasPanel';
 import { WorkflowDirectoryPanel } from './workflow-canvas/WorkflowDirectoryPanel';
 
@@ -95,20 +93,6 @@ export function WorkflowWorkspace({ activePage, onSelectPage }: Props) {
     activePage === 'list' ? (
       <ScrollArea className="detail-scroll">
         <div className="detail-stack agent-detail-stack">
-          <div className="section-title">
-            <div>
-              <p className="eyebrow">Workflow Runtime</p>
-              <h2 className="text-2xl font-semibold tracking-tight">{workflowPageLabel(activePage)}</h2>
-            </div>
-            <div className="toolbar">
-              <Badge tone={snapshot.workflow.workflows.length ? 'good' : 'warn'}>{snapshot.workflow.workflows.length} saved</Badge>
-              <Badge tone={snapshot.workflow.runs.length ? 'accent' : 'neutral'}>{snapshot.workflow.runs.length} runs</Badge>
-              <Button variant="secondary" onClick={() => void load()} disabled={busy === 'load'}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${busy === 'load' ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-          </div>
           <WorkflowDirectoryPanel
             snapshot={snapshot}
             selectedWorkflowId={selectedWorkflowId}
@@ -119,20 +103,6 @@ export function WorkflowWorkspace({ activePage, onSelectPage }: Props) {
       </ScrollArea>
     ) : (
       <div className="detail-stack agent-detail-stack workflow-workspace">
-        <div className="section-title">
-          <div>
-            <p className="eyebrow">Workflow Runtime</p>
-            <h2 className="text-2xl font-semibold tracking-tight">{workflowPageLabel(activePage)}</h2>
-          </div>
-          <div className="toolbar">
-            <Badge tone={snapshot.workflow.workflows.length ? 'good' : 'warn'}>{snapshot.workflow.workflows.length} saved</Badge>
-            <Badge tone={snapshot.workflow.runs.length ? 'accent' : 'neutral'}>{snapshot.workflow.runs.length} runs</Badge>
-            <Button variant="secondary" onClick={() => void load()} disabled={busy === 'load'}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${busy === 'load' ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-        </div>
         <WorkflowCanvasPanel
           snapshot={snapshot}
           busy={busy}

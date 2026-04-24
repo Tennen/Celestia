@@ -93,18 +93,38 @@
 
   .capability-workspace,
   .workflow-directory,
-  .workflow-builder__meta,
   .workflow-builder__workspace,
   .vision-rule-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workflow-builder__topbar {
+    @apply items-start;
+  }
+
+  .workflow-builder__title-group,
+  .workflow-builder__actions {
+    @apply w-full;
+  }
+
+  .workflow-builder__actions {
+    @apply justify-start;
+  }
+
+  .workflow-builder__meta-popover {
+    @apply left-0 right-0 top-[calc(100%+0.5rem)] max-w-none;
+  }
+
+  .workflow-builder__stage {
+    min-height: 520px;
   }
 
   .workflow-builder__canvas {
     min-height: 520px;
   }
 
-  .workflow-builder__library-card {
-    max-height: none;
+  .workflow-builder__inspector-drawer {
+    width: 100%;
   }
 
   .vision-toolbar,

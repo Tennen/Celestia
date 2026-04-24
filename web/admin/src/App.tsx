@@ -12,12 +12,11 @@ import { OverviewSection } from './components/admin/OverviewSection';
 import { PluginWorkspace } from './components/admin/PluginWorkspace';
 import { TouchpointWorkspace } from './components/admin/TouchpointWorkspace';
 import { WorkflowWorkspace } from './components/admin/WorkflowWorkspace';
-import { agentPanelLabel, type AgentPanelId } from './lib/agent-admin';
+import type { AgentPanelId } from './lib/agent-admin';
 import { getApiBase } from './lib/api';
-import { capabilityDisplayName } from './lib/capability';
 import type { AppSection } from './lib/admin';
 import { cn } from './lib/utils';
-import { workflowPageLabel, type WorkflowPageId } from './lib/workflow-admin';
+import type { WorkflowPageId } from './lib/workflow-admin';
 import { useAdminStore, setAutoSelectHandlers } from './stores/adminStore';
 import { usePluginStore } from './stores/pluginStore';
 import { useDeviceStore } from './stores/deviceStore';
@@ -119,6 +118,7 @@ function App() {
   const runtimeHeaderText = !hasLoaded && loading ? 'Connecting' : error ? 'Needs Attention' : 'Runtime Stable';
   const isRefreshing = loading || refreshing;
   const splitSection = activeSection !== 'overview';
+  const showModuleHeader = activeSection === 'overview';
 
   const openSection = (sectionId: AppSection) => {
     setActiveSection(sectionId);
@@ -192,63 +192,55 @@ function App() {
         ) : null}
 
         <main className="workspace">
-          <header className="module-header">
-            <div className="module-header__leading">
-              {sidemenuCollapsed ? (
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="module-header__sidemenu-toggle"
-                  onClick={() => setSidemenuCollapsed(false)}
-                  aria-label="Show navigation"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              ) : null}
-              <p className="module-header__title">{sectionLabel[activeSection]}</p>
-            </div>
-            <div className="module-header__meta">
-              <Badge tone={runtimeBadgeTone}>{runtimeHeaderText}</Badge>
-              {refreshing ? (
-                <Badge tone="neutral" size="sm">
-                  Syncing
-                </Badge>
-              ) : null}
-              <span>
-                Endpoint <code>{getApiBase()}</code>
-              </span>
-              {selectedCatalogPlugin ? (
+          {showModuleHeader ? (
+            <header className="module-header">
+              <div className="module-header__leading">
+                {sidemenuCollapsed ? (
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="module-header__sidemenu-toggle"
+                    onClick={() => setSidemenuCollapsed(false)}
+                    aria-label="Show navigation"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                ) : null}
+                <p className="module-header__title">{sectionLabel[activeSection]}</p>
+              </div>
+              <div className="module-header__meta">
+                <Badge tone={runtimeBadgeTone}>{runtimeHeaderText}</Badge>
+                {refreshing ? (
+                  <Badge tone="neutral" size="sm">
+                    Syncing
+                  </Badge>
+                ) : null}
                 <span>
-                  Plugin <strong>{selectedCatalogPlugin.name}</strong>
+                  Endpoint <code>{getApiBase()}</code>
                 </span>
-              ) : null}
+                {selectedCatalogPlugin ? (
+                  <span>
+                    Plugin <strong>{selectedCatalogPlugin.name}</strong>
+                  </span>
+                ) : null}
               {selectedDevice ? (
                 <span>
                   Device <strong>{selectedDevice.device.name}</strong>
                 </span>
               ) : null}
-              {activeSection === 'capabilities' && selectedCapability ? (
-                <span>
-                  Capability <strong>{capabilityDisplayName(selectedCapability)}</strong>
-                </span>
-              ) : null}
-              {activeSection === 'workflow' ? (
-                <span>
-                  Workflow <strong>{workflowPageLabel(activeWorkflowPage)}</strong>
-                </span>
-              ) : null}
-              {activeSection === 'agent' ? (
-                <span>
-                  Agent <strong>{agentPanelLabel(activeAgentPanel)}</strong>
-                </span>
-              ) : null}
-              {activeSection === 'touchpoints' ? (
-                <span>
-                  Project <strong>Touchpoints</strong>
-                </span>
-              ) : null}
             </div>
           </header>
+          ) : sidemenuCollapsed ? (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="workspace__nav-toggle"
+              onClick={() => setSidemenuCollapsed(false)}
+              aria-label="Show navigation"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          ) : null}
 
           <div className="workspace__body">
             {error ? (

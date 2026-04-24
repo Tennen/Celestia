@@ -32,7 +32,7 @@
   }
 
   .workspace {
-    @apply flex h-full min-h-0 min-w-0 flex-col gap-3;
+    @apply relative flex h-full min-h-0 min-w-0 flex-col gap-3;
   }
 
   .workspace__body {
@@ -49,6 +49,10 @@
 
   .workspace__panel--scroll {
     @apply overflow-y-auto pr-1;
+  }
+
+  .workspace__nav-toggle {
+    @apply absolute left-0 top-0 z-20 h-9 w-9 shadow-sm;
   }
 
   .sidemenu {
