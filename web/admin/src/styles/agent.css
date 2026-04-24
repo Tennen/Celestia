@@ -109,11 +109,11 @@
   }
 
   .workflow-workspace {
-    @apply flex min-h-0 flex-1 flex-col gap-3;
+    @apply flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden;
   }
 
   .workflow-workspace__frame {
-    @apply relative flex min-h-0 flex-1 flex-col;
+    @apply relative flex h-full min-h-0 flex-1 flex-col overflow-hidden;
   }
 
   .workflow-workspace__notice {
@@ -164,7 +164,7 @@
   }
 
   .workflow-builder {
-    @apply flex min-h-0 flex-1 flex-col gap-3;
+    @apply flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden;
   }
 
   .workflow-builder__topbar {
@@ -218,11 +218,11 @@
   }
 
   .workflow-builder__workspace {
-    @apply grid min-h-0 flex-1 gap-3 xl:grid-cols-[280px_minmax(0,1fr)];
+    @apply grid h-full min-h-0 flex-1 gap-3 overflow-hidden xl:grid-cols-[280px_minmax(0,1fr)];
   }
 
   .workflow-builder__palette {
-    @apply flex min-h-0 flex-col;
+    @apply flex h-full min-h-0 flex-col overflow-hidden;
   }
 
   .workflow-builder__palette-header,
@@ -231,11 +231,11 @@
   }
 
   .workflow-builder__palette-content {
-    @apply flex min-h-0 flex-1 flex-col;
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
   }
 
   .workflow-builder__palette-scroll {
-    @apply min-h-0 flex-1;
+    @apply h-full min-h-0 flex-1;
   }
 
   .workflow-builder__library {
@@ -257,11 +257,11 @@
   }
 
   .workflow-builder__stage {
-    @apply relative h-full min-h-0 min-w-0 overflow-visible;
+    @apply relative h-full min-h-0 min-w-0 overflow-hidden;
   }
 
   .workflow-builder__canvas {
-    @apply relative h-full min-h-0 overflow-hidden rounded-2xl border bg-[color:var(--bg-secondary)];
+    @apply relative h-full min-h-0 min-w-0 overflow-hidden rounded-2xl border bg-[color:var(--bg-secondary)];
     border-color: var(--border-light);
   }
 
@@ -276,7 +276,7 @@
   }
 
   .workflow-builder__inspector-drawer {
-    @apply pointer-events-none absolute inset-y-0 right-0 z-20 flex w-[360px] translate-x-[calc(100%+1rem)] flex-col rounded-2xl border bg-card shadow-2xl opacity-0 transition duration-200 ease-out;
+    @apply pointer-events-none absolute inset-y-0 right-0 z-20 flex max-h-full w-[360px] translate-x-[calc(100%+1rem)] flex-col rounded-2xl border bg-card shadow-2xl opacity-0 transition duration-200 ease-out;
     border-color: var(--border-light);
   }
 
@@ -295,7 +295,7 @@
   }
 
   .workflow-builder__inspector-scroll {
-    @apply min-h-0 flex-1;
+    @apply h-full min-h-0 flex-1;
   }
 
   .workflow-builder__inspector-body {
