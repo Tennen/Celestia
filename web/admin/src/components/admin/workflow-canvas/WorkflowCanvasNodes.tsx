@@ -9,15 +9,15 @@ type WorkflowNodeData = {
 
 function NodeShell({ title, description, children }: { title: string; description?: string; children?: ReactNode }) {
   return (
-    <div className="topic-node">
-      <div className="topic-node__title">{title}</div>
-      {description ? <div className="topic-node__desc">{description}</div> : null}
+    <div className="workflow-node">
+      <div className="workflow-node__title">{title}</div>
+      {description ? <div className="workflow-node__desc">{description}</div> : null}
       {children}
     </div>
   );
 }
 
-export function TopicWorkflowNode({ data }: NodeProps) {
+export function WorkflowCanvasNode({ data }: NodeProps) {
   const view = (data ?? {}) as WorkflowNodeData;
   switch (view.nodeType) {
     case 'rss_sources':
@@ -47,7 +47,7 @@ export function TopicWorkflowNode({ data }: NodeProps) {
           <Handle type="target" position={Position.Left} id="skill" style={{ top: '72%' }} />
           <Handle type="target" position={Position.Right} id="tool" style={{ top: '72%' }} />
           <Handle type="source" position={Position.Bottom} id="text" />
-          <div className="topic-node__ports">
+          <div className="workflow-node__ports">
             <span>skill</span>
             <span>tool</span>
           </div>
@@ -64,16 +64,16 @@ export function TopicWorkflowNode({ data }: NodeProps) {
   }
 }
 
-export function TopicWorkflowGroupNode({ data }: NodeProps) {
+export function WorkflowCanvasGroupNode({ data }: NodeProps) {
   const view = (data ?? {}) as WorkflowNodeData;
   return (
-    <div className="topic-group-node">
-      <div className="topic-group-node__title">{view.title}</div>
+    <div className="workflow-group-node">
+      <div className="workflow-group-node__title">{view.title}</div>
     </div>
   );
 }
 
-export const topicWorkflowNodeTypes = {
-  topicWorkflowNode: TopicWorkflowNode,
-  topicGroupNode: TopicWorkflowGroupNode,
+export const workflowCanvasNodeTypes = {
+  workflowCanvasNode: WorkflowCanvasNode,
+  workflowGroupNode: WorkflowCanvasGroupNode,
 };

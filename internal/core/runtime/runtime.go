@@ -58,7 +58,7 @@ func New(store storage.Store) *Runtime {
 	inputSvc := input.New(agentSvc, slashSvc)
 	voiceSvc := voice.New(agentSvc)
 	touchpointSvc := touchpoint.New(agentSvc, agentSvc)
-	agentSvc.SetTopicOutputRuntime(touchpointSvc)
+	agentSvc.SetWorkflowOutputRuntime(touchpointSvc)
 	touchpointSvc.SetInputRunner(inputSvc)
 	touchpointSvc.SetVoiceProvider(voiceSvc)
 	automationSvc := automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr)

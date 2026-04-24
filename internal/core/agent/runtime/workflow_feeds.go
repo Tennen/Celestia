@@ -11,7 +11,7 @@ import (
 	"github.com/chentianyu/celestia/internal/models"
 )
 
-func fetchFeed(ctx context.Context, source models.AgentTopicSource) ([]models.AgentTopicItem, error) {
+func fetchFeed(ctx context.Context, source models.AgentWorkflowSource) ([]models.AgentWorkflowItem, error) {
 	if strings.TrimSpace(source.FeedURL) == "" {
 		return nil, errors.New("feed_url is required")
 	}
@@ -38,7 +38,7 @@ func fetchFeed(ctx context.Context, source models.AgentTopicSource) ([]models.Ag
 	return items, nil
 }
 
-func parseRSS(raw []byte, source models.AgentTopicSource) []models.AgentTopicItem {
+func parseRSS(raw []byte, source models.AgentWorkflowSource) []models.AgentWorkflowItem {
 	var feed struct {
 		Channel struct {
 			Items []struct {
@@ -52,9 +52,9 @@ func parseRSS(raw []byte, source models.AgentTopicSource) []models.AgentTopicIte
 	if err := xml.Unmarshal(raw, &feed); err != nil {
 		return nil
 	}
-	items := make([]models.AgentTopicItem, 0, len(feed.Channel.Items))
+	items := make([]models.AgentWorkflowItem, 0, len(feed.Channel.Items))
 	for _, item := range feed.Channel.Items {
-		items = append(items, models.AgentTopicItem{
+		items = append(items, models.AgentWorkflowItem{
 			Title:       strings.TrimSpace(item.Title),
 			URL:         strings.TrimSpace(item.Link),
 			SourceID:    source.ID,
@@ -66,7 +66,7 @@ func parseRSS(raw []byte, source models.AgentTopicSource) []models.AgentTopicIte
 	return items
 }
 
-func parseAtom(raw []byte, source models.AgentTopicSource) []models.AgentTopicItem {
+func parseAtom(raw []byte, source models.AgentWorkflowSource) []models.AgentWorkflowItem {
 	var feed struct {
 		Entries []struct {
 			Title   string `xml:"title"`
@@ -80,13 +80,13 @@ func parseAtom(raw []byte, source models.AgentTopicSource) []models.AgentTopicIt
 	if err := xml.Unmarshal(raw, &feed); err != nil {
 		return nil
 	}
-	items := make([]models.AgentTopicItem, 0, len(feed.Entries))
+	items := make([]models.AgentWorkflowItem, 0, len(feed.Entries))
 	for _, entry := range feed.Entries {
 		link := ""
 		if len(entry.Links) > 0 {
 			link = entry.Links[0].Href
 		}
-		items = append(items, models.AgentTopicItem{
+		items = append(items, models.AgentWorkflowItem{
 			Title:       strings.TrimSpace(entry.Title),
 			URL:         strings.TrimSpace(link),
 			SourceID:    source.ID,

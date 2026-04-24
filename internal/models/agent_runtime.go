@@ -83,12 +83,6 @@ type AgentMarkdownRenderResult struct {
 	RenderedAt  time.Time            `json:"rendered_at"`
 }
 
-type AgentTopicSentLogItem struct {
-	URLNormalized string    `json:"url_normalized"`
-	SentAt        time.Time `json:"sent_at"`
-	Title         string    `json:"title"`
-}
-
 type AgentMarketAssetContext struct {
 	Code        string                  `json:"code"`
 	Name        string                  `json:"name"`

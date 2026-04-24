@@ -56,37 +56,34 @@ func loadAgentMemoryWindowsDocument(doc models.AgentDocument, snapshot *models.A
 	return nil
 }
 
-func loadAgentTopicProfilesDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
-	var payload agentTopicProfilesDocument
+func loadAgentWorkflowDefinitionsDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
+	var payload agentWorkflowDefinitionsDocument
 	if err := decodeAgentDocument(doc, &payload); err != nil {
 		return err
 	}
-	snapshot.TopicSummary.ActiveWorkflowID = firstNonEmpty(payload.ActiveWorkflowID, payload.ActiveProfileID)
+	snapshot.Workflow.ActiveWorkflowID = firstNonEmpty(payload.ActiveWorkflowID, payload.ActiveProfileID)
 	if len(payload.Workflows) > 0 {
-		snapshot.TopicSummary.Workflows = payload.Workflows
+		snapshot.Workflow.Workflows = payload.Workflows
 	} else if len(payload.Profiles) > 0 {
-		snapshot.TopicSummary.Workflows = legacyTopicProfilesToWorkflows(payload.Profiles)
+		snapshot.Workflow.Workflows = legacyWorkflowProfilesToWorkflows(payload.Profiles)
 	}
-	snapshot.TopicSummary.UpdatedAt = maxTime(snapshot.TopicSummary.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
+	snapshot.Workflow.UpdatedAt = maxTime(snapshot.Workflow.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
 	return nil
 }
 
-func loadAgentTopicRunsDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
-	var payload agentTopicRunsDocument
+func loadAgentWorkflowRunsDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
+	var payload agentWorkflowRunsDocument
 	if err := decodeAgentDocument(doc, &payload); err != nil {
 		return err
 	}
 	for idx := range payload.Runs {
-		if payload.Runs[idx].WorkflowID == "" {
-			payload.Runs[idx].WorkflowID = payload.Runs[idx].ProfileID
-		}
 		if payload.Runs[idx].StartedAt.IsZero() {
 			payload.Runs[idx].StartedAt = payload.Runs[idx].CreatedAt
 		}
 	}
-	snapshot.TopicSummary.Runs = payload.Runs
-	snapshot.TopicSummary.SentLog = payload.SentLog
-	snapshot.TopicSummary.UpdatedAt = maxTime(snapshot.TopicSummary.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
+	snapshot.Workflow.Runs = payload.Runs
+	snapshot.Workflow.SentLog = payload.SentLog
+	snapshot.Workflow.UpdatedAt = maxTime(snapshot.Workflow.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
 	return nil
 }
 
@@ -213,7 +210,7 @@ func clearSnapshotPersistenceTimes(snapshot *models.AgentSnapshot) {
 	snapshot.WeComMenu.Config.UpdatedAt = time.Time{}
 	snapshot.Push.UpdatedAt = time.Time{}
 	snapshot.Memory.UpdatedAt = time.Time{}
-	snapshot.TopicSummary.UpdatedAt = time.Time{}
+	snapshot.Workflow.UpdatedAt = time.Time{}
 	snapshot.Writing.UpdatedAt = time.Time{}
 	snapshot.Market.UpdatedAt = time.Time{}
 	snapshot.Evolution.UpdatedAt = time.Time{}

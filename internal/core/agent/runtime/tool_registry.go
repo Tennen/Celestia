@@ -73,7 +73,7 @@ func agentReturnDirectly(runtimes []agentToolRuntime) map[string]struct{} {
 func (s *Service) agentToolSpecs() []agentToolSpec {
 	return []agentToolSpec{
 		s.searchToolSpec(),
-		s.topicToolSpec(),
+		s.workflowToolSpec(),
 		s.writingToolSpec(),
 		s.marketToolSpec(),
 		s.evolutionToolSpec(),

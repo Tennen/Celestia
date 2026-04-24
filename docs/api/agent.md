@@ -21,7 +21,7 @@ Returns the full Agent snapshot:
 - `conversations`: retained Agent conversation turns, including slash command result records.
 - `memory`: raw turns, compacted summary memory, and active short conversation windows.
 - `search`: recent search query logs, capped at the latest 50 runs.
-- `topic_summary`, `writing`, `market`, and `evolution`: Agent-owned workflow state. `topic_summary` is now stored as a workflow canvas (`active_workflow_id`, `workflows[]`, `runs[]`) instead of the legacy profile/source form.
+- `workflow`, `writing`, `market`, and `evolution`: Agent-owned state. `workflow` stores the generic workflow canvas (`active_workflow_id`, `workflows[]`, `runs[]`, `sent_log`) used for modular orchestration.
 
 ## Runtime Settings
 
@@ -71,7 +71,7 @@ After each turn Celestia appends a raw memory record, refreshes the active short
 The Agent tool registry is built through Eino-compatible tool specs. Agent-owned tools include:
 
 - `search_web`
-- `topic_summary`
+- `workflow`
 - `writing_organizer`
 - `market_analysis`
 - `evolution_operator`
@@ -137,14 +137,14 @@ These endpoints expose Celestia-owned Agent tool metadata. A tool record contain
 
 Terminal-backed tools such as Apple Notes and Apple Reminders execute through the same guarded terminal runner used by `/agent/terminal`; `settings.terminal.enabled` must be true.
 
-## Topic Summary Workflow
+## Workflow Canvas
 
 ```http
-PUT /api/v1/agent/topic
-POST /api/v1/agent/topic/run
+PUT /api/v1/agent/workflow
+POST /api/v1/agent/workflow/run
 ```
 
-`PUT /api/v1/agent/topic` saves the workflow workspace snapshot:
+`PUT /api/v1/agent/workflow` saves the workflow workspace snapshot:
 
 - `active_workflow_id`
 - `workflows[]`
@@ -152,15 +152,15 @@ POST /api/v1/agent/topic/run
   - `edges[]`
 - `runs[]`
 
-`POST /api/v1/agent/topic/run` accepts:
+`POST /api/v1/agent/workflow/run` accepts:
 
 ```json
 {
-  "workflow_id": "topic-summary-workflow"
+  "workflow_id": "daily-digest"
 }
 ```
 
-Legacy `profile_id` is still accepted as an alias during the migration window.
+Legacy `profile_id` is still accepted as an alias during the migration window for older clients.
 
 The first workflow-canvas delivery supports these node types:
 

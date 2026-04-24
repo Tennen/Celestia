@@ -15,20 +15,20 @@ type capturedWeComMessage struct {
 	text   string
 }
 
-type topicTestOutput struct {
+type workflowTestOutput struct {
 	messages []capturedWeComMessage
 }
 
-func (t *topicTestOutput) SendWeComText(_ context.Context, toUser string, text string) error {
+func (t *workflowTestOutput) SendWeComText(_ context.Context, toUser string, text string) error {
 	t.messages = append(t.messages, capturedWeComMessage{toUser: toUser, text: text})
 	return nil
 }
 
-type topicTestTransport struct {
+type workflowTestTransport struct {
 	t *testing.T
 }
 
-func (t topicTestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t workflowTestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch req.URL.Host {
 	case "rss.test":
 		return response(http.StatusOK, "application/xml", `<?xml version="1.0" encoding="UTF-8"?>
@@ -50,13 +50,13 @@ func (t topicTestTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 }
 
-func TestRunTopicSummaryWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
+func TestRunWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAgentPersistenceTestService(t)
-	output := &topicTestOutput{}
-	svc.SetTopicOutputRuntime(output)
+	output := &workflowTestOutput{}
+	svc.SetWorkflowOutputRuntime(output)
 	previousTransport := http.DefaultClient.Transport
-	http.DefaultClient.Transport = topicTestTransport{t: t}
+	http.DefaultClient.Transport = workflowTestTransport{t: t}
 	defer func() {
 		http.DefaultClient.Transport = previousTransport
 	}()
@@ -80,20 +80,20 @@ func TestRunTopicSummaryWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 		t.Fatalf("SaveSettings() error = %v", err)
 	}
 
-	workflow := models.AgentTopicWorkflow{
-		ID:   "topic-summary-workflow",
-		Name: "Topic Summary Workflow",
-		Nodes: []models.AgentTopicNode{
+	workflow := models.AgentWorkflow{
+		ID:   "workflow-digest",
+		Name: "Digest Workflow",
+		Nodes: []models.AgentWorkflowNode{
 			{
 				ID:    "rss-main",
-				Type:  topicNodeTypeRSSSources,
+				Type:  workflowNodeTypeRSSSources,
 				Label: "RSS Sources",
 				Position: models.AgentNodePoint{
 					X: 80,
 					Y: 80,
 				},
 				Data: map[string]any{
-					"sources": []models.AgentTopicSource{{
+					"sources": []models.AgentWorkflowSource{{
 						ID:       "feed-main",
 						Name:     "Main Feed",
 						Category: "news",
@@ -105,7 +105,7 @@ func TestRunTopicSummaryWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 			},
 			{
 				ID:    "prompt-main",
-				Type:  topicNodeTypePromptUnit,
+				Type:  workflowNodeTypePromptUnit,
 				Label: "Prompt Unit",
 				Position: models.AgentNodePoint{
 					X: 280,
@@ -117,7 +117,7 @@ func TestRunTopicSummaryWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 			},
 			{
 				ID:    "llm-main",
-				Type:  topicNodeTypeLLM,
+				Type:  workflowNodeTypeLLM,
 				Label: "LLM",
 				Position: models.AgentNodePoint{
 					X: 480,
@@ -130,7 +130,7 @@ func TestRunTopicSummaryWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 			},
 			{
 				ID:    "wecom-main",
-				Type:  topicNodeTypeWeComOutput,
+				Type:  workflowNodeTypeWeComOutput,
 				Label: "WeCom Output",
 				Position: models.AgentNodePoint{
 					X: 700,
@@ -141,22 +141,22 @@ func TestRunTopicSummaryWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 				},
 			},
 		},
-		Edges: []models.AgentTopicEdge{
+		Edges: []models.AgentWorkflowEdge{
 			{ID: "edge-rss-llm", Source: "rss-main", SourceHandle: "content", Target: "llm-main", TargetHandle: "context"},
 			{ID: "edge-prompt-llm", Source: "prompt-main", SourceHandle: "prompt", Target: "llm-main", TargetHandle: "prompt"},
 			{ID: "edge-llm-wecom", Source: "llm-main", SourceHandle: "text", Target: "wecom-main", TargetHandle: "text"},
 		},
 	}
-	if _, err := svc.SaveTopic(ctx, models.AgentTopicSnapshot{
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
 		ActiveWorkflowID: workflow.ID,
-		Workflows:        []models.AgentTopicWorkflow{workflow},
+		Workflows:        []models.AgentWorkflow{workflow},
 	}); err != nil {
-		t.Fatalf("SaveTopic() error = %v", err)
+		t.Fatalf("SaveWorkflow() error = %v", err)
 	}
 
-	run, err := svc.RunTopicSummary(ctx, workflow.ID)
+	run, err := svc.RunWorkflow(ctx, workflow.ID)
 	if err != nil {
-		t.Fatalf("RunTopicSummary() error = %v", err)
+		t.Fatalf("RunWorkflow() error = %v", err)
 	}
 	if run.Status != "succeeded" {
 		t.Fatalf("run status = %q, want succeeded", run.Status)
@@ -178,11 +178,11 @@ func TestRunTopicSummaryWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Snapshot() after run error = %v", err)
 	}
-	if len(updated.TopicSummary.SentLog) != 1 {
-		t.Fatalf("sent log count = %d, want 1", len(updated.TopicSummary.SentLog))
+	if len(updated.Workflow.SentLog) != 1 {
+		t.Fatalf("sent log count = %d, want 1", len(updated.Workflow.SentLog))
 	}
-	if updated.TopicSummary.Runs[0].WorkflowID != workflow.ID {
-		t.Fatalf("latest run workflow_id = %q, want %q", updated.TopicSummary.Runs[0].WorkflowID, workflow.ID)
+	if updated.Workflow.Runs[0].WorkflowID != workflow.ID {
+		t.Fatalf("latest run workflow_id = %q, want %q", updated.Workflow.Runs[0].WorkflowID, workflow.ID)
 	}
 }
 

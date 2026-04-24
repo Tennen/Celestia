@@ -1,5 +1,5 @@
 import { request } from './api';
-import { normalizeAgentTopicSnapshot, type AgentTopicSnapshot } from './agent-topic';
+import { normalizeAgentWorkflowSnapshot, type AgentWorkflowSnapshot } from './agent-workflow';
 
 export type AgentLLMProvider = {
   id: string;
@@ -247,7 +247,7 @@ export type AgentSnapshot = {
   wecom_menu: AgentWeComMenuSnapshot;
   push: AgentPushSnapshot;
   conversations: AgentConversation[];
-  topic_summary: AgentTopicSnapshot;
+  workflow: AgentWorkflowSnapshot;
   writing: {
     topics: AgentWritingTopic[];
     updated_at: string;
@@ -411,7 +411,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
   const wecomMenu = snapshot.wecom_menu ?? ({} as AgentWeComMenuSnapshot);
   const wecomConfig = wecomMenu.config ?? ({} as AgentWeComMenuConfig);
   const push = snapshot.push ?? ({} as AgentPushSnapshot);
-  const topic = snapshot.topic_summary ?? ({} as AgentTopicSnapshot);
+  const workflow = snapshot.workflow ?? ({} as AgentWorkflowSnapshot);
   const market = snapshot.market ?? ({} as AgentMarketSnapshot);
   const portfolio = market.portfolio ?? ({ cash: 0 } as AgentMarketPortfolio);
   const writing = snapshot.writing ?? { topics: [], updated_at: '' };
@@ -453,7 +453,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
       users: arrayOrEmpty(push.users),
     },
     conversations: arrayOrEmpty(snapshot.conversations),
-    topic_summary: normalizeAgentTopicSnapshot(topic),
+    workflow: normalizeAgentWorkflowSnapshot(workflow),
     writing: {
       ...writing,
       topics: arrayOrEmpty(writing.topics),

@@ -1,13 +1,13 @@
-# Topic Summary Workflow Canvas
+# Workflow Canvas
 
 ## Goal
 
-将 Topic Summary 从固定的 profile/source 配置改为可拼装的 workflow 画布能力，为后续 Market Analysis、Automation、Recognition 复用同一套编排方式打基础。
+提供一套通用 workflow 画布能力，让 Topic Summary、Market Analysis、Automation、Recognition 等链路都能基于同一套节点、分组、连线和执行模型进行拼装，而不是为每个业务单独实现一套页面和运行链路。
 
 ## This Delivery
 
 - Admin 侧提供基于 React Flow 的 workflow 画布。
-- 用户可以创建、保存、删除、运行 Topic workflow。
+- 用户可以创建、保存、删除、运行 workflow。
 - workflow 支持节点、连线、基础分组（group 节点 + `parent_id` 归属）。
 - 首批节点：
   - `RSS Sources`
@@ -22,7 +22,7 @@
   - `search`
   - `text -> WeCom Output`
 - `tool` / `skill` 端口本次只做画布级保留，不做伪执行；如果连入运行链路，后端显式报错。
-- 不在代码中预置默认 Topic Summary workflow，用户自行拼装。
+- 不在代码中预置任何默认 workflow，用户自行拼装。
 
 ## Runtime Rules
 

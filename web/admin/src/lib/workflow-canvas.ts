@@ -1,8 +1,8 @@
-import type { AgentTopicEdge, AgentTopicNode, AgentTopicSource, AgentTopicWorkflow } from './agent-topic';
+import type { AgentWorkflowDefinition, AgentWorkflowEdge, AgentWorkflowNode, AgentWorkflowSource } from './agent-workflow';
 
-export type TopicWorkflowNodeType = 'group' | 'rss_sources' | 'prompt_unit' | 'llm' | 'search_provider' | 'wecom_output';
+export type WorkflowNodeType = 'group' | 'rss_sources' | 'prompt_unit' | 'llm' | 'search_provider' | 'wecom_output';
 
-export const topicWorkflowNodeCatalog: Array<{ type: TopicWorkflowNodeType; label: string; description: string }> = [
+export const workflowNodeCatalog: Array<{ type: WorkflowNodeType; label: string; description: string }> = [
   { type: 'group', label: 'Group', description: 'Organize related nodes into a bounded canvas section.' },
   { type: 'rss_sources', label: 'RSS Sources', description: 'Fetch and deduplicate multiple RSS or Atom feeds.' },
   { type: 'prompt_unit', label: 'Prompt Unit', description: 'Provide a reusable prompt block for downstream LLM nodes.' },
@@ -11,7 +11,7 @@ export const topicWorkflowNodeCatalog: Array<{ type: TopicWorkflowNodeType; labe
   { type: 'wecom_output', label: 'WeCom Output', description: 'Deliver the generated text to a configured WeCom user.' },
 ];
 
-export function createTopicWorkflow(): AgentTopicWorkflow {
+export function createWorkflowDefinition(): AgentWorkflowDefinition {
   const now = new Date().toISOString();
   return {
     id: `workflow-${Date.now()}`,
@@ -23,24 +23,24 @@ export function createTopicWorkflow(): AgentTopicWorkflow {
   };
 }
 
-export function createTopicNode(type: TopicWorkflowNodeType, index: number): AgentTopicNode {
+export function createWorkflowNode(type: WorkflowNodeType, index: number): AgentWorkflowNode {
   const base = {
     id: `${type}-${Date.now()}-${index}`,
     type,
-    label: topicWorkflowNodeCatalog.find((item) => item.type === type)?.label ?? 'Node',
+    label: workflowNodeCatalog.find((item) => item.type === type)?.label ?? 'Node',
     position: { x: 120 + index * 36, y: 120 + index * 24 },
     data: defaultNodeData(type),
-  } satisfies AgentTopicNode;
+  } satisfies AgentWorkflowNode;
   if (type === 'group') {
     return { ...base, width: 360, height: 240 };
   }
   return base;
 }
 
-export function defaultNodeData(type: TopicWorkflowNodeType): Record<string, unknown> {
+export function defaultNodeData(type: WorkflowNodeType): Record<string, unknown> {
   switch (type) {
     case 'rss_sources':
-      return { sources: [] as AgentTopicSource[] };
+      return { sources: [] as AgentWorkflowSource[] };
     case 'prompt_unit':
       return { prompt: '' };
     case 'llm':
@@ -54,41 +54,41 @@ export function defaultNodeData(type: TopicWorkflowNodeType): Record<string, unk
   }
 }
 
-export function cloneTopicWorkflow<T>(value: T): T {
+export function cloneWorkflow<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-export function replaceTopicWorkflow(workflows: AgentTopicWorkflow[], next: AgentTopicWorkflow) {
+export function replaceWorkflowDefinition(workflows: AgentWorkflowDefinition[], next: AgentWorkflowDefinition) {
   return workflows.some((workflow) => workflow.id === next.id)
     ? workflows.map((workflow) => (workflow.id === next.id ? next : workflow))
     : [...workflows, next];
 }
 
-export function removeTopicWorkflow(workflows: AgentTopicWorkflow[], workflowId: string) {
+export function removeWorkflowDefinition(workflows: AgentWorkflowDefinition[], workflowId: string) {
   return workflows.filter((workflow) => workflow.id !== workflowId);
 }
 
-export function replaceTopicNode(nodes: AgentTopicNode[], next: AgentTopicNode) {
+export function replaceWorkflowNode(nodes: AgentWorkflowNode[], next: AgentWorkflowNode) {
   return nodes.some((node) => node.id === next.id) ? nodes.map((node) => (node.id === next.id ? next : node)) : [...nodes, next];
 }
 
-export function removeTopicNode(nodes: AgentTopicNode[], nodeId: string) {
+export function removeWorkflowNode(nodes: AgentWorkflowNode[], nodeId: string) {
   return nodes.filter((node) => node.id !== nodeId);
 }
 
-export function removeTopicEdgesForNode(edges: AgentTopicEdge[], nodeId: string) {
+export function removeWorkflowEdgesForNode(edges: AgentWorkflowEdge[], nodeId: string) {
   return edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
 }
 
-export function asTopicSources(value: unknown): AgentTopicSource[] {
-  return Array.isArray(value) ? (value as AgentTopicSource[]) : [];
+export function asWorkflowSources(value: unknown): AgentWorkflowSource[] {
+  return Array.isArray(value) ? (value as AgentWorkflowSource[]) : [];
 }
 
 export function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item ?? '').trim()).filter(Boolean) : [];
 }
 
-export function updateNodeData(node: AgentTopicNode, patch: Record<string, unknown>) {
+export function updateWorkflowNodeData(node: AgentWorkflowNode, patch: Record<string, unknown>) {
   return {
     ...node,
     data: {
@@ -98,6 +98,6 @@ export function updateNodeData(node: AgentTopicNode, patch: Record<string, unkno
   };
 }
 
-export function workflowGroups(workflow: AgentTopicWorkflow) {
+export function workflowGroups(workflow: AgentWorkflowDefinition) {
   return workflow.nodes.filter((node) => node.type === 'group');
 }

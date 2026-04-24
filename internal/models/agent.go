@@ -21,7 +21,7 @@ type AgentSnapshot struct {
 	Push          AgentPushSnapshot      `json:"push"`
 	Conversations []AgentConversation    `json:"conversations"`
 	Memory        AgentMemorySnapshot    `json:"memory"`
-	TopicSummary  AgentTopicSnapshot     `json:"topic_summary"`
+	Workflow      AgentWorkflowSnapshot  `json:"workflow"`
 	Writing       AgentWritingSnapshot   `json:"writing"`
 	Market        AgentMarketSnapshot    `json:"market"`
 	Evolution     AgentEvolutionSnapshot `json:"evolution"`

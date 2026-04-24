@@ -1,6 +1,6 @@
 import { request } from './api';
 
-export type AgentTopicSource = {
+export type AgentWorkflowSource = {
   id: string;
   name: string;
   category: string;
@@ -9,7 +9,7 @@ export type AgentTopicSource = {
   enabled: boolean;
 };
 
-export type AgentTopicNode = {
+export type AgentWorkflowNode = {
   id: string;
   type: string;
   label?: string;
@@ -20,7 +20,7 @@ export type AgentTopicNode = {
   data?: Record<string, unknown>;
 };
 
-export type AgentTopicEdge = {
+export type AgentWorkflowEdge = {
   id: string;
   source: string;
   source_handle?: string;
@@ -29,16 +29,16 @@ export type AgentTopicEdge = {
   label?: string;
 };
 
-export type AgentTopicWorkflow = {
+export type AgentWorkflowDefinition = {
   id: string;
   name: string;
   description?: string;
-  nodes: AgentTopicNode[];
-  edges: AgentTopicEdge[];
+  nodes: AgentWorkflowNode[];
+  edges: AgentWorkflowEdge[];
   updated_at: string;
 };
 
-export type AgentTopicNodeResult = {
+export type AgentWorkflowNodeResult = {
   node_id: string;
   node_type: string;
   status: string;
@@ -46,11 +46,10 @@ export type AgentTopicNodeResult = {
   metadata?: Record<string, unknown>;
 };
 
-export type AgentTopicRun = {
+export type AgentWorkflowRun = {
   id: string;
   workflow_id?: string;
   workflow_name?: string;
-  profile_id?: string;
   created_at: string;
   started_at?: string;
   finished_at?: string;
@@ -58,38 +57,37 @@ export type AgentTopicRun = {
   summary: string;
   output_text?: string;
   items: Array<Record<string, unknown>>;
-  node_results?: AgentTopicNodeResult[];
+  node_results?: AgentWorkflowNodeResult[];
   fetch_errors?: Array<{ target: string; error: string }>;
   delivery_errors?: Array<{ target: string; error: string }>;
 };
 
-export type AgentTopicSnapshot = {
+export type AgentWorkflowSnapshot = {
   active_workflow_id: string;
-  active_profile_id?: string;
-  workflows: AgentTopicWorkflow[];
-  runs: AgentTopicRun[];
+  workflows: AgentWorkflowDefinition[];
+  runs: AgentWorkflowRun[];
   sent_log?: Array<Record<string, unknown>>;
   updated_at: string;
 };
 
-export function saveAgentTopic(payload: AgentTopicSnapshot) {
-  return request('/agent/topic', { method: 'PUT', body: JSON.stringify(payload) });
+export function saveAgentWorkflow(payload: AgentWorkflowSnapshot) {
+  return request('/agent/workflow', { method: 'PUT', body: JSON.stringify(payload) });
 }
 
-export function runAgentTopic(workflowId?: string) {
-  return request<AgentTopicRun>('/agent/topic/run', {
+export function runAgentWorkflow(workflowId?: string) {
+  return request<AgentWorkflowRun>('/agent/workflow/run', {
     method: 'POST',
     body: JSON.stringify({ workflow_id: workflowId ?? '' }),
   });
 }
 
-export function normalizeAgentTopicSnapshot(input: AgentTopicSnapshot | null | undefined): AgentTopicSnapshot {
-  const topic = input ?? ({} as AgentTopicSnapshot);
+export function normalizeAgentWorkflowSnapshot(input: AgentWorkflowSnapshot | null | undefined): AgentWorkflowSnapshot {
+  const workflow = input ?? ({} as AgentWorkflowSnapshot);
   return {
-    ...topic,
-    workflows: arrayOrEmpty(topic.workflows),
-    runs: arrayOrEmpty(topic.runs),
-    sent_log: arrayOrEmpty(topic.sent_log),
+    ...workflow,
+    workflows: arrayOrEmpty(workflow.workflows),
+    runs: arrayOrEmpty(workflow.runs),
+    sent_log: arrayOrEmpty(workflow.sent_log),
   };
 }
 

@@ -128,15 +128,15 @@ func (s *RuntimeService) RunAgentTool(
 	return result, nil
 }
 
-func (s *RuntimeService) SaveAgentTopic(ctx context.Context, topic models.AgentTopicSnapshot) (models.AgentSnapshot, error) {
-	snapshot, err := s.runtime.Agent.SaveTopic(ctx, topic)
+func (s *RuntimeService) SaveAgentWorkflow(ctx context.Context, workflow models.AgentWorkflowSnapshot) (models.AgentSnapshot, error) {
+	snapshot, err := s.runtime.Agent.SaveWorkflow(ctx, workflow)
 	return s.agentSnapshot(ctx, snapshot, err)
 }
 
-func (s *RuntimeService) RunAgentTopicSummary(ctx context.Context, profileID string) (models.AgentTopicRun, error) {
-	run, err := s.runtime.Agent.RunTopicSummary(ctx, profileID)
+func (s *RuntimeService) RunAgentWorkflow(ctx context.Context, workflowID string) (models.AgentWorkflowRun, error) {
+	run, err := s.runtime.Agent.RunWorkflow(ctx, workflowID)
 	if err != nil {
-		return models.AgentTopicRun{}, statusError(http.StatusBadRequest, err)
+		return models.AgentWorkflowRun{}, statusError(http.StatusBadRequest, err)
 	}
 	return run, nil
 }

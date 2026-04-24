@@ -22,22 +22,24 @@ const (
 	agentSettingsMemoryDocumentKey    = "agent/settings/memory"
 	agentSettingsMD2ImgDocumentKey    = "agent/settings/md2img"
 
-	agentSearchLogDocumentKey       = "agent/search/log"
-	agentDirectInputDocumentKey     = "agent/direct-input"
-	agentWeComMenuDocumentKey       = "agent/wecom/menu"
-	agentWeComEventsDocumentKey     = "agent/wecom/events"
-	agentWeComUsersDocumentKey      = "agent/wecom/users"
-	agentConversationsDocumentKey   = "agent/conversations"
-	agentMemoryRawDocumentKey       = "agent/memory/raw"
-	agentMemorySummariesDocumentKey = "agent/memory/summaries"
-	agentMemoryWindowsDocumentKey   = "agent/memory/windows"
-	agentTopicProfilesDocumentKey   = "agent/topic/profiles"
-	agentTopicRunsDocumentKey       = "agent/topic/runs"
-	agentWritingTopicsDocumentKey   = "agent/writing/topics"
-	agentMarketPortfolioDocumentKey = "agent/market/portfolio"
-	agentMarketConfigDocumentKey    = "agent/market/config"
-	agentMarketRunsDocumentKey      = "agent/market/runs"
-	agentEvolutionGoalsDocumentKey  = "agent/evolution/goals"
+	agentSearchLogDocumentKey           = "agent/search/log"
+	agentDirectInputDocumentKey         = "agent/direct-input"
+	agentWeComMenuDocumentKey           = "agent/wecom/menu"
+	agentWeComEventsDocumentKey         = "agent/wecom/events"
+	agentWeComUsersDocumentKey          = "agent/wecom/users"
+	agentConversationsDocumentKey       = "agent/conversations"
+	agentMemoryRawDocumentKey           = "agent/memory/raw"
+	agentMemorySummariesDocumentKey     = "agent/memory/summaries"
+	agentMemoryWindowsDocumentKey       = "agent/memory/windows"
+	agentWorkflowDefinitionsDocumentKey = "agent/workflow/definitions"
+	agentWorkflowRunsDocumentKey        = "agent/workflow/runs"
+	legacyAgentTopicProfilesDocumentKey = "agent/topic/profiles"
+	legacyAgentTopicRunsDocumentKey     = "agent/topic/runs"
+	agentWritingTopicsDocumentKey       = "agent/writing/topics"
+	agentMarketPortfolioDocumentKey     = "agent/market/portfolio"
+	agentMarketConfigDocumentKey        = "agent/market/config"
+	agentMarketRunsDocumentKey          = "agent/market/runs"
+	agentEvolutionGoalsDocumentKey      = "agent/evolution/goals"
 )
 
 type agentDocumentLoader struct {
@@ -99,18 +101,18 @@ type agentMemoryWindowsDocument struct {
 	UpdatedAt time.Time                        `json:"updated_at"`
 }
 
-type agentTopicProfilesDocument struct {
-	ActiveWorkflowID string                      `json:"active_workflow_id,omitempty"`
-	ActiveProfileID  string                      `json:"active_profile_id,omitempty"`
-	Workflows        []models.AgentTopicWorkflow `json:"workflows,omitempty"`
-	Profiles         []legacyTopicProfile        `json:"profiles,omitempty"`
-	UpdatedAt        time.Time                   `json:"updated_at"`
+type agentWorkflowDefinitionsDocument struct {
+	ActiveWorkflowID string                  `json:"active_workflow_id,omitempty"`
+	ActiveProfileID  string                  `json:"active_profile_id,omitempty"`
+	Workflows        []models.AgentWorkflow  `json:"workflows,omitempty"`
+	Profiles         []legacyWorkflowProfile `json:"profiles,omitempty"`
+	UpdatedAt        time.Time               `json:"updated_at"`
 }
 
-type agentTopicRunsDocument struct {
-	Runs      []models.AgentTopicRun         `json:"runs"`
-	SentLog   []models.AgentTopicSentLogItem `json:"sent_log"`
-	UpdatedAt time.Time                      `json:"updated_at"`
+type agentWorkflowRunsDocument struct {
+	Runs      []models.AgentWorkflowRun         `json:"runs"`
+	SentLog   []models.AgentWorkflowSentLogItem `json:"sent_log"`
+	UpdatedAt time.Time                         `json:"updated_at"`
 }
 
 type agentWritingTopicsDocument struct {
@@ -201,7 +203,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 	searchUpdatedAt := firstTime(snapshot.Search.UpdatedAt, snapshot.UpdatedAt)
 	wecomMenuUpdatedAt := firstTime(snapshot.WeComMenu.Config.UpdatedAt, snapshot.UpdatedAt)
 	memoryUpdatedAt := firstTime(snapshot.Memory.UpdatedAt, snapshot.UpdatedAt)
-	topicUpdatedAt := firstTime(snapshot.TopicSummary.UpdatedAt, snapshot.UpdatedAt)
+	workflowUpdatedAt := firstTime(snapshot.Workflow.UpdatedAt, snapshot.UpdatedAt)
 	writingUpdatedAt := firstTime(snapshot.Writing.UpdatedAt, snapshot.UpdatedAt)
 	marketUpdatedAt := firstTime(snapshot.Market.UpdatedAt, snapshot.UpdatedAt)
 	evolutionUpdatedAt := firstTime(snapshot.Evolution.UpdatedAt, snapshot.UpdatedAt)
@@ -269,8 +271,8 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 		{key: agentMemoryRawDocumentKey, domain: "agent.memory.raw", payload: agentMemoryRawDocument{RawRecords: snapshot.Memory.RawRecords, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
 		{key: agentMemorySummariesDocumentKey, domain: "agent.memory.summaries", payload: agentMemorySummariesDocument{Summaries: snapshot.Memory.Summaries, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
 		{key: agentMemoryWindowsDocumentKey, domain: "agent.memory.windows", payload: agentMemoryWindowsDocument{Windows: snapshot.Memory.Windows, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
-		{key: agentTopicProfilesDocumentKey, domain: "agent.topic.profiles", payload: agentTopicProfilesDocument{ActiveWorkflowID: snapshot.TopicSummary.ActiveWorkflowID, Workflows: snapshot.TopicSummary.Workflows, UpdatedAt: topicUpdatedAt}, updatedAt: topicUpdatedAt},
-		{key: agentTopicRunsDocumentKey, domain: "agent.topic.runs", payload: agentTopicRunsDocument{Runs: snapshot.TopicSummary.Runs, SentLog: snapshot.TopicSummary.SentLog, UpdatedAt: topicUpdatedAt}, updatedAt: topicUpdatedAt},
+		{key: agentWorkflowDefinitionsDocumentKey, domain: "agent.workflow.definitions", payload: agentWorkflowDefinitionsDocument{ActiveWorkflowID: snapshot.Workflow.ActiveWorkflowID, Workflows: snapshot.Workflow.Workflows, UpdatedAt: workflowUpdatedAt}, updatedAt: workflowUpdatedAt},
+		{key: agentWorkflowRunsDocumentKey, domain: "agent.workflow.runs", payload: agentWorkflowRunsDocument{Runs: snapshot.Workflow.Runs, SentLog: snapshot.Workflow.SentLog, UpdatedAt: workflowUpdatedAt}, updatedAt: workflowUpdatedAt},
 		{key: agentWritingTopicsDocumentKey, domain: "agent.writing.topics", payload: agentWritingTopicsDocument{Topics: snapshot.Writing.Topics, UpdatedAt: writingUpdatedAt}, updatedAt: writingUpdatedAt},
 		{key: agentMarketPortfolioDocumentKey, domain: "agent.market.portfolio", payload: agentMarketPortfolioDocument{Portfolio: snapshot.Market.Portfolio, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},
 		{key: agentMarketConfigDocumentKey, domain: "agent.market.config", payload: agentMarketConfigDocument{Config: snapshot.Market.Config, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},
@@ -355,8 +357,10 @@ func agentDocumentLoaders() []agentDocumentLoader {
 		{key: agentMemoryRawDocumentKey, load: loadAgentMemoryRawDocument},
 		{key: agentMemorySummariesDocumentKey, load: loadAgentMemorySummariesDocument},
 		{key: agentMemoryWindowsDocumentKey, load: loadAgentMemoryWindowsDocument},
-		{key: agentTopicProfilesDocumentKey, load: loadAgentTopicProfilesDocument},
-		{key: agentTopicRunsDocumentKey, load: loadAgentTopicRunsDocument},
+		{key: agentWorkflowDefinitionsDocumentKey, load: loadAgentWorkflowDefinitionsDocument},
+		{key: legacyAgentTopicProfilesDocumentKey, load: loadAgentWorkflowDefinitionsDocument},
+		{key: agentWorkflowRunsDocumentKey, load: loadAgentWorkflowRunsDocument},
+		{key: legacyAgentTopicRunsDocumentKey, load: loadAgentWorkflowRunsDocument},
 		{key: agentWritingTopicsDocumentKey, load: loadAgentWritingTopicsDocument},
 		{key: agentMarketPortfolioDocumentKey, load: loadAgentMarketPortfolioDocument},
 		{key: agentMarketConfigDocumentKey, load: loadAgentMarketConfigDocument},

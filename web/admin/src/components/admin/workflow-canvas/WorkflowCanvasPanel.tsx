@@ -24,27 +24,26 @@ import { Textarea } from '../../ui/textarea';
 import { Field } from '../AgentFormFields';
 import type { AgentSnapshot } from '../../../lib/agent';
 import {
-  runAgentTopic,
-  saveAgentTopic,
-  type AgentTopicNode,
-  type AgentTopicWorkflow,
-} from '../../../lib/agent-topic';
+  runAgentWorkflow,
+  saveAgentWorkflow,
+  type AgentWorkflowDefinition,
+  type AgentWorkflowNode,
+} from '../../../lib/agent-workflow';
 import {
-  cloneTopicWorkflow,
-  createTopicNode,
-  createTopicWorkflow,
-  removeTopicEdgesForNode,
-  removeTopicNode,
-  removeTopicWorkflow,
-  replaceTopicNode,
-  replaceTopicWorkflow,
-  topicWorkflowNodeCatalog,
-  updateNodeData,
+  cloneWorkflow,
+  createWorkflowDefinition,
+  createWorkflowNode,
+  removeWorkflowDefinition,
+  removeWorkflowEdgesForNode,
+  removeWorkflowNode,
+  replaceWorkflowDefinition,
+  replaceWorkflowNode,
   workflowGroups,
-  type TopicWorkflowNodeType,
-} from '../../../lib/topic-workflow';
-import { TopicWorkflowInspector } from './TopicWorkflowInspector';
-import { topicWorkflowNodeTypes } from './TopicWorkflowNodes';
+  workflowNodeCatalog,
+  type WorkflowNodeType,
+} from '../../../lib/workflow-canvas';
+import { WorkflowCanvasInspector } from './WorkflowCanvasInspector';
+import { workflowCanvasNodeTypes } from './WorkflowCanvasNodes';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -52,23 +51,23 @@ type Props = {
   onRun: AgentRunner;
 };
 
-export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
-  const firstWorkflow = snapshot.topic_summary.workflows[0] ?? createTopicWorkflow();
-  const [workflowId, setWorkflowId] = useState(snapshot.topic_summary.active_workflow_id || firstWorkflow.id);
-  const [draft, setDraft] = useState<AgentTopicWorkflow>(cloneTopicWorkflow(firstWorkflow));
+export function WorkflowCanvasPanel({ snapshot, busy, onRun }: Props) {
+  const firstWorkflow = snapshot.workflow.workflows[0] ?? createWorkflowDefinition();
+  const [workflowId, setWorkflowId] = useState(snapshot.workflow.active_workflow_id || firstWorkflow.id);
+  const [draft, setDraft] = useState<AgentWorkflowDefinition>(cloneWorkflow(firstWorkflow));
   const [selectedNodeId, setSelectedNodeId] = useState('');
 
   useEffect(() => {
     const nextWorkflow =
-      snapshot.topic_summary.workflows.find((workflow) => workflow.id === snapshot.topic_summary.active_workflow_id) ??
-      snapshot.topic_summary.workflows[0] ??
-      createTopicWorkflow();
+      snapshot.workflow.workflows.find((workflow) => workflow.id === snapshot.workflow.active_workflow_id) ??
+      snapshot.workflow.workflows[0] ??
+      createWorkflowDefinition();
     setWorkflowId(nextWorkflow.id);
-    setDraft(cloneTopicWorkflow(nextWorkflow));
+    setDraft(cloneWorkflow(nextWorkflow));
     setSelectedNodeId('');
   }, [snapshot]);
 
-  const persisted = snapshot.topic_summary.workflows.some((workflow) => workflow.id === draft.id);
+  const persisted = snapshot.workflow.workflows.some((workflow) => workflow.id === draft.id);
   const groups = workflowGroups(draft);
   const selectedNode = draft.nodes.find((node) => node.id === selectedNodeId) ?? null;
 
@@ -100,32 +99,32 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
   const flowEdges = useMemo(() => draft.edges.map((edge) => ({ ...edge, id: edge.id } satisfies Edge)), [draft.edges]);
 
   const saveWorkflow = () => {
-    const topic = {
-      ...snapshot.topic_summary,
+    const workflow = {
+      ...snapshot.workflow,
       active_workflow_id: draft.id,
-      workflows: replaceTopicWorkflow(snapshot.topic_summary.workflows, draft),
+      workflows: replaceWorkflowDefinition(snapshot.workflow.workflows, draft),
     };
-    onRun('topic-save', () => saveAgentTopic(topic));
+    onRun('workflow-save', () => saveAgentWorkflow(workflow));
   };
 
   const runWorkflow = () => {
-    onRun('topic-run', () => runAgentTopic(draft.id));
+    onRun('workflow-run', () => runAgentWorkflow(draft.id));
   };
 
   const deleteWorkflow = () => {
-    const workflows = removeTopicWorkflow(snapshot.topic_summary.workflows, draft.id);
+    const workflows = removeWorkflowDefinition(snapshot.workflow.workflows, draft.id);
     const nextActive = workflows[0]?.id ?? '';
-    onRun('topic-save', () =>
-      saveAgentTopic({
-        ...snapshot.topic_summary,
+    onRun('workflow-save', () =>
+      saveAgentWorkflow({
+        ...snapshot.workflow,
         active_workflow_id: nextActive,
         workflows,
       }),
     );
   };
 
-  const addNode = (type: TopicWorkflowNodeType) => {
-    const node = createTopicNode(type, draft.nodes.length + 1);
+  const addNode = (type: WorkflowNodeType) => {
+    const node = createWorkflowNode(type, draft.nodes.length + 1);
     if (selectedNode?.type === 'group' && type !== 'group') {
       node.parent_id = selectedNode.id;
       node.position = { x: 24, y: 48 + draft.nodes.filter((item) => item.parent_id === selectedNode.id).length * 92 };
@@ -155,50 +154,50 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
     setDraft((current) => ({ ...current, edges: nextEdges.map((edge) => fromFlowEdge(edge)) }));
   };
 
-  const updateSelectedNode = (nextNode: AgentTopicNode) => {
+  const updateSelectedNode = (nextNode: AgentWorkflowNode) => {
     setDraft((current) => ({
       ...current,
-      nodes: replaceTopicNode(current.nodes, nextNode),
+      nodes: replaceWorkflowNode(current.nodes, nextNode),
     }));
   };
 
-  const latestRuns = snapshot.topic_summary.runs.slice(0, 6);
+  const latestRuns = snapshot.workflow.runs.slice(0, 6);
 
   return (
-    <div className="topic-workflow">
-      <div className="topic-workflow__grid">
+    <div className="workflow-canvas">
+      <div className="workflow-canvas__grid">
         <Card className="panel">
           <CardHeader>
-            <CardTitle>Topic Workflows</CardTitle>
-            <CardDescription>{snapshot.topic_summary.workflows.length} saved workflows</CardDescription>
+            <CardTitle>Workflows</CardTitle>
+            <CardDescription>{snapshot.workflow.workflows.length} saved workflows</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="list-stack">
-              {snapshot.topic_summary.workflows.map((workflow) => (
+              {snapshot.workflow.workflows.map((workflow) => (
                 <SelectableListItem
                   key={workflow.id}
                   title={workflow.name}
                   description={`${workflow.nodes.length} nodes · ${workflow.edges.length} links`}
                   selected={workflow.id === workflowId}
                   badges={
-                    <Badge tone={workflow.id === snapshot.topic_summary.active_workflow_id ? 'accent' : 'neutral'} size="xxs">
-                      {workflow.id === snapshot.topic_summary.active_workflow_id ? 'active' : 'saved'}
+                    <Badge tone={workflow.id === snapshot.workflow.active_workflow_id ? 'accent' : 'neutral'} size="xxs">
+                      {workflow.id === snapshot.workflow.active_workflow_id ? 'active' : 'saved'}
                     </Badge>
                   }
                   onClick={() => {
                     setWorkflowId(workflow.id);
-                    setDraft(cloneTopicWorkflow(workflow));
+                    setDraft(cloneWorkflow(workflow));
                     setSelectedNodeId('');
                   }}
                 />
               ))}
-              {snapshot.topic_summary.workflows.length === 0 ? <div className="detail">No workflow saved yet.</div> : null}
+              {snapshot.workflow.workflows.length === 0 ? <div className="detail">No workflow saved yet.</div> : null}
             </div>
             <div className="button-row">
               <Button
                 variant="secondary"
                 onClick={() => {
-                  const next = createTopicWorkflow();
+                  const next = createWorkflowDefinition();
                   setWorkflowId(next.id);
                   setDraft(next);
                   setSelectedNodeId('');
@@ -207,11 +206,11 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
                 <Plus className="mr-2 h-4 w-4" />
                 New Workflow
               </Button>
-              <Button onClick={saveWorkflow} disabled={busy === 'topic-save' || !draft.name.trim()}>
+              <Button onClick={saveWorkflow} disabled={busy === 'workflow-save' || !draft.name.trim()}>
                 <Save className="mr-2 h-4 w-4" />
                 Save
               </Button>
-              <Button variant="secondary" onClick={runWorkflow} disabled={!persisted || busy === 'topic-run'}>
+              <Button variant="secondary" onClick={runWorkflow} disabled={!persisted || busy === 'workflow-run'}>
                 <Play className="mr-2 h-4 w-4" />
                 Run
               </Button>
@@ -233,9 +232,9 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
 
             <div className="stack">
               <div className="text-sm font-medium">Node Library</div>
-              <div className="topic-workflow__library">
-                {topicWorkflowNodeCatalog.map((item) => (
-                  <button key={item.type} type="button" className="topic-workflow__library-item" onClick={() => addNode(item.type)}>
+              <div className="workflow-canvas__library">
+                {workflowNodeCatalog.map((item) => (
+                  <button key={item.type} type="button" className="workflow-canvas__library-item" onClick={() => addNode(item.type)}>
                     <strong>{item.label}</strong>
                     <span>{item.description}</span>
                   </button>
@@ -245,16 +244,16 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
           </CardContent>
         </Card>
 
-        <div className="topic-workflow__workspace">
-          <Card className="panel topic-workflow__canvas-card">
+        <div className="workflow-canvas__workspace">
+          <Card className="panel workflow-canvas__canvas-card">
             <CardHeader>
               <CardTitle>Canvas</CardTitle>
               <CardDescription>
-                Connect `RSS Sources` to `LLM` through `Prompt Unit` and optional `Search Provider`, then route `LLM` output into `WeCom Output`.
+                Connect nodes such as `RSS Sources`, `Prompt Unit`, `LLM`, `Search Provider`, and `WeCom Output` to define a reusable workflow.
               </CardDescription>
             </CardHeader>
-            <CardContent className="topic-workflow__canvas-content">
-              <div className="topic-workflow__canvas">
+            <CardContent className="workflow-canvas__canvas-content">
+              <div className="workflow-canvas__canvas">
                 <ReactFlow
                   nodes={flowNodes}
                   edges={flowEdges}
@@ -264,7 +263,7 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
                   onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                   onPaneClick={() => setSelectedNodeId('')}
                   fitView
-                  nodeTypes={topicWorkflowNodeTypes}
+                  nodeTypes={workflowCanvasNodeTypes}
                 >
                   <MiniMap pannable zoomable />
                   <Controls />
@@ -274,7 +273,7 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
             </CardContent>
           </Card>
 
-          <Card className="panel topic-workflow__inspector-card">
+          <Card className="panel workflow-canvas__inspector-card">
             <CardHeader>
               <CardTitle>{selectedNode ? selectedNode.label || selectedNode.type : 'Inspector'}</CardTitle>
               <CardDescription>
@@ -283,7 +282,7 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
             </CardHeader>
             <CardContent className="stack">
               {selectedNode ? (
-                <TopicWorkflowInspector
+                <WorkflowCanvasInspector
                   node={selectedNode}
                   groups={groups}
                   providerOptions={providerOptions}
@@ -293,8 +292,8 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
                   onDelete={() => {
                     setDraft((current) => ({
                       ...current,
-                      nodes: removeTopicNode(current.nodes, selectedNode.id),
-                      edges: removeTopicEdgesForNode(current.edges, selectedNode.id),
+                      nodes: removeWorkflowNode(current.nodes, selectedNode.id),
+                      edges: removeWorkflowEdgesForNode(current.edges, selectedNode.id),
                     }));
                     setSelectedNodeId('');
                   }}
@@ -310,12 +309,12 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
       <Card className="panel">
         <CardHeader>
           <CardTitle>Recent Runs</CardTitle>
-          <CardDescription>{snapshot.topic_summary.runs.length} recorded executions</CardDescription>
+          <CardDescription>{snapshot.workflow.runs.length} recorded executions</CardDescription>
         </CardHeader>
-        <CardContent className="topic-workflow__runs">
+        <CardContent className="workflow-canvas__runs">
           {latestRuns.map((run) => (
-            <div key={run.id} className="topic-workflow__run">
-              <div className="topic-workflow__run-head">
+            <div key={run.id} className="workflow-canvas__run">
+              <div className="workflow-canvas__run-head">
                 <strong>{run.workflow_name || run.workflow_id || run.id}</strong>
                 <Badge tone={run.status === 'succeeded' ? 'good' : run.status === 'degraded' ? 'warn' : 'bad'} size="xxs">
                   {run.status || 'unknown'}
@@ -332,11 +331,11 @@ export function TopicWorkflowPanel({ snapshot, busy, onRun }: Props) {
   );
 }
 
-function toFlowNode(node: AgentTopicNode): Node {
+function toFlowNode(node: AgentWorkflowNode): Node {
   const isGroup = node.type === 'group';
   return {
     id: node.id,
-    type: isGroup ? 'topicGroupNode' : 'topicWorkflowNode',
+    type: isGroup ? 'workflowGroupNode' : 'workflowCanvasNode',
     position: node.position,
     parentId: node.parent_id || undefined,
     extent: node.parent_id ? 'parent' : undefined,
@@ -356,7 +355,7 @@ function toFlowNode(node: AgentTopicNode): Node {
   };
 }
 
-function fromFlowNode(node: Node): AgentTopicNode {
+function fromFlowNode(node: Node): AgentWorkflowNode {
   return {
     id: node.id,
     type: String(node.data?.nodeType ?? ''),

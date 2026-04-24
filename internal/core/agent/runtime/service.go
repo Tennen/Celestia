@@ -15,10 +15,10 @@ import (
 )
 
 type Service struct {
-	store       storage.Store
-	bus         *eventbus.Bus
-	topicOutput topicOutputRuntime
-	mu          sync.Mutex
+	store          storage.Store
+	bus            *eventbus.Bus
+	workflowOutput workflowOutputRuntime
+	mu             sync.Mutex
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
@@ -153,9 +153,9 @@ func defaultSnapshot() models.AgentSnapshot {
 			Windows:    []models.AgentConversationWindow{},
 			UpdatedAt:  now,
 		},
-		TopicSummary: models.AgentTopicSnapshot{
-			Workflows: []models.AgentTopicWorkflow{},
-			Runs:      []models.AgentTopicRun{},
+		Workflow: models.AgentWorkflowSnapshot{
+			Workflows: []models.AgentWorkflow{},
+			Runs:      []models.AgentWorkflowRun{},
 			UpdatedAt: now,
 		},
 		Writing: models.AgentWritingSnapshot{
@@ -218,14 +218,14 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.Memory.Windows == nil {
 		snapshot.Memory.Windows = []models.AgentConversationWindow{}
 	}
-	if snapshot.TopicSummary.Workflows == nil {
-		snapshot.TopicSummary.Workflows = []models.AgentTopicWorkflow{}
+	if snapshot.Workflow.Workflows == nil {
+		snapshot.Workflow.Workflows = []models.AgentWorkflow{}
 	}
-	if snapshot.TopicSummary.Runs == nil {
-		snapshot.TopicSummary.Runs = []models.AgentTopicRun{}
+	if snapshot.Workflow.Runs == nil {
+		snapshot.Workflow.Runs = []models.AgentWorkflowRun{}
 	}
-	if snapshot.TopicSummary.SentLog == nil {
-		snapshot.TopicSummary.SentLog = []models.AgentTopicSentLogItem{}
+	if snapshot.Workflow.SentLog == nil {
+		snapshot.Workflow.SentLog = []models.AgentWorkflowSentLogItem{}
 	}
 	if snapshot.Writing.Topics == nil {
 		snapshot.Writing.Topics = []models.AgentWritingTopic{}

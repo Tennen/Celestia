@@ -8,12 +8,12 @@ import (
 	"github.com/chentianyu/celestia/internal/models"
 )
 
-func (s *Server) handleAgentTopicSave(w http.ResponseWriter, r *http.Request) {
-	var payload models.AgentTopicSnapshot
+func (s *Server) handleAgentWorkflowSave(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentWorkflowSnapshot
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
-	snapshot, err := s.gateway.SaveAgentTopic(r.Context(), payload)
+	snapshot, err := s.gateway.SaveAgentWorkflow(r.Context(), payload)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -21,7 +21,7 @@ func (s *Server) handleAgentTopicSave(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, snapshot)
 }
 
-func (s *Server) handleAgentTopicRun(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAgentWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		WorkflowID string `json:"workflow_id"`
 		ProfileID  string `json:"profile_id"`
@@ -33,7 +33,7 @@ func (s *Server) handleAgentTopicRun(w http.ResponseWriter, r *http.Request) {
 	if workflowID == "" {
 		workflowID = strings.TrimSpace(payload.ProfileID)
 	}
-	run, err := s.gateway.RunAgentTopicSummary(r.Context(), workflowID)
+	run, err := s.gateway.RunAgentWorkflow(r.Context(), workflowID)
 	if err != nil {
 		writeServiceError(w, err)
 		return

@@ -132,11 +132,11 @@ func (g *stubGateway) DescribeAgentTool(_ context.Context, _ string) (models.Age
 func (g *stubGateway) RunAgentTool(_ context.Context, _ string, _ models.AgentToolRunRequest) (models.AgentToolRunResult, error) {
 	return models.AgentToolRunResult{}, nil
 }
-func (g *stubGateway) SaveAgentTopic(_ context.Context, _ models.AgentTopicSnapshot) (models.AgentSnapshot, error) {
+func (g *stubGateway) SaveAgentWorkflow(_ context.Context, _ models.AgentWorkflowSnapshot) (models.AgentSnapshot, error) {
 	return models.AgentSnapshot{}, nil
 }
-func (g *stubGateway) RunAgentTopicSummary(_ context.Context, _ string) (models.AgentTopicRun, error) {
-	return models.AgentTopicRun{}, nil
+func (g *stubGateway) RunAgentWorkflow(_ context.Context, _ string) (models.AgentWorkflowRun, error) {
+	return models.AgentWorkflowRun{}, nil
 }
 func (g *stubGateway) SaveAgentWritingTopic(_ context.Context, _ gatewayapi.AgentWritingTopicRequest) (models.AgentWritingTopic, error) {
 	return models.AgentWritingTopic{}, nil

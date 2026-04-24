@@ -10,32 +10,32 @@ import (
 )
 
 const (
-	topicNodeTypeGroup          = "group"
-	topicNodeTypeRSSSources     = "rss_sources"
-	topicNodeTypePromptUnit     = "prompt_unit"
-	topicNodeTypeLLM            = "llm"
-	topicNodeTypeSearchProvider = "search_provider"
-	topicNodeTypeWeComOutput    = "wecom_output"
+	workflowNodeTypeGroup          = "group"
+	workflowNodeTypeRSSSources     = "rss_sources"
+	workflowNodeTypePromptUnit     = "prompt_unit"
+	workflowNodeTypeLLM            = "llm"
+	workflowNodeTypeSearchProvider = "search_provider"
+	workflowNodeTypeWeComOutput    = "wecom_output"
 )
 
-type legacyTopicProfile struct {
-	ID        string                    `json:"id"`
-	Name      string                    `json:"name"`
-	Sources   []models.AgentTopicSource `json:"sources"`
-	UpdatedAt time.Time                 `json:"updated_at"`
+type legacyWorkflowProfile struct {
+	ID        string                       `json:"id"`
+	Name      string                       `json:"name"`
+	Sources   []models.AgentWorkflowSource `json:"sources"`
+	UpdatedAt time.Time                    `json:"updated_at"`
 }
 
-func legacyTopicProfilesToWorkflows(profiles []legacyTopicProfile) []models.AgentTopicWorkflow {
-	workflows := make([]models.AgentTopicWorkflow, 0, len(profiles))
+func legacyWorkflowProfilesToWorkflows(profiles []legacyWorkflowProfile) []models.AgentWorkflow {
+	workflows := make([]models.AgentWorkflow, 0, len(profiles))
 	for _, profile := range profiles {
 		workflowID := firstNonEmpty(strings.TrimSpace(profile.ID), uuid.NewString())
-		workflows = append(workflows, models.AgentTopicWorkflow{
+		workflows = append(workflows, models.AgentWorkflow{
 			ID:          workflowID,
 			Name:        firstNonEmpty(strings.TrimSpace(profile.Name), workflowID),
 			Description: "Migrated from legacy topic profile.",
-			Nodes: []models.AgentTopicNode{{
+			Nodes: []models.AgentWorkflowNode{{
 				ID:    "rss-" + workflowID,
-				Type:  topicNodeTypeRSSSources,
+				Type:  workflowNodeTypeRSSSources,
 				Label: "RSS Sources",
 				Position: models.AgentNodePoint{
 					X: 120,
@@ -45,33 +45,33 @@ func legacyTopicProfilesToWorkflows(profiles []legacyTopicProfile) []models.Agen
 					"sources": profile.Sources,
 				},
 			}},
-			Edges:     []models.AgentTopicEdge{},
+			Edges:     []models.AgentWorkflowEdge{},
 			UpdatedAt: profile.UpdatedAt,
 		})
 	}
 	return workflows
 }
 
-func defaultTopicNodeLabel(nodeType string) string {
+func defaultWorkflowNodeLabel(nodeType string) string {
 	switch strings.TrimSpace(nodeType) {
-	case topicNodeTypeGroup:
+	case workflowNodeTypeGroup:
 		return "Group"
-	case topicNodeTypeRSSSources:
+	case workflowNodeTypeRSSSources:
 		return "RSS Sources"
-	case topicNodeTypePromptUnit:
+	case workflowNodeTypePromptUnit:
 		return "Prompt Unit"
-	case topicNodeTypeLLM:
+	case workflowNodeTypeLLM:
 		return "LLM"
-	case topicNodeTypeSearchProvider:
+	case workflowNodeTypeSearchProvider:
 		return "Search Provider"
-	case topicNodeTypeWeComOutput:
+	case workflowNodeTypeWeComOutput:
 		return "WeCom Output"
 	default:
 		return "Workflow Node"
 	}
 }
 
-func normalizeTopicURL(raw string) string {
+func normalizeWorkflowURL(raw string) string {
 	value := strings.TrimSpace(strings.ToLower(raw))
 	if value == "" {
 		return ""
@@ -82,24 +82,24 @@ func normalizeTopicURL(raw string) string {
 	return value
 }
 
-func topicSentLogSet(items []models.AgentTopicSentLogItem) map[string]struct{} {
+func workflowSentLogSet(items []models.AgentWorkflowSentLogItem) map[string]struct{} {
 	out := make(map[string]struct{}, len(items))
 	for _, item := range items {
-		if normalized := normalizeTopicURL(item.URLNormalized); normalized != "" {
+		if normalized := normalizeWorkflowURL(item.URLNormalized); normalized != "" {
 			out[normalized] = struct{}{}
 		}
 	}
 	return out
 }
 
-func upsertTopicSentLog(log []models.AgentTopicSentLogItem, items []models.AgentTopicItem, sentAt time.Time) []models.AgentTopicSentLogItem {
-	out := append([]models.AgentTopicSentLogItem{}, log...)
+func upsertWorkflowSentLog(log []models.AgentWorkflowSentLogItem, items []models.AgentWorkflowItem, sentAt time.Time) []models.AgentWorkflowSentLogItem {
+	out := append([]models.AgentWorkflowSentLogItem{}, log...)
 	for _, item := range items {
-		normalized := normalizeTopicURL(item.URL)
+		normalized := normalizeWorkflowURL(item.URL)
 		if normalized == "" {
 			continue
 		}
-		out = append([]models.AgentTopicSentLogItem{{
+		out = append([]models.AgentWorkflowSentLogItem{{
 			URLNormalized: normalized,
 			SentAt:        sentAt,
 			Title:         item.Title,
@@ -108,7 +108,7 @@ func upsertTopicSentLog(log []models.AgentTopicSentLogItem, items []models.Agent
 	return truncateList(out, 1000)
 }
 
-func decodeTopicNodeData[T any](data map[string]any) (T, error) {
+func decodeWorkflowNodeData[T any](data map[string]any) (T, error) {
 	var out T
 	raw, err := json.Marshal(data)
 	if err != nil {
@@ -121,7 +121,7 @@ func decodeTopicNodeData[T any](data map[string]any) (T, error) {
 	return out, err
 }
 
-func uniqueTopicStrings(values []string) []string {
+func uniqueWorkflowStrings(values []string) []string {
 	out := make([]string, 0, len(values))
 	seen := map[string]struct{}{}
 	for _, item := range values {
@@ -138,7 +138,7 @@ func uniqueTopicStrings(values []string) []string {
 	return out
 }
 
-func topicFirstTime(values ...time.Time) time.Time {
+func workflowFirstTime(values ...time.Time) time.Time {
 	for _, value := range values {
 		if !value.IsZero() {
 			return value.UTC()
@@ -147,7 +147,7 @@ func topicFirstTime(values ...time.Time) time.Time {
 	return time.Now().UTC()
 }
 
-func topicItemsText(items []models.AgentTopicItem) string {
+func workflowItemsText(items []models.AgentWorkflowItem) string {
 	lines := make([]string, 0, len(items))
 	for idx, item := range items {
 		var b strings.Builder

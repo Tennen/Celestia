@@ -2,18 +2,18 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
 import { Field, FieldGrid, SelectField, ToggleField } from '../AgentFormFields';
-import type { AgentTopicNode, AgentTopicSource } from '../../../lib/agent-topic';
-import { asStringArray, asTopicSources, updateNodeData } from '../../../lib/topic-workflow';
+import type { AgentWorkflowNode, AgentWorkflowSource } from '../../../lib/agent-workflow';
+import { asStringArray, asWorkflowSources, updateWorkflowNodeData } from '../../../lib/workflow-canvas';
 
 type InspectorOption = Array<{ value: string; label: string }>;
 
-export function TopicWorkflowInspector(props: {
-  node: AgentTopicNode;
-  groups: AgentTopicNode[];
+export function WorkflowCanvasInspector(props: {
+  node: AgentWorkflowNode;
+  groups: AgentWorkflowNode[];
   providerOptions: InspectorOption;
   searchProviderOptions: InspectorOption;
   wecomOptions: InspectorOption;
-  onChange: (node: AgentTopicNode) => void;
+  onChange: (node: AgentWorkflowNode) => void;
   onDelete: () => void;
 }) {
   const { node, groups, providerOptions, searchProviderOptions, wecomOptions, onChange, onDelete } = props;
@@ -44,22 +44,22 @@ export function TopicWorkflowInspector(props: {
   );
 }
 
-function RSSNodeEditor({ node, onChange }: { node: AgentTopicNode; onChange: (node: AgentTopicNode) => void }) {
-  const sources = asTopicSources(node.data?.sources);
-  const updateSource = (index: number, patch: Partial<AgentTopicSource>) => {
+function RSSNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
+  const sources = asWorkflowSources(node.data?.sources);
+  const updateSource = (index: number, patch: Partial<AgentWorkflowSource>) => {
     const next = sources.map((source, current) => (current === index ? { ...source, ...patch } : source));
-    onChange(updateNodeData(node, { sources: next }));
+    onChange(updateWorkflowNodeData(node, { sources: next }));
   };
   return (
     <div className="stack">
       <div className="button-row">
-        <Button variant="secondary" onClick={() => onChange(updateNodeData(node, { sources: [...sources, blankSource()] }))}>
+        <Button variant="secondary" onClick={() => onChange(updateWorkflowNodeData(node, { sources: [...sources, blankSource()] }))}>
           <Plus className="mr-2 h-4 w-4" />
           Add RSS Source
         </Button>
       </div>
       {sources.map((source, index) => (
-        <div key={`${source.id || 'source'}-${index}`} className="topic-workflow__source">
+        <div key={`${source.id || 'source'}-${index}`} className="workflow-canvas__source">
           <ToggleField label="Enabled" checked={source.enabled !== false} onChange={(enabled) => updateSource(index, { enabled })} />
           <FieldGrid>
             <Field label="Name" value={source.name ?? ''} onChange={(name) => updateSource(index, { name })} />
@@ -67,7 +67,7 @@ function RSSNodeEditor({ node, onChange }: { node: AgentTopicNode; onChange: (no
             <Field label="Feed URL" value={source.feed_url ?? ''} onChange={(feed_url) => updateSource(index, { feed_url })} />
             <Field label="Weight" value={String(source.weight ?? 1)} onChange={(weight) => updateSource(index, { weight: Number(weight) || 1 })} />
           </FieldGrid>
-          <Button variant="danger" onClick={() => onChange(updateNodeData(node, { sources: sources.filter((_, current) => current !== index) }))}>
+          <Button variant="danger" onClick={() => onChange(updateWorkflowNodeData(node, { sources: sources.filter((_, current) => current !== index) }))}>
             Remove Source
           </Button>
         </div>
@@ -77,20 +77,20 @@ function RSSNodeEditor({ node, onChange }: { node: AgentTopicNode; onChange: (no
   );
 }
 
-function PromptNodeEditor({ node, onChange }: { node: AgentTopicNode; onChange: (node: AgentTopicNode) => void }) {
+function PromptNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
   return (
     <label className="stack text-sm font-medium">
       <span>Prompt</span>
       <Textarea
         value={String(node.data?.prompt ?? '')}
-        onChange={(event) => onChange(updateNodeData(node, { prompt: event.target.value }))}
-        placeholder="Write the reusable summary prompt block here."
+        onChange={(event) => onChange(updateWorkflowNodeData(node, { prompt: event.target.value }))}
+        placeholder="Write the reusable prompt block here."
       />
     </label>
   );
 }
 
-function LLMNodeEditor(props: { node: AgentTopicNode; providerOptions: InspectorOption; onChange: (node: AgentTopicNode) => void }) {
+function LLMNodeEditor(props: { node: AgentWorkflowNode; providerOptions: InspectorOption; onChange: (node: AgentWorkflowNode) => void }) {
   const { node, providerOptions, onChange } = props;
   return (
     <>
@@ -98,22 +98,22 @@ function LLMNodeEditor(props: { node: AgentTopicNode; providerOptions: Inspector
         label="Provider"
         value={String(node.data?.provider_id ?? '')}
         options={providerOptions}
-        onChange={(provider_id) => onChange(updateNodeData(node, { provider_id }))}
+        onChange={(provider_id) => onChange(updateWorkflowNodeData(node, { provider_id }))}
       />
       <label className="stack text-sm font-medium">
         <span>User Prompt</span>
         <Textarea
           value={String(node.data?.user_prompt ?? '')}
-          onChange={(event) => onChange(updateNodeData(node, { user_prompt: event.target.value }))}
-          placeholder="Optional user-level instruction appended to connected prompt/context input."
+          onChange={(event) => onChange(updateWorkflowNodeData(node, { user_prompt: event.target.value }))}
+          placeholder="Optional user-level instruction appended to connected prompt and context input."
         />
       </label>
-      <div className="detail">`tool` and `skill` ports are already exposed on the node, but this first cut only executes `prompt`, `context`, and `search` inputs.</div>
+      <div className="detail">`tool` and `skill` ports are visible on the node, but this delivery only executes `prompt`, `context`, and `search` inputs.</div>
     </>
   );
 }
 
-function SearchNodeEditor(props: { node: AgentTopicNode; providerOptions: InspectorOption; onChange: (node: AgentTopicNode) => void }) {
+function SearchNodeEditor(props: { node: AgentWorkflowNode; providerOptions: InspectorOption; onChange: (node: AgentWorkflowNode) => void }) {
   const { node, providerOptions, onChange } = props;
   return (
     <>
@@ -121,9 +121,9 @@ function SearchNodeEditor(props: { node: AgentTopicNode; providerOptions: Inspec
         label="Search Provider"
         value={String(node.data?.provider_id ?? '')}
         options={providerOptions}
-        onChange={(provider_id) => onChange(updateNodeData(node, { provider_id }))}
+        onChange={(provider_id) => onChange(updateWorkflowNodeData(node, { provider_id }))}
       />
-      <Field label="Query" value={String(node.data?.query ?? '')} onChange={(query) => onChange(updateNodeData(node, { query }))} />
+      <Field label="Query" value={String(node.data?.query ?? '')} onChange={(query) => onChange(updateWorkflowNodeData(node, { query }))} />
       <FieldGrid>
         <SelectField
           label="Recency"
@@ -135,12 +135,12 @@ function SearchNodeEditor(props: { node: AgentTopicNode; providerOptions: Inspec
             { value: 'month', label: 'Month' },
             { value: 'year', label: 'Year' },
           ]}
-          onChange={(recency) => onChange(updateNodeData(node, { recency }))}
+          onChange={(recency) => onChange(updateWorkflowNodeData(node, { recency }))}
         />
         <Field
           label="Max Items"
           value={String(node.data?.max_items ?? 8)}
-          onChange={(max_items) => onChange(updateNodeData(node, { max_items: Number(max_items) || 8 }))}
+          onChange={(max_items) => onChange(updateWorkflowNodeData(node, { max_items: Number(max_items) || 8 }))}
         />
       </FieldGrid>
       <label className="stack text-sm font-medium">
@@ -149,7 +149,7 @@ function SearchNodeEditor(props: { node: AgentTopicNode; providerOptions: Inspec
           value={asStringArray(node.data?.sites).join('\n')}
           onChange={(event) =>
             onChange(
-              updateNodeData(node, {
+              updateWorkflowNodeData(node, {
                 sites: event.target.value
                   .split(/\n|,/)
                   .map((item) => item.trim())
@@ -164,19 +164,19 @@ function SearchNodeEditor(props: { node: AgentTopicNode; providerOptions: Inspec
   );
 }
 
-function WeComOutputNodeEditor(props: { node: AgentTopicNode; wecomOptions: InspectorOption; onChange: (node: AgentTopicNode) => void }) {
+function WeComOutputNodeEditor(props: { node: AgentWorkflowNode; wecomOptions: InspectorOption; onChange: (node: AgentWorkflowNode) => void }) {
   const { node, wecomOptions, onChange } = props;
   return (
     <SelectField
       label="Recipient"
       value={String(node.data?.to_user ?? '')}
       options={wecomOptions}
-      onChange={(to_user) => onChange(updateNodeData(node, { to_user }))}
+      onChange={(to_user) => onChange(updateWorkflowNodeData(node, { to_user }))}
     />
   );
 }
 
-function GroupNodeEditor({ node, onChange }: { node: AgentTopicNode; onChange: (node: AgentTopicNode) => void }) {
+function GroupNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
   return (
     <FieldGrid>
       <Field label="Width" value={String(node.width ?? 360)} onChange={(width) => onChange({ ...node, width: Number(width) || 360 })} />
@@ -185,7 +185,7 @@ function GroupNodeEditor({ node, onChange }: { node: AgentTopicNode; onChange: (
   );
 }
 
-function blankSource(): AgentTopicSource {
+function blankSource(): AgentWorkflowSource {
   return {
     id: `source-${Date.now()}`,
     name: '',

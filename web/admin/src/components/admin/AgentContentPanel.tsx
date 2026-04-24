@@ -9,7 +9,7 @@ import { addWritingMaterial, createWritingTopic, summarizeWritingTopic, type Age
 import { Field } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
 import { SelectableListItem } from './shared/SelectableListItem';
-import { TopicWorkflowPanel } from './topic-workflow/TopicWorkflowPanel';
+import { WorkflowCanvasPanel } from './workflow-canvas/WorkflowCanvasPanel';
 
 type Props = {
   snapshot: AgentSnapshot;
@@ -30,14 +30,14 @@ export function AgentContentPanel({ snapshot, busy, onRun }: Props) {
   }, [snapshot.writing.topics]);
 
   return (
-    <Tabs defaultValue="topic" className="agent-tabs">
+    <Tabs defaultValue="workflow" className="agent-tabs">
       <TabsList className="agent-tabs__list flex-wrap">
-        <TabsTrigger value="topic">Topic Workflow</TabsTrigger>
+        <TabsTrigger value="workflow">Workflow</TabsTrigger>
         <TabsTrigger value="writing">Writing</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="topic" className="agent-tab-content stack">
-        <TopicWorkflowPanel snapshot={snapshot} busy={busy} onRun={onRun} />
+      <TabsContent value="workflow" className="agent-tab-content stack">
+        <WorkflowCanvasPanel snapshot={snapshot} busy={busy} onRun={onRun} />
       </TabsContent>
 
       <TabsContent value="writing" className="agent-tab-content grid grid--two">
