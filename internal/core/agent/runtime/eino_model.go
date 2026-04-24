@@ -20,7 +20,7 @@ type einoChatModel struct {
 }
 
 func newEinoChatModel(settings models.AgentSettings) (*einoChatModel, error) {
-	provider, ok := selectProvider(settings)
+	provider, ok := selectProvider(settings, "")
 	if !ok {
 		return nil, errors.New("no LLM provider configured")
 	}

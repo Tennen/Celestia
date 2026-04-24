@@ -276,53 +276,6 @@ type AgentToolRunResult struct {
 	Metadata    map[string]any       `json:"metadata,omitempty"`
 }
 
-type AgentTopicSnapshot struct {
-	ActiveProfileID string                  `json:"active_profile_id"`
-	Profiles        []AgentTopicProfile     `json:"profiles"`
-	Runs            []AgentTopicRun         `json:"runs"`
-	SentLog         []AgentTopicSentLogItem `json:"sent_log,omitempty"`
-	UpdatedAt       time.Time               `json:"updated_at"`
-}
-
-type AgentTopicProfile struct {
-	ID        string             `json:"id"`
-	Name      string             `json:"name"`
-	Sources   []AgentTopicSource `json:"sources"`
-	UpdatedAt time.Time          `json:"updated_at"`
-}
-
-type AgentTopicSource struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Category string  `json:"category"`
-	FeedURL  string  `json:"feed_url"`
-	Weight   float64 `json:"weight"`
-	Enabled  bool    `json:"enabled"`
-}
-
-type AgentTopicRun struct {
-	ID          string           `json:"id"`
-	ProfileID   string           `json:"profile_id"`
-	CreatedAt   time.Time        `json:"created_at"`
-	Summary     string           `json:"summary"`
-	Items       []AgentTopicItem `json:"items"`
-	FetchErrors []AgentRunError  `json:"fetch_errors,omitempty"`
-}
-
-type AgentTopicItem struct {
-	Title       string `json:"title"`
-	URL         string `json:"url"`
-	SourceID    string `json:"source_id"`
-	SourceName  string `json:"source_name"`
-	PublishedAt string `json:"published_at,omitempty"`
-	Summary     string `json:"summary,omitempty"`
-}
-
-type AgentRunError struct {
-	Target string `json:"target"`
-	Error  string `json:"error"`
-}
-
 type AgentWritingSnapshot struct {
 	Topics    []AgentWritingTopic `json:"topics"`
 	UpdatedAt time.Time           `json:"updated_at"`

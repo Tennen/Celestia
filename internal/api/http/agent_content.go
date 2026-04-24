@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 
 	gatewayapi "github.com/chentianyu/celestia/internal/api/gateway"
 	"github.com/chentianyu/celestia/internal/models"
@@ -22,12 +23,17 @@ func (s *Server) handleAgentTopicSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAgentTopicRun(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		ProfileID string `json:"profile_id"`
+		WorkflowID string `json:"workflow_id"`
+		ProfileID  string `json:"profile_id"`
 	}
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
-	run, err := s.gateway.RunAgentTopicSummary(r.Context(), payload.ProfileID)
+	workflowID := strings.TrimSpace(payload.WorkflowID)
+	if workflowID == "" {
+		workflowID = strings.TrimSpace(payload.ProfileID)
+	}
+	run, err := s.gateway.RunAgentTopicSummary(r.Context(), workflowID)
 	if err != nil {
 		writeServiceError(w, err)
 		return

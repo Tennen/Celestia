@@ -61,8 +61,12 @@ func loadAgentTopicProfilesDocument(doc models.AgentDocument, snapshot *models.A
 	if err := decodeAgentDocument(doc, &payload); err != nil {
 		return err
 	}
-	snapshot.TopicSummary.ActiveProfileID = payload.ActiveProfileID
-	snapshot.TopicSummary.Profiles = payload.Profiles
+	snapshot.TopicSummary.ActiveWorkflowID = firstNonEmpty(payload.ActiveWorkflowID, payload.ActiveProfileID)
+	if len(payload.Workflows) > 0 {
+		snapshot.TopicSummary.Workflows = payload.Workflows
+	} else if len(payload.Profiles) > 0 {
+		snapshot.TopicSummary.Workflows = legacyTopicProfilesToWorkflows(payload.Profiles)
+	}
 	snapshot.TopicSummary.UpdatedAt = maxTime(snapshot.TopicSummary.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
 	return nil
 }
@@ -71,6 +75,14 @@ func loadAgentTopicRunsDocument(doc models.AgentDocument, snapshot *models.Agent
 	var payload agentTopicRunsDocument
 	if err := decodeAgentDocument(doc, &payload); err != nil {
 		return err
+	}
+	for idx := range payload.Runs {
+		if payload.Runs[idx].WorkflowID == "" {
+			payload.Runs[idx].WorkflowID = payload.Runs[idx].ProfileID
+		}
+		if payload.Runs[idx].StartedAt.IsZero() {
+			payload.Runs[idx].StartedAt = payload.Runs[idx].CreatedAt
+		}
 	}
 	snapshot.TopicSummary.Runs = payload.Runs
 	snapshot.TopicSummary.SentLog = payload.SentLog

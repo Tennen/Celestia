@@ -15,9 +15,10 @@ import (
 )
 
 type Service struct {
-	store storage.Store
-	bus   *eventbus.Bus
-	mu    sync.Mutex
+	store       storage.Store
+	bus         *eventbus.Bus
+	topicOutput topicOutputRuntime
+	mu          sync.Mutex
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
@@ -153,7 +154,7 @@ func defaultSnapshot() models.AgentSnapshot {
 			UpdatedAt:  now,
 		},
 		TopicSummary: models.AgentTopicSnapshot{
-			Profiles:  []models.AgentTopicProfile{},
+			Workflows: []models.AgentTopicWorkflow{},
 			Runs:      []models.AgentTopicRun{},
 			UpdatedAt: now,
 		},
@@ -217,8 +218,8 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.Memory.Windows == nil {
 		snapshot.Memory.Windows = []models.AgentConversationWindow{}
 	}
-	if snapshot.TopicSummary.Profiles == nil {
-		snapshot.TopicSummary.Profiles = []models.AgentTopicProfile{}
+	if snapshot.TopicSummary.Workflows == nil {
+		snapshot.TopicSummary.Workflows = []models.AgentTopicWorkflow{}
 	}
 	if snapshot.TopicSummary.Runs == nil {
 		snapshot.TopicSummary.Runs = []models.AgentTopicRun{}

@@ -19,11 +19,15 @@ type chatMessage struct {
 }
 
 func (s *Service) GenerateText(ctx context.Context, prompt string) (string, error) {
+	return s.GenerateTextWithProvider(ctx, "", prompt)
+}
+
+func (s *Service) GenerateTextWithProvider(ctx context.Context, providerID string, prompt string) (string, error) {
 	snapshot, err := s.Snapshot(ctx)
 	if err != nil {
 		return "", err
 	}
-	provider, ok := selectProvider(snapshot.Settings)
+	provider, ok := selectProvider(snapshot.Settings, providerID)
 	if !ok {
 		return "", errors.New("no LLM provider configured")
 	}
@@ -50,8 +54,11 @@ func (s *Service) GenerateText(ctx context.Context, prompt string) (string, erro
 	}
 }
 
-func selectProvider(settings models.AgentSettings) (models.AgentLLMProvider, bool) {
-	target := strings.TrimSpace(settings.DefaultLLMProviderID)
+func selectProvider(settings models.AgentSettings, providerID string) (models.AgentLLMProvider, bool) {
+	target := strings.TrimSpace(providerID)
+	if target == "" {
+		target = strings.TrimSpace(settings.DefaultLLMProviderID)
+	}
 	for _, provider := range settings.LLMProviders {
 		if target != "" && provider.ID == target {
 			return provider, true

@@ -21,7 +21,7 @@ Returns the full Agent snapshot:
 - `conversations`: retained Agent conversation turns, including slash command result records.
 - `memory`: raw turns, compacted summary memory, and active short conversation windows.
 - `search`: recent search query logs, capped at the latest 50 runs.
-- `topic_summary`, `writing`, `market`, and `evolution`: Agent-owned workflow state.
+- `topic_summary`, `writing`, `market`, and `evolution`: Agent-owned workflow state. `topic_summary` is now stored as a workflow canvas (`active_workflow_id`, `workflows[]`, `runs[]`) instead of the legacy profile/source form.
 
 ## Runtime Settings
 
@@ -137,14 +137,56 @@ These endpoints expose Celestia-owned Agent tool metadata. A tool record contain
 
 Terminal-backed tools such as Apple Notes and Apple Reminders execute through the same guarded terminal runner used by `/agent/terminal`; `settings.terminal.enabled` must be true.
 
-## Topic Summary
+## Topic Summary Workflow
 
 ```http
 PUT /api/v1/agent/topic
 POST /api/v1/agent/topic/run
 ```
 
-Topic profiles store RSS or Atom sources. A run fetches enabled feeds, deduplicates against the sent log, and optionally summarizes selected items through the configured LLM provider. If no LLM provider is configured, the run still records fetched feed items and a deterministic summary.
+`PUT /api/v1/agent/topic` saves the workflow workspace snapshot:
+
+- `active_workflow_id`
+- `workflows[]`
+  - `nodes[]`
+  - `edges[]`
+- `runs[]`
+
+`POST /api/v1/agent/topic/run` accepts:
+
+```json
+{
+  "workflow_id": "topic-summary-workflow"
+}
+```
+
+Legacy `profile_id` is still accepted as an alias during the migration window.
+
+The first workflow-canvas delivery supports these node types:
+
+- `group`
+- `rss_sources`
+- `prompt_unit`
+- `llm`
+- `search_provider`
+- `wecom_output`
+
+Current executable ports:
+
+- `rss_sources -> llm.context`
+- `prompt_unit -> llm.prompt`
+- `search_provider -> llm.search`
+- `llm.text -> wecom_output.text`
+
+`llm.tool` and `llm.skill` are reserved canvas ports in this release. If they are connected, the run fails explicitly instead of fabricating behavior.
+
+Runtime behavior:
+
+1. `rss_sources` fetches enabled RSS or Atom feeds and deduplicates URLs against `sent_log`.
+2. `search_provider` uses the configured Core search provider profile.
+3. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
+4. `wecom_output` sends through the existing Touchpoints WeCom runtime.
+5. RSS items are appended to `sent_log` only after a successful WeCom delivery.
 
 ## Writing Organizer
 

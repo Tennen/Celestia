@@ -134,9 +134,9 @@ func (s *HTTPService) SaveAgentTopic(ctx context.Context, topic models.AgentTopi
 	return s.putAgentSnapshot(ctx, "/api/v1/agent/topic", topic)
 }
 
-func (s *HTTPService) RunAgentTopicSummary(ctx context.Context, profileID string) (models.AgentTopicRun, error) {
+func (s *HTTPService) RunAgentTopicSummary(ctx context.Context, workflowID string) (models.AgentTopicRun, error) {
 	var out models.AgentTopicRun
-	payload := map[string]any{"profile_id": profileID}
+	payload := map[string]any{"workflow_id": workflowID}
 	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/topic/run", nil, payload, &out, ""); err != nil {
 		return models.AgentTopicRun{}, err
 	}

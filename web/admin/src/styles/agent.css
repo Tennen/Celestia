@@ -50,4 +50,88 @@
   .agent-tab-content .list-stack {
     @apply gap-2;
   }
+
+  .topic-workflow {
+    @apply flex min-h-0 flex-col gap-3;
+  }
+
+  .topic-workflow__grid {
+    @apply grid gap-3 xl:grid-cols-[360px_minmax(0,1fr)];
+  }
+
+  .topic-workflow__workspace {
+    @apply grid min-h-[720px] gap-3 xl:grid-cols-[minmax(0,1fr)_320px];
+  }
+
+  .topic-workflow__canvas-card,
+  .topic-workflow__inspector-card {
+    @apply min-h-0;
+  }
+
+  .topic-workflow__canvas-content {
+    @apply min-h-0;
+  }
+
+  .topic-workflow__canvas {
+    @apply h-[640px] overflow-hidden rounded-xl border bg-[color:var(--bg-secondary)];
+    border-color: var(--border-light);
+  }
+
+  .topic-workflow__library {
+    @apply grid gap-2;
+  }
+
+  .topic-workflow__library-item {
+    @apply flex flex-col items-start gap-1 rounded-xl border bg-background/80 px-3 py-3 text-left text-sm transition hover:border-primary/40 hover:bg-white;
+    border-color: var(--border-light);
+  }
+
+  .topic-workflow__runs {
+    @apply grid gap-3;
+  }
+
+  .topic-workflow__run {
+    @apply rounded-xl border bg-background/80 p-3;
+    border-color: var(--border-light);
+  }
+
+  .topic-workflow__run-head {
+    @apply mb-2 flex items-center justify-between gap-2;
+  }
+
+  .topic-workflow__source {
+    @apply rounded-xl border bg-background/80 p-3;
+    border-color: var(--border-light);
+  }
+
+  .topic-node,
+  .topic-group-node {
+    @apply rounded-2xl border bg-white/95 px-4 py-3 text-xs shadow-sm;
+    border-color: var(--border-light);
+  }
+
+  .topic-node {
+    min-width: 190px;
+  }
+
+  .topic-group-node {
+    @apply flex h-full w-full items-start justify-start;
+    background-color: color-mix(in srgb, var(--bg-accent) 70%, white);
+  }
+
+  .topic-node__title,
+  .topic-group-node__title {
+    @apply text-sm font-semibold;
+    color: var(--text-primary);
+  }
+
+  .topic-node__desc {
+    @apply mt-1 text-[11px] leading-5;
+    color: color-mix(in srgb, var(--text-primary) 70%, white);
+  }
+
+  .topic-node__ports {
+    @apply mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.12em];
+    color: color-mix(in srgb, var(--text-primary) 45%, white);
+  }
 }

@@ -100,9 +100,11 @@ type agentMemoryWindowsDocument struct {
 }
 
 type agentTopicProfilesDocument struct {
-	ActiveProfileID string                     `json:"active_profile_id"`
-	Profiles        []models.AgentTopicProfile `json:"profiles"`
-	UpdatedAt       time.Time                  `json:"updated_at"`
+	ActiveWorkflowID string                      `json:"active_workflow_id,omitempty"`
+	ActiveProfileID  string                      `json:"active_profile_id,omitempty"`
+	Workflows        []models.AgentTopicWorkflow `json:"workflows,omitempty"`
+	Profiles         []legacyTopicProfile        `json:"profiles,omitempty"`
+	UpdatedAt        time.Time                   `json:"updated_at"`
 }
 
 type agentTopicRunsDocument struct {
@@ -267,7 +269,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 		{key: agentMemoryRawDocumentKey, domain: "agent.memory.raw", payload: agentMemoryRawDocument{RawRecords: snapshot.Memory.RawRecords, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
 		{key: agentMemorySummariesDocumentKey, domain: "agent.memory.summaries", payload: agentMemorySummariesDocument{Summaries: snapshot.Memory.Summaries, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
 		{key: agentMemoryWindowsDocumentKey, domain: "agent.memory.windows", payload: agentMemoryWindowsDocument{Windows: snapshot.Memory.Windows, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
-		{key: agentTopicProfilesDocumentKey, domain: "agent.topic.profiles", payload: agentTopicProfilesDocument{ActiveProfileID: snapshot.TopicSummary.ActiveProfileID, Profiles: snapshot.TopicSummary.Profiles, UpdatedAt: topicUpdatedAt}, updatedAt: topicUpdatedAt},
+		{key: agentTopicProfilesDocumentKey, domain: "agent.topic.profiles", payload: agentTopicProfilesDocument{ActiveWorkflowID: snapshot.TopicSummary.ActiveWorkflowID, Workflows: snapshot.TopicSummary.Workflows, UpdatedAt: topicUpdatedAt}, updatedAt: topicUpdatedAt},
 		{key: agentTopicRunsDocumentKey, domain: "agent.topic.runs", payload: agentTopicRunsDocument{Runs: snapshot.TopicSummary.Runs, SentLog: snapshot.TopicSummary.SentLog, UpdatedAt: topicUpdatedAt}, updatedAt: topicUpdatedAt},
 		{key: agentWritingTopicsDocumentKey, domain: "agent.writing.topics", payload: agentWritingTopicsDocument{Topics: snapshot.Writing.Topics, UpdatedAt: writingUpdatedAt}, updatedAt: writingUpdatedAt},
 		{key: agentMarketPortfolioDocumentKey, domain: "agent.market.portfolio", payload: agentMarketPortfolioDocument{Portfolio: snapshot.Market.Portfolio, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},

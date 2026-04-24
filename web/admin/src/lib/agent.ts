@@ -1,4 +1,5 @@
 import { request } from './api';
+import { normalizeAgentTopicSnapshot, type AgentTopicSnapshot } from './agent-topic';
 
 export type AgentLLMProvider = {
   id: string;
@@ -187,13 +188,6 @@ export type AgentMarkdownRenderResult = {
   rendered_at: string;
 };
 
-export type AgentTopicSnapshot = {
-  active_profile_id: string;
-  profiles: Array<Record<string, unknown>>;
-  runs: Array<Record<string, unknown>>;
-  updated_at: string;
-};
-
 export type AgentWritingTopic = {
   id: string;
   title: string;
@@ -338,17 +332,6 @@ export function runAgentTool(name: string, payload: { input?: string; command?: 
   });
 }
 
-export function saveAgentTopic(payload: AgentTopicSnapshot) {
-  return request<AgentSnapshot>('/agent/topic', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
-}
-
-export function runAgentTopic(profileId?: string) {
-  return request<Record<string, unknown>>('/agent/topic/run', {
-    method: 'POST',
-    body: JSON.stringify({ profile_id: profileId ?? '' }),
-  });
-}
-
 export function createWritingTopic(payload: { id?: string; title: string }) {
   return request<AgentWritingTopic>('/agent/writing/topics', { method: 'POST', body: JSON.stringify(payload) });
 }
@@ -470,11 +453,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
       users: arrayOrEmpty(push.users),
     },
     conversations: arrayOrEmpty(snapshot.conversations),
-    topic_summary: {
-      ...topic,
-      profiles: arrayOrEmpty(topic.profiles),
-      runs: arrayOrEmpty(topic.runs),
-    },
+    topic_summary: normalizeAgentTopicSnapshot(topic),
     writing: {
       ...writing,
       topics: arrayOrEmpty(writing.topics),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 	einotool "github.com/cloudwego/eino/components/tool"
@@ -57,24 +58,17 @@ func (s *Service) runSearchTool(ctx context.Context, input searchToolInput) (mod
 }
 
 type topicToolInput struct {
-	Action      string  `json:"action,omitempty" jsonschema_description:"run, state, list_profiles, get_profile, use_profile, add_profile, delete_profile, list_sources, add_source, update_source, enable_source, disable_source, delete_source, clear_sent_log."`
-	ProfileID   string  `json:"profile_id,omitempty" jsonschema_description:"Topic profile id."`
-	ProfileName string  `json:"profile_name,omitempty" jsonschema_description:"Topic profile display name."`
-	CloneFrom   string  `json:"clone_from,omitempty" jsonschema_description:"Profile id to clone sources from when creating a profile."`
-	SourceID    string  `json:"source_id,omitempty" jsonschema_description:"RSS source id."`
-	SourceName  string  `json:"source_name,omitempty" jsonschema_description:"RSS source name."`
-	Category    string  `json:"category,omitempty" jsonschema_description:"RSS source category."`
-	FeedURL     string  `json:"feed_url,omitempty" jsonschema_description:"RSS feed URL."`
-	Weight      float64 `json:"weight,omitempty" jsonschema_description:"Source weight. Defaults to 1."`
+	Action     string `json:"action,omitempty" jsonschema_description:"run, state, list_workflows, get_workflow, use_workflow, or list_runs."`
+	WorkflowID string `json:"workflow_id,omitempty" jsonschema_description:"Topic workflow id."`
 }
 
 func (s *Service) topicToolSpec() agentToolSpec {
-	desc := "Run and manage Celestia topic summaries backed by RSS profiles and sources."
+	desc := "Run and inspect Celestia topic workflows composed from modular nodes such as RSS, prompt, LLM, search, and WeCom output."
 	return agentToolSpec{
 		Name:         "topic_summary",
 		Description:  desc,
-		Keywords:     []string{"topic", "rss", "digest", "日报", "新闻摘要"},
-		Params:       []string{"action", "profile_id", "profile_name", "source_id", "source_name", "category", "feed_url", "weight"},
+		Keywords:     []string{"topic", "rss", "workflow", "digest", "日报", "新闻摘要"},
+		Params:       []string{"action", "workflow_id"},
 		PreferResult: true,
 		NewTool: func(s *Service) (einotool.InvokableTool, error) {
 			return utils.InferTool("topic_summary", desc, s.runTopicTool)
@@ -84,7 +78,7 @@ func (s *Service) topicToolSpec() agentToolSpec {
 			if text != "" && isJSONObject(text) {
 				return text, nil
 			}
-			return marshalCompactJSON(map[string]any{"action": "run", "profile_id": text})
+			return marshalCompactJSON(map[string]any{"action": "run", "workflow_id": text})
 		},
 	}
 }
@@ -93,45 +87,51 @@ func (s *Service) runTopicTool(ctx context.Context, input topicToolInput) (any, 
 	action := strings.ToLower(firstNonEmpty(input.Action, "run"))
 	switch action {
 	case "run", "digest", "summary":
-		return s.RunTopicSummary(ctx, input.ProfileID)
+		return s.RunTopicSummary(ctx, input.WorkflowID)
 	case "state", "status":
 		snapshot, err := s.Snapshot(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return map[string]any{
-			"active_profile_id": snapshot.TopicSummary.ActiveProfileID,
-			"profiles":          len(snapshot.TopicSummary.Profiles),
-			"runs":              len(snapshot.TopicSummary.Runs),
-			"sent_log":          len(snapshot.TopicSummary.SentLog),
+			"active_workflow_id": snapshot.TopicSummary.ActiveWorkflowID,
+			"workflows":          len(snapshot.TopicSummary.Workflows),
+			"runs":               len(snapshot.TopicSummary.Runs),
+			"sent_log":           len(snapshot.TopicSummary.SentLog),
 		}, nil
-	case "list_profiles":
+	case "list_workflows":
 		snapshot, err := s.Snapshot(ctx)
-		return snapshot.TopicSummary.Profiles, err
-	case "get_profile":
-		return s.topicProfile(ctx, input.ProfileID)
-	case "use_profile":
-		return s.useTopicProfile(ctx, input.ProfileID)
-	case "add_profile":
-		return s.addTopicProfileTool(ctx, input)
-	case "delete_profile":
-		return s.deleteTopicProfileTool(ctx, input.ProfileID)
-	case "list_sources":
-		profile, err := s.topicProfile(ctx, input.ProfileID)
+		return snapshot.TopicSummary.Workflows, err
+	case "get_workflow":
+		snapshot, err := s.Snapshot(ctx)
 		if err != nil {
 			return nil, err
 		}
-		return profile.Sources, nil
-	case "add_source":
-		return s.addTopicSourceTool(ctx, input)
-	case "update_source":
-		return s.updateTopicSourceTool(ctx, input)
-	case "enable_source", "disable_source":
-		return s.setTopicSourceEnabled(ctx, input.ProfileID, input.SourceID, action == "enable_source")
-	case "delete_source":
-		return s.deleteTopicSourceTool(ctx, input.ProfileID, input.SourceID)
-	case "clear_sent_log":
-		return s.clearTopicSentLog(ctx)
+		workflow, ok := selectTopicWorkflow(snapshot.TopicSummary, input.WorkflowID)
+		if !ok {
+			return nil, errors.New("topic workflow not found")
+		}
+		return workflow, nil
+	case "use_workflow":
+		snapshot, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
+			workflow, ok := selectTopicWorkflow(snapshot.TopicSummary, input.WorkflowID)
+			if !ok {
+				return errors.New("topic workflow not found")
+			}
+			now := time.Now().UTC()
+			snapshot.TopicSummary.ActiveWorkflowID = workflow.ID
+			snapshot.TopicSummary.ActiveProfileID = workflow.ID
+			snapshot.TopicSummary.UpdatedAt = now
+			snapshot.UpdatedAt = now
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return snapshot.TopicSummary, nil
+	case "list_runs":
+		snapshot, err := s.Snapshot(ctx)
+		return snapshot.TopicSummary.Runs, err
 	default:
 		return nil, errors.New("unsupported topic action")
 	}
