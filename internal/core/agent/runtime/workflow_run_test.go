@@ -111,15 +111,15 @@ func TestRunWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 				},
 			},
 			{
-				ID:    "prompt-main",
-				Type:  workflowNodeTypePromptUnit,
-				Label: "Prompt Unit",
+				ID:    "text-main",
+				Type:  workflowNodeTypeText,
+				Label: "Text",
 				Position: models.AgentNodePoint{
 					X: 280,
 					Y: 80,
 				},
 				Data: map[string]any{
-					"prompt": "Summarize the incoming RSS items into a concise operator digest.",
+					"text": "Summarize the incoming RSS items into a concise operator digest.",
 				},
 			},
 			{
@@ -150,7 +150,7 @@ func TestRunWorkflowExecutesRSSLLMAndWeComOutput(t *testing.T) {
 		},
 		Edges: []models.AgentWorkflowEdge{
 			{ID: "edge-rss-llm", Source: "rss-main", SourceHandle: "content", Target: "llm-main", TargetHandle: "context"},
-			{ID: "edge-prompt-llm", Source: "prompt-main", SourceHandle: "prompt", Target: "llm-main", TargetHandle: "prompt"},
+			{ID: "edge-text-llm", Source: "text-main", SourceHandle: "text", Target: "llm-main", TargetHandle: "prompt"},
 			{ID: "edge-llm-wecom", Source: "llm-main", SourceHandle: "text", Target: "wecom-main", TargetHandle: "text"},
 		},
 	}
@@ -305,6 +305,142 @@ func TestRunWorkflowTreatsTopLLMInputAsDefaultContext(t *testing.T) {
 	userPromptIndex := strings.Index(transport.lastLLMBody, "User Prompt")
 	if contextIndex == -1 || userPromptIndex == -1 || contextIndex > userPromptIndex {
 		t.Fatalf("llm request body order is wrong: %s", transport.lastLLMBody)
+	}
+}
+
+func TestRunWorkflowConcatsTextChainsInOrder(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	output := &workflowTestOutput{}
+	svc.SetWorkflowOutputRuntime(output)
+
+	workflow := models.AgentWorkflow{
+		ID:   "workflow-text-chain",
+		Name: "Text Chain Workflow",
+		Nodes: []models.AgentWorkflowNode{
+			{
+				ID:    "text-a",
+				Type:  workflowNodeTypeText,
+				Label: "Text",
+				Position: models.AgentNodePoint{X: 80, Y: 80},
+				Data: map[string]any{"text": "First block"},
+			},
+			{
+				ID:    "text-b",
+				Type:  workflowNodeTypeText,
+				Label: "Text",
+				Position: models.AgentNodePoint{X: 80, Y: 220},
+				Data: map[string]any{"text": "Second block"},
+			},
+			{
+				ID:    "text-c",
+				Type:  workflowNodeTypeText,
+				Label: "Text",
+				Position: models.AgentNodePoint{X: 80, Y: 360},
+				Data: map[string]any{"text": "Third block"},
+			},
+			{
+				ID:    "wecom-main",
+				Type:  workflowNodeTypeWeComOutput,
+				Label: "WeCom Output",
+				Position: models.AgentNodePoint{X: 320, Y: 360},
+				Data: map[string]any{"to_user": "alice"},
+			},
+		},
+		Edges: []models.AgentWorkflowEdge{
+			{ID: "edge-a-b", Source: "text-a", SourceHandle: "text", Target: "text-b", TargetHandle: "text"},
+			{ID: "edge-b-c", Source: "text-b", SourceHandle: "text", Target: "text-c", TargetHandle: "text"},
+			{ID: "edge-c-wecom", Source: "text-c", SourceHandle: "text", Target: "wecom-main", TargetHandle: "text"},
+		},
+	}
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	run, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() error = %v", err)
+	}
+	if run.Status != "succeeded" {
+		t.Fatalf("run status = %q, want succeeded", run.Status)
+	}
+	if len(output.messages) != 1 {
+		t.Fatalf("wecom messages = %d, want 1", len(output.messages))
+	}
+	want := "First block\n\nSecond block\n\nThird block"
+	if got := strings.TrimSpace(output.messages[0].text); got != want {
+		t.Fatalf("wecom text = %q, want %q", got, want)
+	}
+}
+
+func TestRunWorkflowConcatsMultipleTextInputsByConnectionOrder(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	output := &workflowTestOutput{}
+	svc.SetWorkflowOutputRuntime(output)
+
+	workflow := models.AgentWorkflow{
+		ID:   "workflow-text-fanin",
+		Name: "Text Fan-in Workflow",
+		Nodes: []models.AgentWorkflowNode{
+			{
+				ID:    "text-a",
+				Type:  workflowNodeTypeText,
+				Label: "Text",
+				Position: models.AgentNodePoint{X: 80, Y: 80},
+				Data: map[string]any{"text": "Alpha"},
+			},
+			{
+				ID:    "text-b",
+				Type:  workflowNodeTypeText,
+				Label: "Text",
+				Position: models.AgentNodePoint{X: 320, Y: 80},
+				Data: map[string]any{"text": "Beta"},
+			},
+			{
+				ID:    "text-c",
+				Type:  workflowNodeTypeText,
+				Label: "Text",
+				Position: models.AgentNodePoint{X: 200, Y: 240},
+				Data: map[string]any{"text": "Gamma"},
+			},
+			{
+				ID:    "wecom-main",
+				Type:  workflowNodeTypeWeComOutput,
+				Label: "WeCom Output",
+				Position: models.AgentNodePoint{X: 440, Y: 240},
+				Data: map[string]any{"to_user": "alice"},
+			},
+		},
+		Edges: []models.AgentWorkflowEdge{
+			{ID: "edge-a-c", Source: "text-a", SourceHandle: "text", Target: "text-c", TargetHandle: "text"},
+			{ID: "edge-b-c", Source: "text-b", SourceHandle: "text", Target: "text-c", TargetHandle: "text"},
+			{ID: "edge-c-wecom", Source: "text-c", SourceHandle: "text", Target: "wecom-main", TargetHandle: "text"},
+		},
+	}
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	run, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() error = %v", err)
+	}
+	if run.Status != "succeeded" {
+		t.Fatalf("run status = %q, want succeeded", run.Status)
+	}
+	if len(output.messages) != 1 {
+		t.Fatalf("wecom messages = %d, want 1", len(output.messages))
+	}
+	want := "Alpha\n\nBeta\n\nGamma"
+	if got := strings.TrimSpace(output.messages[0].text); got != want {
+		t.Fatalf("wecom text = %q, want %q", got, want)
 	}
 }
 

@@ -344,6 +344,22 @@
     color: color-mix(in srgb, var(--text-primary) 70%, white);
   }
 
+  .workflow-node__text-editor {
+    @apply mt-1 min-h-[108px] w-full resize-none rounded-xl border px-3 py-2 text-sm leading-6 outline-none transition-colors;
+    border-color: color-mix(in srgb, var(--border-light) 88%, white);
+    background: color-mix(in srgb, white 92%, var(--bg-accent));
+    color: var(--text-primary);
+  }
+
+  .workflow-node__text-editor:focus {
+    border-color: color-mix(in srgb, var(--primary) 58%, white);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-soft) 52%, white);
+  }
+
+  .workflow-node__text-editor::placeholder {
+    color: color-mix(in srgb, var(--text-primary) 45%, white);
+  }
+
   .workflow-node__ports {
     @apply mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.12em];
     color: color-mix(in srgb, var(--text-primary) 45%, white);

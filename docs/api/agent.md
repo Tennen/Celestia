@@ -166,7 +166,7 @@ The first workflow-canvas delivery supports these node types:
 
 - `group`
 - `rss_sources`
-- `prompt_unit`
+- `text`
 - `llm`
 - `search_provider`
 - `wecom_output`
@@ -174,7 +174,8 @@ The first workflow-canvas delivery supports these node types:
 Current executable ports:
 
 - `rss_sources -> llm.context`
-- `prompt_unit -> llm.prompt`
+- `text -> text`
+- `text -> llm.prompt`
 - `search_provider -> llm.search`
 - `llm.text -> wecom_output.text`
 
@@ -183,10 +184,11 @@ Current executable ports:
 Runtime behavior:
 
 1. `rss_sources` fetches enabled RSS or Atom feeds and deduplicates URLs against `sent_log`.
-2. `search_provider` uses the configured Core search provider profile.
-3. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
-4. `wecom_output` sends through the existing Touchpoints WeCom runtime.
-5. RSS items are appended to `sent_log` only after a successful WeCom delivery.
+2. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
+3. `search_provider` uses the configured Core search provider profile.
+4. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
+5. `wecom_output` sends through the existing Touchpoints WeCom runtime.
+6. RSS items are appended to `sent_log` only after a successful WeCom delivery.
 
 ## Writing Organizer
 

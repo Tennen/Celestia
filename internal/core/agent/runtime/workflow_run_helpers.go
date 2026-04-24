@@ -16,7 +16,7 @@ func buildWorkflowLLMPrompt(promptText string, userPrompt string, contextText st
 		sections = append(sections, "Search Results:\n"+strings.TrimSpace(searchText))
 	}
 	if strings.TrimSpace(promptText) != "" {
-		sections = append(sections, "Prompt Unit:\n"+strings.TrimSpace(promptText))
+		sections = append(sections, "Text Blocks:\n"+strings.TrimSpace(promptText))
 	}
 	if strings.TrimSpace(userPrompt) != "" {
 		sections = append(sections, "User Prompt:\n"+strings.TrimSpace(userPrompt))

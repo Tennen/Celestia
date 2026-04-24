@@ -11,13 +11,15 @@
 - workflow 支持节点、连线、基础分组（group 节点 + `parent_id` 归属）。
 - 首批节点：
   - `RSS Sources`
-  - `Prompt Unit`
+  - `Text`
   - `LLM`
   - `Search Provider`
   - `WeCom Output`
 - `LLM` 节点暴露 `prompt`、`context`、`search`、`tool`、`skill` 输入端口，以及 `text` 输出端口。
+- `Text` 节点支持在画布中直接编辑内容，并支持多个 `Text` 节点自顶部接入后按连线顺序拼接，再追加当前节点自身文本。
 - 本次实际执行链路支持：
-  - `prompt`
+  - `text -> text`
+  - `text -> llm.prompt`
   - `context`
   - `search`
   - `text -> WeCom Output`

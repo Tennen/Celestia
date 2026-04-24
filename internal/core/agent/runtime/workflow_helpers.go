@@ -12,7 +12,8 @@ import (
 const (
 	workflowNodeTypeGroup          = "group"
 	workflowNodeTypeRSSSources     = "rss_sources"
-	workflowNodeTypePromptUnit     = "prompt_unit"
+	workflowNodeTypeText           = "text"
+	legacyWorkflowNodeTypePrompt   = "prompt_unit"
 	workflowNodeTypeLLM            = "llm"
 	workflowNodeTypeSearchProvider = "search_provider"
 	workflowNodeTypeWeComOutput    = "wecom_output"
@@ -53,13 +54,13 @@ func legacyWorkflowProfilesToWorkflows(profiles []legacyWorkflowProfile) []model
 }
 
 func defaultWorkflowNodeLabel(nodeType string) string {
-	switch strings.TrimSpace(nodeType) {
+	switch canonicalWorkflowNodeType(nodeType) {
 	case workflowNodeTypeGroup:
 		return "Group"
 	case workflowNodeTypeRSSSources:
 		return "RSS Sources"
-	case workflowNodeTypePromptUnit:
-		return "Prompt Unit"
+	case workflowNodeTypeText:
+		return "Text"
 	case workflowNodeTypeLLM:
 		return "LLM"
 	case workflowNodeTypeSearchProvider:
@@ -68,6 +69,15 @@ func defaultWorkflowNodeLabel(nodeType string) string {
 		return "WeCom Output"
 	default:
 		return "Workflow Node"
+	}
+}
+
+func canonicalWorkflowNodeType(nodeType string) string {
+	switch strings.TrimSpace(nodeType) {
+	case legacyWorkflowNodeTypePrompt:
+		return workflowNodeTypeText
+	default:
+		return strings.TrimSpace(nodeType)
 	}
 }
 
@@ -133,6 +143,18 @@ func uniqueWorkflowStrings(values []string) []string {
 			continue
 		}
 		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func orderedWorkflowStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, item := range values {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
 		out = append(out, trimmed)
 	}
 	return out

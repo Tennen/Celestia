@@ -32,11 +32,13 @@ import {
   cloneWorkflow,
   createWorkflowDefinition,
   createWorkflowNode,
+  normalizeWorkflowDefinition,
   removeWorkflowEdgesForNode,
   removeWorkflowNode,
   removeWorkflowDefinition,
   replaceWorkflowDefinition,
   replaceWorkflowNode,
+  updateWorkflowNodeData,
   workflowGroups,
   workflowNodeCatalog,
   type WorkflowNodeType,
@@ -57,15 +59,40 @@ type Props = {
 
 export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenList, onWorkflowSaved }: Props) {
   const [draft, setDraft] = useState<AgentWorkflowDefinition>(() => buildDraft(snapshot, workflowId));
-  const [flowNodes, setFlowNodes] = useState<Node[]>(() => buildDraft(snapshot, workflowId).nodes.map((node) => toFlowNode(node)));
+  const [flowNodes, setFlowNodes] = useState<Node[]>(() => buildDraft(snapshot, workflowId).nodes.map((node) => toFlowNode(node, handleTextNodeChange)));
   const [flowEdges, setFlowEdges] = useState<Edge[]>(() => buildDraft(snapshot, workflowId).edges.map((edge) => toFlowEdge(edge)));
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [metaEditorOpen, setMetaEditorOpen] = useState(false);
 
+  function handleTextNodeChange(nodeId: string, text: string) {
+    setSelectedNodeId(nodeId);
+    setDraft((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) => (node.id === nodeId ? updateWorkflowNodeData(node, { text }) : node)),
+    }));
+    setFlowNodes((current) =>
+      current.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              selected: true,
+              data: {
+                ...node.data,
+                payload: {
+                  ...(((node.data as { payload?: Record<string, unknown> } | undefined)?.payload ?? {}) as Record<string, unknown>),
+                  text,
+                },
+              },
+            }
+          : { ...node, selected: false },
+      ),
+    );
+  }
+
   useEffect(() => {
     const nextDraft = buildDraft(snapshot, workflowId);
     setDraft(nextDraft);
-    setFlowNodes(nextDraft.nodes.map((node) => toFlowNode(node)));
+    setFlowNodes(nextDraft.nodes.map((node) => toFlowNode(node, handleTextNodeChange)));
     setFlowEdges(nextDraft.edges.map((edge) => toFlowEdge(edge)));
     setSelectedNodeId('');
     setMetaEditorOpen(false);
@@ -137,7 +164,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
     setFlowNodes((current) => [
       ...current.map((item) => ({ ...item, selected: false })),
       {
-        ...toFlowNode(node),
+        ...toFlowNode(node, handleTextNodeChange),
         selected: true,
       },
     ]);
@@ -184,7 +211,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
       current.map((node) =>
         node.id === nextNode.id
           ? {
-              ...toFlowNode(nextNode),
+              ...toFlowNode(nextNode, handleTextNodeChange),
               selected: node.selected,
             }
           : node,
@@ -289,7 +316,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
             {flowNodes.length === 0 ? (
               <div className="workflow-builder__canvas-empty">
                 <strong>Start from the left palette</strong>
-                <span>Add RSS, prompt, model, provider, and output nodes to begin wiring this workflow.</span>
+                <span>Add RSS, text, model, provider, and output nodes to begin wiring this workflow.</span>
               </div>
             ) : null}
             <ReactFlow
@@ -344,7 +371,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
                       setDraft((current) => {
                         const nextNodes = removeWorkflowNode(current.nodes, selectedNode.id);
                         const nextEdges = removeWorkflowEdgesForNode(current.edges, selectedNode.id);
-                        setFlowNodes(nextNodes.map((node) => toFlowNode(node)));
+                        setFlowNodes(nextNodes.map((node) => toFlowNode(node, handleTextNodeChange)));
                         setFlowEdges(nextEdges.map((edge) => toFlowEdge(edge)));
                         return {
                           ...current,
@@ -367,10 +394,10 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
 
 function buildDraft(snapshot: AgentSnapshot, workflowId?: string) {
   const current = snapshot.workflow.workflows.find((workflow) => workflow.id === workflowId);
-  return current ? cloneWorkflow(current) : createWorkflowDefinition();
+  return normalizeWorkflowDefinition(current ? cloneWorkflow(current) : createWorkflowDefinition());
 }
 
-function toFlowNode(node: AgentWorkflowNode): Node {
+function toFlowNode(node: AgentWorkflowNode, onTextChange: (nodeId: string, text: string) => void): Node {
   const isGroup = node.type === 'group';
   const style =
     typeof node.width === 'number' || typeof node.height === 'number'
@@ -391,6 +418,7 @@ function toFlowNode(node: AgentWorkflowNode): Node {
       title: node.label || node.type,
       nodeType: node.type,
       payload: node.data ?? {},
+      onTextChange: node.type === 'text' ? (text: string) => onTextChange(node.id, text) : undefined,
     },
     style: isGroup ? { width: node.width ?? 360, height: node.height ?? 240 } : style,
   };

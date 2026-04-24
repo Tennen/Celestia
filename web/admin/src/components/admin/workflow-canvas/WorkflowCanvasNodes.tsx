@@ -5,6 +5,8 @@ type WorkflowNodeData = {
   title: string;
   nodeType: string;
   description?: string;
+  payload?: Record<string, unknown>;
+  onTextChange?: (value: string) => void;
 };
 
 function NodeShell({
@@ -31,7 +33,7 @@ function NodeShell({
         lineClassName="workflow-node__resize-line"
         handleClassName="workflow-node__resize-handle nodrag nopan"
       />
-      <div className="workflow-node__title">{title}</div>
+      {title ? <div className="workflow-node__title">{title}</div> : null}
       {description ? <div className="workflow-node__desc">{description}</div> : null}
       {children}
     </div>
@@ -47,10 +49,17 @@ export function WorkflowCanvasNode({ data, selected }: NodeProps) {
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="content" />
         </NodeShell>
       );
-    case 'prompt_unit':
+    case 'text':
       return (
-        <NodeShell title={view.title} description="Reusable instruction block for downstream LLM nodes." selected={selected}>
-          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="prompt" />
+        <NodeShell title="" selected={selected} minWidth={240} minHeight={148}>
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="text" />
+          <textarea
+            className="workflow-node__text-editor nodrag nopan"
+            value={String(view.payload?.text ?? view.payload?.prompt ?? '')}
+            onChange={(event) => view.onTextChange?.(event.target.value)}
+            placeholder="Write text here..."
+          />
+          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="text" />
         </NodeShell>
       );
     case 'search_provider':

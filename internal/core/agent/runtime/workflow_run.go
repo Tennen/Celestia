@@ -38,8 +38,9 @@ type rssNodeConfig struct {
 	Sources []models.AgentWorkflowSource `json:"sources"`
 }
 
-type promptNodeConfig struct {
-	Prompt string `json:"prompt"`
+type textNodeConfig struct {
+	Text   string `json:"text,omitempty"`
+	Prompt string `json:"prompt,omitempty"`
 }
 
 type llmNodeConfig struct {
@@ -195,8 +196,8 @@ func (e *workflowExecutor) execute(node models.AgentWorkflowNode) (workflowNodeV
 		return workflowNodeValue{}, "Group container", map[string]any{"children": len(e.groupChildren(node.ID))}, nil
 	case workflowNodeTypeRSSSources:
 		return e.executeRSSNode(node)
-	case workflowNodeTypePromptUnit:
-		return e.executePromptNode(node)
+	case workflowNodeTypeText, legacyWorkflowNodeTypePrompt:
+		return e.executeTextNode(node)
 	case workflowNodeTypeSearchProvider:
 		return e.executeSearchNode(node)
 	case workflowNodeTypeLLM:
@@ -244,16 +245,27 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 	}, nil
 }
 
-func (e *workflowExecutor) executePromptNode(node models.AgentWorkflowNode) (workflowNodeValue, string, map[string]any, error) {
-	config, err := decodeWorkflowNodeData[promptNodeConfig](node.Data)
+func (e *workflowExecutor) executeTextNode(node models.AgentWorkflowNode) (workflowNodeValue, string, map[string]any, error) {
+	config, err := decodeWorkflowNodeData[textNodeConfig](node.Data)
 	if err != nil {
 		return workflowNodeValue{}, "", nil, err
 	}
-	prompt := strings.TrimSpace(config.Prompt)
-	if prompt == "" {
-		return workflowNodeValue{}, "", nil, errors.New("prompt node requires prompt")
+	inputs, inputErr := e.collect(node.ID, "text")
+	if inputErr != nil {
+		return workflowNodeValue{}, "", nil, inputErr
 	}
-	return workflowNodeValue{Prompt: prompt, Text: prompt}, "Prompt ready", map[string]any{"chars": len(prompt)}, nil
+	textParts := append([]string{}, inputs.texts...)
+	textParts = append(textParts, firstNonEmpty(strings.TrimSpace(config.Text), strings.TrimSpace(config.Prompt)))
+	text := strings.Join(orderedWorkflowStrings(textParts), "\n\n")
+	if text == "" {
+		return workflowNodeValue{}, "", nil, errors.New("text node requires text content or upstream text input")
+	}
+	return workflowNodeValue{Prompt: text, Text: text, Items: append([]models.AgentWorkflowItem{}, inputs.items...)}, "Text ready", map[string]any{
+		"chars":        len(text),
+		"input_count":  len(inputs.texts),
+		"item_count":   len(inputs.items),
+		"local_chars":  len(strings.TrimSpace(firstNonEmpty(config.Text, config.Prompt))),
+	}, nil
 }
 
 func (e *workflowExecutor) executeSearchNode(node models.AgentWorkflowNode) (workflowNodeValue, string, map[string]any, error) {
@@ -311,7 +323,7 @@ func (e *workflowExecutor) executeLLMNode(node models.AgentWorkflowNode) (workfl
 	if len(e.incomingByHandle(node.ID, "skill")) > 0 {
 		return workflowNodeValue{}, "", nil, errors.New("llm skill handle is reserved but not executable yet")
 	}
-	promptText := strings.Join(uniqueWorkflowStrings(promptInputs.prompts), "\n\n")
+	promptText := strings.Join(orderedWorkflowStrings(promptInputs.prompts), "\n\n")
 	contextTexts := append([]string{}, contextInputs.texts...)
 	promptValues := workflowStringSet(promptInputs.prompts)
 	for _, text := range promptInputs.texts {
@@ -324,8 +336,8 @@ func (e *workflowExecutor) executeLLMNode(node models.AgentWorkflowNode) (workfl
 		}
 		contextTexts = append(contextTexts, trimmed)
 	}
-	contextText := strings.Join(uniqueWorkflowStrings(contextTexts), "\n\n")
-	searchText := strings.Join(uniqueWorkflowStrings(searchInputs.searches), "\n\n")
+	contextText := strings.Join(orderedWorkflowStrings(contextTexts), "\n\n")
+	searchText := strings.Join(orderedWorkflowStrings(searchInputs.searches), "\n\n")
 	finalPrompt := buildWorkflowLLMPrompt(promptText, strings.TrimSpace(config.UserPrompt), contextText, searchText)
 	if strings.TrimSpace(finalPrompt) == "" {
 		return workflowNodeValue{}, "", nil, errors.New("llm node has no promptable input")
@@ -357,7 +369,7 @@ func (e *workflowExecutor) executeWeComOutputNode(node models.AgentWorkflowNode)
 	if inputErr != nil {
 		return workflowNodeValue{}, "", nil, inputErr
 	}
-	text := strings.Join(uniqueWorkflowStrings(inputs.texts), "\n\n")
+	text := strings.Join(orderedWorkflowStrings(inputs.texts), "\n\n")
 	if strings.TrimSpace(text) == "" {
 		return workflowNodeValue{}, "", nil, errors.New("wecom output node requires text input")
 	}

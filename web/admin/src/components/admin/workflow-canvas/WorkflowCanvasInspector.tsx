@@ -30,7 +30,7 @@ export function WorkflowCanvasInspector(props: {
       ) : null}
 
       {node.type === 'rss_sources' ? <RSSNodeEditor node={node} onChange={onChange} /> : null}
-      {node.type === 'prompt_unit' ? <PromptNodeEditor node={node} onChange={onChange} /> : null}
+      {node.type === 'text' ? <TextNodeEditor node={node} onChange={onChange} /> : null}
       {node.type === 'llm' ? <LLMNodeEditor node={node} providerOptions={providerOptions} onChange={onChange} /> : null}
       {node.type === 'search_provider' ? <SearchNodeEditor node={node} providerOptions={searchProviderOptions} onChange={onChange} /> : null}
       {node.type === 'wecom_output' ? <WeComOutputNodeEditor node={node} wecomOptions={wecomOptions} onChange={onChange} /> : null}
@@ -77,14 +77,14 @@ function RSSNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: 
   );
 }
 
-function PromptNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
+function TextNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
   return (
     <label className="stack text-sm font-medium">
-      <span>Prompt</span>
+      <span>Text</span>
       <Textarea
-        value={String(node.data?.prompt ?? '')}
-        onChange={(event) => onChange(updateWorkflowNodeData(node, { prompt: event.target.value }))}
-        placeholder="Write the reusable prompt block here."
+        value={String(node.data?.text ?? node.data?.prompt ?? '')}
+        onChange={(event) => onChange(updateWorkflowNodeData(node, { text: event.target.value }))}
+        placeholder="Write the text block that should be concatenated downstream."
       />
     </label>
   );
