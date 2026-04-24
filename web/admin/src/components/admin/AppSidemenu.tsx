@@ -1,4 +1,4 @@
-import { Activity, Bot, ChevronDown, ChevronLeft, ChevronRight, Home, Layers3, MessagesSquare, PlugZap, RefreshCw, Share2, Smartphone } from 'lucide-react';
+import { Activity, Bot, ChevronDown, ChevronLeft, Home, Layers3, MessagesSquare, PlugZap, RefreshCw, Share2, Smartphone } from 'lucide-react';
 import type { CapabilitySummary } from '../../lib/types';
 import type { AppSection } from '../../lib/admin';
 import { agentPanelItems, type AgentPanelId } from '../../lib/agent-admin';
@@ -18,7 +18,6 @@ type Props = {
   agentExpanded: boolean;
   workflowExpanded: boolean;
   capabilitiesExpanded: boolean;
-  sidemenuCondensed: boolean;
   catalogCount: number;
   pluginCount: number;
   deviceCount: number;
@@ -34,7 +33,7 @@ type Props = {
   onToggleAgentExpanded: () => void;
   onToggleWorkflowExpanded: () => void;
   onToggleCapabilitiesExpanded: () => void;
-  onToggleSidemenuCondensed: () => void;
+  onCollapse: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 };
@@ -48,7 +47,6 @@ export function AppSidemenu(props: Props) {
     agentExpanded,
     workflowExpanded,
     capabilitiesExpanded,
-    sidemenuCondensed,
     catalogCount,
     pluginCount,
     deviceCount,
@@ -64,7 +62,7 @@ export function AppSidemenu(props: Props) {
     onToggleAgentExpanded,
     onToggleWorkflowExpanded,
     onToggleCapabilitiesExpanded,
-    onToggleSidemenuCondensed,
+    onCollapse,
     onRefresh,
     refreshing,
   } = props;
@@ -73,15 +71,15 @@ export function AppSidemenu(props: Props) {
     capability.kind === 'automation' ? summaryNumber(capability, 'total') : summaryNumber(capability, 'rule_count');
 
   return (
-    <aside className={cn('sidemenu', sidemenuCondensed && 'is-condensed')}>
+    <aside className="sidemenu">
       <div className="sidemenu__brand">
         <div className="sidemenu__brand-row">
           <div>
             <p className="eyebrow">Celestia Core Runtime</p>
             <h1>Admin Console</h1>
           </div>
-          <Button variant="secondary" size="icon" className="sidemenu__compact-toggle" onClick={onToggleSidemenuCondensed}>
-            {sidemenuCondensed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          <Button variant="secondary" size="icon" className="sidemenu__compact-toggle" onClick={onCollapse} aria-label="Collapse navigation">
+            <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
         <p className="topbar__sub">

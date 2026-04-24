@@ -99,6 +99,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .workflow-builder__canvas {
+    min-height: 520px;
+  }
+
+  .workflow-builder__library-card {
+    max-height: none;
+  }
+
   .vision-toolbar,
   .recognition-settings-modal__aside {
     @apply flex-wrap;

@@ -18,6 +18,7 @@ import { ArrowLeft, Play, Plus, Save, Trash2 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
+import { ScrollArea } from '../../ui/scroll-area';
 import { Textarea } from '../../ui/textarea';
 import { Field } from '../AgentFormFields';
 import type { AgentSnapshot } from '../../../lib/agent';
@@ -191,14 +192,25 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
 
   return (
     <div className="workflow-builder">
-      <Card className="panel">
-        <CardHeader>
+      <Card className="panel workflow-builder__toolbar-card">
+        <CardContent className="workflow-builder__toolbar-content">
           <div className="workflow-builder__header">
             <div className="stack">
-              <CardTitle>{persisted ? 'Workflow Builder' : 'New Workflow'}</CardTitle>
+              <div className="workflow-builder__headline">
+                <div>
+                  <p className="eyebrow">Workflow Builder</p>
+                  <CardTitle>{persisted ? draft.name || 'Workflow Builder' : 'New Workflow'}</CardTitle>
+                </div>
+                <div className="workflow-builder__status">
+                  <Badge tone={persisted ? 'accent' : 'neutral'} size="xxs">
+                    {persisted ? 'saved' : 'draft'}
+                  </Badge>
+                  <span className="detail">{draft.nodes.length} nodes · {draft.edges.length} links</span>
+                </div>
+              </div>
               <CardDescription>Build the graph here, then save it as a reusable workflow definition.</CardDescription>
             </div>
-            <div className="button-row">
+            <div className="button-row workflow-builder__actions">
               <Button variant="secondary" onClick={onOpenList}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to List
@@ -217,8 +229,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
               </Button>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="stack">
+
           <div className="workflow-builder__meta">
             <Field label="Workflow Name" value={draft.name} onChange={(name) => setDraft((current) => ({ ...current, name }))} />
             <label className="stack text-sm font-medium">
@@ -229,20 +240,6 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
                 placeholder="Describe what this workflow does."
               />
             </label>
-          </div>
-          <div className="workflow-builder__library">
-            {workflowNodeCatalog.map((item) => (
-              <button key={item.type} type="button" className="workflow-builder__library-item" onClick={() => addNode(item.type)}>
-                <Plus className="h-3.5 w-3.5" />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="workflow-builder__status">
-            <Badge tone={persisted ? 'accent' : 'neutral'} size="xxs">
-              {persisted ? 'saved' : 'draft'}
-            </Badge>
-            <span className="detail">{draft.nodes.length} nodes · {draft.edges.length} links</span>
           </div>
         </CardContent>
       </Card>
@@ -255,6 +252,12 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
           </CardHeader>
           <CardContent className="workflow-builder__canvas-content">
             <div className="workflow-builder__canvas">
+              {flowNodes.length === 0 ? (
+                <div className="workflow-builder__canvas-empty">
+                  <strong>Start from the right palette</strong>
+                  <span>Add RSS, prompt, model, provider, and output nodes to begin wiring this workflow.</span>
+                </div>
+              ) : null}
               <ReactFlow
                 nodes={flowNodes}
                 edges={flowEdges}
@@ -271,48 +274,72 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
               >
                 <MiniMap pannable zoomable />
                 <Controls />
-                <Background />
+                <Background gap={18} />
               </ReactFlow>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="panel workflow-builder__inspector-card">
-          <CardHeader>
-            <CardTitle>{selectedNode ? selectedNode.label || selectedNode.type : 'Inspector'}</CardTitle>
-            <CardDescription>
-              {selectedNode ? `Editing ${selectedNode.type}` : 'Select a node to configure its inputs, provider selection, and output target.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="stack">
-            {selectedNode ? (
-              <WorkflowCanvasInspector
-                node={selectedNode}
-                groups={groups}
-                providerOptions={providerOptions}
-                searchProviderOptions={searchProviderOptions}
-                wecomOptions={wecomOptions}
-                onChange={updateSelectedNode}
-                onDelete={() => {
-                  setDraft((current) => {
-                    const nextNodes = removeWorkflowNode(current.nodes, selectedNode.id);
-                    const nextEdges = removeWorkflowEdgesForNode(current.edges, selectedNode.id);
-                    setFlowNodes(nextNodes.map((node) => toFlowNode(node)));
-                    setFlowEdges(nextEdges.map((edge) => toFlowEdge(edge)));
-                    return {
-                      ...current,
-                      nodes: nextNodes,
-                      edges: nextEdges,
-                    };
-                  });
-                  setSelectedNodeId('');
-                }}
-              />
-            ) : (
-              <div className="detail">Select a node on the canvas to edit it.</div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="workflow-builder__aside">
+          <Card className="panel workflow-builder__library-card">
+            <CardHeader>
+              <CardTitle>Components</CardTitle>
+              <CardDescription>Add modules directly from the palette on the right of the canvas.</CardDescription>
+            </CardHeader>
+            <CardContent className="workflow-builder__library-content">
+              <ScrollArea className="workflow-builder__library-scroll">
+                <div className="workflow-builder__library">
+                  {workflowNodeCatalog.map((item) => (
+                    <button key={item.type} type="button" className="workflow-builder__library-item" onClick={() => addNode(item.type)}>
+                      <div className="workflow-builder__library-item-head">
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>{item.label}</span>
+                      </div>
+                      <span className="workflow-builder__library-item-desc">{item.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          <Card className="panel workflow-builder__inspector-card">
+            <CardHeader>
+              <CardTitle>{selectedNode ? selectedNode.label || selectedNode.type : 'Inspector'}</CardTitle>
+              <CardDescription>
+                {selectedNode ? `Editing ${selectedNode.type}` : 'Select a node to configure its inputs, provider selection, and output target.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="stack workflow-builder__inspector-content">
+              {selectedNode ? (
+                <WorkflowCanvasInspector
+                  node={selectedNode}
+                  groups={groups}
+                  providerOptions={providerOptions}
+                  searchProviderOptions={searchProviderOptions}
+                  wecomOptions={wecomOptions}
+                  onChange={updateSelectedNode}
+                  onDelete={() => {
+                    setDraft((current) => {
+                      const nextNodes = removeWorkflowNode(current.nodes, selectedNode.id);
+                      const nextEdges = removeWorkflowEdgesForNode(current.edges, selectedNode.id);
+                      setFlowNodes(nextNodes.map((node) => toFlowNode(node)));
+                      setFlowEdges(nextEdges.map((edge) => toFlowEdge(edge)));
+                      return {
+                        ...current,
+                        nodes: nextNodes,
+                        edges: nextEdges,
+                      };
+                    });
+                    setSelectedNodeId('');
+                  }}
+                />
+              ) : (
+                <div className="detail">Select a node on the canvas to edit it.</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

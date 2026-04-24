@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { Badge } from './components/ui/badge';
+import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
 import { ActivitySection } from './components/admin/ActivitySection';
 import { AppSidemenu } from './components/admin/AppSidemenu';
@@ -29,7 +31,7 @@ function App() {
   const [workflowExpanded, setWorkflowExpanded] = useState(true);
   const [activeCapabilityId, setActiveCapabilityId] = useState('');
   const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(true);
-  const [sidemenuCondensed, setSidemenuCondensed] = useState(false);
+  const [sidemenuCollapsed, setSidemenuCollapsed] = useState(false);
 
   const {
     loading,
@@ -158,39 +160,53 @@ function App() {
       <div className="ambient ambient--two" />
       <div className="ambient ambient--three" />
 
-      <div className={cn('app-frame', sidemenuCondensed && 'app-frame--condensed')}>
-        <AppSidemenu
-          activeSection={activeSection}
-          activeAgentPanel={activeAgentPanel}
-          activeWorkflowPage={activeWorkflowPage}
-          selectedCapabilityId={selectedCapability?.id ?? ''}
-          agentExpanded={agentExpanded}
-          workflowExpanded={workflowExpanded}
-          capabilitiesExpanded={capabilitiesExpanded}
-          sidemenuCondensed={sidemenuCondensed}
-          catalogCount={catalog.length}
-          pluginCount={dashboard?.plugins ?? 0}
-          deviceCount={devices.length}
-          activityCount={events.length + audits.length}
-          capabilities={capabilities}
-          error={error}
-          runtimeBadgeText={runtimeBadgeText}
-          runtimeBadgeTone={runtimeBadgeTone}
-          onOpenSection={openSection}
-          onOpenAgentPanel={openAgentPanel}
-          onOpenWorkflowPage={openWorkflowPage}
-          onOpenCapability={openCapability}
-          onToggleAgentExpanded={() => setAgentExpanded((current) => !current)}
-          onToggleWorkflowExpanded={() => setWorkflowExpanded((current) => !current)}
-          onToggleCapabilitiesExpanded={() => setCapabilitiesExpanded((current) => !current)}
-          onToggleSidemenuCondensed={() => setSidemenuCondensed((current) => !current)}
-          onRefresh={() => void refreshAll()}
-          refreshing={isRefreshing}
-        />
+      <div className={cn('app-frame', sidemenuCollapsed && 'app-frame--sidemenu-collapsed')}>
+        {!sidemenuCollapsed ? (
+          <AppSidemenu
+            activeSection={activeSection}
+            activeAgentPanel={activeAgentPanel}
+            activeWorkflowPage={activeWorkflowPage}
+            selectedCapabilityId={selectedCapability?.id ?? ''}
+            agentExpanded={agentExpanded}
+            workflowExpanded={workflowExpanded}
+            capabilitiesExpanded={capabilitiesExpanded}
+            catalogCount={catalog.length}
+            pluginCount={dashboard?.plugins ?? 0}
+            deviceCount={devices.length}
+            activityCount={events.length + audits.length}
+            capabilities={capabilities}
+            error={error}
+            runtimeBadgeText={runtimeBadgeText}
+            runtimeBadgeTone={runtimeBadgeTone}
+            onOpenSection={openSection}
+            onOpenAgentPanel={openAgentPanel}
+            onOpenWorkflowPage={openWorkflowPage}
+            onOpenCapability={openCapability}
+            onToggleAgentExpanded={() => setAgentExpanded((current) => !current)}
+            onToggleWorkflowExpanded={() => setWorkflowExpanded((current) => !current)}
+            onToggleCapabilitiesExpanded={() => setCapabilitiesExpanded((current) => !current)}
+            onCollapse={() => setSidemenuCollapsed(true)}
+            onRefresh={() => void refreshAll()}
+            refreshing={isRefreshing}
+          />
+        ) : null}
 
         <main className="workspace">
           <header className="module-header">
-            <p className="module-header__title">{sectionLabel[activeSection]}</p>
+            <div className="module-header__leading">
+              {sidemenuCollapsed ? (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="module-header__sidemenu-toggle"
+                  onClick={() => setSidemenuCollapsed(false)}
+                  aria-label="Show navigation"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              ) : null}
+              <p className="module-header__title">{sectionLabel[activeSection]}</p>
+            </div>
             <div className="module-header__meta">
               <Badge tone={runtimeBadgeTone}>{runtimeHeaderText}</Badge>
               {refreshing ? (

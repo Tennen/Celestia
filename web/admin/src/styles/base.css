@@ -27,8 +27,8 @@
     @apply mx-auto grid h-full min-h-0 max-w-[1600px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)];
   }
 
-  .app-frame--condensed {
-    @apply xl:grid-cols-[220px_minmax(0,1fr)];
+  .app-frame--sidemenu-collapsed {
+    @apply xl:grid-cols-[minmax(0,1fr)];
   }
 
   .workspace {
@@ -137,24 +137,20 @@
     @apply border-slate-800 bg-slate-900/70 text-slate-200 hover:border-slate-700 hover:bg-slate-900 hover:text-white;
   }
 
-  .sidemenu.is-condensed {
-    @apply p-4;
-  }
-
-  .sidemenu.is-condensed .sidemenu__button {
-    @apply px-3 py-2.5;
-  }
-
-  .sidemenu.is-condensed .sidemenu__subbutton {
-    @apply px-2.5 py-2;
-  }
-
   .module-header {
     @apply flex items-center justify-between gap-3 rounded-[calc(var(--radius)+0.35rem)] border bg-card/95 px-4 py-2.5 shadow-sm backdrop-blur;
   }
 
+  .module-header__leading {
+    @apply flex items-center gap-2;
+  }
+
   .module-header__title {
     @apply text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground;
+  }
+
+  .module-header__sidemenu-toggle {
+    @apply h-8 w-8;
   }
 
   .module-header__meta {

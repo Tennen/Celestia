@@ -116,21 +116,46 @@
     @apply flex min-h-0 flex-1 flex-col gap-3;
   }
 
+  .workflow-builder__toolbar-card {
+    @apply shrink-0;
+  }
+
+  .workflow-builder__toolbar-content {
+    @apply flex flex-col gap-4;
+  }
+
   .workflow-builder__header {
     @apply flex flex-wrap items-start justify-between gap-3;
+  }
+
+  .workflow-builder__headline {
+    @apply flex flex-wrap items-center gap-3;
   }
 
   .workflow-builder__meta {
     @apply grid gap-3 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)];
   }
 
+  .workflow-builder__actions {
+    @apply shrink-0;
+  }
+
   .workflow-builder__library {
-    @apply flex flex-wrap gap-2;
+    @apply grid gap-2;
   }
 
   .workflow-builder__library-item {
-    @apply inline-flex items-center gap-2 rounded-lg border bg-background/80 px-3 py-2 text-sm transition hover:border-primary/40 hover:bg-white;
+    @apply flex flex-col items-start gap-2 rounded-xl border bg-background/80 px-3 py-3 text-left text-sm transition hover:border-primary/40 hover:bg-white;
     border-color: var(--border-light);
+  }
+
+  .workflow-builder__library-item-head {
+    @apply inline-flex items-center gap-2 font-medium;
+  }
+
+  .workflow-builder__library-item-desc {
+    @apply text-xs leading-5;
+    color: color-mix(in srgb, var(--text-primary) 68%, white);
   }
 
   .workflow-builder__status {
@@ -138,19 +163,47 @@
   }
 
   .workflow-builder__workspace {
-    @apply grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_320px];
+    @apply grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px];
   }
 
   .workflow-builder__canvas-card,
-  .workflow-builder__inspector-card,
-  .workflow-builder__canvas-content {
-    @apply min-h-0;
+  .workflow-builder__library-card,
+  .workflow-builder__inspector-card {
+    @apply flex min-h-0 flex-col;
+  }
+
+  .workflow-builder__canvas-content,
+  .workflow-builder__library-content,
+  .workflow-builder__inspector-content {
+    @apply flex min-h-0 flex-1 flex-col;
   }
 
   .workflow-builder__canvas {
-    @apply min-h-[640px] overflow-hidden rounded-xl border bg-[color:var(--bg-secondary)];
+    @apply relative min-h-0 flex-1 overflow-hidden rounded-xl border bg-[color:var(--bg-secondary)];
     border-color: var(--border-light);
     height: 100%;
+  }
+
+  .workflow-builder__canvas-empty {
+    @apply pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-6 text-center text-sm;
+    color: color-mix(in srgb, var(--text-primary) 72%, white);
+  }
+
+  .workflow-builder__canvas-empty strong {
+    @apply text-base font-semibold;
+    color: var(--text-primary);
+  }
+
+  .workflow-builder__aside {
+    @apply flex min-h-0 flex-col gap-3;
+  }
+
+  .workflow-builder__library-card {
+    @apply max-h-[320px];
+  }
+
+  .workflow-builder__library-scroll {
+    @apply min-h-0 flex-1;
   }
 
   .workflow-node,
