@@ -155,17 +155,33 @@
 
   .workflow-node,
   .workflow-group-node {
-    @apply rounded-2xl border bg-white/95 px-4 py-3 text-xs shadow-sm;
+    @apply relative rounded-2xl border bg-white/95 px-4 py-3 text-xs shadow-sm transition-[border-color,box-shadow,transform];
     border-color: var(--border-light);
   }
 
   .workflow-node {
     min-width: 190px;
+    min-height: 108px;
+    cursor: grab;
   }
 
   .workflow-group-node {
     @apply flex h-full w-full items-start justify-start;
     background-color: color-mix(in srgb, var(--bg-accent) 70%, white);
+    cursor: grab;
+  }
+
+  .workflow-node:active,
+  .workflow-group-node:active {
+    cursor: grabbing;
+  }
+
+  .workflow-node.is-selected,
+  .workflow-group-node.is-selected {
+    border-color: color-mix(in srgb, var(--primary) 64%, white);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 28%, white),
+      0 18px 36px color-mix(in srgb, var(--glow) 42%, transparent);
   }
 
   .workflow-node__title,
@@ -182,5 +198,33 @@
   .workflow-node__ports {
     @apply mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.12em];
     color: color-mix(in srgb, var(--text-primary) 45%, white);
+  }
+
+  .workflow-node__handle {
+    width: 14px;
+    height: 14px;
+    border: 2px solid white;
+    border-radius: 9999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-soft) 72%, white);
+    cursor: crosshair;
+    transition: transform 120ms ease;
+  }
+
+  .workflow-node__handle:hover {
+    transform: scale(1.15);
+  }
+
+  .workflow-node__resize-line {
+    border-color: color-mix(in srgb, var(--primary) 48%, white);
+  }
+
+  .workflow-node__resize-handle {
+    width: 12px;
+    height: 12px;
+    border: 2px solid white;
+    border-radius: 9999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-soft) 72%, white);
   }
 }

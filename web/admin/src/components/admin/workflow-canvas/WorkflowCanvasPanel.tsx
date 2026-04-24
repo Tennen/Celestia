@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import '@xyflow/react/dist/style.css';
 import {
   addEdge,
@@ -56,10 +56,15 @@ type Props = {
 
 export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenList, onWorkflowSaved }: Props) {
   const [draft, setDraft] = useState<AgentWorkflowDefinition>(() => buildDraft(snapshot, workflowId));
+  const [flowNodes, setFlowNodes] = useState<Node[]>(() => buildDraft(snapshot, workflowId).nodes.map((node) => toFlowNode(node)));
+  const [flowEdges, setFlowEdges] = useState<Edge[]>(() => buildDraft(snapshot, workflowId).edges.map((edge) => toFlowEdge(edge)));
   const [selectedNodeId, setSelectedNodeId] = useState('');
 
   useEffect(() => {
-    setDraft(buildDraft(snapshot, workflowId));
+    const nextDraft = buildDraft(snapshot, workflowId);
+    setDraft(nextDraft);
+    setFlowNodes(nextDraft.nodes.map((node) => toFlowNode(node)));
+    setFlowEdges(nextDraft.edges.map((edge) => toFlowEdge(edge)));
     setSelectedNodeId('');
   }, [snapshot, workflowId]);
 
@@ -90,9 +95,6 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
         label: user.name || user.wecom_user || user.id,
       })),
   ];
-
-  const flowNodes = useMemo(() => draft.nodes.map((node) => toFlowNode(node)), [draft.nodes]);
-  const flowEdges = useMemo(() => draft.edges.map((edge) => ({ ...edge, id: edge.id } satisfies Edge)), [draft.edges]);
 
   const saveWorkflow = async () => {
     onWorkflowSaved(draft.id);
@@ -129,28 +131,45 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
       node.position = { x: 24, y: 48 + draft.nodes.filter((item) => item.parent_id === selectedNode.id).length * 92 };
     }
     setDraft((current) => ({ ...current, nodes: [...current.nodes, node] }));
+    setFlowNodes((current) => [
+      ...current.map((item) => ({ ...item, selected: false })),
+      {
+        ...toFlowNode(node),
+        selected: true,
+      },
+    ]);
     setSelectedNodeId(node.id);
   };
 
   const onNodesChange: OnNodesChange = (changes) => {
-    const nextNodes = applyNodeChanges(changes, flowNodes);
-    setDraft((current) => ({ ...current, nodes: nextNodes.map((node) => fromFlowNode(node)) }));
+    setFlowNodes((current) => {
+      const nextNodes = applyNodeChanges(changes, current);
+      setDraft((draftState) => ({ ...draftState, nodes: nextNodes.map((node) => fromFlowNode(node)) }));
+      setSelectedNodeId(nextNodes.find((node) => node.selected)?.id ?? '');
+      return nextNodes;
+    });
   };
 
   const onEdgesChange: OnEdgesChange = (changes) => {
-    const nextEdges = applyEdgeChanges(changes, flowEdges);
-    setDraft((current) => ({ ...current, edges: nextEdges.map((edge) => fromFlowEdge(edge)) }));
+    setFlowEdges((current) => {
+      const nextEdges = applyEdgeChanges(changes, current);
+      setDraft((draftState) => ({ ...draftState, edges: nextEdges.map((edge) => fromFlowEdge(edge)) }));
+      return nextEdges;
+    });
   };
 
   const onConnect = (connection: Connection) => {
-    const nextEdges = addEdge(
-      {
-        ...connection,
-        id: `edge-${Date.now()}`,
-      },
-      flowEdges,
-    );
-    setDraft((current) => ({ ...current, edges: nextEdges.map((edge) => fromFlowEdge(edge)) }));
+    setFlowEdges((current) => {
+      const nextEdges = addEdge(
+        {
+          ...connection,
+          id: `edge-${Date.now()}`,
+        },
+        current,
+      );
+      setDraft((draftState) => ({ ...draftState, edges: nextEdges.map((edge) => fromFlowEdge(edge)) }));
+      return nextEdges;
+    });
   };
 
   const updateSelectedNode = (nextNode: AgentWorkflowNode) => {
@@ -158,6 +177,16 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
       ...current,
       nodes: replaceWorkflowNode(current.nodes, nextNode),
     }));
+    setFlowNodes((current) =>
+      current.map((node) =>
+        node.id === nextNode.id
+          ? {
+              ...toFlowNode(nextNode),
+              selected: node.selected,
+            }
+          : node,
+      ),
+    );
   };
 
   return (
@@ -233,7 +262,10 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                onSelectionChange={({ nodes }) => setSelectedNodeId(nodes[0]?.id ?? '')}
                 onPaneClick={() => setSelectedNodeId('')}
+                panOnDrag={[1, 2]}
+                connectionRadius={28}
                 fitView
                 nodeTypes={workflowCanvasNodeTypes}
               >
@@ -262,11 +294,17 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
                 wecomOptions={wecomOptions}
                 onChange={updateSelectedNode}
                 onDelete={() => {
-                  setDraft((current) => ({
-                    ...current,
-                    nodes: removeWorkflowNode(current.nodes, selectedNode.id),
-                    edges: removeWorkflowEdgesForNode(current.edges, selectedNode.id),
-                  }));
+                  setDraft((current) => {
+                    const nextNodes = removeWorkflowNode(current.nodes, selectedNode.id);
+                    const nextEdges = removeWorkflowEdgesForNode(current.edges, selectedNode.id);
+                    setFlowNodes(nextNodes.map((node) => toFlowNode(node)));
+                    setFlowEdges(nextEdges.map((edge) => toFlowEdge(edge)));
+                    return {
+                      ...current,
+                      nodes: nextNodes,
+                      edges: nextEdges,
+                    };
+                  });
                   setSelectedNodeId('');
                 }}
               />
@@ -287,6 +325,13 @@ function buildDraft(snapshot: AgentSnapshot, workflowId?: string) {
 
 function toFlowNode(node: AgentWorkflowNode): Node {
   const isGroup = node.type === 'group';
+  const style =
+    typeof node.width === 'number' || typeof node.height === 'number'
+      ? {
+          width: node.width,
+          height: node.height,
+        }
+      : undefined;
   return {
     id: node.id,
     type: isGroup ? 'workflowGroupNode' : 'workflowCanvasNode',
@@ -300,13 +345,19 @@ function toFlowNode(node: AgentWorkflowNode): Node {
       nodeType: node.type,
       payload: node.data ?? {},
     },
-    style: isGroup
-      ? {
-          width: node.width ?? 360,
-          height: node.height ?? 240,
-        }
-      : undefined,
+    style: isGroup ? { width: node.width ?? 360, height: node.height ?? 240 } : style,
   };
+}
+
+function toFlowEdge(edge: { id: string; source: string; source_handle?: string; target: string; target_handle?: string; label?: string }) {
+  return {
+    id: edge.id,
+    source: edge.source,
+    sourceHandle: edge.source_handle ?? undefined,
+    target: edge.target,
+    targetHandle: edge.target_handle ?? undefined,
+    label: edge.label ?? '',
+  } satisfies Edge;
 }
 
 function fromFlowNode(node: Node): AgentWorkflowNode {

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/react';
 
 type WorkflowNodeData = {
   title: string;
@@ -7,9 +7,30 @@ type WorkflowNodeData = {
   description?: string;
 };
 
-function NodeShell({ title, description, children }: { title: string; description?: string; children?: ReactNode }) {
+function NodeShell({
+  title,
+  description,
+  selected,
+  minWidth = 190,
+  minHeight = 108,
+  children,
+}: {
+  title: string;
+  description?: string;
+  selected: boolean;
+  minWidth?: number;
+  minHeight?: number;
+  children?: ReactNode;
+}) {
   return (
-    <div className="workflow-node">
+    <div className={`workflow-node${selected ? ' is-selected' : ''}`}>
+      <NodeResizer
+        isVisible={selected}
+        minWidth={minWidth}
+        minHeight={minHeight}
+        lineClassName="workflow-node__resize-line"
+        handleClassName="workflow-node__resize-handle nodrag nopan"
+      />
       <div className="workflow-node__title">{title}</div>
       {description ? <div className="workflow-node__desc">{description}</div> : null}
       {children}
@@ -17,36 +38,36 @@ function NodeShell({ title, description, children }: { title: string; descriptio
   );
 }
 
-export function WorkflowCanvasNode({ data }: NodeProps) {
+export function WorkflowCanvasNode({ data, selected }: NodeProps) {
   const view = (data ?? {}) as WorkflowNodeData;
   switch (view.nodeType) {
     case 'rss_sources':
       return (
-        <NodeShell title={view.title} description="Fetches feed items and emits workflow context.">
-          <Handle type="source" position={Position.Bottom} id="content" />
+        <NodeShell title={view.title} description="Fetches feed items and emits workflow context." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="content" />
         </NodeShell>
       );
     case 'prompt_unit':
       return (
-        <NodeShell title={view.title} description="Reusable instruction block for downstream LLM nodes.">
-          <Handle type="source" position={Position.Bottom} id="prompt" />
+        <NodeShell title={view.title} description="Reusable instruction block for downstream LLM nodes." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="prompt" />
         </NodeShell>
       );
     case 'search_provider':
       return (
-        <NodeShell title={view.title} description="Runs a configured search provider.">
-          <Handle type="source" position={Position.Bottom} id="search" />
+        <NodeShell title={view.title} description="Runs a configured search provider." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="search" />
         </NodeShell>
       );
     case 'llm':
       return (
-        <NodeShell title={view.title} description="Consumes prompt, context, and optional search input.">
-          <Handle type="target" position={Position.Top} id="prompt" />
-          <Handle type="target" position={Position.Left} id="context" />
-          <Handle type="target" position={Position.Right} id="search" />
-          <Handle type="target" position={Position.Left} id="skill" style={{ top: '72%' }} />
-          <Handle type="target" position={Position.Right} id="tool" style={{ top: '72%' }} />
-          <Handle type="source" position={Position.Bottom} id="text" />
+        <NodeShell title={view.title} description="Consumes prompt, context, and optional search input." selected={selected} minHeight={128}>
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="prompt" />
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Left} id="context" />
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Right} id="search" />
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Left} id="skill" style={{ top: '72%' }} />
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Right} id="tool" style={{ top: '72%' }} />
+          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="text" />
           <div className="workflow-node__ports">
             <span>skill</span>
             <span>tool</span>
@@ -55,19 +76,26 @@ export function WorkflowCanvasNode({ data }: NodeProps) {
       );
     case 'wecom_output':
       return (
-        <NodeShell title={view.title} description="Delivers the generated text to WeCom.">
-          <Handle type="target" position={Position.Top} id="text" />
+        <NodeShell title={view.title} description="Delivers the generated text to WeCom." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="text" />
         </NodeShell>
       );
     default:
-      return <NodeShell title={view.title} description={view.description} />;
+      return <NodeShell title={view.title} description={view.description} selected={selected} />;
   }
 }
 
-export function WorkflowCanvasGroupNode({ data }: NodeProps) {
+export function WorkflowCanvasGroupNode({ data, selected }: NodeProps) {
   const view = (data ?? {}) as WorkflowNodeData;
   return (
-    <div className="workflow-group-node">
+    <div className={`workflow-group-node${selected ? ' is-selected' : ''}`}>
+      <NodeResizer
+        isVisible={selected}
+        minWidth={260}
+        minHeight={180}
+        lineClassName="workflow-node__resize-line"
+        handleClassName="workflow-node__resize-handle nodrag nopan"
+      />
       <div className="workflow-group-node__title">{view.title}</div>
     </div>
   );
