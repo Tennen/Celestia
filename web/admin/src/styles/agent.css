@@ -112,6 +112,57 @@
     @apply flex min-h-0 flex-1 flex-col gap-3;
   }
 
+  .workflow-workspace__frame {
+    @apply relative flex min-h-0 flex-1 flex-col;
+  }
+
+  .workflow-workspace__notice {
+    @apply absolute right-0 top-0 z-40 flex w-full max-w-[360px] items-start gap-3 rounded-2xl border px-4 py-3 shadow-xl backdrop-blur;
+    background: color-mix(in srgb, white 92%, var(--bg-secondary));
+    border-color: var(--border-light);
+  }
+
+  .workflow-workspace__notice.is-success {
+    box-shadow: 0 18px 34px color-mix(in srgb, var(--glow) 34%, transparent);
+  }
+
+  .workflow-workspace__notice.is-error {
+    border-color: hsl(var(--destructive) / 0.22);
+    box-shadow: 0 18px 34px hsl(var(--destructive) / 0.12);
+  }
+
+  .workflow-workspace__notice-icon {
+    @apply mt-0.5 shrink-0;
+    color: var(--text-primary);
+  }
+
+  .workflow-workspace__notice.is-success .workflow-workspace__notice-icon {
+    color: hsl(var(--success));
+  }
+
+  .workflow-workspace__notice.is-error .workflow-workspace__notice-icon {
+    color: hsl(var(--destructive));
+  }
+
+  .workflow-workspace__notice-copy {
+    @apply flex min-w-0 flex-1 flex-col gap-1 text-sm;
+  }
+
+  .workflow-workspace__notice-copy strong {
+    @apply font-semibold;
+    color: var(--text-primary);
+  }
+
+  .workflow-workspace__notice-copy span {
+    @apply leading-5;
+    color: color-mix(in srgb, var(--text-primary) 72%, white);
+  }
+
+  .workflow-workspace__notice-close {
+    @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition hover:bg-black/5;
+    color: color-mix(in srgb, var(--text-primary) 64%, white);
+  }
+
   .workflow-builder {
     @apply flex min-h-0 flex-1 flex-col gap-3;
   }

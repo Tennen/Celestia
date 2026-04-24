@@ -102,6 +102,10 @@
     @apply items-start;
   }
 
+  .workflow-workspace__notice {
+    max-width: min(100%, 360px);
+  }
+
   .workflow-builder__title-group,
   .workflow-builder__actions {
     @apply w-full;
