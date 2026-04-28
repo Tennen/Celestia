@@ -43,9 +43,12 @@ const (
 )
 
 type AutomationTimeCondition struct {
-	Schedule string `json:"schedule"`
-	At       string `json:"at"`
-	Timezone string `json:"timezone,omitempty"`
+	Schedule        string `json:"schedule"`
+	At              string `json:"at,omitempty"`
+	WindowStart     string `json:"window_start,omitempty"`
+	WindowEnd       string `json:"window_end,omitempty"`
+	IntervalSeconds int    `json:"interval_seconds,omitempty"`
+	Timezone        string `json:"timezone,omitempty"`
 }
 
 type AutomationCondition struct {

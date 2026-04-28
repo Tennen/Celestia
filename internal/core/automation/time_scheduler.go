@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Service) runTimeScheduler() {
-	timeschedule.RunLoop(s.stop, 30*time.Second, s.handleTimeTick)
+	timeschedule.RunLoop(s.stop, timeschedule.DefaultTickInterval, s.handleTimeTick)
 }
 
 func (s *Service) handleTimeTick(now time.Time) {
@@ -30,16 +30,10 @@ func (s *Service) handleTimeTick(now time.Time) {
 			continue
 		}
 		sourceEvent := models.Event{
-			ID:   uuid.NewString(),
-			Type: "automation.time",
-			TS:   now.UTC(),
-			Payload: map[string]any{
-				"trigger":       "time",
-				"schedule":      condition.Time.Schedule,
-				"at":            condition.Time.At,
-				"timezone":      condition.Time.Timezone,
-				"automation_id": automation.ID,
-			},
+			ID:      uuid.NewString(),
+			Type:    "automation.time",
+			TS:      now.UTC(),
+			Payload: automationTimePayload(automation.ID, condition.Time),
 		}
 		ok, err := s.matchesStateConditions(ctx, automation)
 		if err != nil {
@@ -62,17 +56,23 @@ func (s *Service) handleTimeTick(now time.Time) {
 
 func normalizeTimeCondition(condition *models.AutomationTimeCondition) (models.AutomationTimeCondition, error) {
 	normalized, err := timeschedule.Normalize(&timeschedule.Spec{
-		Schedule: condition.Schedule,
-		At:       condition.At,
-		Timezone: condition.Timezone,
+		Schedule:        condition.Schedule,
+		At:              condition.At,
+		WindowStart:     condition.WindowStart,
+		WindowEnd:       condition.WindowEnd,
+		IntervalSeconds: condition.IntervalSeconds,
+		Timezone:        condition.Timezone,
 	})
 	if err != nil {
 		return models.AutomationTimeCondition{}, err
 	}
 	return models.AutomationTimeCondition{
-		Schedule: normalized.Schedule,
-		At:       normalized.At,
-		Timezone: normalized.Timezone,
+		Schedule:        normalized.Schedule,
+		At:              normalized.At,
+		WindowStart:     normalized.WindowStart,
+		WindowEnd:       normalized.WindowEnd,
+		IntervalSeconds: normalized.IntervalSeconds,
+		Timezone:        normalized.Timezone,
 	}, nil
 }
 
@@ -81,8 +81,29 @@ func matchesTimeCondition(now time.Time, condition *models.AutomationTimeConditi
 		return false
 	}
 	return timeschedule.Matches(now, &timeschedule.Spec{
-		Schedule: condition.Schedule,
-		At:       condition.At,
-		Timezone: condition.Timezone,
+		Schedule:        condition.Schedule,
+		At:              condition.At,
+		WindowStart:     condition.WindowStart,
+		WindowEnd:       condition.WindowEnd,
+		IntervalSeconds: condition.IntervalSeconds,
+		Timezone:        condition.Timezone,
 	}, lastTriggeredAt)
+}
+
+func automationTimePayload(automationID string, condition *models.AutomationTimeCondition) map[string]any {
+	payload := map[string]any{
+		"trigger":       "time",
+		"schedule":      condition.Schedule,
+		"timezone":      condition.Timezone,
+		"automation_id": automationID,
+	}
+	switch condition.Schedule {
+	case timeschedule.ScheduleInterval:
+		payload["window_start"] = condition.WindowStart
+		payload["window_end"] = condition.WindowEnd
+		payload["interval_seconds"] = condition.IntervalSeconds
+	default:
+		payload["at"] = condition.At
+	}
+	return payload
 }

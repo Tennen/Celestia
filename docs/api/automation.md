@@ -28,7 +28,9 @@ Condition shapes:
 
 - `type: "state_changed"` uses `from` and `to`
 - `type: "current_state"` uses `match` against the latest persisted device state
-- `type: "time"` uses `time.schedule`, `time.at`, and optional `time.timezone`; currently `schedule: "daily"` plus `at: "HH:MM"` is the supported daily trigger
+- `type: "time"` uses one shared schedule shape:
+  - `schedule: "daily"` with `time.at: "HH:MM"` and optional `time.timezone`
+  - `schedule: "interval"` with `time.window_start`, `time.window_end`, `time.interval_seconds`, and optional `time.timezone`
 
 Requests with zero or multiple trigger conditions are rejected. A time-only automation is valid when it has exactly one `type: "time"` condition and no `state_changed` condition.
 

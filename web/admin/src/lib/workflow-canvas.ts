@@ -4,7 +4,7 @@ export type WorkflowNodeType = 'group' | 'timer' | 'rss_sources' | 'text' | 'llm
 
 export const workflowNodeCatalog: Array<{ type: WorkflowNodeType; label: string; description: string }> = [
   { type: 'group', label: 'Group', description: 'Organize related nodes into a bounded canvas section.' },
-  { type: 'timer', label: 'Timer', description: 'Trigger downstream workflow nodes on a daily schedule.' },
+  { type: 'timer', label: 'Timer', description: 'Trigger downstream workflow nodes on a daily schedule or interval window.' },
   { type: 'rss_sources', label: 'RSS Sources', description: 'Fetch RSS or Atom feeds and emit only newly appeared items.' },
   { type: 'text', label: 'Text', description: 'Compose reusable text blocks and concatenate upstream text in connection order.' },
   { type: 'llm', label: 'LLM', description: 'Run a selected provider with prompt, context, and optional search input.' },
@@ -44,6 +44,9 @@ export function defaultNodeData(type: WorkflowNodeType): Record<string, unknown>
       return {
         schedule: 'daily',
         at: '08:00',
+        window_start: '08:00',
+        window_end: '18:00',
+        interval_seconds: 600,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
       };
     case 'rss_sources':

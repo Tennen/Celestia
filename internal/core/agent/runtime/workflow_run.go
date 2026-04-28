@@ -44,9 +44,12 @@ type workflowRunOptions struct {
 }
 
 type workflowTimerNodeConfig struct {
-	Schedule string `json:"schedule"`
-	At       string `json:"at"`
-	Timezone string `json:"timezone,omitempty"`
+	Schedule        string `json:"schedule"`
+	At              string `json:"at"`
+	WindowStart     string `json:"window_start,omitempty"`
+	WindowEnd       string `json:"window_end,omitempty"`
+	IntervalSeconds int    `json:"interval_seconds,omitempty"`
+	Timezone        string `json:"timezone,omitempty"`
 }
 
 type textNodeConfig struct {

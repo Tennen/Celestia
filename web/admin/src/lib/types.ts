@@ -79,7 +79,10 @@ export type AutomationConditionType = 'state_changed' | 'current_state' | 'time'
 
 export type AutomationTimeCondition = {
   schedule: 'daily' | string;
-  at: string;
+  at?: string;
+  window_start?: string;
+  window_end?: string;
+  interval_seconds?: number;
   timezone?: string;
 };
 

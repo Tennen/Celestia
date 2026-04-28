@@ -79,19 +79,46 @@ function RSSNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: 
 }
 
 function TimerNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
+  const schedule = String(node.data?.schedule ?? 'daily');
+  const updateTimer = (patch: Record<string, unknown>) => onChange(updateWorkflowNodeData(node, patch));
   return (
     <FieldGrid>
       <SelectField
         label="Schedule"
-        value={String(node.data?.schedule ?? 'daily')}
-        options={[{ value: 'daily', label: 'Daily' }]}
-        onChange={(schedule) => onChange(updateWorkflowNodeData(node, { schedule }))}
+        value={schedule}
+        options={[
+          { value: 'daily', label: 'Daily' },
+          { value: 'interval', label: 'Interval Window' },
+        ]}
+        onChange={(nextSchedule) =>
+          onChange(
+            updateWorkflowNodeData(node, {
+              schedule: nextSchedule,
+              at: String(node.data?.at ?? '08:00'),
+              window_start: String(node.data?.window_start ?? '08:00'),
+              window_end: String(node.data?.window_end ?? '18:00'),
+              interval_seconds: Number(node.data?.interval_seconds ?? 600) || 600,
+            }),
+          )
+        }
       />
-      <Field label="At" value={String(node.data?.at ?? '08:00')} onChange={(at) => onChange(updateWorkflowNodeData(node, { at }))} />
+      {schedule === 'interval' ? (
+        <>
+          <Field label="Window Start" value={String(node.data?.window_start ?? '08:00')} onChange={(window_start) => updateTimer({ window_start })} />
+          <Field label="Window End" value={String(node.data?.window_end ?? '18:00')} onChange={(window_end) => updateTimer({ window_end })} />
+          <Field
+            label="Interval Seconds"
+            value={String(node.data?.interval_seconds ?? 600)}
+            onChange={(interval_seconds) => updateTimer({ interval_seconds: Number(interval_seconds) || 600 })}
+          />
+        </>
+      ) : (
+        <Field label="At" value={String(node.data?.at ?? '08:00')} onChange={(at) => updateTimer({ at })} />
+      )}
       <Field
         label="Timezone"
         value={String(node.data?.timezone ?? '')}
-        onChange={(timezone) => onChange(updateWorkflowNodeData(node, { timezone }))}
+        onChange={(timezone) => updateTimer({ timezone })}
       />
     </FieldGrid>
   );

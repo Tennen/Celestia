@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Service) runWorkflowTimeScheduler() {
-	timeschedule.RunLoop(s.stop, 30*time.Second, s.handleWorkflowTimeTick)
+	timeschedule.RunLoop(s.stop, timeschedule.DefaultTickInterval, s.handleWorkflowTimeTick)
 }
 
 func (s *Service) handleWorkflowTimeTick(now time.Time) {

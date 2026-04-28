@@ -135,7 +135,7 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
   return (
     <AutomationSection
       title="Conditions"
-      description="Use exactly one trigger: a device State Changed event or a daily Time trigger. Current State Is conditions are optional gates."
+      description="Use exactly one trigger: a device State Changed event or a Time schedule trigger. Current State Is conditions are optional gates."
       action={
         <Button
           variant="secondary"
@@ -287,21 +287,45 @@ export function ConditionsEditor({ draft, devices, onChange }: Props) {
 
 function TimeConditionFields(props: { condition: AutomationCondition; onChange: (next: AutomationCondition) => void }) {
   const time = props.condition.time ?? createDefaultTimeCondition().time!;
+  const schedule = time.schedule || 'daily';
+  const updateTime = (patch: Record<string, unknown>) => props.onChange({ type: 'time', time: { ...time, ...patch } });
   return (
     <div className="automation-field-grid">
       <div className="automation-field">
         <label>Schedule</label>
-        <select className="select" value={time.schedule || 'daily'} onChange={(event) => props.onChange({ type: 'time', time: { ...time, schedule: event.target.value } })}>
+        <select
+          className="select"
+          value={schedule}
+          onChange={(event) => props.onChange({ type: 'time', time: { ...createDefaultTimeCondition().time!, ...time, schedule: event.target.value } })}
+        >
           <option value="daily">Daily</option>
+          <option value="interval">Interval Window</option>
         </select>
       </div>
-      <div className="automation-field">
-        <label>At</label>
-        <Input type="time" value={time.at || '08:00'} onChange={(event) => props.onChange({ type: 'time', time: { ...time, at: event.target.value } })} />
-      </div>
+      {schedule === 'interval' ? (
+        <>
+          <div className="automation-field">
+            <label>Window Start</label>
+            <Input type="time" value={time.window_start || '08:00'} onChange={(event) => updateTime({ window_start: event.target.value })} />
+          </div>
+          <div className="automation-field">
+            <label>Window End</label>
+            <Input type="time" value={time.window_end || '18:00'} onChange={(event) => updateTime({ window_end: event.target.value })} />
+          </div>
+          <div className="automation-field">
+            <label>Interval Seconds</label>
+            <Input type="number" min={1} value={String(time.interval_seconds ?? 600)} onChange={(event) => updateTime({ interval_seconds: Number(event.target.value) || 600 })} />
+          </div>
+        </>
+      ) : (
+        <div className="automation-field">
+          <label>At</label>
+          <Input type="time" value={time.at || '08:00'} onChange={(event) => updateTime({ at: event.target.value })} />
+        </div>
+      )}
       <div className="automation-field">
         <label>Timezone</label>
-        <Input value={time.timezone ?? ''} onChange={(event) => props.onChange({ type: 'time', time: { ...time, timezone: event.target.value } })} placeholder="Asia/Shanghai" />
+        <Input value={time.timezone ?? ''} onChange={(event) => updateTime({ timezone: event.target.value })} placeholder="Asia/Shanghai" />
       </div>
     </div>
   );

@@ -301,6 +301,75 @@ func TestWorkflowTimeSchedulerTriggersTimerConnectedRSS(t *testing.T) {
 	}
 }
 
+func TestWorkflowTimeSchedulerTriggersIntervalTimerWithinWindow(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	workflow := workflowIntervalTimerRSSDefinition("08:00", "18:00", 600, "UTC")
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	transport := &workflowFeedTransport{
+		t: t,
+		responses: []workflowFeedResponse{
+			{
+				status:       http.StatusOK,
+				lastModified: "Tue, 28 Apr 2026 08:00:00 GMT",
+				body:         `<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Alpha</title><link>https://example.com/topic?id=1</link><guid>guid-alpha</guid></item></channel></rss>`,
+			},
+			{
+				status:       http.StatusOK,
+				lastModified: "Tue, 28 Apr 2026 08:10:00 GMT",
+				body:         `<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Beta</title><link>https://example.com/topic?id=2</link><guid>guid-beta</guid></item></channel></rss>`,
+			},
+		},
+	}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	windowStart := time.Date(2026, 4, 28, 8, 0, 0, 0, time.UTC)
+	svc.handleWorkflowTimeTick(windowStart)
+	if len(transport.requests) != 1 {
+		t.Fatalf("RSS requests after window start = %d, want 1", len(transport.requests))
+	}
+
+	svc.handleWorkflowTimeTick(windowStart.Add(5 * time.Minute))
+	if len(transport.requests) != 1 {
+		t.Fatalf("RSS requests inside same slot = %d, want still 1", len(transport.requests))
+	}
+
+	nextSlot := windowStart.Add(10 * time.Minute)
+	svc.handleWorkflowTimeTick(nextSlot)
+	if len(transport.requests) != 2 {
+		t.Fatalf("RSS requests after next slot = %d, want 2", len(transport.requests))
+	}
+
+	svc.handleWorkflowTimeTick(time.Date(2026, 4, 28, 18, 0, 0, 0, time.UTC))
+	if len(transport.requests) != 2 {
+		t.Fatalf("RSS requests at window end = %d, want still 2", len(transport.requests))
+	}
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.Workflow.Runs) != 2 {
+		t.Fatalf("workflow runs = %d, want 2", len(snapshot.Workflow.Runs))
+	}
+	if len(snapshot.Workflow.TimerStates) != 1 {
+		t.Fatalf("timer states = %d, want 1", len(snapshot.Workflow.TimerStates))
+	}
+	if !snapshot.Workflow.TimerStates[0].LastTriggeredAt.Equal(nextSlot) {
+		t.Fatalf("last triggered at = %s, want %s", snapshot.Workflow.TimerStates[0].LastTriggeredAt, nextSlot)
+	}
+}
+
 func workflowRSSOnlyDefinition() models.AgentWorkflow {
 	return models.AgentWorkflow{
 		ID:   "workflow-rss-stateful",
@@ -344,6 +413,36 @@ func workflowTimerRSSDefinition(at string, timezone string) models.AgentWorkflow
 			"schedule": "daily",
 			"at":       at,
 			"timezone": timezone,
+		},
+	}}, workflow.Nodes...)
+	workflow.Edges = []models.AgentWorkflowEdge{{
+		ID:           "edge-timer-rss",
+		Source:       "timer-main",
+		SourceHandle: "trigger",
+		Target:       "rss-main",
+		TargetHandle: "trigger",
+	}}
+	return workflow
+}
+
+func workflowIntervalTimerRSSDefinition(windowStart string, windowEnd string, intervalSeconds int, timezone string) models.AgentWorkflow {
+	workflow := workflowRSSOnlyDefinition()
+	workflow.ID = "workflow-rss-timer-interval"
+	workflow.Name = "Interval RSS Workflow"
+	workflow.Nodes = append([]models.AgentWorkflowNode{{
+		ID:    "timer-main",
+		Type:  workflowNodeTypeTimer,
+		Label: "Timer",
+		Position: models.AgentNodePoint{
+			X: 80,
+			Y: 20,
+		},
+		Data: map[string]any{
+			"schedule":         "interval",
+			"window_start":     windowStart,
+			"window_end":       windowEnd,
+			"interval_seconds": intervalSeconds,
+			"timezone":         timezone,
 		},
 	}}, workflow.Nodes...)
 	workflow.Edges = []models.AgentWorkflowEdge{{

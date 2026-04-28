@@ -5,6 +5,7 @@ import type {
   AutomationCondition,
   AutomationConditionType,
   AutomationMatchOperator,
+  AutomationTimeCondition,
   DeviceControl,
   DeviceControlOption,
   DeviceStateDescriptor,
@@ -156,10 +157,24 @@ export function getStateChangedConditionDeviceId(automation: Automation) {
 export function describeAutomationTrigger(automation: Automation) {
   const conditions = automation.conditions ?? [];
   const timeCondition = conditions.find((condition) => getConditionType(condition) === 'time');
-  if (timeCondition?.time?.at) {
-    return `${timeCondition.time.schedule || 'daily'} at ${timeCondition.time.at}`;
+  const timeDescription = describeTimeCondition(timeCondition?.time);
+  if (timeDescription) {
+    return timeDescription;
   }
   return getStateChangedConditionDeviceId(automation) || 'No trigger condition';
+}
+
+function describeTimeCondition(timeCondition: AutomationTimeCondition | undefined): string {
+  if (!timeCondition) {
+    return '';
+  }
+  if (timeCondition.schedule === 'interval' && timeCondition.window_start && timeCondition.window_end && timeCondition.interval_seconds) {
+    return `interval ${timeCondition.interval_seconds}s ${timeCondition.window_start}-${timeCondition.window_end}`;
+  }
+  if (timeCondition.at) {
+    return `${timeCondition.schedule || 'daily'} at ${timeCondition.at}`;
+  }
+  return timeCondition.schedule || 'daily';
 }
 
 export function createDefaultCondition(
@@ -205,6 +220,9 @@ export function createDefaultTimeCondition(): AutomationCondition {
     time: {
       schedule: 'daily',
       at: '08:00',
+      window_start: '08:00',
+      window_end: '18:00',
+      interval_seconds: 600,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
     },
   };

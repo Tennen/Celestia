@@ -348,6 +348,33 @@ func TestServiceSaveAllowsDailyTimeTrigger(t *testing.T) {
 	}
 }
 
+func TestServiceSaveAllowsIntervalTimeTrigger(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAutomationTestService(t)
+
+	saved, err := svc.Save(ctx, models.Automation{
+		Name:    "Interval digest",
+		Enabled: true,
+		Conditions: []models.AutomationCondition{{
+			Type: models.AutomationConditionTypeTime,
+			Time: &models.AutomationTimeCondition{
+				Schedule:        "interval",
+				WindowStart:     "08:00",
+				WindowEnd:       "18:00",
+				IntervalSeconds: 600,
+				Timezone:        "Asia/Shanghai",
+			},
+		}},
+		Actions: []models.AutomationAction{{DeviceID: "xiaomi:speaker:test", Action: "push_voice_message"}},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if saved.Conditions[0].Time == nil || saved.Conditions[0].Time.IntervalSeconds != 600 {
+		t.Fatalf("interval trigger not normalized: %#v", saved.Conditions[0].Time)
+	}
+}
+
 func TestServiceSaveRejectsUnknownWeComTouchpoint(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAutomationTestService(t)

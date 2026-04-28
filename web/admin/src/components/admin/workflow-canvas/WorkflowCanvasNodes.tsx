@@ -44,8 +44,12 @@ export function WorkflowCanvasNode({ data, selected }: NodeProps) {
   const view = (data ?? {}) as WorkflowNodeData;
   switch (view.nodeType) {
     case 'timer':
+      const timerDescription =
+        view.payload?.schedule === 'interval'
+          ? 'Emits a trigger on each interval inside the configured time window.'
+          : 'Emits a trigger on the configured daily schedule.';
       return (
-        <NodeShell title={view.title} description="Emits a trigger on the configured daily schedule." selected={selected}>
+        <NodeShell title={view.title} description={timerDescription} selected={selected}>
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="trigger" />
         </NodeShell>
       );

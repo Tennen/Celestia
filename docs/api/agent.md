@@ -186,16 +186,17 @@ Current executable ports:
 
 Runtime behavior:
 
-1. `timer` stores per-node schedule execution state in `workflow.timer_states[]` and is evaluated by the same backend daily scheduling module used by Core automation time triggers.
-2. A scheduled workflow run activates only the timer nodes whose configured `schedule`/`at`/`timezone` matches the current tick. Manual `POST /api/v1/agent/workflow/run` runs bypass timer gating so operators can test the workflow immediately.
-3. `rss_sources` may accept `timer.trigger` input. When a trigger edge exists and no timer fired for the current run, the RSS node emits no items.
-4. `rss_sources` stores per-source request state in `workflow.source_states[]`, sends `If-Modified-Since` using the last stored `Last-Modified` value or previous request time, records the latest raw response body, and emits only items newly appearing relative to the previous body by RSS `guid` or Atom `id` (falling back to URL/text when a feed omits stable ids).
-5. A `304 Not Modified` response advances the RSS source request timestamp and emits no items.
-6. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
-7. `search_provider` uses the configured Core search provider profile.
-8. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
-9. `wecom_output` sends through the existing Touchpoints WeCom runtime.
-10. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.
+1. `timer` stores per-node schedule execution state in `workflow.timer_states[]` and uses the same backend schedule module as Core automation time triggers.
+2. `timer` supports `schedule: "daily"` with `at/timezone`, and `schedule: "interval"` with `window_start/window_end/interval_seconds/timezone`.
+3. A scheduled workflow run activates only the timer nodes whose configured schedule matches the current tick. Manual `POST /api/v1/agent/workflow/run` runs bypass timer gating so operators can test the workflow immediately.
+4. `rss_sources` may accept `timer.trigger` input. When a trigger edge exists and no timer fired for the current run, the RSS node emits no items.
+5. `rss_sources` stores per-source request state in `workflow.source_states[]`, sends `If-Modified-Since` using the last stored `Last-Modified` value or previous request time, records the latest raw response body, and emits only items newly appearing relative to the previous body by RSS `guid` or Atom `id` (falling back to URL/text when a feed omits stable ids).
+6. A `304 Not Modified` response advances the RSS source request timestamp and emits no items.
+7. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
+8. `search_provider` uses the configured Core search provider profile.
+9. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
+10. `wecom_output` sends through the existing Touchpoints WeCom runtime.
+11. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.
 
 ## Writing Organizer
 
