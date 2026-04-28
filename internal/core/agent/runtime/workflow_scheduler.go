@@ -24,14 +24,16 @@ func (s *Service) handleWorkflowTimeTick(now time.Time) {
 	}
 	dueByWorkflow := dueWorkflowTimerNodes(snapshot.Workflow, now)
 	for workflowID, nodeIDs := range dueByWorkflow {
-		options := workflowRunOptions{
-			TriggeredTimerNode: workflowStringSet(nodeIDs),
-		}
-		if _, runErr := s.runWorkflow(ctx, workflowID, options); runErr != nil {
-			log.Printf("workflow: scheduled run failed workflow=%s: %v", workflowID, runErr)
-		}
-		if updateErr := s.updateWorkflowTimerStates(ctx, workflowID, nodeIDs, now); updateErr != nil {
-			log.Printf("workflow: persist timer state failed workflow=%s: %v", workflowID, updateErr)
+		for _, nodeID := range nodeIDs {
+			options := workflowRunOptions{
+				TriggeredTimerNode: workflowStringSet([]string{nodeID}),
+			}
+			if _, runErr := s.runWorkflow(ctx, workflowID, options); runErr != nil {
+				log.Printf("workflow: scheduled run failed workflow=%s timer=%s: %v", workflowID, nodeID, runErr)
+			}
+			if updateErr := s.updateWorkflowTimerStates(ctx, workflowID, []string{nodeID}, now); updateErr != nil {
+				log.Printf("workflow: persist timer state failed workflow=%s timer=%s: %v", workflowID, nodeID, updateErr)
+			}
 		}
 	}
 }

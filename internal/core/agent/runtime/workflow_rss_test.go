@@ -207,7 +207,7 @@ func TestRunWorkflowRSSHandlesNotModifiedResponses(t *testing.T) {
 	}
 }
 
-func TestRunWorkflowManualBypassesTimerNode(t *testing.T) {
+func TestRunWorkflowManualDoesNotActivateTimerNode(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAgentPersistenceTestService(t)
 	workflow := workflowTimerRSSDefinition("23:59", "UTC")
@@ -236,11 +236,11 @@ func TestRunWorkflowManualBypassesTimerNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunWorkflow() error = %v", err)
 	}
-	if len(run.Items) != 1 {
-		t.Fatalf("run items = %d, want 1", len(run.Items))
+	if len(run.Items) != 0 {
+		t.Fatalf("run items = %d, want 0", len(run.Items))
 	}
-	if len(transport.requests) != 1 {
-		t.Fatalf("RSS requests = %d, want 1", len(transport.requests))
+	if len(transport.requests) != 0 {
+		t.Fatalf("RSS requests = %d, want 0", len(transport.requests))
 	}
 }
 

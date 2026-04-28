@@ -40,7 +40,7 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 			return workflowNodeValue{}, "", nil, inputErr
 		}
 		if triggerInputs.triggers == 0 {
-			return workflowNodeValue{Text: "", Items: nil}, "RSS waiting for timer trigger", map[string]any{
+			return workflowNodeValue{Text: "", Items: nil, Blocked: true}, "RSS waiting for timer trigger", map[string]any{
 				"item_count":          0,
 				"trigger_input_count": len(triggerEdges),
 				"triggered":           false,

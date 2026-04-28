@@ -188,15 +188,18 @@ Runtime behavior:
 
 1. `timer` stores per-node schedule execution state in `workflow.timer_states[]` and uses the same backend schedule module as Core automation time triggers.
 2. `timer` supports `schedule: "daily"` with `at/timezone`, and `schedule: "interval"` with `window_start/window_end/interval_seconds/timezone`.
-3. A scheduled workflow run activates only the timer nodes whose configured schedule matches the current tick. Manual `POST /api/v1/agent/workflow/run` runs bypass timer gating so operators can test the workflow immediately.
-4. `rss_sources` may accept `timer.trigger` input. When a trigger edge exists and no timer fired for the current run, the RSS node emits no items.
-5. `rss_sources` stores per-source request state in `workflow.source_states[]`, sends `If-Modified-Since` using the last stored `Last-Modified` value or previous request time, records the latest raw response body, and emits only items newly appearing relative to the previous body by RSS `guid` or Atom `id` (falling back to URL/text when a feed omits stable ids).
-6. A `304 Not Modified` response advances the RSS source request timestamp and emits no items.
-7. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
-8. `search_provider` uses the configured Core search provider profile.
-9. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
-10. `wecom_output` sends through the existing Touchpoints WeCom runtime.
-11. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.
+3. Saving the workflow through `PUT /api/v1/agent/workflow` makes timer nodes eligible for the backend scheduler immediately; no separate publish/run step is required.
+4. The scheduler creates one workflow run per due timer node. If multiple timers in the same workflow fire on the same tick, they execute as separate queued runs instead of being merged into one fan-in run.
+5. Manual `POST /api/v1/agent/workflow/run` does not activate timer nodes. Only non-timer paths, or paths already receiving non-timer input, execute in that manual run.
+6. `rss_sources` may accept `timer.trigger` input. When a trigger edge exists and no timer fired for the current run, the RSS node emits no items.
+7. `rss_sources` stores per-source request state in `workflow.source_states[]`, sends `If-Modified-Since` using the last stored `Last-Modified` value or previous request time, records the latest raw response body, and emits only items newly appearing relative to the previous body by RSS `guid` or Atom `id` (falling back to URL/text when a feed omits stable ids).
+8. A `304 Not Modified` response advances the RSS source request timestamp and emits no items.
+9. Without timer-driven async fan-in, multiple upstream `rss_sources` connected to one `llm` are aggregated in a single run. When separate timers feed that shared `llm`, each timer run uses the same `llm` configuration but executes independently.
+10. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
+11. `search_provider` uses the configured Core search provider profile.
+12. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
+13. `wecom_output` sends through the existing Touchpoints WeCom runtime.
+14. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.
 
 ## Writing Organizer
 

@@ -16,15 +16,10 @@ func (e *workflowExecutor) executeTimerNode(node models.AgentWorkflowNode) (work
 	if err != nil {
 		return workflowNodeValue{}, "", nil, err
 	}
-	triggered := e.runOptions.ManualRun
-	summary := "Manual run bypassed timer"
-	if !e.runOptions.ManualRun {
-		_, triggered = e.runOptions.TriggeredTimerNode[node.ID]
-		if triggered {
-			summary = "Scheduled timer fired"
-		} else {
-			summary = "Timer inactive for this run"
-		}
+	_, triggered := e.runOptions.TriggeredTimerNode[node.ID]
+	summary := "Timer inactive for this run"
+	if triggered {
+		summary = "Scheduled timer fired"
 	}
 	metadata := map[string]any{
 		"triggered": triggered,
