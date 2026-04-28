@@ -7,7 +7,6 @@ export type AgentWorkflowSource = {
   feed_url: string;
   weight: number;
   enabled: boolean;
-  poll_interval_seconds?: number;
 };
 
 export type AgentWorkflowNode = {
@@ -69,6 +68,7 @@ export type AgentWorkflowSnapshot = {
   runs: AgentWorkflowRun[];
   sent_log?: Array<Record<string, unknown>>;
   source_states?: Array<Record<string, unknown>>;
+  timer_states?: Array<Record<string, unknown>>;
   updated_at: string;
 };
 
@@ -91,6 +91,7 @@ export function normalizeAgentWorkflowSnapshot(input: AgentWorkflowSnapshot | nu
     runs: arrayOrEmpty(workflow.runs),
     sent_log: arrayOrEmpty(workflow.sent_log),
     source_states: arrayOrEmpty(workflow.source_states),
+    timer_states: arrayOrEmpty(workflow.timer_states),
   };
 }
 

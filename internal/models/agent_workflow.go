@@ -8,6 +8,7 @@ type AgentWorkflowSnapshot struct {
 	Runs             []AgentWorkflowRun         `json:"runs"`
 	SentLog          []AgentWorkflowSentLogItem `json:"sent_log,omitempty"`
 	SourceStates     []AgentWorkflowSourceState `json:"source_states,omitempty"`
+	TimerStates      []AgentWorkflowTimerState  `json:"timer_states,omitempty"`
 	UpdatedAt        time.Time                  `json:"updated_at"`
 }
 
@@ -46,13 +47,12 @@ type AgentWorkflowEdge struct {
 }
 
 type AgentWorkflowSource struct {
-	ID                  string  `json:"id"`
-	Name                string  `json:"name"`
-	Category            string  `json:"category"`
-	FeedURL             string  `json:"feed_url"`
-	Weight              float64 `json:"weight"`
-	Enabled             bool    `json:"enabled"`
-	PollIntervalSeconds int     `json:"poll_interval_seconds,omitempty"`
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Category string  `json:"category"`
+	FeedURL  string  `json:"feed_url"`
+	Weight   float64 `json:"weight"`
+	Enabled  bool    `json:"enabled"`
 }
 
 type AgentWorkflowRun struct {
@@ -98,6 +98,13 @@ type AgentWorkflowSourceState struct {
 	LastModified     string    `json:"last_modified,omitempty"`
 	LastResponseBody string    `json:"last_response_body,omitempty"`
 	UpdatedAt        time.Time `json:"updated_at,omitempty"`
+}
+
+type AgentWorkflowTimerState struct {
+	WorkflowID      string    `json:"workflow_id"`
+	NodeID          string    `json:"node_id"`
+	LastTriggeredAt time.Time `json:"last_triggered_at,omitempty"`
+	UpdatedAt       time.Time `json:"updated_at,omitempty"`
 }
 
 type AgentWorkflowSentLogItem struct {

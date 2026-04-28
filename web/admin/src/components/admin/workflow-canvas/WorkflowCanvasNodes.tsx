@@ -43,9 +43,16 @@ function NodeShell({
 export function WorkflowCanvasNode({ data, selected }: NodeProps) {
   const view = (data ?? {}) as WorkflowNodeData;
   switch (view.nodeType) {
+    case 'timer':
+      return (
+        <NodeShell title={view.title} description="Emits a trigger on the configured daily schedule." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="trigger" />
+        </NodeShell>
+      );
     case 'rss_sources':
       return (
         <NodeShell title={view.title} description="Polls RSS/Atom feeds and emits only newly appeared items." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="trigger" />
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="content" />
         </NodeShell>
       );

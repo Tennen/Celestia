@@ -11,6 +11,7 @@ import (
 
 const (
 	workflowNodeTypeGroup          = "group"
+	workflowNodeTypeTimer          = "timer"
 	workflowNodeTypeRSSSources     = "rss_sources"
 	workflowNodeTypeText           = "text"
 	legacyWorkflowNodeTypePrompt   = "prompt_unit"
@@ -59,6 +60,8 @@ func defaultWorkflowNodeLabel(nodeType string) string {
 		return "Group"
 	case workflowNodeTypeRSSSources:
 		return "RSS Sources"
+	case workflowNodeTypeTimer:
+		return "Timer"
 	case workflowNodeTypeText:
 		return "Text"
 	case workflowNodeTypeLLM:

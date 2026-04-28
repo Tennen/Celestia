@@ -1,10 +1,11 @@
 import type { AgentWorkflowDefinition, AgentWorkflowEdge, AgentWorkflowNode, AgentWorkflowSource } from './agent-workflow';
 
-export type WorkflowNodeType = 'group' | 'rss_sources' | 'text' | 'llm' | 'search_provider' | 'wecom_output';
+export type WorkflowNodeType = 'group' | 'timer' | 'rss_sources' | 'text' | 'llm' | 'search_provider' | 'wecom_output';
 
 export const workflowNodeCatalog: Array<{ type: WorkflowNodeType; label: string; description: string }> = [
   { type: 'group', label: 'Group', description: 'Organize related nodes into a bounded canvas section.' },
-  { type: 'rss_sources', label: 'RSS Sources', description: 'Poll RSS or Atom feeds with per-source stateful delta tracking.' },
+  { type: 'timer', label: 'Timer', description: 'Trigger downstream workflow nodes on a daily schedule.' },
+  { type: 'rss_sources', label: 'RSS Sources', description: 'Fetch RSS or Atom feeds and emit only newly appeared items.' },
   { type: 'text', label: 'Text', description: 'Compose reusable text blocks and concatenate upstream text in connection order.' },
   { type: 'llm', label: 'LLM', description: 'Run a selected provider with prompt, context, and optional search input.' },
   { type: 'search_provider', label: 'Search Provider', description: 'Run a configured search provider and stream results into the workflow.' },
@@ -39,6 +40,12 @@ export function createWorkflowNode(type: WorkflowNodeType, index: number): Agent
 
 export function defaultNodeData(type: WorkflowNodeType): Record<string, unknown> {
   switch (type) {
+    case 'timer':
+      return {
+        schedule: 'daily',
+        at: '08:00',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+      };
     case 'rss_sources':
       return { sources: [] as AgentWorkflowSource[] };
     case 'text':

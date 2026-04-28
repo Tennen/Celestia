@@ -14,6 +14,7 @@ import (
 	"github.com/chentianyu/celestia/internal/core/policy"
 	"github.com/chentianyu/celestia/internal/core/registry"
 	"github.com/chentianyu/celestia/internal/core/state"
+	"github.com/chentianyu/celestia/internal/core/timeschedule"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/storage"
 	"github.com/google/uuid"
@@ -206,10 +207,10 @@ func (s *Service) normalizeAutomation(ctx context.Context, automation models.Aut
 		} else if automation.TimeWindow.Start == "" || automation.TimeWindow.End == "" {
 			return models.Automation{}, errors.New("time_window requires both start and end")
 		} else {
-			if _, err := parseClockHM(automation.TimeWindow.Start); err != nil {
+			if _, err := timeschedule.ParseClockHM(automation.TimeWindow.Start); err != nil {
 				return models.Automation{}, fmt.Errorf("invalid time_window start: %w", err)
 			}
-			if _, err := parseClockHM(automation.TimeWindow.End); err != nil {
+			if _, err := timeschedule.ParseClockHM(automation.TimeWindow.End); err != nil {
 				return models.Automation{}, fmt.Errorf("invalid time_window end: %w", err)
 			}
 		}

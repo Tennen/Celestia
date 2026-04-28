@@ -42,7 +42,7 @@ func (t *workflowFeedTransport) RoundTrip(req *http.Request) (*http.Response, er
 func TestRunWorkflowRSSReturnsOnlyNewGUIDItems(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAgentPersistenceTestService(t)
-	workflow := workflowRSSOnlyDefinition(0)
+	workflow := workflowRSSOnlyDefinition()
 	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
 		ActiveWorkflowID: workflow.ID,
 		Workflows:        []models.AgentWorkflow{workflow},
@@ -133,71 +133,10 @@ func TestRunWorkflowRSSReturnsOnlyNewGUIDItems(t *testing.T) {
 	}
 }
 
-func TestRunWorkflowRSSSkipsSourceUntilPollIntervalExpires(t *testing.T) {
-	ctx := context.Background()
-	svc, _ := newAgentPersistenceTestService(t)
-	workflow := workflowRSSOnlyDefinition(3600)
-	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
-		ActiveWorkflowID: workflow.ID,
-		Workflows:        []models.AgentWorkflow{workflow},
-	}); err != nil {
-		t.Fatalf("SaveWorkflow() error = %v", err)
-	}
-	seedRequestedAt := time.Now().UTC()
-	if _, err := svc.UpdateSnapshot(ctx, func(snapshot *models.AgentSnapshot) error {
-		snapshot.Workflow.SourceStates = []models.AgentWorkflowSourceState{{
-			WorkflowID:      workflow.ID,
-			NodeID:          "rss-main",
-			SourceID:        "feed-main",
-			FeedURL:         "https://rss.test/feed",
-			LastRequestedAt: seedRequestedAt,
-			UpdatedAt:       seedRequestedAt,
-		}}
-		return nil
-	}); err != nil {
-		t.Fatalf("UpdateSnapshot() error = %v", err)
-	}
-
-	transport := &workflowFeedTransport{t: t}
-	previousTransport := http.DefaultClient.Transport
-	http.DefaultClient.Transport = transport
-	defer func() {
-		http.DefaultClient.Transport = previousTransport
-	}()
-
-	run, err := svc.RunWorkflow(ctx, workflow.ID)
-	if err != nil {
-		t.Fatalf("RunWorkflow() error = %v", err)
-	}
-	if len(run.Items) != 0 {
-		t.Fatalf("run items = %d, want 0", len(run.Items))
-	}
-	if len(transport.requests) != 0 {
-		t.Fatalf("RSS requests = %d, want 0", len(transport.requests))
-	}
-	if got := workflowResultMetadataInt(t, run, "rss-main", "skipped_source_count"); got != 1 {
-		t.Fatalf("skipped_source_count = %d, want 1", got)
-	}
-	if got := workflowResultMetadataInt(t, run, "rss-main", "requested_source_count"); got != 0 {
-		t.Fatalf("requested_source_count = %d, want 0", got)
-	}
-
-	snapshot, err := svc.Snapshot(ctx)
-	if err != nil {
-		t.Fatalf("Snapshot() error = %v", err)
-	}
-	if len(snapshot.Workflow.SourceStates) != 1 {
-		t.Fatalf("source states = %d, want 1", len(snapshot.Workflow.SourceStates))
-	}
-	if !snapshot.Workflow.SourceStates[0].LastRequestedAt.Equal(seedRequestedAt) {
-		t.Fatalf("last requested at = %s, want %s", snapshot.Workflow.SourceStates[0].LastRequestedAt, seedRequestedAt)
-	}
-}
-
 func TestRunWorkflowRSSHandlesNotModifiedResponses(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAgentPersistenceTestService(t)
-	workflow := workflowRSSOnlyDefinition(60)
+	workflow := workflowRSSOnlyDefinition()
 	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
 		ActiveWorkflowID: workflow.ID,
 		Workflows:        []models.AgentWorkflow{workflow},
@@ -268,7 +207,101 @@ func TestRunWorkflowRSSHandlesNotModifiedResponses(t *testing.T) {
 	}
 }
 
-func workflowRSSOnlyDefinition(pollIntervalSeconds int) models.AgentWorkflow {
+func TestRunWorkflowManualBypassesTimerNode(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	workflow := workflowTimerRSSDefinition("23:59", "UTC")
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	transport := &workflowFeedTransport{
+		t: t,
+		responses: []workflowFeedResponse{{
+			status:       http.StatusOK,
+			lastModified: "Tue, 28 Apr 2026 10:00:00 GMT",
+			body:         `<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Alpha</title><link>https://example.com/topic?id=1</link><guid>guid-alpha</guid></item></channel></rss>`,
+		}},
+	}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	run, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() error = %v", err)
+	}
+	if len(run.Items) != 1 {
+		t.Fatalf("run items = %d, want 1", len(run.Items))
+	}
+	if len(transport.requests) != 1 {
+		t.Fatalf("RSS requests = %d, want 1", len(transport.requests))
+	}
+}
+
+func TestWorkflowTimeSchedulerTriggersTimerConnectedRSS(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	now := time.Date(2026, 4, 28, 8, 30, 0, 0, time.UTC)
+	workflow := workflowTimerRSSDefinition("08:30", "UTC")
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	transport := &workflowFeedTransport{
+		t: t,
+		responses: []workflowFeedResponse{{
+			status:       http.StatusOK,
+			lastModified: "Tue, 28 Apr 2026 08:30:00 GMT",
+			body:         `<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Alpha</title><link>https://example.com/topic?id=1</link><guid>guid-alpha</guid></item></channel></rss>`,
+		}},
+	}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	svc.handleWorkflowTimeTick(now)
+	if len(transport.requests) != 1 {
+		t.Fatalf("RSS requests after first tick = %d, want 1", len(transport.requests))
+	}
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.Workflow.Runs) != 1 {
+		t.Fatalf("workflow runs = %d, want 1", len(snapshot.Workflow.Runs))
+	}
+	if len(snapshot.Workflow.TimerStates) != 1 {
+		t.Fatalf("timer states = %d, want 1", len(snapshot.Workflow.TimerStates))
+	}
+	if !snapshot.Workflow.TimerStates[0].LastTriggeredAt.Equal(now) {
+		t.Fatalf("last triggered at = %s, want %s", snapshot.Workflow.TimerStates[0].LastTriggeredAt, now)
+	}
+
+	svc.handleWorkflowTimeTick(now.Add(20 * time.Second))
+	if len(transport.requests) != 1 {
+		t.Fatalf("RSS requests after duplicate tick = %d, want still 1", len(transport.requests))
+	}
+	updated, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() second error = %v", err)
+	}
+	if len(updated.Workflow.Runs) != 1 {
+		t.Fatalf("workflow runs after duplicate tick = %d, want 1", len(updated.Workflow.Runs))
+	}
+}
+
+func workflowRSSOnlyDefinition() models.AgentWorkflow {
 	return models.AgentWorkflow{
 		ID:   "workflow-rss-stateful",
 		Name: "Stateful RSS Workflow",
@@ -282,18 +315,45 @@ func workflowRSSOnlyDefinition(pollIntervalSeconds int) models.AgentWorkflow {
 			},
 			Data: map[string]any{
 				"sources": []models.AgentWorkflowSource{{
-					ID:                  "feed-main",
-					Name:                "Main Feed",
-					Category:            "news",
-					FeedURL:             "https://rss.test/feed",
-					Weight:              1,
-					Enabled:             true,
-					PollIntervalSeconds: pollIntervalSeconds,
+					ID:       "feed-main",
+					Name:     "Main Feed",
+					Category: "news",
+					FeedURL:  "https://rss.test/feed",
+					Weight:   1,
+					Enabled:  true,
 				}},
 			},
 		}},
 		Edges: []models.AgentWorkflowEdge{},
 	}
+}
+
+func workflowTimerRSSDefinition(at string, timezone string) models.AgentWorkflow {
+	workflow := workflowRSSOnlyDefinition()
+	workflow.ID = "workflow-rss-timer"
+	workflow.Name = "Timed RSS Workflow"
+	workflow.Nodes = append([]models.AgentWorkflowNode{{
+		ID:    "timer-main",
+		Type:  workflowNodeTypeTimer,
+		Label: "Timer",
+		Position: models.AgentNodePoint{
+			X: 80,
+			Y: 20,
+		},
+		Data: map[string]any{
+			"schedule": "daily",
+			"at":       at,
+			"timezone": timezone,
+		},
+	}}, workflow.Nodes...)
+	workflow.Edges = []models.AgentWorkflowEdge{{
+		ID:           "edge-timer-rss",
+		Source:       "timer-main",
+		SourceHandle: "trigger",
+		Target:       "rss-main",
+		TargetHandle: "trigger",
+	}}
+	return workflow
 }
 
 func workflowResultMetadataInt(t *testing.T, run models.AgentWorkflowRun, nodeID string, key string) int {

@@ -113,6 +113,7 @@ type agentWorkflowRunsDocument struct {
 	Runs         []models.AgentWorkflowRun         `json:"runs"`
 	SentLog      []models.AgentWorkflowSentLogItem `json:"sent_log"`
 	SourceStates []models.AgentWorkflowSourceState `json:"source_states,omitempty"`
+	TimerStates  []models.AgentWorkflowTimerState  `json:"timer_states,omitempty"`
 	UpdatedAt    time.Time                         `json:"updated_at"`
 }
 
@@ -280,6 +281,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 				Runs:         snapshot.Workflow.Runs,
 				SentLog:      snapshot.Workflow.SentLog,
 				SourceStates: snapshot.Workflow.SourceStates,
+				TimerStates:  snapshot.Workflow.TimerStates,
 				UpdatedAt:    workflowUpdatedAt,
 			},
 			updatedAt: workflowUpdatedAt,

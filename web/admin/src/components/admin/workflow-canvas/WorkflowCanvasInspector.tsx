@@ -30,6 +30,7 @@ export function WorkflowCanvasInspector(props: {
       ) : null}
 
       {node.type === 'rss_sources' ? <RSSNodeEditor node={node} onChange={onChange} /> : null}
+      {node.type === 'timer' ? <TimerNodeEditor node={node} onChange={onChange} /> : null}
       {node.type === 'text' ? <TextNodeEditor node={node} onChange={onChange} /> : null}
       {node.type === 'llm' ? <LLMNodeEditor node={node} providerOptions={providerOptions} onChange={onChange} /> : null}
       {node.type === 'search_provider' ? <SearchNodeEditor node={node} providerOptions={searchProviderOptions} onChange={onChange} /> : null}
@@ -66,13 +67,7 @@ function RSSNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: 
             <Field label="Category" value={source.category ?? ''} onChange={(category) => updateSource(index, { category })} />
             <Field label="Feed URL" value={source.feed_url ?? ''} onChange={(feed_url) => updateSource(index, { feed_url })} />
             <Field label="Weight" value={String(source.weight ?? 1)} onChange={(weight) => updateSource(index, { weight: Number(weight) || 1 })} />
-            <Field
-              label="Poll Interval (s)"
-              value={String(source.poll_interval_seconds ?? 0)}
-              onChange={(poll_interval_seconds) => updateSource(index, { poll_interval_seconds: Math.max(0, Number(poll_interval_seconds) || 0) })}
-            />
           </FieldGrid>
-          <div className="detail">`0` means request on every workflow run. A positive value throttles requests per source and enables incremental RSS delivery.</div>
           <Button variant="danger" onClick={() => onChange(updateWorkflowNodeData(node, { sources: sources.filter((_, current) => current !== index) }))}>
             Remove Source
           </Button>
@@ -80,6 +75,25 @@ function RSSNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: 
       ))}
       {sources.length === 0 ? <div className="detail">Add one or more RSS feeds to this node.</div> : null}
     </div>
+  );
+}
+
+function TimerNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
+  return (
+    <FieldGrid>
+      <SelectField
+        label="Schedule"
+        value={String(node.data?.schedule ?? 'daily')}
+        options={[{ value: 'daily', label: 'Daily' }]}
+        onChange={(schedule) => onChange(updateWorkflowNodeData(node, { schedule }))}
+      />
+      <Field label="At" value={String(node.data?.at ?? '08:00')} onChange={(at) => onChange(updateWorkflowNodeData(node, { at }))} />
+      <Field
+        label="Timezone"
+        value={String(node.data?.timezone ?? '')}
+        onChange={(timezone) => onChange(updateWorkflowNodeData(node, { timezone }))}
+      />
+    </FieldGrid>
   );
 }
 
@@ -199,6 +213,5 @@ function blankSource(): AgentWorkflowSource {
     feed_url: '',
     weight: 1,
     enabled: true,
-    poll_interval_seconds: 0,
   };
 }

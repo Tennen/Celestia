@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/core/timeschedule"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )
@@ -108,11 +109,11 @@ func matchesTimeWindow(ts time.Time, window *models.AutomationTimeWindow) bool {
 	if window == nil {
 		return true
 	}
-	start, err := parseClockHM(window.Start)
+	start, err := timeschedule.ParseClockHM(window.Start)
 	if err != nil {
 		return false
 	}
-	end, err := parseClockHM(window.End)
+	end, err := timeschedule.ParseClockHM(window.End)
 	if err != nil {
 		return false
 	}
@@ -125,14 +126,6 @@ func matchesTimeWindow(ts time.Time, window *models.AutomationTimeWindow) bool {
 		return currentMinutes >= start && currentMinutes < end
 	}
 	return currentMinutes >= start || currentMinutes < end
-}
-
-func parseClockHM(value string) (int, error) {
-	parsed, err := time.Parse("15:04", strings.TrimSpace(value))
-	if err != nil {
-		return 0, err
-	}
-	return parsed.Hour()*60 + parsed.Minute(), nil
 }
 
 func (s *Service) matchesStateConditions(ctx context.Context, automation models.Automation) (bool, error) {

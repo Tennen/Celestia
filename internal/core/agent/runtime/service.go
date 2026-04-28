@@ -19,21 +19,33 @@ type Service struct {
 	bus            *eventbus.Bus
 	workflowOutput workflowOutputRuntime
 	mu             sync.Mutex
+	startOnce      sync.Once
+	stop           chan struct{}
+	stopOnce       sync.Once
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
 	return &Service{
 		store: store,
 		bus:   bus,
+		stop:  make(chan struct{}),
 	}
 }
 
 func (s *Service) Init(ctx context.Context) error {
-	_, err := s.Snapshot(ctx)
-	return err
+	if _, err := s.Snapshot(ctx); err != nil {
+		return err
+	}
+	s.startOnce.Do(func() {
+		go s.runWorkflowTimeScheduler()
+	})
+	return nil
 }
 
 func (s *Service) Close() {
+	s.stopOnce.Do(func() {
+		close(s.stop)
+	})
 }
 
 func (s *Service) Snapshot(ctx context.Context) (models.AgentSnapshot, error) {
@@ -157,6 +169,7 @@ func defaultSnapshot() models.AgentSnapshot {
 			Workflows:    []models.AgentWorkflow{},
 			Runs:         []models.AgentWorkflowRun{},
 			SourceStates: []models.AgentWorkflowSourceState{},
+			TimerStates:  []models.AgentWorkflowTimerState{},
 			UpdatedAt:    now,
 		},
 		Writing: models.AgentWritingSnapshot{
@@ -232,6 +245,10 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 		snapshot.Workflow.SourceStates = []models.AgentWorkflowSourceState{}
 	}
 	snapshot.Workflow.SourceStates = pruneWorkflowSourceStates(snapshot.Workflow.SourceStates, snapshot.Workflow.Workflows)
+	if snapshot.Workflow.TimerStates == nil {
+		snapshot.Workflow.TimerStates = []models.AgentWorkflowTimerState{}
+	}
+	snapshot.Workflow.TimerStates = pruneWorkflowTimerStates(snapshot.Workflow.TimerStates, snapshot.Workflow.Workflows)
 	if snapshot.Writing.Topics == nil {
 		snapshot.Writing.Topics = []models.AgentWritingTopic{}
 	}

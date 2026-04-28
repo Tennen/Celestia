@@ -2,30 +2,15 @@ package automation
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"log"
-	"strings"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/core/timeschedule"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )
 
-const automationTimeScheduleDaily = "daily"
-
 func (s *Service) runTimeScheduler() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	s.handleTimeTick(time.Now())
-	for {
-		select {
-		case <-s.stop:
-			return
-		case now := <-ticker.C:
-			s.handleTimeTick(now)
-		}
-	}
+	timeschedule.RunLoop(s.stop, 30*time.Second, s.handleTimeTick)
 }
 
 func (s *Service) handleTimeTick(now time.Time) {
@@ -76,57 +61,28 @@ func (s *Service) handleTimeTick(now time.Time) {
 }
 
 func normalizeTimeCondition(condition *models.AutomationTimeCondition) (models.AutomationTimeCondition, error) {
-	if condition == nil {
-		return models.AutomationTimeCondition{}, errors.New("time condition is required")
+	normalized, err := timeschedule.Normalize(&timeschedule.Spec{
+		Schedule: condition.Schedule,
+		At:       condition.At,
+		Timezone: condition.Timezone,
+	})
+	if err != nil {
+		return models.AutomationTimeCondition{}, err
 	}
-	schedule := strings.TrimSpace(condition.Schedule)
-	if schedule == "" {
-		schedule = automationTimeScheduleDaily
-	}
-	if schedule != automationTimeScheduleDaily {
-		return models.AutomationTimeCondition{}, fmt.Errorf("unsupported schedule %q", schedule)
-	}
-	at := strings.TrimSpace(condition.At)
-	if _, err := parseClockHM(at); err != nil {
-		return models.AutomationTimeCondition{}, fmt.Errorf("invalid at: %w", err)
-	}
-	timezone := strings.TrimSpace(condition.Timezone)
-	if timezone != "" {
-		if _, err := time.LoadLocation(timezone); err != nil {
-			return models.AutomationTimeCondition{}, fmt.Errorf("invalid timezone: %w", err)
-		}
-	}
-	return models.AutomationTimeCondition{Schedule: schedule, At: at, Timezone: timezone}, nil
+	return models.AutomationTimeCondition{
+		Schedule: normalized.Schedule,
+		At:       normalized.At,
+		Timezone: normalized.Timezone,
+	}, nil
 }
 
 func matchesTimeCondition(now time.Time, condition *models.AutomationTimeCondition, lastTriggeredAt *time.Time) bool {
-	if condition == nil || condition.Schedule != automationTimeScheduleDaily {
+	if condition == nil {
 		return false
 	}
-	minutes, err := parseClockHM(condition.At)
-	if err != nil {
-		return false
-	}
-	location := time.Local
-	if strings.TrimSpace(condition.Timezone) != "" {
-		loaded, loadErr := time.LoadLocation(condition.Timezone)
-		if loadErr != nil {
-			log.Printf("automation: invalid timezone %q: %v", condition.Timezone, loadErr)
-			return false
-		}
-		location = loaded
-	}
-	localNow := now.In(location)
-	currentMinutes := localNow.Hour()*60 + localNow.Minute()
-	if currentMinutes != minutes {
-		return false
-	}
-	if lastTriggeredAt == nil {
-		return true
-	}
-	last := lastTriggeredAt.In(location)
-	return last.Year() != localNow.Year() ||
-		last.Month() != localNow.Month() ||
-		last.Day() != localNow.Day() ||
-		last.Hour()*60+last.Minute() != minutes
+	return timeschedule.Matches(now, &timeschedule.Spec{
+		Schedule: condition.Schedule,
+		At:       condition.At,
+		Timezone: condition.Timezone,
+	}, lastTriggeredAt)
 }

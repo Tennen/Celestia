@@ -33,11 +33,24 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 	if err != nil {
 		return workflowNodeValue{}, "", nil, err
 	}
+	triggerEdges := e.incomingByHandle(node.ID, "trigger")
+	if len(triggerEdges) > 0 {
+		triggerInputs, inputErr := e.collect(node.ID, "trigger")
+		if inputErr != nil {
+			return workflowNodeValue{}, "", nil, inputErr
+		}
+		if triggerInputs.triggers == 0 {
+			return workflowNodeValue{Text: "", Items: nil}, "RSS waiting for timer trigger", map[string]any{
+				"item_count":          0,
+				"trigger_input_count": len(triggerEdges),
+				"triggered":           false,
+			}, nil
+		}
+	}
 	now := time.Now().UTC()
 	items := make([]models.AgentWorkflowItem, 0, len(config.Sources)*4)
 	enabledCount := 0
 	requestedCount := 0
-	skippedCount := 0
 	notModifiedCount := 0
 	errorCount := 0
 	for _, source := range config.Sources {
@@ -46,11 +59,6 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 		}
 		enabledCount++
 		state, stateKey := e.sourceStateFor(node.ID, source)
-		pollInterval := workflowSourcePollInterval(source)
-		if pollInterval > 0 && !state.LastRequestedAt.IsZero() && now.Sub(state.LastRequestedAt) < pollInterval {
-			skippedCount++
-			continue
-		}
 		requestedCount++
 		result, fetchErr := pollWorkflowFeed(e.ctx, source, state, now)
 		if fetchErr != nil {
@@ -70,7 +78,6 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 		"item_count":             len(items),
 		"enabled_source_count":   enabledCount,
 		"requested_source_count": requestedCount,
-		"skipped_source_count":   skippedCount,
 		"not_modified_count":     notModifiedCount,
 		"error_count":            errorCount,
 	}, nil

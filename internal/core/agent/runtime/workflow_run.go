@@ -12,16 +12,18 @@ import (
 )
 
 type workflowNodeValue struct {
-	Prompt string
-	Text   string
-	Items  []models.AgentWorkflowItem
-	Search *models.AgentSearchResult
+	Prompt    string
+	Text      string
+	Items     []models.AgentWorkflowItem
+	Search    *models.AgentSearchResult
+	Triggered bool
 }
 
 type workflowExecutor struct {
 	ctx            context.Context
 	service        *Service
 	workflow       models.AgentWorkflow
+	runOptions     workflowRunOptions
 	incoming       map[string][]models.AgentWorkflowEdge
 	outgoing       map[string][]models.AgentWorkflowEdge
 	nodes          map[string]models.AgentWorkflowNode
@@ -31,8 +33,20 @@ type workflowExecutor struct {
 	fetchErrors    []models.AgentRunError
 	deliveryErrors []models.AgentRunError
 	sourceStates   map[string]models.AgentWorkflowSourceState
+	timerStates    map[string]models.AgentWorkflowTimerState
 	sourceUpdates  map[string]workflowSourceStateUpdate
 	sentItems      map[string]models.AgentWorkflowItem
+}
+
+type workflowRunOptions struct {
+	ManualRun          bool
+	TriggeredTimerNode map[string]struct{}
+}
+
+type workflowTimerNodeConfig struct {
+	Schedule string `json:"schedule"`
+	At       string `json:"at"`
+	Timezone string `json:"timezone,omitempty"`
 }
 
 type textNodeConfig struct {
@@ -58,6 +72,10 @@ type wecomOutputConfig struct {
 }
 
 func (s *Service) RunWorkflow(ctx context.Context, workflowID string) (models.AgentWorkflowRun, error) {
+	return s.runWorkflow(ctx, workflowID, workflowRunOptions{ManualRun: true})
+}
+
+func (s *Service) runWorkflow(ctx context.Context, workflowID string, options workflowRunOptions) (models.AgentWorkflowRun, error) {
 	snapshot, err := s.Snapshot(ctx)
 	if err != nil {
 		return models.AgentWorkflowRun{}, err
@@ -66,7 +84,7 @@ func (s *Service) RunWorkflow(ctx context.Context, workflowID string) (models.Ag
 	if !ok {
 		return models.AgentWorkflowRun{}, errors.New("workflow not found")
 	}
-	executor := newWorkflowExecutor(ctx, s, workflow, snapshot.Workflow.SourceStates)
+	executor := newWorkflowExecutor(ctx, s, workflow, snapshot.Workflow.SourceStates, snapshot.Workflow.TimerStates, options)
 	run := models.AgentWorkflowRun{
 		ID:           uuid.NewString(),
 		WorkflowID:   workflow.ID,
@@ -104,7 +122,7 @@ func (s *Service) RunWorkflow(ctx context.Context, workflowID string) (models.Ag
 	return run, nil
 }
 
-func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.AgentWorkflow, sourceStates []models.AgentWorkflowSourceState) *workflowExecutor {
+func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.AgentWorkflow, sourceStates []models.AgentWorkflowSourceState, timerStates []models.AgentWorkflowTimerState, options workflowRunOptions) *workflowExecutor {
 	nodes := make(map[string]models.AgentWorkflowNode, len(workflow.Nodes))
 	incoming := make(map[string][]models.AgentWorkflowEdge, len(workflow.Nodes))
 	outgoing := make(map[string][]models.AgentWorkflowEdge, len(workflow.Nodes))
@@ -119,6 +137,7 @@ func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.
 		ctx:           ctx,
 		service:       service,
 		workflow:      workflow,
+		runOptions:    options,
 		incoming:      incoming,
 		outgoing:      outgoing,
 		nodes:         nodes,
@@ -126,6 +145,7 @@ func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.
 		active:        map[string]bool{},
 		nodeResults:   map[string]models.AgentWorkflowNodeResult{},
 		sourceStates:  workflowSourceStateSet(sourceStates),
+		timerStates:   workflowTimerStateSet(timerStates),
 		sourceUpdates: map[string]workflowSourceStateUpdate{},
 		sentItems:     map[string]models.AgentWorkflowItem{},
 	}
@@ -145,7 +165,7 @@ func (e *workflowExecutor) targetNodes() []string {
 	}
 	targets = targets[:0]
 	for _, node := range e.workflow.Nodes {
-		if node.Type == workflowNodeTypeGroup {
+		if node.Type == workflowNodeTypeGroup || node.Type == workflowNodeTypeTimer {
 			continue
 		}
 		if len(e.outgoing[node.ID]) == 0 {
@@ -192,6 +212,8 @@ func (e *workflowExecutor) execute(node models.AgentWorkflowNode) (workflowNodeV
 	switch node.Type {
 	case workflowNodeTypeGroup:
 		return workflowNodeValue{}, "Group container", map[string]any{"children": len(e.groupChildren(node.ID))}, nil
+	case workflowNodeTypeTimer:
+		return e.executeTimerNode(node)
 	case workflowNodeTypeRSSSources:
 		return e.executeRSSNode(node)
 	case workflowNodeTypeText, legacyWorkflowNodeTypePrompt:
@@ -362,6 +384,7 @@ type collectedWorkflowInputs struct {
 	texts    []string
 	searches []string
 	items    []models.AgentWorkflowItem
+	triggers int
 }
 
 func (e *workflowExecutor) collect(nodeID string, targetHandle string) (collectedWorkflowInputs, error) {
@@ -379,6 +402,9 @@ func (e *workflowExecutor) collect(nodeID string, targetHandle string) (collecte
 		}
 		if value.Search != nil {
 			out.searches = append(out.searches, workflowSearchResultText(*value.Search))
+		}
+		if value.Triggered {
+			out.triggers++
 		}
 		out.items = append(out.items, value.Items...)
 	}

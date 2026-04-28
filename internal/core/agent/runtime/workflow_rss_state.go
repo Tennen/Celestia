@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"strings"
-	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -185,12 +184,4 @@ func (e *workflowExecutor) sourceStateUpdateList() []workflowSourceStateUpdate {
 		updates = append(updates, update)
 	}
 	return updates
-}
-
-func workflowSourcePollInterval(source models.AgentWorkflowSource) time.Duration {
-	seconds := source.PollIntervalSeconds
-	if seconds <= 0 {
-		return 0
-	}
-	return time.Duration(seconds) * time.Second
 }

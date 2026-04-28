@@ -18,6 +18,7 @@ func (s *Service) SaveWorkflow(ctx context.Context, workflow models.AgentWorkflo
 		next.Runs = append([]models.AgentWorkflowRun{}, snapshot.Workflow.Runs...)
 		next.SentLog = append([]models.AgentWorkflowSentLogItem{}, snapshot.Workflow.SentLog...)
 		next.SourceStates = append([]models.AgentWorkflowSourceState{}, snapshot.Workflow.SourceStates...)
+		next.TimerStates = append([]models.AgentWorkflowTimerState{}, snapshot.Workflow.TimerStates...)
 		snapshot.Workflow = normalizeWorkflowSnapshot(next, now)
 		snapshot.UpdatedAt = now
 		return nil
@@ -47,6 +48,10 @@ func normalizeWorkflowSnapshot(workflow models.AgentWorkflowSnapshot, now time.T
 		workflow.SourceStates = []models.AgentWorkflowSourceState{}
 	}
 	workflow.SourceStates = pruneWorkflowSourceStates(workflow.SourceStates, workflow.Workflows)
+	if workflow.TimerStates == nil {
+		workflow.TimerStates = []models.AgentWorkflowTimerState{}
+	}
+	workflow.TimerStates = pruneWorkflowTimerStates(workflow.TimerStates, workflow.Workflows)
 	workflow.UpdatedAt = now
 	return workflow
 }
