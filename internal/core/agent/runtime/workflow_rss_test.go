@@ -1,0 +1,317 @@
+package runtime
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/chentianyu/celestia/internal/models"
+)
+
+type workflowFeedResponse struct {
+	status       int
+	lastModified string
+	body         string
+}
+
+type workflowFeedTransport struct {
+	t         *testing.T
+	responses []workflowFeedResponse
+	requests  []*http.Request
+}
+
+func (t *workflowFeedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Host != "rss.test" {
+		t.t.Fatalf("unexpected request host %q", req.URL.Host)
+	}
+	if len(t.responses) == 0 {
+		t.t.Fatalf("unexpected RSS request for %s", req.URL.String())
+	}
+	t.requests = append(t.requests, req.Clone(req.Context()))
+	next := t.responses[0]
+	t.responses = t.responses[1:]
+	resp := response(next.status, "application/xml", next.body)
+	if next.lastModified != "" {
+		resp.Header.Set("Last-Modified", next.lastModified)
+	}
+	return resp, nil
+}
+
+func TestRunWorkflowRSSReturnsOnlyNewGUIDItems(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	workflow := workflowRSSOnlyDefinition(0)
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	transport := &workflowFeedTransport{
+		t: t,
+		responses: []workflowFeedResponse{
+			{
+				status:       http.StatusOK,
+				lastModified: "Tue, 28 Apr 2026 10:00:00 GMT",
+				body: `<?xml version="1.0" encoding="UTF-8"?>
+<rss><channel>
+  <item>
+    <title>Alpha</title>
+    <link>https://example.com/topic?id=1</link>
+    <guid>guid-alpha</guid>
+    <description>Initial item.</description>
+  </item>
+</channel></rss>`,
+			},
+			{
+				status:       http.StatusOK,
+				lastModified: "Tue, 28 Apr 2026 10:05:00 GMT",
+				body: `<?xml version="1.0" encoding="UTF-8"?>
+<rss><channel>
+  <item>
+    <title>Alpha Updated URL</title>
+    <link>https://example.com/topic?id=1&amp;rev=2</link>
+    <guid>guid-alpha</guid>
+    <description>Same guid, changed link.</description>
+  </item>
+  <item>
+    <title>Beta</title>
+    <link>https://example.com/topic?id=2</link>
+    <guid>guid-beta</guid>
+    <description>New item.</description>
+  </item>
+</channel></rss>`,
+			},
+		},
+	}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	firstRun, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() first error = %v", err)
+	}
+	if len(firstRun.Items) != 1 {
+		t.Fatalf("first run items = %d, want 1", len(firstRun.Items))
+	}
+	if guid := firstRun.Items[0].GUID; guid != "guid-alpha" {
+		t.Fatalf("first run guid = %q, want guid-alpha", guid)
+	}
+
+	secondRun, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() second error = %v", err)
+	}
+	if len(secondRun.Items) != 1 {
+		t.Fatalf("second run items = %d, want 1", len(secondRun.Items))
+	}
+	if guid := secondRun.Items[0].GUID; guid != "guid-beta" {
+		t.Fatalf("second run guid = %q, want guid-beta", guid)
+	}
+	if len(transport.requests) != 2 {
+		t.Fatalf("RSS requests = %d, want 2", len(transport.requests))
+	}
+	if got := transport.requests[1].Header.Get("If-Modified-Since"); got != "Tue, 28 Apr 2026 10:00:00 GMT" {
+		t.Fatalf("If-Modified-Since = %q, want first Last-Modified header", got)
+	}
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.Workflow.SourceStates) != 1 {
+		t.Fatalf("source states = %d, want 1", len(snapshot.Workflow.SourceStates))
+	}
+	if !strings.Contains(snapshot.Workflow.SourceStates[0].LastResponseBody, "guid-beta") {
+		t.Fatalf("last response body was not updated: %q", snapshot.Workflow.SourceStates[0].LastResponseBody)
+	}
+}
+
+func TestRunWorkflowRSSSkipsSourceUntilPollIntervalExpires(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	workflow := workflowRSSOnlyDefinition(3600)
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+	seedRequestedAt := time.Now().UTC()
+	if _, err := svc.UpdateSnapshot(ctx, func(snapshot *models.AgentSnapshot) error {
+		snapshot.Workflow.SourceStates = []models.AgentWorkflowSourceState{{
+			WorkflowID:      workflow.ID,
+			NodeID:          "rss-main",
+			SourceID:        "feed-main",
+			FeedURL:         "https://rss.test/feed",
+			LastRequestedAt: seedRequestedAt,
+			UpdatedAt:       seedRequestedAt,
+		}}
+		return nil
+	}); err != nil {
+		t.Fatalf("UpdateSnapshot() error = %v", err)
+	}
+
+	transport := &workflowFeedTransport{t: t}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	run, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() error = %v", err)
+	}
+	if len(run.Items) != 0 {
+		t.Fatalf("run items = %d, want 0", len(run.Items))
+	}
+	if len(transport.requests) != 0 {
+		t.Fatalf("RSS requests = %d, want 0", len(transport.requests))
+	}
+	if got := workflowResultMetadataInt(t, run, "rss-main", "skipped_source_count"); got != 1 {
+		t.Fatalf("skipped_source_count = %d, want 1", got)
+	}
+	if got := workflowResultMetadataInt(t, run, "rss-main", "requested_source_count"); got != 0 {
+		t.Fatalf("requested_source_count = %d, want 0", got)
+	}
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.Workflow.SourceStates) != 1 {
+		t.Fatalf("source states = %d, want 1", len(snapshot.Workflow.SourceStates))
+	}
+	if !snapshot.Workflow.SourceStates[0].LastRequestedAt.Equal(seedRequestedAt) {
+		t.Fatalf("last requested at = %s, want %s", snapshot.Workflow.SourceStates[0].LastRequestedAt, seedRequestedAt)
+	}
+}
+
+func TestRunWorkflowRSSHandlesNotModifiedResponses(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	workflow := workflowRSSOnlyDefinition(60)
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+	seedRequestedAt := time.Now().UTC().Add(-2 * time.Hour)
+	seedBody := `<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Alpha</title><link>https://example.com/topic?id=1</link><guid>guid-alpha</guid></item></channel></rss>`
+	if _, err := svc.UpdateSnapshot(ctx, func(snapshot *models.AgentSnapshot) error {
+		snapshot.Workflow.SourceStates = []models.AgentWorkflowSourceState{{
+			WorkflowID:       workflow.ID,
+			NodeID:           "rss-main",
+			SourceID:         "feed-main",
+			FeedURL:          "https://rss.test/feed",
+			LastRequestedAt:  seedRequestedAt,
+			LastModified:     "Tue, 28 Apr 2026 10:00:00 GMT",
+			LastResponseBody: seedBody,
+			UpdatedAt:        seedRequestedAt,
+		}}
+		return nil
+	}); err != nil {
+		t.Fatalf("UpdateSnapshot() error = %v", err)
+	}
+
+	transport := &workflowFeedTransport{
+		t: t,
+		responses: []workflowFeedResponse{{
+			status:       http.StatusNotModified,
+			lastModified: "Tue, 28 Apr 2026 10:00:00 GMT",
+		}},
+	}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	run, err := svc.RunWorkflow(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("RunWorkflow() error = %v", err)
+	}
+	if len(run.Items) != 0 {
+		t.Fatalf("run items = %d, want 0", len(run.Items))
+	}
+	if len(transport.requests) != 1 {
+		t.Fatalf("RSS requests = %d, want 1", len(transport.requests))
+	}
+	if got := transport.requests[0].Header.Get("If-Modified-Since"); got != "Tue, 28 Apr 2026 10:00:00 GMT" {
+		t.Fatalf("If-Modified-Since = %q, want stored Last-Modified", got)
+	}
+	if got := workflowResultMetadataInt(t, run, "rss-main", "not_modified_count"); got != 1 {
+		t.Fatalf("not_modified_count = %d, want 1", got)
+	}
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.Workflow.SourceStates) != 1 {
+		t.Fatalf("source states = %d, want 1", len(snapshot.Workflow.SourceStates))
+	}
+	state := snapshot.Workflow.SourceStates[0]
+	if state.LastResponseBody != seedBody {
+		t.Fatalf("last response body changed on 304: %q", state.LastResponseBody)
+	}
+	if !state.LastRequestedAt.After(seedRequestedAt) {
+		t.Fatalf("last requested at = %s, want after %s", state.LastRequestedAt, seedRequestedAt)
+	}
+}
+
+func workflowRSSOnlyDefinition(pollIntervalSeconds int) models.AgentWorkflow {
+	return models.AgentWorkflow{
+		ID:   "workflow-rss-stateful",
+		Name: "Stateful RSS Workflow",
+		Nodes: []models.AgentWorkflowNode{{
+			ID:    "rss-main",
+			Type:  workflowNodeTypeRSSSources,
+			Label: "RSS Sources",
+			Position: models.AgentNodePoint{
+				X: 80,
+				Y: 80,
+			},
+			Data: map[string]any{
+				"sources": []models.AgentWorkflowSource{{
+					ID:                  "feed-main",
+					Name:                "Main Feed",
+					Category:            "news",
+					FeedURL:             "https://rss.test/feed",
+					Weight:              1,
+					Enabled:             true,
+					PollIntervalSeconds: pollIntervalSeconds,
+				}},
+			},
+		}},
+		Edges: []models.AgentWorkflowEdge{},
+	}
+}
+
+func workflowResultMetadataInt(t *testing.T, run models.AgentWorkflowRun, nodeID string, key string) int {
+	t.Helper()
+	for _, result := range run.NodeResults {
+		if result.NodeID != nodeID {
+			continue
+		}
+		value, ok := result.Metadata[key]
+		if !ok {
+			t.Fatalf("metadata %q not found on node %s", key, nodeID)
+		}
+		got, ok := value.(int)
+		if !ok {
+			t.Fatalf("metadata %q type = %T, want int", key, value)
+		}
+		return got
+	}
+	t.Fatalf("node result for %s not found", nodeID)
+	return 0
+}

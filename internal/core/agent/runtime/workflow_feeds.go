@@ -1,41 +1,18 @@
 package runtime
 
 import (
-	"context"
 	"encoding/xml"
-	"errors"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
 
-func fetchFeed(ctx context.Context, source models.AgentWorkflowSource) ([]models.AgentWorkflowItem, error) {
-	if strings.TrimSpace(source.FeedURL) == "" {
-		return nil, errors.New("feed_url is required")
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, source.FeedURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, errors.New("feed request failed with " + resp.Status)
-	}
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-	if err != nil {
-		return nil, err
-	}
+func parseFeedItems(raw []byte, source models.AgentWorkflowSource) []models.AgentWorkflowItem {
 	items := parseRSS(raw, source)
-	if len(items) == 0 {
-		items = parseAtom(raw, source)
+	if len(items) > 0 {
+		return items
 	}
-	return items, nil
+	return parseAtom(raw, source)
 }
 
 func parseRSS(raw []byte, source models.AgentWorkflowSource) []models.AgentWorkflowItem {
@@ -44,6 +21,7 @@ func parseRSS(raw []byte, source models.AgentWorkflowSource) []models.AgentWorkf
 			Items []struct {
 				Title       string `xml:"title"`
 				Link        string `xml:"link"`
+				GUID        string `xml:"guid"`
 				PubDate     string `xml:"pubDate"`
 				Description string `xml:"description"`
 			} `xml:"item"`
@@ -57,6 +35,7 @@ func parseRSS(raw []byte, source models.AgentWorkflowSource) []models.AgentWorkf
 		items = append(items, models.AgentWorkflowItem{
 			Title:       strings.TrimSpace(item.Title),
 			URL:         strings.TrimSpace(item.Link),
+			GUID:        strings.TrimSpace(item.GUID),
 			SourceID:    source.ID,
 			SourceName:  source.Name,
 			PublishedAt: strings.TrimSpace(item.PubDate),
@@ -70,6 +49,7 @@ func parseAtom(raw []byte, source models.AgentWorkflowSource) []models.AgentWork
 	var feed struct {
 		Entries []struct {
 			Title   string `xml:"title"`
+			ID      string `xml:"id"`
 			Updated string `xml:"updated"`
 			Summary string `xml:"summary"`
 			Links   []struct {
@@ -89,6 +69,7 @@ func parseAtom(raw []byte, source models.AgentWorkflowSource) []models.AgentWork
 		items = append(items, models.AgentWorkflowItem{
 			Title:       strings.TrimSpace(entry.Title),
 			URL:         strings.TrimSpace(link),
+			GUID:        strings.TrimSpace(entry.ID),
 			SourceID:    source.ID,
 			SourceName:  source.Name,
 			PublishedAt: strings.TrimSpace(entry.Updated),

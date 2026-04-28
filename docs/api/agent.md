@@ -21,7 +21,7 @@ Returns the full Agent snapshot:
 - `conversations`: retained Agent conversation turns, including slash command result records.
 - `memory`: raw turns, compacted summary memory, and active short conversation windows.
 - `search`: recent search query logs, capped at the latest 50 runs.
-- `workflow`, `writing`, `market`, and `evolution`: Agent-owned state. `workflow` stores the generic workflow canvas (`active_workflow_id`, `workflows[]`, `runs[]`, `sent_log`) used for modular orchestration.
+- `workflow`, `writing`, `market`, and `evolution`: Agent-owned state. `workflow` stores the generic workflow canvas (`active_workflow_id`, `workflows[]`) plus runtime history/state (`runs[]`, `sent_log`, `source_states[]`) used for modular orchestration.
 
 ## Runtime Settings
 
@@ -150,7 +150,8 @@ POST /api/v1/agent/workflow/run
 - `workflows[]`
   - `nodes[]`
   - `edges[]`
-- `runs[]`
+
+Workflow runtime fields such as `runs[]`, `sent_log[]`, and `source_states[]` are returned in the Agent snapshot and are maintained by the execution layer. `PUT /api/v1/agent/workflow` preserves those runtime fields while updating the editable workflow definitions.
 
 `POST /api/v1/agent/workflow/run` accepts:
 
@@ -183,12 +184,15 @@ Current executable ports:
 
 Runtime behavior:
 
-1. `rss_sources` fetches enabled RSS or Atom feeds and deduplicates URLs against `sent_log`.
-2. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
-3. `search_provider` uses the configured Core search provider profile.
-4. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
-5. `wecom_output` sends through the existing Touchpoints WeCom runtime.
-6. RSS items are appended to `sent_log` only after a successful WeCom delivery.
+1. `rss_sources` stores per-source execution state in `workflow.source_states[]`. Each source may set `poll_interval_seconds`; `0` means every workflow run.
+2. When a source is due, the executor sends `If-Modified-Since` using the last stored `Last-Modified` value, or the previous request time when no `Last-Modified` header has been seen yet.
+3. A `304 Not Modified` response advances the source request timestamp and emits no items.
+4. A `200 OK` response records the raw response body and compares the next response against the previous stored body by RSS `guid` or Atom `id` (falling back to URL/text when a feed omits stable ids). Only items newly appearing in the latest response are emitted downstream.
+5. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
+6. `search_provider` uses the configured Core search provider profile.
+7. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
+8. `wecom_output` sends through the existing Touchpoints WeCom runtime.
+9. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.
 
 ## Writing Organizer
 

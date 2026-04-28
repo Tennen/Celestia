@@ -45,7 +45,7 @@ export function WorkflowCanvasNode({ data, selected }: NodeProps) {
   switch (view.nodeType) {
     case 'rss_sources':
       return (
-        <NodeShell title={view.title} description="Fetches feed items and emits workflow context." selected={selected}>
+        <NodeShell title={view.title} description="Polls RSS/Atom feeds and emits only newly appeared items." selected={selected}>
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="content" />
         </NodeShell>
       );

@@ -4,7 +4,7 @@ export type WorkflowNodeType = 'group' | 'rss_sources' | 'text' | 'llm' | 'searc
 
 export const workflowNodeCatalog: Array<{ type: WorkflowNodeType; label: string; description: string }> = [
   { type: 'group', label: 'Group', description: 'Organize related nodes into a bounded canvas section.' },
-  { type: 'rss_sources', label: 'RSS Sources', description: 'Fetch and deduplicate multiple RSS or Atom feeds.' },
+  { type: 'rss_sources', label: 'RSS Sources', description: 'Poll RSS or Atom feeds with per-source stateful delta tracking.' },
   { type: 'text', label: 'Text', description: 'Compose reusable text blocks and concatenate upstream text in connection order.' },
   { type: 'llm', label: 'LLM', description: 'Run a selected provider with prompt, context, and optional search input.' },
   { type: 'search_provider', label: 'Search Provider', description: 'Run a configured search provider and stream results into the workflow.' },

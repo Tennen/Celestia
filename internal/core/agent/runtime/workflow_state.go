@@ -14,7 +14,11 @@ import (
 func (s *Service) SaveWorkflow(ctx context.Context, workflow models.AgentWorkflowSnapshot) (models.AgentSnapshot, error) {
 	return s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		now := time.Now().UTC()
-		snapshot.Workflow = normalizeWorkflowSnapshot(workflow, now)
+		next := normalizeWorkflowSnapshot(workflow, now)
+		next.Runs = append([]models.AgentWorkflowRun{}, snapshot.Workflow.Runs...)
+		next.SentLog = append([]models.AgentWorkflowSentLogItem{}, snapshot.Workflow.SentLog...)
+		next.SourceStates = append([]models.AgentWorkflowSourceState{}, snapshot.Workflow.SourceStates...)
+		snapshot.Workflow = normalizeWorkflowSnapshot(next, now)
 		snapshot.UpdatedAt = now
 		return nil
 	})
@@ -39,6 +43,10 @@ func normalizeWorkflowSnapshot(workflow models.AgentWorkflowSnapshot, now time.T
 	if workflow.SentLog == nil {
 		workflow.SentLog = []models.AgentWorkflowSentLogItem{}
 	}
+	if workflow.SourceStates == nil {
+		workflow.SourceStates = []models.AgentWorkflowSourceState{}
+	}
+	workflow.SourceStates = pruneWorkflowSourceStates(workflow.SourceStates, workflow.Workflows)
 	workflow.UpdatedAt = now
 	return workflow
 }
@@ -118,7 +126,7 @@ func selectWorkflow(snapshot models.AgentWorkflowSnapshot, workflowID string) (m
 	return models.AgentWorkflow{}, false
 }
 
-func (s *Service) appendWorkflowRun(ctx context.Context, run models.AgentWorkflowRun, sentItems []models.AgentWorkflowItem) error {
+func (s *Service) appendWorkflowRun(ctx context.Context, run models.AgentWorkflowRun, sentItems []models.AgentWorkflowItem, sourceStateUpdates []workflowSourceStateUpdate) error {
 	if run.ID == "" {
 		return errors.New("workflow run id is required")
 	}
@@ -134,6 +142,9 @@ func (s *Service) appendWorkflowRun(ctx context.Context, run models.AgentWorkflo
 		snapshot.Workflow.Runs = truncateList(snapshot.Workflow.Runs, 50)
 		if len(sentItems) > 0 {
 			snapshot.Workflow.SentLog = upsertWorkflowSentLog(snapshot.Workflow.SentLog, sentItems, now)
+		}
+		if len(sourceStateUpdates) > 0 {
+			snapshot.Workflow.SourceStates = applyWorkflowSourceStateUpdates(snapshot.Workflow.SourceStates, sourceStateUpdates, run.Status == "succeeded")
 		}
 		snapshot.Workflow.UpdatedAt = now
 		snapshot.UpdatedAt = now

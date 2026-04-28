@@ -110,9 +110,10 @@ type agentWorkflowDefinitionsDocument struct {
 }
 
 type agentWorkflowRunsDocument struct {
-	Runs      []models.AgentWorkflowRun         `json:"runs"`
-	SentLog   []models.AgentWorkflowSentLogItem `json:"sent_log"`
-	UpdatedAt time.Time                         `json:"updated_at"`
+	Runs         []models.AgentWorkflowRun         `json:"runs"`
+	SentLog      []models.AgentWorkflowSentLogItem `json:"sent_log"`
+	SourceStates []models.AgentWorkflowSourceState `json:"source_states,omitempty"`
+	UpdatedAt    time.Time                         `json:"updated_at"`
 }
 
 type agentWritingTopicsDocument struct {
@@ -272,7 +273,17 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 		{key: agentMemorySummariesDocumentKey, domain: "agent.memory.summaries", payload: agentMemorySummariesDocument{Summaries: snapshot.Memory.Summaries, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
 		{key: agentMemoryWindowsDocumentKey, domain: "agent.memory.windows", payload: agentMemoryWindowsDocument{Windows: snapshot.Memory.Windows, UpdatedAt: memoryUpdatedAt}, updatedAt: memoryUpdatedAt},
 		{key: agentWorkflowDefinitionsDocumentKey, domain: "agent.workflow.definitions", payload: agentWorkflowDefinitionsDocument{ActiveWorkflowID: snapshot.Workflow.ActiveWorkflowID, Workflows: snapshot.Workflow.Workflows, UpdatedAt: workflowUpdatedAt}, updatedAt: workflowUpdatedAt},
-		{key: agentWorkflowRunsDocumentKey, domain: "agent.workflow.runs", payload: agentWorkflowRunsDocument{Runs: snapshot.Workflow.Runs, SentLog: snapshot.Workflow.SentLog, UpdatedAt: workflowUpdatedAt}, updatedAt: workflowUpdatedAt},
+		{
+			key:    agentWorkflowRunsDocumentKey,
+			domain: "agent.workflow.runs",
+			payload: agentWorkflowRunsDocument{
+				Runs:         snapshot.Workflow.Runs,
+				SentLog:      snapshot.Workflow.SentLog,
+				SourceStates: snapshot.Workflow.SourceStates,
+				UpdatedAt:    workflowUpdatedAt,
+			},
+			updatedAt: workflowUpdatedAt,
+		},
 		{key: agentWritingTopicsDocumentKey, domain: "agent.writing.topics", payload: agentWritingTopicsDocument{Topics: snapshot.Writing.Topics, UpdatedAt: writingUpdatedAt}, updatedAt: writingUpdatedAt},
 		{key: agentMarketPortfolioDocumentKey, domain: "agent.market.portfolio", payload: agentMarketPortfolioDocument{Portfolio: snapshot.Market.Portfolio, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},
 		{key: agentMarketConfigDocumentKey, domain: "agent.market.config", payload: agentMarketConfigDocument{Config: snapshot.Market.Config, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},

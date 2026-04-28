@@ -83,6 +83,7 @@ func loadAgentWorkflowRunsDocument(doc models.AgentDocument, snapshot *models.Ag
 	}
 	snapshot.Workflow.Runs = payload.Runs
 	snapshot.Workflow.SentLog = payload.SentLog
+	snapshot.Workflow.SourceStates = payload.SourceStates
 	snapshot.Workflow.UpdatedAt = maxTime(snapshot.Workflow.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
 	return nil
 }

@@ -30,12 +30,9 @@ type workflowExecutor struct {
 	nodeResults    map[string]models.AgentWorkflowNodeResult
 	fetchErrors    []models.AgentRunError
 	deliveryErrors []models.AgentRunError
-	sentLog        map[string]struct{}
+	sourceStates   map[string]models.AgentWorkflowSourceState
+	sourceUpdates  map[string]workflowSourceStateUpdate
 	sentItems      map[string]models.AgentWorkflowItem
-}
-
-type rssNodeConfig struct {
-	Sources []models.AgentWorkflowSource `json:"sources"`
 }
 
 type textNodeConfig struct {
@@ -69,7 +66,7 @@ func (s *Service) RunWorkflow(ctx context.Context, workflowID string) (models.Ag
 	if !ok {
 		return models.AgentWorkflowRun{}, errors.New("workflow not found")
 	}
-	executor := newWorkflowExecutor(ctx, s, workflow, snapshot.Workflow.SentLog)
+	executor := newWorkflowExecutor(ctx, s, workflow, snapshot.Workflow.SourceStates)
 	run := models.AgentWorkflowRun{
 		ID:           uuid.NewString(),
 		WorkflowID:   workflow.ID,
@@ -101,13 +98,13 @@ func (s *Service) RunWorkflow(ctx context.Context, workflowID string) (models.Ag
 	run.FinishedAt = time.Now().UTC()
 	run.Status = workflowRunStatus(run)
 	run.Summary = workflowRunSummary(workflow.Name, run)
-	if err := s.appendWorkflowRun(ctx, run, executor.sentItemList()); err != nil {
+	if err := s.appendWorkflowRun(ctx, run, executor.sentItemList(), executor.sourceStateUpdateList()); err != nil {
 		return models.AgentWorkflowRun{}, err
 	}
 	return run, nil
 }
 
-func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.AgentWorkflow, sentLog []models.AgentWorkflowSentLogItem) *workflowExecutor {
+func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.AgentWorkflow, sourceStates []models.AgentWorkflowSourceState) *workflowExecutor {
 	nodes := make(map[string]models.AgentWorkflowNode, len(workflow.Nodes))
 	incoming := make(map[string][]models.AgentWorkflowEdge, len(workflow.Nodes))
 	outgoing := make(map[string][]models.AgentWorkflowEdge, len(workflow.Nodes))
@@ -119,17 +116,18 @@ func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.
 		outgoing[edge.Source] = append(outgoing[edge.Source], edge)
 	}
 	return &workflowExecutor{
-		ctx:         ctx,
-		service:     service,
-		workflow:    workflow,
-		incoming:    incoming,
-		outgoing:    outgoing,
-		nodes:       nodes,
-		cache:       map[string]workflowNodeValue{},
-		active:      map[string]bool{},
-		nodeResults: map[string]models.AgentWorkflowNodeResult{},
-		sentLog:     workflowSentLogSet(sentLog),
-		sentItems:   map[string]models.AgentWorkflowItem{},
+		ctx:           ctx,
+		service:       service,
+		workflow:      workflow,
+		incoming:      incoming,
+		outgoing:      outgoing,
+		nodes:         nodes,
+		cache:         map[string]workflowNodeValue{},
+		active:        map[string]bool{},
+		nodeResults:   map[string]models.AgentWorkflowNodeResult{},
+		sourceStates:  workflowSourceStateSet(sourceStates),
+		sourceUpdates: map[string]workflowSourceStateUpdate{},
+		sentItems:     map[string]models.AgentWorkflowItem{},
 	}
 }
 
@@ -209,42 +207,6 @@ func (e *workflowExecutor) execute(node models.AgentWorkflowNode) (workflowNodeV
 	}
 }
 
-func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workflowNodeValue, string, map[string]any, error) {
-	config, err := decodeWorkflowNodeData[rssNodeConfig](node.Data)
-	if err != nil {
-		return workflowNodeValue{}, "", nil, err
-	}
-	items := make([]models.AgentWorkflowItem, 0, len(config.Sources)*4)
-	errorCount := 0
-	for _, source := range config.Sources {
-		if !source.Enabled {
-			continue
-		}
-		fetched, fetchErr := fetchFeed(e.ctx, source)
-		if fetchErr != nil {
-			errorCount++
-			e.fetchErrors = append(e.fetchErrors, models.AgentRunError{Target: firstNonEmpty(source.ID, source.Name, source.FeedURL), Error: fetchErr.Error()})
-			continue
-		}
-		for _, item := range fetched {
-			key := normalizeWorkflowURL(item.URL)
-			if key != "" {
-				if _, ok := e.sentLog[key]; ok {
-					continue
-				}
-				e.sentLog[key] = struct{}{}
-			}
-			items = append(items, item)
-		}
-	}
-	items = truncateWorkflowItems(items, 30)
-	return workflowNodeValue{Text: workflowItemsContextJSON(items), Items: items}, fmt.Sprintf("%d items from %d sources", len(items), len(config.Sources)), map[string]any{
-		"item_count":   len(items),
-		"source_count": len(config.Sources),
-		"error_count":  errorCount,
-	}, nil
-}
-
 func (e *workflowExecutor) executeTextNode(node models.AgentWorkflowNode) (workflowNodeValue, string, map[string]any, error) {
 	config, err := decodeWorkflowNodeData[textNodeConfig](node.Data)
 	if err != nil {
@@ -261,10 +223,10 @@ func (e *workflowExecutor) executeTextNode(node models.AgentWorkflowNode) (workf
 		return workflowNodeValue{}, "", nil, errors.New("text node requires text content or upstream text input")
 	}
 	return workflowNodeValue{Prompt: text, Text: text, Items: append([]models.AgentWorkflowItem{}, inputs.items...)}, "Text ready", map[string]any{
-		"chars":        len(text),
-		"input_count":  len(inputs.texts),
-		"item_count":   len(inputs.items),
-		"local_chars":  len(strings.TrimSpace(firstNonEmpty(config.Text, config.Prompt))),
+		"chars":       len(text),
+		"input_count": len(inputs.texts),
+		"item_count":  len(inputs.items),
+		"local_chars": len(strings.TrimSpace(firstNonEmpty(config.Text, config.Prompt))),
 	}, nil
 }
 

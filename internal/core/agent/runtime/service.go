@@ -154,9 +154,10 @@ func defaultSnapshot() models.AgentSnapshot {
 			UpdatedAt:  now,
 		},
 		Workflow: models.AgentWorkflowSnapshot{
-			Workflows: []models.AgentWorkflow{},
-			Runs:      []models.AgentWorkflowRun{},
-			UpdatedAt: now,
+			Workflows:    []models.AgentWorkflow{},
+			Runs:         []models.AgentWorkflowRun{},
+			SourceStates: []models.AgentWorkflowSourceState{},
+			UpdatedAt:    now,
 		},
 		Writing: models.AgentWritingSnapshot{
 			Topics:    []models.AgentWritingTopic{},
@@ -227,6 +228,10 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.Workflow.SentLog == nil {
 		snapshot.Workflow.SentLog = []models.AgentWorkflowSentLogItem{}
 	}
+	if snapshot.Workflow.SourceStates == nil {
+		snapshot.Workflow.SourceStates = []models.AgentWorkflowSourceState{}
+	}
+	snapshot.Workflow.SourceStates = pruneWorkflowSourceStates(snapshot.Workflow.SourceStates, snapshot.Workflow.Workflows)
 	if snapshot.Writing.Topics == nil {
 		snapshot.Writing.Topics = []models.AgentWritingTopic{}
 	}

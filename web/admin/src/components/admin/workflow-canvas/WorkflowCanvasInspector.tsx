@@ -66,7 +66,13 @@ function RSSNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: 
             <Field label="Category" value={source.category ?? ''} onChange={(category) => updateSource(index, { category })} />
             <Field label="Feed URL" value={source.feed_url ?? ''} onChange={(feed_url) => updateSource(index, { feed_url })} />
             <Field label="Weight" value={String(source.weight ?? 1)} onChange={(weight) => updateSource(index, { weight: Number(weight) || 1 })} />
+            <Field
+              label="Poll Interval (s)"
+              value={String(source.poll_interval_seconds ?? 0)}
+              onChange={(poll_interval_seconds) => updateSource(index, { poll_interval_seconds: Math.max(0, Number(poll_interval_seconds) || 0) })}
+            />
           </FieldGrid>
+          <div className="detail">`0` means request on every workflow run. A positive value throttles requests per source and enables incremental RSS delivery.</div>
           <Button variant="danger" onClick={() => onChange(updateWorkflowNodeData(node, { sources: sources.filter((_, current) => current !== index) }))}>
             Remove Source
           </Button>
@@ -193,5 +199,6 @@ function blankSource(): AgentWorkflowSource {
     feed_url: '',
     weight: 1,
     enabled: true,
+    poll_interval_seconds: 0,
   };
 }

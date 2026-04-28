@@ -92,16 +92,6 @@ func normalizeWorkflowURL(raw string) string {
 	return value
 }
 
-func workflowSentLogSet(items []models.AgentWorkflowSentLogItem) map[string]struct{} {
-	out := make(map[string]struct{}, len(items))
-	for _, item := range items {
-		if normalized := normalizeWorkflowURL(item.URLNormalized); normalized != "" {
-			out[normalized] = struct{}{}
-		}
-	}
-	return out
-}
-
 func upsertWorkflowSentLog(log []models.AgentWorkflowSentLogItem, items []models.AgentWorkflowItem, sentAt time.Time) []models.AgentWorkflowSentLogItem {
 	out := append([]models.AgentWorkflowSentLogItem{}, log...)
 	for _, item := range items {
@@ -172,6 +162,7 @@ func workflowFirstTime(values ...time.Time) time.Time {
 func workflowItemsContextJSON(items []models.AgentWorkflowItem) string {
 	type workflowContextItem struct {
 		Title       string `json:"title,omitempty"`
+		GUID        string `json:"guid,omitempty"`
 		Source      string `json:"source,omitempty"`
 		PublishedAt string `json:"published_at,omitempty"`
 		Summary     string `json:"summary,omitempty"`
@@ -184,6 +175,7 @@ func workflowItemsContextJSON(items []models.AgentWorkflowItem) string {
 	for _, item := range items {
 		payload = append(payload, workflowContextItem{
 			Title:       strings.TrimSpace(item.Title),
+			GUID:        strings.TrimSpace(item.GUID),
 			Source:      strings.TrimSpace(item.SourceName),
 			PublishedAt: strings.TrimSpace(item.PublishedAt),
 			Summary:     strings.TrimSpace(item.Summary),
