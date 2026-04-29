@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,8 +15,11 @@ import (
 
 type sharedLLMWorkflowTransport struct {
 	t               *testing.T
+	mu              sync.Mutex
 	llmBodies       []string
 	feedBodiesByURL map[string]string
+	llmStarted      chan struct{}
+	releaseFirstLLM chan struct{}
 }
 
 func (t *sharedLLMWorkflowTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -34,12 +38,43 @@ func (t *sharedLLMWorkflowTransport) RoundTrip(req *http.Request) (*http.Respons
 		if err != nil {
 			t.t.Fatalf("read llm request body: %v", err)
 		}
-		t.llmBodies = append(t.llmBodies, string(body))
-		reply := fmt.Sprintf(`{"choices":[{"message":{"role":"assistant","content":"Digest %d"}}]}`, len(t.llmBodies))
+		count := t.appendLLMBody(string(body))
+		if count == 1 {
+			notifyWorkflowTransportChannel(t.llmStarted)
+			if t.releaseFirstLLM != nil {
+				<-t.releaseFirstLLM
+			}
+		}
+		reply := fmt.Sprintf(`{"choices":[{"message":{"role":"assistant","content":"Digest %d"}}]}`, count)
 		return response(http.StatusOK, "application/json", reply), nil
 	default:
 		t.t.Fatalf("unexpected request host %q", req.URL.Host)
 		return nil, nil
+	}
+}
+
+func (t *sharedLLMWorkflowTransport) appendLLMBody(body string) int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.llmBodies = append(t.llmBodies, body)
+	return len(t.llmBodies)
+}
+
+func (t *sharedLLMWorkflowTransport) llmBodiesSnapshot() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]string{}, t.llmBodies...)
+}
+
+func notifyWorkflowTransportChannel(ch chan struct{}) {
+	if ch == nil {
+		return
+	}
+	select {
+	case <-ch:
+		return
+	default:
+		close(ch)
 	}
 }
 
@@ -78,11 +113,12 @@ func TestRunWorkflowAggregatesSharedLLMWithoutTimer(t *testing.T) {
 	if run.Status != "succeeded" {
 		t.Fatalf("run status = %q, want succeeded", run.Status)
 	}
-	if len(transport.llmBodies) != 1 {
-		t.Fatalf("LLM requests = %d, want 1", len(transport.llmBodies))
+	llmBodies := transport.llmBodiesSnapshot()
+	if len(llmBodies) != 1 {
+		t.Fatalf("LLM requests = %d, want 1", len(llmBodies))
 	}
-	if !strings.Contains(transport.llmBodies[0], "Alpha headline") || !strings.Contains(transport.llmBodies[0], "Beta headline") {
-		t.Fatalf("aggregated LLM body missing RSS inputs: %s", transport.llmBodies[0])
+	if !strings.Contains(llmBodies[0], "Alpha headline") || !strings.Contains(llmBodies[0], "Beta headline") {
+		t.Fatalf("aggregated LLM body missing RSS inputs: %s", llmBodies[0])
 	}
 	if len(output.messages) != 1 {
 		t.Fatalf("wecom messages = %d, want 1", len(output.messages))
@@ -120,14 +156,15 @@ func TestWorkflowTimeSchedulerQueuesSharedLLMPerTimer(t *testing.T) {
 	now := time.Date(2026, 4, 28, 8, 30, 0, 0, time.UTC)
 	svc.handleWorkflowTimeTick(now)
 
-	if len(transport.llmBodies) != 2 {
-		t.Fatalf("LLM requests = %d, want 2", len(transport.llmBodies))
+	llmBodies := transport.llmBodiesSnapshot()
+	if len(llmBodies) != 2 {
+		t.Fatalf("LLM requests = %d, want 2", len(llmBodies))
 	}
-	if !strings.Contains(transport.llmBodies[0], "Alpha headline") || strings.Contains(transport.llmBodies[0], "Beta headline") {
-		t.Fatalf("first LLM body should contain only timer A RSS input: %s", transport.llmBodies[0])
+	if !strings.Contains(llmBodies[0], "Alpha headline") || strings.Contains(llmBodies[0], "Beta headline") {
+		t.Fatalf("first LLM body should contain only timer A RSS input: %s", llmBodies[0])
 	}
-	if !strings.Contains(transport.llmBodies[1], "Beta headline") || strings.Contains(transport.llmBodies[1], "Alpha headline") {
-		t.Fatalf("second LLM body should contain only timer B RSS input: %s", transport.llmBodies[1])
+	if !strings.Contains(llmBodies[1], "Beta headline") || strings.Contains(llmBodies[1], "Alpha headline") {
+		t.Fatalf("second LLM body should contain only timer B RSS input: %s", llmBodies[1])
 	}
 	if len(output.messages) != 2 {
 		t.Fatalf("wecom messages = %d, want 2", len(output.messages))
@@ -180,11 +217,131 @@ func TestRunWorkflowDoesNotActivateTimerDrivenSharedLLM(t *testing.T) {
 	if run.Status != "succeeded" {
 		t.Fatalf("run status = %q, want succeeded", run.Status)
 	}
-	if len(transport.llmBodies) != 0 {
-		t.Fatalf("LLM requests = %d, want 0", len(transport.llmBodies))
+	if llmRequests := len(transport.llmBodiesSnapshot()); llmRequests != 0 {
+		t.Fatalf("LLM requests = %d, want 0", llmRequests)
 	}
 	if len(output.messages) != 0 {
 		t.Fatalf("wecom messages = %d, want 0", len(output.messages))
+	}
+}
+
+func TestWorkflowTimeSchedulerTriggersOnlyMatchingTimerForSharedLLM(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	output := &workflowTestOutput{}
+	svc.SetWorkflowOutputRuntime(output)
+	configureSharedLLMWorkflowProvider(t, ctx, svc)
+
+	transport := &sharedLLMWorkflowTransport{
+		t: t,
+		feedBodiesByURL: map[string]string{
+			"https://rss.test/feed-a": workflowRSSBody("Alpha headline", "guid-alpha", "https://example.com/a"),
+			"https://rss.test/feed-b": workflowRSSBody("Beta headline", "guid-beta", "https://example.com/b"),
+		},
+	}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	workflow := sharedLLMWorkflowDefinitionWithTimerTimes("08:30", "18:00")
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	now := time.Date(2026, 4, 28, 8, 30, 0, 0, time.UTC)
+	svc.handleWorkflowTimeTick(now)
+
+	llmBodies := transport.llmBodiesSnapshot()
+	if len(llmBodies) != 1 {
+		t.Fatalf("LLM requests = %d, want 1", len(llmBodies))
+	}
+	if !strings.Contains(llmBodies[0], "Alpha headline") || strings.Contains(llmBodies[0], "Beta headline") {
+		t.Fatalf("LLM body should contain only timer A RSS input: %s", llmBodies[0])
+	}
+	if len(output.messages) != 1 {
+		t.Fatalf("wecom messages = %d, want 1", len(output.messages))
+	}
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.Workflow.Runs) != 1 {
+		t.Fatalf("workflow runs = %d, want 1", len(snapshot.Workflow.Runs))
+	}
+	if len(snapshot.Workflow.TimerStates) != 1 {
+		t.Fatalf("timer states = %d, want 1", len(snapshot.Workflow.TimerStates))
+	}
+	if got := snapshot.Workflow.TimerStates[0].NodeID; got != "timer-a" {
+		t.Fatalf("triggered timer node = %q, want timer-a", got)
+	}
+}
+
+func TestWorkflowTimeSchedulerClaimsTimerBeforeExecutingRun(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newAgentPersistenceTestService(t)
+	output := &workflowTestOutput{}
+	svc.SetWorkflowOutputRuntime(output)
+	configureSharedLLMWorkflowProvider(t, ctx, svc)
+
+	transport := &sharedLLMWorkflowTransport{
+		t:               t,
+		llmStarted:      make(chan struct{}),
+		releaseFirstLLM: make(chan struct{}),
+		feedBodiesByURL: map[string]string{
+			"https://rss.test/feed-a": workflowRSSBody("Alpha headline", "guid-alpha", "https://example.com/a"),
+			"https://rss.test/feed-b": workflowRSSBody("Beta headline", "guid-beta", "https://example.com/b"),
+		},
+	}
+	previousTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = transport
+	defer func() {
+		http.DefaultClient.Transport = previousTransport
+	}()
+
+	workflow := sharedLLMWorkflowDefinitionWithTimerTimes("08:30", "18:00")
+	if _, err := svc.SaveWorkflow(ctx, models.AgentWorkflowSnapshot{
+		ActiveWorkflowID: workflow.ID,
+		Workflows:        []models.AgentWorkflow{workflow},
+	}); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	now := time.Date(2026, 4, 28, 8, 30, 0, 0, time.UTC)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svc.handleWorkflowTimeTick(now)
+	}()
+
+	<-transport.llmStarted
+	svc.handleWorkflowTimeTick(now)
+
+	if llmRequests := len(transport.llmBodiesSnapshot()); llmRequests != 1 {
+		t.Fatalf("LLM requests before releasing first run = %d, want 1", llmRequests)
+	}
+
+	close(transport.releaseFirstLLM)
+	<-done
+
+	if llmRequests := len(transport.llmBodiesSnapshot()); llmRequests != 1 {
+		t.Fatalf("LLM requests after first run completes = %d, want 1", llmRequests)
+	}
+	if len(output.messages) != 1 {
+		t.Fatalf("wecom messages = %d, want 1", len(output.messages))
+	}
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.Workflow.Runs) != 1 {
+		t.Fatalf("workflow runs = %d, want 1", len(snapshot.Workflow.Runs))
 	}
 }
 
@@ -291,6 +448,19 @@ func sharedLLMWorkflowDefinition(withTimers bool) models.AgentWorkflow {
 		Nodes:       nodes,
 		Edges:       edges,
 	}
+}
+
+func sharedLLMWorkflowDefinitionWithTimerTimes(timerAAt string, timerBAt string) models.AgentWorkflow {
+	workflow := sharedLLMWorkflowDefinition(true)
+	for idx := range workflow.Nodes {
+		switch workflow.Nodes[idx].ID {
+		case "timer-a":
+			workflow.Nodes[idx].Data = map[string]any{"schedule": "daily", "at": timerAAt, "timezone": "UTC"}
+		case "timer-b":
+			workflow.Nodes[idx].Data = map[string]any{"schedule": "daily", "at": timerBAt, "timezone": "UTC"}
+		}
+	}
+	return workflow
 }
 
 func workflowRSSBody(title string, guid string, link string) string {

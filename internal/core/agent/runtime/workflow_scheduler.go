@@ -14,14 +14,16 @@ func (s *Service) runWorkflowTimeScheduler() {
 }
 
 func (s *Service) handleWorkflowTimeTick(now time.Time) {
-	snapshot, err := s.Snapshot(context.Background())
+	dueByWorkflow, settings, err := s.claimDueWorkflowTimerNodes(context.Background(), now)
 	if err != nil {
-		log.Printf("workflow: load snapshot for time scheduler failed: %v", err)
+		log.Printf("workflow: claim due timers failed: %v", err)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), workflowSchedulerTimeout(snapshot.Settings))
+	if len(dueByWorkflow) == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), workflowSchedulerTimeout(settings))
 	defer cancel()
-	dueByWorkflow := dueWorkflowTimerNodes(snapshot.Workflow, now)
 	for workflowID, nodeIDs := range dueByWorkflow {
 		for _, nodeID := range nodeIDs {
 			options := workflowRunOptions{
@@ -29,9 +31,6 @@ func (s *Service) handleWorkflowTimeTick(now time.Time) {
 			}
 			if _, runErr := s.runWorkflow(ctx, workflowID, options); runErr != nil {
 				log.Printf("workflow: scheduled run failed workflow=%s timer=%s: %v", workflowID, nodeID, runErr)
-			}
-			if updateErr := s.updateWorkflowTimerStates(ctx, workflowID, []string{nodeID}, now); updateErr != nil {
-				log.Printf("workflow: persist timer state failed workflow=%s timer=%s: %v", workflowID, nodeID, updateErr)
 			}
 		}
 	}
@@ -78,17 +77,4 @@ func workflowOutgoingEdges(workflow models.AgentWorkflow, nodeID string) []model
 		}
 	}
 	return out
-}
-
-func (s *Service) updateWorkflowTimerStates(ctx context.Context, workflowID string, nodeIDs []string, triggeredAt time.Time) error {
-	if len(nodeIDs) == 0 {
-		return nil
-	}
-	_, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
-		snapshot.Workflow.TimerStates = upsertWorkflowTimerState(snapshot.Workflow.TimerStates, workflowID, nodeIDs, triggeredAt)
-		snapshot.Workflow.UpdatedAt = triggeredAt.UTC()
-		snapshot.UpdatedAt = triggeredAt.UTC()
-		return nil
-	})
-	return err
 }
