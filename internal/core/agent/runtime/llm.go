@@ -170,6 +170,9 @@ func postJSON(ctx context.Context, provider models.AgentLLMProvider, endpoint st
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(reqCtx.Err(), context.DeadlineExceeded) {
+			return fmt.Errorf("LLM request timed out after %dms: %w", timeout/time.Millisecond, err)
+		}
 		return err
 	}
 	defer resp.Body.Close()

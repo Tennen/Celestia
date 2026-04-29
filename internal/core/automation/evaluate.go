@@ -16,7 +16,7 @@ import (
 )
 
 func (s *Service) handleStateChange(event models.Event) {
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), automationExecutionTimeout)
 	defer cancel()
 
 	automations := s.indexedAutomationsForDevice(event.DeviceID)

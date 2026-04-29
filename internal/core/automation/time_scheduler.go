@@ -18,7 +18,7 @@ func (s *Service) handleTimeTick(now time.Time) {
 	if len(automations) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), automationExecutionTimeout)
 	defer cancel()
 
 	for _, automation := range automations {

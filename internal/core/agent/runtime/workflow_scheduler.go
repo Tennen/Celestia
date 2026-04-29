@@ -14,14 +14,13 @@ func (s *Service) runWorkflowTimeScheduler() {
 }
 
 func (s *Service) handleWorkflowTimeTick(now time.Time) {
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
-
-	snapshot, err := s.Snapshot(ctx)
+	snapshot, err := s.Snapshot(context.Background())
 	if err != nil {
 		log.Printf("workflow: load snapshot for time scheduler failed: %v", err)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), workflowSchedulerTimeout(snapshot.Settings))
+	defer cancel()
 	dueByWorkflow := dueWorkflowTimerNodes(snapshot.Workflow, now)
 	for workflowID, nodeIDs := range dueByWorkflow {
 		for _, nodeID := range nodeIDs {
