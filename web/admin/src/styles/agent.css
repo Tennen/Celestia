@@ -366,18 +366,65 @@
   }
 
   .workflow-node__handle {
-    width: 14px;
-    height: 14px;
-    border: 2px solid white;
+    position: relative;
+    z-index: 3;
+    width: 20px;
+    height: 20px;
+    border: 3px solid white;
     border-radius: 9999px;
-    background: var(--primary);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-soft) 72%, white);
+    background: color-mix(in srgb, var(--primary) 82%, var(--glow));
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--primary-soft) 68%, white),
+      0 10px 18px color-mix(in srgb, var(--glow) 26%, transparent);
     cursor: crosshair;
-    transition: transform 120ms ease;
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease,
+      background-color 120ms ease;
   }
 
-  .workflow-node__handle:hover {
-    transform: scale(1.15);
+  .workflow-node__handle::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    transform: translate(-50%, -50%);
+    border-radius: 9999px;
+    background: white;
+    opacity: 0.92;
+  }
+
+  .workflow-node__handle::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 9999px;
+  }
+
+  .workflow-node__handle:hover,
+  .workflow-node__handle:focus-visible,
+  .workflow-node__handle.connectingfrom,
+  .workflow-node__handle.connectingto,
+  .workflow-node__handle.connectionindicator {
+    transform: scale(1.08);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--glow) 58%, white),
+      0 0 0 8px color-mix(in srgb, var(--primary-soft) 20%, transparent),
+      0 12px 22px color-mix(in srgb, var(--glow) 34%, transparent);
+  }
+
+  .workflow-node__handle.valid {
+    background: color-mix(in srgb, var(--primary) 60%, var(--gold));
+  }
+
+  .workflow-node.is-selected .workflow-node__handle,
+  .workflow-group-node.is-selected .workflow-node__handle {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--glow) 64%, white),
+      0 0 0 7px color-mix(in srgb, var(--primary-soft) 18%, transparent),
+      0 12px 24px color-mix(in srgb, var(--glow) 30%, transparent);
   }
 
   .workflow-node__resize-line {
