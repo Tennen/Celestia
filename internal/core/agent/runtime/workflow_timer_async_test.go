@@ -156,6 +156,9 @@ func TestWorkflowTimeSchedulerQueuesSharedLLMPerTimer(t *testing.T) {
 	now := time.Date(2026, 4, 28, 8, 30, 0, 0, time.UTC)
 	svc.handleWorkflowTimeTick(now)
 
+	waitForWorkflowTestCondition(t, 2*time.Second, "expected two queued LLM runs to finish", func() bool {
+		return len(transport.llmBodiesSnapshot()) == 2 && len(output.messages) == 2
+	})
 	llmBodies := transport.llmBodiesSnapshot()
 	if len(llmBodies) != 2 {
 		t.Fatalf("LLM requests = %d, want 2", len(llmBodies))
@@ -256,6 +259,9 @@ func TestWorkflowTimeSchedulerTriggersOnlyMatchingTimerForSharedLLM(t *testing.T
 	now := time.Date(2026, 4, 28, 8, 30, 0, 0, time.UTC)
 	svc.handleWorkflowTimeTick(now)
 
+	waitForWorkflowTestCondition(t, 2*time.Second, "expected the matching timer to reach the shared LLM", func() bool {
+		return len(transport.llmBodiesSnapshot()) == 1 && len(output.messages) == 1
+	})
 	llmBodies := transport.llmBodiesSnapshot()
 	if len(llmBodies) != 1 {
 		t.Fatalf("LLM requests = %d, want 1", len(llmBodies))
@@ -328,6 +334,9 @@ func TestWorkflowTimeSchedulerClaimsTimerBeforeExecutingRun(t *testing.T) {
 
 	close(transport.releaseFirstLLM)
 	<-done
+	waitForWorkflowTestCondition(t, 2*time.Second, "expected first queued workflow run to complete", func() bool {
+		return len(transport.llmBodiesSnapshot()) == 1 && len(output.messages) == 1
+	})
 
 	if llmRequests := len(transport.llmBodiesSnapshot()); llmRequests != 1 {
 		t.Fatalf("LLM requests after first run completes = %d, want 1", llmRequests)

@@ -20,8 +20,10 @@ type Service struct {
 	workflowOutput workflowOutputRuntime
 	mu             sync.Mutex
 	startOnce      sync.Once
+	workerOnce     sync.Once
 	stop           chan struct{}
 	stopOnce       sync.Once
+	workflowJobs   chan workflowScheduledRun
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
@@ -29,6 +31,7 @@ func New(store storage.Store, bus *eventbus.Bus) *Service {
 		store: store,
 		bus:   bus,
 		stop:  make(chan struct{}),
+		workflowJobs: make(chan workflowScheduledRun, 256),
 	}
 }
 
@@ -36,6 +39,7 @@ func (s *Service) Init(ctx context.Context) error {
 	if _, err := s.Snapshot(ctx); err != nil {
 		return err
 	}
+	s.startWorkflowSchedulerWorker()
 	s.startOnce.Do(func() {
 		go s.runWorkflowTimeScheduler()
 	})

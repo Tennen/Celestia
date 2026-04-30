@@ -25,7 +25,11 @@ func newAgentPersistenceTestService(t *testing.T) (*Service, *sqlitestore.Store)
 	if err := store.EnsureSchema(context.Background()); err != nil {
 		t.Fatalf("EnsureSchema() error = %v", err)
 	}
-	return New(store, eventbus.New()), store
+	svc := New(store, eventbus.New())
+	t.Cleanup(func() {
+		svc.Close()
+	})
+	return svc, store
 }
 
 func TestAgentPersistenceWritesBusinessDocuments(t *testing.T) {

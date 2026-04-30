@@ -149,7 +149,7 @@ func (s *Service) appendWorkflowRun(ctx context.Context, run models.AgentWorkflo
 			snapshot.Workflow.SentLog = upsertWorkflowSentLog(snapshot.Workflow.SentLog, sentItems, now)
 		}
 		if len(sourceStateUpdates) > 0 {
-			snapshot.Workflow.SourceStates = applyWorkflowSourceStateUpdates(snapshot.Workflow.SourceStates, sourceStateUpdates, run.Status == "succeeded")
+			snapshot.Workflow.SourceStates = applyWorkflowSourceStateUpdates(snapshot.Workflow.SourceStates, sourceStateUpdates)
 		}
 		snapshot.Workflow.UpdatedAt = now
 		snapshot.UpdatedAt = now

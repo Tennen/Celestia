@@ -14,6 +14,7 @@ func (s *Service) runWorkflowTimeScheduler() {
 }
 
 func (s *Service) handleWorkflowTimeTick(now time.Time) {
+	s.startWorkflowSchedulerWorker()
 	dueByWorkflow, settings, err := s.claimDueWorkflowTimerNodes(context.Background(), now)
 	if err != nil {
 		log.Printf("workflow: claim due timers failed: %v", err)
@@ -22,18 +23,7 @@ func (s *Service) handleWorkflowTimeTick(now time.Time) {
 	if len(dueByWorkflow) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), workflowSchedulerTimeout(settings))
-	defer cancel()
-	for workflowID, nodeIDs := range dueByWorkflow {
-		for _, nodeID := range nodeIDs {
-			options := workflowRunOptions{
-				TriggeredTimerNode: workflowStringSet([]string{nodeID}),
-			}
-			if _, runErr := s.runWorkflow(ctx, workflowID, options); runErr != nil {
-				log.Printf("workflow: scheduled run failed workflow=%s timer=%s: %v", workflowID, nodeID, runErr)
-			}
-		}
-	}
+	s.enqueueWorkflowScheduledRuns(dueByWorkflow, settings)
 }
 
 func dueWorkflowTimerNodes(snapshot models.AgentWorkflowSnapshot, now time.Time) map[string][]string {

@@ -47,7 +47,7 @@ func pruneWorkflowSourceStates(states []models.AgentWorkflowSourceState, workflo
 	return truncateList(out, workflowSourceStateLimit)
 }
 
-func applyWorkflowSourceStateUpdates(existing []models.AgentWorkflowSourceState, updates []workflowSourceStateUpdate, commitResponses bool) []models.AgentWorkflowSourceState {
+func applyWorkflowSourceStateUpdates(existing []models.AgentWorkflowSourceState, updates []workflowSourceStateUpdate) []models.AgentWorkflowSourceState {
 	order := make([]string, 0, len(existing)+len(updates))
 	byKey := make(map[string]models.AgentWorkflowSourceState, len(existing)+len(updates))
 	for _, state := range existing {
@@ -65,11 +65,7 @@ func applyWorkflowSourceStateUpdates(existing []models.AgentWorkflowSourceState,
 		if key == "" {
 			continue
 		}
-		next := update.RequestState
-		if commitResponses {
-			next = update.CommitState
-		}
-		normalized, normalizedKey, ok := normalizeWorkflowSourceState(next)
+		normalized, normalizedKey, ok := normalizeWorkflowSourceState(update.CommitState)
 		if !ok {
 			continue
 		}

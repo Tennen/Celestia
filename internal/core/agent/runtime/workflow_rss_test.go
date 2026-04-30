@@ -271,6 +271,9 @@ func TestWorkflowTimeSchedulerTriggersTimerConnectedRSS(t *testing.T) {
 	}()
 
 	svc.handleWorkflowTimeTick(now)
+	waitForWorkflowTestCondition(t, 2*time.Second, "expected timer-connected RSS run to complete", func() bool {
+		return len(transport.requests) == 1
+	})
 	if len(transport.requests) != 1 {
 		t.Fatalf("RSS requests after first tick = %d, want 1", len(transport.requests))
 	}
@@ -335,6 +338,9 @@ func TestWorkflowTimeSchedulerTriggersIntervalTimerWithinWindow(t *testing.T) {
 
 	windowStart := time.Date(2026, 4, 28, 8, 0, 0, 0, time.UTC)
 	svc.handleWorkflowTimeTick(windowStart)
+	waitForWorkflowTestCondition(t, 2*time.Second, "expected first interval RSS request to complete", func() bool {
+		return len(transport.requests) == 1
+	})
 	if len(transport.requests) != 1 {
 		t.Fatalf("RSS requests after window start = %d, want 1", len(transport.requests))
 	}
@@ -346,6 +352,9 @@ func TestWorkflowTimeSchedulerTriggersIntervalTimerWithinWindow(t *testing.T) {
 
 	nextSlot := windowStart.Add(10 * time.Minute)
 	svc.handleWorkflowTimeTick(nextSlot)
+	waitForWorkflowTestCondition(t, 2*time.Second, "expected second interval RSS request to complete", func() bool {
+		return len(transport.requests) == 2
+	})
 	if len(transport.requests) != 2 {
 		t.Fatalf("RSS requests after next slot = %d, want 2", len(transport.requests))
 	}
