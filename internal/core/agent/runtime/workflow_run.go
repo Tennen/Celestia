@@ -12,12 +12,13 @@ import (
 )
 
 type workflowNodeValue struct {
-	Prompt    string
-	Text      string
-	Items     []models.AgentWorkflowItem
-	Search    *models.AgentSearchResult
-	Triggered bool
-	Blocked   bool
+	Prompt         string
+	Text           string
+	Items          []models.AgentWorkflowItem
+	Search         *models.AgentSearchResult
+	Triggered      bool
+	Blocked        bool
+	BlockedByTimer bool
 }
 
 type workflowExecutor struct {
@@ -254,9 +255,15 @@ func (e *workflowExecutor) executeTextNode(node models.AgentWorkflowNode) (workf
 	text := strings.Join(orderedWorkflowStrings(textParts), "\n\n")
 	if text == "" {
 		if inputs.onlyBlockedByTimer() {
-			return workflowNodeValue{Blocked: true}, "Text waiting for timer upstream", map[string]any{
+			return workflowNodeValue{Blocked: true, BlockedByTimer: true}, "Text waiting for timer upstream", map[string]any{
 				"blocked_by_timer": true,
 				"input_count":      inputs.count(),
+			}, nil
+		}
+		if inputs.onlyBlocked() {
+			return workflowNodeValue{Blocked: true}, "Text waiting for upstream input", map[string]any{
+				"blocked_by_upstream": true,
+				"input_count":         inputs.count(),
 			}, nil
 		}
 		return workflowNodeValue{}, "", nil, errors.New("text node requires text content or upstream text input")
@@ -328,14 +335,24 @@ func (e *workflowExecutor) executeLLMNode(node models.AgentWorkflowNode) (workfl
 	}
 	switch {
 	case len(contextEdges) > 0 && contextInputs.onlyBlockedByTimer():
-		return workflowNodeValue{Blocked: true}, "LLM waiting for timer-driven context", map[string]any{
+		return workflowNodeValue{Blocked: true, BlockedByTimer: true}, "LLM waiting for timer-driven context", map[string]any{
 			"blocked_by_timer": true,
 			"context_inputs":   contextInputs.count(),
 		}, nil
+	case len(contextEdges) > 0 && contextInputs.onlyBlocked():
+		return workflowNodeValue{Blocked: true}, "LLM waiting for upstream context", map[string]any{
+			"blocked_by_upstream": true,
+			"context_inputs":      contextInputs.count(),
+		}, nil
 	case len(contextEdges) == 0 && len(promptEdges) > 0 && promptInputs.onlyBlockedByTimer():
-		return workflowNodeValue{Blocked: true}, "LLM waiting for timer-driven prompt", map[string]any{
+		return workflowNodeValue{Blocked: true, BlockedByTimer: true}, "LLM waiting for timer-driven prompt", map[string]any{
 			"blocked_by_timer": true,
 			"prompt_inputs":    promptInputs.count(),
+		}, nil
+	case len(contextEdges) == 0 && len(promptEdges) > 0 && promptInputs.onlyBlocked():
+		return workflowNodeValue{Blocked: true}, "LLM waiting for upstream prompt", map[string]any{
+			"blocked_by_upstream": true,
+			"prompt_inputs":       promptInputs.count(),
 		}, nil
 	}
 	promptText := strings.Join(orderedWorkflowStrings(promptInputs.prompts), "\n\n")
@@ -387,9 +404,15 @@ func (e *workflowExecutor) executeWeComOutputNode(node models.AgentWorkflowNode)
 	text := strings.Join(orderedWorkflowStrings(inputs.texts), "\n\n")
 	if strings.TrimSpace(text) == "" {
 		if inputs.onlyBlockedByTimer() {
-			return workflowNodeValue{Blocked: true}, "WeCom waiting for timer upstream", map[string]any{
+			return workflowNodeValue{Blocked: true, BlockedByTimer: true}, "WeCom waiting for timer upstream", map[string]any{
 				"blocked_by_timer": true,
 				"input_count":      inputs.count(),
+			}, nil
+		}
+		if inputs.onlyBlocked() {
+			return workflowNodeValue{Blocked: true}, "WeCom waiting for upstream text", map[string]any{
+				"blocked_by_upstream": true,
+				"input_count":         inputs.count(),
 			}, nil
 		}
 		return workflowNodeValue{}, "", nil, errors.New("wecom output node requires text input")

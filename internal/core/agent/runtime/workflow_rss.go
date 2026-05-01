@@ -40,7 +40,7 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 			return workflowNodeValue{}, "", nil, inputErr
 		}
 		if triggerInputs.triggers == 0 {
-			return workflowNodeValue{Text: "", Items: nil, Blocked: true}, "RSS waiting for timer trigger", map[string]any{
+			return workflowNodeValue{Text: "", Items: nil, Blocked: true, BlockedByTimer: true}, "RSS waiting for timer trigger", map[string]any{
 				"item_count":          0,
 				"trigger_input_count": len(triggerEdges),
 				"triggered":           false,
@@ -74,13 +74,18 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 		items = append(items, workflowNewFeedItems(result.Items, state.LastResponseBody, source)...)
 	}
 	items = truncateWorkflowItems(items, 30)
-	return workflowNodeValue{Text: workflowItemsContextJSON(items), Items: items}, fmt.Sprintf("%d new items from %d sources", len(items), enabledCount), map[string]any{
+	metadata := map[string]any{
 		"item_count":             len(items),
 		"enabled_source_count":   enabledCount,
 		"requested_source_count": requestedCount,
 		"not_modified_count":     notModifiedCount,
 		"error_count":            errorCount,
-	}, nil
+	}
+	if len(items) == 0 {
+		metadata["blocked_by_upstream"] = true
+		return workflowNodeValue{Blocked: true}, "No new RSS items", metadata, nil
+	}
+	return workflowNodeValue{Text: workflowItemsContextJSON(items), Items: items}, fmt.Sprintf("%d new items from %d sources", len(items), enabledCount), metadata, nil
 }
 
 func pollWorkflowFeed(ctx context.Context, source models.AgentWorkflowSource, state models.AgentWorkflowSourceState, now time.Time) (workflowFeedFetchResult, error) {

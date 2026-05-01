@@ -100,11 +100,18 @@ func TestRunWorkflowPersistsRSSStateWhenDownstreamFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunWorkflow() second error = %v", err)
 	}
-	if secondRun.Status != "degraded" {
-		t.Fatalf("second run status = %q, want degraded", secondRun.Status)
+	if secondRun.Status != "succeeded" {
+		t.Fatalf("second run status = %q, want succeeded", secondRun.Status)
 	}
 	if got := workflowResultMetadataInt(t, secondRun, "rss-main", "item_count"); got != 0 {
 		t.Fatalf("second rss item_count = %d, want 0", got)
+	}
+	if !workflowResultMetadataBool(t, secondRun, "rss-main", "blocked_by_upstream") {
+		t.Fatal("second rss run should block downstream when no new items are available")
+	}
+	llmResult := workflowNodeResult(t, secondRun, "llm-main")
+	if llmResult.Summary != "LLM waiting for upstream context" {
+		t.Fatalf("llm summary = %q, want LLM waiting for upstream context", llmResult.Summary)
 	}
 	if len(transport.requests) != 2 {
 		t.Fatalf("RSS requests = %d, want 2", len(transport.requests))

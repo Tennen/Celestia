@@ -7,12 +7,13 @@ import (
 )
 
 type collectedWorkflowInputs struct {
-	prompts  []string
-	texts    []string
-	searches []string
-	items    []models.AgentWorkflowItem
-	triggers int
-	blocked  int
+	prompts        []string
+	texts          []string
+	searches       []string
+	items          []models.AgentWorkflowItem
+	triggers       int
+	blocked        int
+	blockedByTimer int
 }
 
 func (c collectedWorkflowInputs) count() int {
@@ -24,6 +25,10 @@ func (c collectedWorkflowInputs) hasActiveContent() bool {
 }
 
 func (c collectedWorkflowInputs) onlyBlockedByTimer() bool {
+	return c.onlyBlocked() && c.blocked == c.blockedByTimer
+}
+
+func (c collectedWorkflowInputs) onlyBlocked() bool {
 	return c.blocked > 0 && !c.hasActiveContent()
 }
 
@@ -51,6 +56,9 @@ func (e *workflowExecutor) collect(nodeID string, targetHandle string) (collecte
 		}
 		if value.Blocked {
 			out.blocked++
+			if value.BlockedByTimer {
+				out.blockedByTimer++
+			}
 		}
 		out.items = append(out.items, value.Items...)
 	}

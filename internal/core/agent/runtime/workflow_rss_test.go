@@ -466,20 +466,40 @@ func workflowIntervalTimerRSSDefinition(windowStart string, windowEnd string, in
 
 func workflowResultMetadataInt(t *testing.T, run models.AgentWorkflowRun, nodeID string, key string) int {
 	t.Helper()
+	result := workflowNodeResult(t, run, nodeID)
+	value, ok := result.Metadata[key]
+	if !ok {
+		t.Fatalf("metadata %q not found on node %s", key, nodeID)
+	}
+	got, ok := value.(int)
+	if !ok {
+		t.Fatalf("metadata %q type = %T, want int", key, value)
+	}
+	return got
+}
+
+func workflowResultMetadataBool(t *testing.T, run models.AgentWorkflowRun, nodeID string, key string) bool {
+	t.Helper()
+	result := workflowNodeResult(t, run, nodeID)
+	value, ok := result.Metadata[key]
+	if !ok {
+		t.Fatalf("metadata %q not found on node %s", key, nodeID)
+	}
+	got, ok := value.(bool)
+	if !ok {
+		t.Fatalf("metadata %q type = %T, want bool", key, value)
+	}
+	return got
+}
+
+func workflowNodeResult(t *testing.T, run models.AgentWorkflowRun, nodeID string) models.AgentWorkflowNodeResult {
+	t.Helper()
 	for _, result := range run.NodeResults {
 		if result.NodeID != nodeID {
 			continue
 		}
-		value, ok := result.Metadata[key]
-		if !ok {
-			t.Fatalf("metadata %q not found on node %s", key, nodeID)
-		}
-		got, ok := value.(int)
-		if !ok {
-			t.Fatalf("metadata %q type = %T, want int", key, value)
-		}
-		return got
+		return result
 	}
 	t.Fatalf("node result for %s not found", nodeID)
-	return 0
+	return models.AgentWorkflowNodeResult{}
 }
