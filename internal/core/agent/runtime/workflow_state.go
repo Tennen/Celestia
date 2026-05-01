@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -79,11 +78,7 @@ func normalizeWorkflowDefinition(workflow models.AgentWorkflow, now time.Time) m
 
 func normalizeWorkflowNode(node models.AgentWorkflowNode, now time.Time) models.AgentWorkflowNode {
 	node.ID = firstNonEmpty(strings.TrimSpace(node.ID), uuid.NewString())
-	originalType := strings.TrimSpace(node.Type)
-	node.Type = canonicalWorkflowNodeType(originalType)
-	if originalType == legacyWorkflowNodeTypePrompt && strings.TrimSpace(node.Label) == "Prompt Unit" {
-		node.Label = ""
-	}
+	node.Type = canonicalWorkflowNodeType(node.Type)
 	node.Label = firstNonEmpty(strings.TrimSpace(node.Label), defaultWorkflowNodeLabel(node.Type))
 	if node.Type == workflowNodeTypeGroup {
 		if node.Width <= 0 {
@@ -95,14 +90,6 @@ func normalizeWorkflowNode(node models.AgentWorkflowNode, now time.Time) models.
 	}
 	if node.Data == nil {
 		node.Data = map[string]any{}
-	}
-	if node.Type == workflowNodeTypeText {
-		if text, ok := node.Data["text"]; !ok || strings.TrimSpace(fmt.Sprint(text)) == "" {
-			if prompt, ok := node.Data["prompt"]; ok {
-				node.Data["text"] = prompt
-			}
-		}
-		delete(node.Data, "prompt")
 	}
 	_ = now
 	return node

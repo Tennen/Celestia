@@ -15,15 +15,15 @@ func (s *Service) runWorkflowTimeScheduler() {
 
 func (s *Service) handleWorkflowTimeTick(now time.Time) {
 	s.startWorkflowSchedulerWorker()
-	dueByWorkflow, settings, err := s.claimDueWorkflowTimerNodes(context.Background(), now)
+	jobs, _, err := s.claimDueWorkflowTimerNodes(context.Background(), now)
 	if err != nil {
 		log.Printf("workflow: claim due timers failed: %v", err)
 		return
 	}
-	if len(dueByWorkflow) == 0 {
+	if len(jobs) == 0 {
 		return
 	}
-	s.enqueueWorkflowScheduledRuns(dueByWorkflow, settings)
+	s.enqueueWorkflowScheduledRuns(jobs)
 }
 
 func dueWorkflowTimerNodes(snapshot models.AgentWorkflowSnapshot, now time.Time) map[string][]string {

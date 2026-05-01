@@ -69,18 +69,11 @@ export function cloneWorkflow<T>(value: T): T {
 }
 
 export function normalizeWorkflowNode(node: AgentWorkflowNode): AgentWorkflowNode {
-  const normalizedType = node.type === 'prompt_unit' ? 'text' : node.type;
-  const normalizedLabel = node.type === 'prompt_unit' && (!node.label || node.label === 'Prompt Unit') ? 'Text' : node.label;
-  const normalizedData = { ...(node.data ?? {}) };
-  if (normalizedType === 'text' && typeof normalizedData.text !== 'string' && typeof normalizedData.prompt === 'string') {
-    normalizedData.text = normalizedData.prompt;
-  }
-  delete normalizedData.prompt;
   return {
     ...node,
-    type: normalizedType,
-    label: normalizedLabel || workflowNodeCatalog.find((item) => item.type === normalizedType)?.label || 'Node',
-    data: normalizedData,
+    type: node.type,
+    label: node.label || workflowNodeCatalog.find((item) => item.type === node.type)?.label || 'Node',
+    data: { ...(node.data ?? {}) },
   };
 }
 

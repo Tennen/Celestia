@@ -61,12 +61,8 @@ func loadAgentWorkflowDefinitionsDocument(doc models.AgentDocument, snapshot *mo
 	if err := decodeAgentDocument(doc, &payload); err != nil {
 		return err
 	}
-	snapshot.Workflow.ActiveWorkflowID = firstNonEmpty(payload.ActiveWorkflowID, payload.ActiveProfileID)
-	if len(payload.Workflows) > 0 {
-		snapshot.Workflow.Workflows = payload.Workflows
-	} else if len(payload.Profiles) > 0 {
-		snapshot.Workflow.Workflows = legacyWorkflowProfilesToWorkflows(payload.Profiles)
-	}
+	snapshot.Workflow.ActiveWorkflowID = payload.ActiveWorkflowID
+	snapshot.Workflow.Workflows = payload.Workflows
 	snapshot.Workflow.UpdatedAt = maxTime(snapshot.Workflow.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
 	return nil
 }

@@ -177,6 +177,82 @@ func TestAgentPersistenceMigratesLegacySnapshotToSplitDocuments(t *testing.T) {
 	}
 }
 
+func TestAgentPersistenceIgnoresLegacyWorkflowDocuments(t *testing.T) {
+	ctx := context.Background()
+	svc, store := newAgentPersistenceTestService(t)
+	currentAt := time.Date(2026, 5, 1, 9, 0, 0, 0, time.UTC)
+	legacyAt := currentAt.Add(time.Minute)
+	currentDefinitions := agentWorkflowDefinitionsDocument{
+		ActiveWorkflowID: "workflow-current",
+		Workflows: []models.AgentWorkflow{{
+			ID:   "workflow-current",
+			Name: "Current Workflow",
+			Nodes: []models.AgentWorkflowNode{{
+				ID:   "rss-main",
+				Type: "rss_sources",
+				Data: map[string]any{"sources": []models.AgentWorkflowSource{{ID: "feed-main", FeedURL: "https://rss.test/feed"}}},
+			}},
+		}},
+		UpdatedAt: currentAt,
+	}
+	legacyDefinitionsRaw := []byte(`{"active_profile_id":"legacy-profile","profiles":[{"id":"legacy-profile","name":"Legacy Workflow"}]}`)
+	currentRuns := agentWorkflowRunsDocument{
+		SourceStates: []models.AgentWorkflowSourceState{{
+			WorkflowID:       "workflow-current",
+			NodeID:           "rss-main",
+			SourceID:         "feed-main",
+			FeedURL:          "https://rss.test/feed",
+			LastRequestedAt:  currentAt,
+			LastResponseBody: "<rss/>",
+			UpdatedAt:        currentAt,
+		}},
+		UpdatedAt: currentAt,
+	}
+	legacyRunsRaw := []byte(`{"source_states":[],"timer_states":[{"workflow_id":"legacy","node_id":"timer-legacy"}]}`)
+	writeAgentDoc(t, store, agentWorkflowDefinitionsDocumentKey, "workflow", currentDefinitions, currentAt)
+	writeAgentRawDoc(t, store, "agent/topic/profiles", "workflow", legacyDefinitionsRaw, legacyAt)
+	writeAgentDoc(t, store, agentWorkflowRunsDocumentKey, "workflow", currentRuns, currentAt)
+	writeAgentRawDoc(t, store, "agent/topic/runs", "workflow", legacyRunsRaw, legacyAt)
+
+	snapshot, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if snapshot.Workflow.ActiveWorkflowID != "workflow-current" {
+		t.Fatalf("active workflow = %q, want workflow-current", snapshot.Workflow.ActiveWorkflowID)
+	}
+	if len(snapshot.Workflow.Workflows) != 1 || snapshot.Workflow.Workflows[0].ID != "workflow-current" {
+		t.Fatalf("workflows = %+v, want only current workflow", snapshot.Workflow.Workflows)
+	}
+	if len(snapshot.Workflow.SourceStates) != 1 || snapshot.Workflow.SourceStates[0].WorkflowID != "workflow-current" {
+		t.Fatalf("source states = %+v, want current workflow source state", snapshot.Workflow.SourceStates)
+	}
+	if len(snapshot.Workflow.TimerStates) != 0 {
+		t.Fatalf("timer states = %+v, want legacy timer states ignored", snapshot.Workflow.TimerStates)
+	}
+}
+
+func writeAgentDoc(t *testing.T, store *sqlitestore.Store, key string, domain string, payload any, updatedAt time.Time) {
+	t.Helper()
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json.Marshal(%q) error = %v", key, err)
+	}
+	writeAgentRawDoc(t, store, key, domain, raw, updatedAt)
+}
+
+func writeAgentRawDoc(t *testing.T, store *sqlitestore.Store, key string, domain string, raw []byte, updatedAt time.Time) {
+	t.Helper()
+	if err := store.UpsertAgentDocument(context.Background(), models.AgentDocument{
+		Key:       key,
+		Domain:    domain,
+		Payload:   raw,
+		UpdatedAt: updatedAt,
+	}); err != nil {
+		t.Fatalf("UpsertAgentDocument(%q) error = %v", key, err)
+	}
+}
+
 func readAgentDocument(t *testing.T, store *sqlitestore.Store, key string, target any) {
 	t.Helper()
 	doc, ok, err := store.GetAgentDocument(context.Background(), key)

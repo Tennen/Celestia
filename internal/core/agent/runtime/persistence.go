@@ -33,8 +33,6 @@ const (
 	agentMemoryWindowsDocumentKey       = "agent/memory/windows"
 	agentWorkflowDefinitionsDocumentKey = "agent/workflow/definitions"
 	agentWorkflowRunsDocumentKey        = "agent/workflow/runs"
-	legacyAgentTopicProfilesDocumentKey = "agent/topic/profiles"
-	legacyAgentTopicRunsDocumentKey     = "agent/topic/runs"
 	agentWritingTopicsDocumentKey       = "agent/writing/topics"
 	agentMarketPortfolioDocumentKey     = "agent/market/portfolio"
 	agentMarketConfigDocumentKey        = "agent/market/config"
@@ -102,11 +100,9 @@ type agentMemoryWindowsDocument struct {
 }
 
 type agentWorkflowDefinitionsDocument struct {
-	ActiveWorkflowID string                  `json:"active_workflow_id,omitempty"`
-	ActiveProfileID  string                  `json:"active_profile_id,omitempty"`
-	Workflows        []models.AgentWorkflow  `json:"workflows,omitempty"`
-	Profiles         []legacyWorkflowProfile `json:"profiles,omitempty"`
-	UpdatedAt        time.Time               `json:"updated_at"`
+	ActiveWorkflowID string                 `json:"active_workflow_id,omitempty"`
+	Workflows        []models.AgentWorkflow `json:"workflows,omitempty"`
+	UpdatedAt        time.Time              `json:"updated_at"`
 }
 
 type agentWorkflowRunsDocument struct {
@@ -371,9 +367,7 @@ func agentDocumentLoaders() []agentDocumentLoader {
 		{key: agentMemorySummariesDocumentKey, load: loadAgentMemorySummariesDocument},
 		{key: agentMemoryWindowsDocumentKey, load: loadAgentMemoryWindowsDocument},
 		{key: agentWorkflowDefinitionsDocumentKey, load: loadAgentWorkflowDefinitionsDocument},
-		{key: legacyAgentTopicProfilesDocumentKey, load: loadAgentWorkflowDefinitionsDocument},
 		{key: agentWorkflowRunsDocumentKey, load: loadAgentWorkflowRunsDocument},
-		{key: legacyAgentTopicRunsDocumentKey, load: loadAgentWorkflowRunsDocument},
 		{key: agentWritingTopicsDocumentKey, load: loadAgentWritingTopicsDocument},
 		{key: agentMarketPortfolioDocumentKey, load: loadAgentMarketPortfolioDocument},
 		{key: agentMarketConfigDocumentKey, load: loadAgentMarketConfigDocument},

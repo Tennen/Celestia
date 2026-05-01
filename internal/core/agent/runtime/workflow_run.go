@@ -227,7 +227,7 @@ func (e *workflowExecutor) execute(node models.AgentWorkflowNode) (workflowNodeV
 		return e.executeTimerNode(node)
 	case workflowNodeTypeRSSSources:
 		return e.executeRSSNode(node)
-	case workflowNodeTypeText, legacyWorkflowNodeTypePrompt:
+	case workflowNodeTypeText:
 		return e.executeTextNode(node)
 	case workflowNodeTypeSearchProvider:
 		return e.executeSearchNode(node)

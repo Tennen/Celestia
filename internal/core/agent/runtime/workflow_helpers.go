@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
-	"github.com/google/uuid"
 )
 
 const (
@@ -14,45 +13,10 @@ const (
 	workflowNodeTypeTimer          = "timer"
 	workflowNodeTypeRSSSources     = "rss_sources"
 	workflowNodeTypeText           = "text"
-	legacyWorkflowNodeTypePrompt   = "prompt_unit"
 	workflowNodeTypeLLM            = "llm"
 	workflowNodeTypeSearchProvider = "search_provider"
 	workflowNodeTypeWeComOutput    = "wecom_output"
 )
-
-type legacyWorkflowProfile struct {
-	ID        string                       `json:"id"`
-	Name      string                       `json:"name"`
-	Sources   []models.AgentWorkflowSource `json:"sources"`
-	UpdatedAt time.Time                    `json:"updated_at"`
-}
-
-func legacyWorkflowProfilesToWorkflows(profiles []legacyWorkflowProfile) []models.AgentWorkflow {
-	workflows := make([]models.AgentWorkflow, 0, len(profiles))
-	for _, profile := range profiles {
-		workflowID := firstNonEmpty(strings.TrimSpace(profile.ID), uuid.NewString())
-		workflows = append(workflows, models.AgentWorkflow{
-			ID:          workflowID,
-			Name:        firstNonEmpty(strings.TrimSpace(profile.Name), workflowID),
-			Description: "Migrated from legacy topic profile.",
-			Nodes: []models.AgentWorkflowNode{{
-				ID:    "rss-" + workflowID,
-				Type:  workflowNodeTypeRSSSources,
-				Label: "RSS Sources",
-				Position: models.AgentNodePoint{
-					X: 120,
-					Y: 120,
-				},
-				Data: map[string]any{
-					"sources": profile.Sources,
-				},
-			}},
-			Edges:     []models.AgentWorkflowEdge{},
-			UpdatedAt: profile.UpdatedAt,
-		})
-	}
-	return workflows
-}
 
 func defaultWorkflowNodeLabel(nodeType string) string {
 	switch canonicalWorkflowNodeType(nodeType) {
@@ -76,12 +40,7 @@ func defaultWorkflowNodeLabel(nodeType string) string {
 }
 
 func canonicalWorkflowNodeType(nodeType string) string {
-	switch strings.TrimSpace(nodeType) {
-	case legacyWorkflowNodeTypePrompt:
-		return workflowNodeTypeText
-	default:
-		return strings.TrimSpace(nodeType)
-	}
+	return strings.TrimSpace(nodeType)
 }
 
 func normalizeWorkflowURL(raw string) string {
