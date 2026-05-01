@@ -11,16 +11,24 @@ type ProjectInputRequest struct {
 }
 
 type ProjectInputResult struct {
-	Handled      bool                `json:"handled"`
-	Conversation AgentConversation   `json:"conversation"`
-	ResponseText string              `json:"response_text,omitempty"`
-	Slash        *SlashCommandResult `json:"slash,omitempty"`
+	Handled      bool                 `json:"handled"`
+	Conversation AgentConversation    `json:"conversation"`
+	ResponseText string               `json:"response_text,omitempty"`
+	Images       []ProjectOutputImage `json:"images,omitempty"`
+	Slash        *SlashCommandResult  `json:"slash,omitempty"`
 }
 
 type SlashCommandResult struct {
-	Command    string         `json:"command"`
-	Args       []string       `json:"args,omitempty"`
-	Output     string         `json:"output"`
-	Metadata   map[string]any `json:"metadata,omitempty"`
-	ExecutedAt time.Time      `json:"executed_at"`
+	Command    string               `json:"command"`
+	Args       []string             `json:"args,omitempty"`
+	Output     string               `json:"output"`
+	Images     []ProjectOutputImage `json:"images,omitempty"`
+	Metadata   map[string]any       `json:"metadata,omitempty"`
+	ExecutedAt time.Time            `json:"executed_at"`
+}
+
+type ProjectOutputImage struct {
+	Path        string `json:"path"`
+	ContentType string `json:"content_type,omitempty"`
+	Filename    string `json:"filename,omitempty"`
 }

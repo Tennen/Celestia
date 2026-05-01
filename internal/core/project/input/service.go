@@ -35,9 +35,13 @@ func (s *Service) HandleInput(ctx context.Context, req models.ProjectInputReques
 		if handled {
 			status := "succeeded"
 			response := strings.TrimSpace(result.Output)
+			imageOnly := len(result.Images) > 0 || result.Metadata["reply_kind"] == "image"
+			if imageOnly {
+				response = ""
+			}
 			if err != nil {
 				status = "failed"
-				if response == "" {
+				if response == "" && !imageOnly {
 					response = err.Error()
 				}
 			}
@@ -49,6 +53,7 @@ func (s *Service) HandleInput(ctx context.Context, req models.ProjectInputReques
 				Handled:      true,
 				Conversation: conversation,
 				ResponseText: conversation.Response,
+				Images:       result.Images,
 				Slash:        &result,
 			}, err
 		}

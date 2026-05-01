@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { saveAgentSettings, type AgentSnapshot } from '../../lib/agent';
-import { Field, FieldGrid, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
+import { Field, FieldGrid, SelectField, ToggleField, numberValue, parseOptionalNumber } from './AgentFormFields';
 import type { AgentRunner } from './AgentWorkspace';
 
 type Props = {
@@ -16,19 +16,29 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
   const config = snapshot.settings.knowledge ?? { enabled: false };
   const [enabled, setEnabled] = useState(config.enabled === true);
   const [baseDir, setBaseDir] = useState(config.base_dir ?? '');
-  const [model, setModel] = useState(config.codex_model ?? '');
-  const [reasoning, setReasoning] = useState(config.codex_reasoning ?? '');
+  const [codexProviderId, setCodexProviderId] = useState(config.codex_provider_id ?? '');
   const [timeout, setTimeoutValue] = useState(numberValue(config.timeout_ms));
-  const [maxOutput, setMaxOutput] = useState(numberValue(config.max_output_chars));
+  const codexProviders = useMemo(
+    () => snapshot.settings.llm_providers.filter((provider) => provider.type === 'codex'),
+    [snapshot.settings.llm_providers],
+  );
+  const providerOptions = useMemo(
+    () => [
+      { value: '', label: 'select codex provider' },
+      ...codexProviders.map((provider) => ({
+        value: provider.id,
+        label: `${provider.name || provider.id}${provider.model ? ` · ${provider.model}` : ''}`,
+      })),
+    ],
+    [codexProviders],
+  );
 
   useEffect(() => {
     const next = snapshot.settings.knowledge ?? { enabled: false };
     setEnabled(next.enabled === true);
     setBaseDir(next.base_dir ?? '');
-    setModel(next.codex_model ?? '');
-    setReasoning(next.codex_reasoning ?? '');
+    setCodexProviderId(next.codex_provider_id ?? '');
     setTimeoutValue(numberValue(next.timeout_ms));
-    setMaxOutput(numberValue(next.max_output_chars));
   }, [snapshot]);
 
   const save = () => {
@@ -40,10 +50,8 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
           knowledge: {
             enabled,
             base_dir: baseDir.trim() || undefined,
-            codex_model: model.trim() || undefined,
-            codex_reasoning: reasoning.trim() || undefined,
+            codex_provider_id: codexProviderId.trim() || undefined,
             timeout_ms: parseOptionalNumber(timeout),
-            max_output_chars: parseOptionalNumber(maxOutput),
           },
         }),
       false,
@@ -61,10 +69,8 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
           <ToggleField label="Enable /kb slash command" checked={enabled} onChange={setEnabled} />
           <Field label="Base directory" value={baseDir} placeholder="/Users/me/Documents/Knowledge" onChange={setBaseDir} />
           <FieldGrid>
-            <Field label="Codex model" value={model} placeholder="follow evolution default" onChange={setModel} />
-            <Field label="Reasoning effort" value={reasoning} placeholder="medium | high | xhigh" onChange={setReasoning} />
+            <SelectField label="Codex provider" value={codexProviderId} options={providerOptions} onChange={setCodexProviderId} />
             <Field label="Timeout ms" value={timeout} placeholder="600000" onChange={setTimeoutValue} />
-            <Field label="Max answer chars" value={maxOutput} placeholder="1800" onChange={setMaxOutput} />
           </FieldGrid>
           <Button onClick={save} disabled={busy === 'settings-save'}>
             <Save className="mr-2 h-4 w-4" />
@@ -76,7 +82,7 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
       <Card className="panel">
         <CardHeader>
           <CardTitle>WeCom Slash Commands</CardTitle>
-          <CardDescription>Incoming WeCom text already enters ProjectInput, so these commands work from WeCom and HTTP.</CardDescription>
+          <CardDescription>Incoming WeCom text enters ProjectInput, then knowledge answers are rendered to images.</CardDescription>
         </CardHeader>
         <CardContent className="stack text-sm">
           <code>/kb ask &lt;question&gt;</code>
@@ -84,7 +90,7 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
           <code>/kb new [question]</code>
           <code>/kb status</code>
           <p className="text-muted-foreground">
-            Use <code>/kb new</code> when the Codex session context gets too large or you want a clean knowledge-base conversation.
+            Answers are saved as Markdown under <code>.answers</code> in the base directory and sent to WeCom as rendered images. Render failures fail the command instead of falling back to text.
           </p>
         </CardContent>
       </Card>

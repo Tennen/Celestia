@@ -69,12 +69,11 @@ func (s *Service) runMarketTool(ctx context.Context, input marketToolInput) (any
 }
 
 type evolutionToolInput struct {
-	Action          string `json:"action,omitempty" jsonschema_description:"queue, run, status, tick, set_codex_model, or set_codex_effort."`
+	Action          string `json:"action,omitempty" jsonschema_description:"queue, run, status, tick, or set_codex_provider."`
 	GoalID          string `json:"goal_id,omitempty" jsonschema_description:"Evolution goal id."`
 	Goal            string `json:"goal,omitempty" jsonschema_description:"Goal text for queued implementation work."`
 	CommitMessage   string `json:"commit_message,omitempty" jsonschema_description:"Optional commit message for a queued goal."`
-	CodexModel      string `json:"codex_model,omitempty" jsonschema_description:"Codex model setting."`
-	ReasoningEffort string `json:"reasoning_effort,omitempty" jsonschema_description:"Codex reasoning effort setting."`
+	CodexProviderID string `json:"codex_provider_id,omitempty" jsonschema_description:"Agent LLM provider id whose type is codex."`
 }
 
 func (s *Service) evolutionToolSpec() agentToolSpec {
@@ -83,7 +82,7 @@ func (s *Service) evolutionToolSpec() agentToolSpec {
 		Name:         "evolution_operator",
 		Description:  desc,
 		Keywords:     []string{"evolution", "coding", "codex", "代码", "自进化"},
-		Params:       []string{"action", "goal_id", "goal", "commit_message", "codex_model", "reasoning_effort"},
+		Params:       []string{"action", "goal_id", "goal", "commit_message", "codex_provider_id"},
 		PreferResult: true,
 		NewTool: func(s *Service) (einotool.InvokableTool, error) {
 			return utils.InferTool("evolution_operator", desc, s.runEvolutionTool)
@@ -108,10 +107,8 @@ func (s *Service) runEvolutionTool(ctx context.Context, input evolutionToolInput
 		return s.evolutionStatus(ctx, input.GoalID)
 	case "tick":
 		return s.runNextEvolutionGoal(ctx)
-	case "set_codex_model":
-		return s.setCodexEvolutionOption(ctx, "model", input.CodexModel)
-	case "set_codex_effort":
-		return s.setCodexEvolutionOption(ctx, "effort", input.ReasoningEffort)
+	case "set_codex_provider":
+		return s.setCodexEvolutionProvider(ctx, input.CodexProviderID)
 	default:
 		return nil, errors.New("unsupported evolution action")
 	}

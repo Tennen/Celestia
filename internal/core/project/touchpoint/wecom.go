@@ -165,15 +165,22 @@ func (s *Service) HandleWeComXML(ctx context.Context, raw []byte) (models.AgentW
 		}
 		response := ""
 		if strings.TrimSpace(record.DispatchText) != "" {
-			conversation, convErr := s.runTouchpointInput(ctx, models.AgentConversationRequest{
+			inputResult, convErr := s.runTouchpointInput(ctx, models.AgentConversationRequest{
 				SessionID: record.FromUser,
 				Input:     record.DispatchText,
 				Actor:     "wecom",
 			})
 			if convErr != nil {
+				if isImageOnlyProjectResult(inputResult) {
+					return models.AgentWeComInboundResult{Record: record, FromUser: payload.FromUser, ToUser: payload.ToUserName}, convErr
+				}
 				response = convErr.Error()
+			} else if len(inputResult.Images) > 0 {
+				if err := s.SendProjectImages(ctx, payload.FromUser, inputResult.Images); err != nil {
+					return models.AgentWeComInboundResult{Record: record, FromUser: payload.FromUser, ToUser: payload.ToUserName}, err
+				}
 			} else {
-				response = conversation.Response
+				response = inputResult.ResponseText
 			}
 		}
 		return models.AgentWeComInboundResult{Record: record, ResponseText: response, FromUser: payload.FromUser, ToUser: payload.ToUserName}, nil
@@ -191,14 +198,22 @@ func (s *Service) HandleWeComXML(ctx context.Context, raw []byte) (models.AgentW
 		if err != nil {
 			return models.AgentWeComInboundResult{}, err
 		}
-		conversation, convErr := s.runTouchpointInput(ctx, models.AgentConversationRequest{
+		inputResult, convErr := s.runTouchpointInput(ctx, models.AgentConversationRequest{
 			SessionID: payload.FromUser,
 			Input:     input,
 			Actor:     "wecom",
 		})
-		response := conversation.Response
+		response := inputResult.ResponseText
 		if convErr != nil {
+			if isImageOnlyProjectResult(inputResult) {
+				return models.AgentWeComInboundResult{Record: record, FromUser: payload.FromUser, ToUser: payload.ToUserName}, convErr
+			}
 			response = convErr.Error()
+		} else if len(inputResult.Images) > 0 {
+			if err := s.SendProjectImages(ctx, payload.FromUser, inputResult.Images); err != nil {
+				return models.AgentWeComInboundResult{Record: record, FromUser: payload.FromUser, ToUser: payload.ToUserName}, err
+			}
+			response = ""
 		}
 		return models.AgentWeComInboundResult{Record: record, ResponseText: response, FromUser: payload.FromUser, ToUser: payload.ToUserName}, nil
 	}
@@ -269,25 +284,25 @@ func (s *Service) recordWeComMessage(ctx context.Context, msgType, fromUser, toU
 	return next.WeComMenu.RecentEvents[0], nil
 }
 
-func (s *Service) runTouchpointInput(ctx context.Context, req models.AgentConversationRequest) (models.AgentConversation, error) {
+func (s *Service) runTouchpointInput(ctx context.Context, req models.AgentConversationRequest) (models.ProjectInputResult, error) {
 	s.mu.Lock()
 	input := s.input
 	agent := s.agent
 	s.mu.Unlock()
 	if input == nil {
 		if agent == nil {
-			return models.AgentConversation{}, errors.New("touchpoint input runner is not configured")
+			return models.ProjectInputResult{}, errors.New("touchpoint input runner is not configured")
 		}
-		return agent.Converse(ctx, req)
+		conversation, err := agent.Converse(ctx, req)
+		return models.ProjectInputResult{Conversation: conversation, ResponseText: conversation.Response}, err
 	}
-	result, err := input.HandleInput(ctx, models.ProjectInputRequest{
+	return input.HandleInput(ctx, models.ProjectInputRequest{
 		SessionID: req.SessionID,
 		Input:     req.Input,
 		Actor:     req.Actor,
 		Source:    req.Actor,
 		UserID:    req.SessionID,
 	})
-	return result.Conversation, err
 }
 
 func (s *Service) wecomAccessToken(ctx context.Context, config models.AgentWeComConfig) (string, error) {

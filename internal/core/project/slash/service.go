@@ -70,8 +70,20 @@ func (s *Service) Run(ctx context.Context, req models.ProjectInputRequest) (mode
 		Command:    command,
 		Args:       args,
 		Output:     strings.TrimSpace(output),
+		Images:     slashImages(metadata),
 		Metadata:   metadata,
 		ExecutedAt: time.Now().UTC(),
 	}
 	return result, true, err
+}
+
+func slashImages(metadata map[string]any) []models.ProjectOutputImage {
+	if len(metadata) == 0 {
+		return nil
+	}
+	images, ok := metadata["images"].([]models.ProjectOutputImage)
+	if !ok || len(images) == 0 {
+		return nil
+	}
+	return images
 }

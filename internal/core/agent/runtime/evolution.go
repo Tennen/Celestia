@@ -50,6 +50,8 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 		return models.AgentEvolutionGoal{}, err
 	}
 	settings := snapshot.Settings.Evolution
+	codexProvider, codexProviderErr := resolveCodexProvider(snapshot.Settings, settings.CodexProviderID)
+	codexBase := codexRequestFromProvider(codexProvider, settings.TimeoutMS)
 	goal, ok := findEvolutionGoal(snapshot.Evolution.Goals, goalID)
 	if !ok {
 		return models.AgentEvolutionGoal{}, errors.New("evolution goal not found")
@@ -81,7 +83,13 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 	}
 
 	if len(goal.Plan.Steps) == 0 {
-		goal, err = s.evolutionPlan(ctx, goal, settings)
+		if codexProviderErr != nil {
+			if strings.TrimSpace(settings.Command) != "" {
+				return s.runLegacyEvolutionCommand(ctx, goal, settings)
+			}
+			return s.failEvolutionGoal(ctx, goalID, "plan_failed", codexProviderErr.Error())
+		}
+		goal, err = s.evolutionPlan(ctx, goal, settings, codexBase)
 		if err != nil {
 			if strings.TrimSpace(settings.Command) != "" {
 				return s.runLegacyEvolutionCommand(ctx, goal, settings)
@@ -91,7 +99,10 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 	}
 
 	for goal.Plan.CurrentStep < len(goal.Plan.Steps) {
-		goal, err = s.evolutionStep(ctx, goal, settings, goal.Plan.CurrentStep)
+		if codexProviderErr != nil {
+			return s.failEvolutionGoal(ctx, goalID, goal.Stage, codexProviderErr.Error())
+		}
+		goal, err = s.evolutionStep(ctx, goal, settings, codexBase, goal.Plan.CurrentStep)
 		if err != nil {
 			return s.failEvolutionGoal(ctx, goalID, goal.Stage, err.Error())
 		}
@@ -102,7 +113,10 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 		return s.failEvolutionGoal(ctx, goalID, "checks_failed", err.Error())
 	}
 	for attempt := goal.FixAttempts; !checksOK && attempt < maxInt(settings.MaxFixAttempts, 2); attempt++ {
-		goal, err = s.evolutionFix(ctx, goal, settings, attempt+1)
+		if codexProviderErr != nil {
+			return s.failEvolutionGoal(ctx, goalID, "fix_failed", codexProviderErr.Error())
+		}
+		goal, err = s.evolutionFix(ctx, goal, settings, codexBase, attempt+1)
 		if err != nil {
 			return s.failEvolutionGoal(ctx, goalID, "fix_failed", err.Error())
 		}
@@ -116,7 +130,10 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 	}
 
 	if settings.StructureReview {
-		goal, err = s.evolutionStructureReview(ctx, goal, settings)
+		if codexProviderErr != nil {
+			return s.failEvolutionGoal(ctx, goalID, "structure_failed", codexProviderErr.Error())
+		}
+		goal, err = s.evolutionStructureReview(ctx, goal, settings, codexBase)
 		if err != nil {
 			return s.failEvolutionGoal(ctx, goalID, "structure_failed", err.Error())
 		}

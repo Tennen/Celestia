@@ -137,8 +137,7 @@ type AgentEvolutionConfig struct {
 	Command         string                      `json:"command,omitempty"`
 	CWD             string                      `json:"cwd,omitempty"`
 	TimeoutMS       int                         `json:"timeout_ms,omitempty"`
-	CodexModel      string                      `json:"codex_model,omitempty"`
-	CodexReasoning  string                      `json:"codex_reasoning,omitempty"`
+	CodexProviderID string                      `json:"codex_provider_id,omitempty"`
 	MaxFixAttempts  int                         `json:"max_fix_attempts,omitempty"`
 	TestCommands    []AgentEvolutionTestCommand `json:"test_commands,omitempty"`
 	AutoCommit      bool                        `json:"auto_commit,omitempty"`

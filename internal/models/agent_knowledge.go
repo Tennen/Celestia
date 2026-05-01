@@ -3,12 +3,10 @@ package models
 import "time"
 
 type AgentKnowledgeConfig struct {
-	Enabled        bool   `json:"enabled"`
-	BaseDir        string `json:"base_dir,omitempty"`
-	CodexModel     string `json:"codex_model,omitempty"`
-	CodexReasoning string `json:"codex_reasoning,omitempty"`
-	TimeoutMS      int    `json:"timeout_ms,omitempty"`
-	MaxOutputChars int    `json:"max_output_chars,omitempty"`
+	Enabled         bool   `json:"enabled"`
+	BaseDir         string `json:"base_dir,omitempty"`
+	CodexProviderID string `json:"codex_provider_id,omitempty"`
+	TimeoutMS       int    `json:"timeout_ms,omitempty"`
 }
 
 type AgentKnowledgeSnapshot struct {
@@ -24,7 +22,7 @@ type AgentKnowledgeSession struct {
 	Active         bool      `json:"active"`
 	Status         string    `json:"status"`
 	LastQuestion   string    `json:"last_question,omitempty"`
-	LastOutputFile string    `json:"last_output_file,omitempty"`
+	LastMarkdown   string    `json:"last_markdown,omitempty"`
 	LastError      string    `json:"last_error,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -38,7 +36,8 @@ type AgentKnowledgeRequest struct {
 }
 
 type AgentKnowledgeResult struct {
-	Answer  string                `json:"answer"`
-	Session AgentKnowledgeSession `json:"session"`
-	Codex   AgentCodexResult      `json:"codex"`
+	MarkdownPath string                `json:"markdown_path"`
+	Images       []AgentMarkdownImage  `json:"images"`
+	Session      AgentKnowledgeSession `json:"session"`
+	Codex        AgentCodexResult      `json:"codex"`
 }

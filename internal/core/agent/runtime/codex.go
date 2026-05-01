@@ -85,7 +85,7 @@ func buildCodexArgs(req models.AgentCodexRequest, cwd string, outputFile string)
 	args := []string{"-a", "never", "exec"}
 	if strings.TrimSpace(req.ResumeSessionID) != "" {
 		args = append(args, "resume", "--json", "-o", outputFile)
-		args = appendCodexModelArgs(args, req)
+		args = appendCodexConfigArgs(args, req)
 		if req.SkipGitRepoCheck {
 			args = append(args, "--skip-git-repo-check")
 		}
@@ -97,14 +97,14 @@ func buildCodexArgs(req models.AgentCodexRequest, cwd string, outputFile string)
 		sandbox = "workspace-write"
 	}
 	args = append(args, "--json", "--sandbox", sandbox, "-o", outputFile, "--cd", cwd)
-	args = appendCodexModelArgs(args, req)
+	args = appendCodexConfigArgs(args, req)
 	if req.SkipGitRepoCheck {
 		args = append(args, "--skip-git-repo-check")
 	}
 	return args
 }
 
-func appendCodexModelArgs(args []string, req models.AgentCodexRequest) []string {
+func appendCodexConfigArgs(args []string, req models.AgentCodexRequest) []string {
 	if strings.TrimSpace(req.Model) != "" {
 		args = append(args, "--model", strings.TrimSpace(req.Model))
 	}

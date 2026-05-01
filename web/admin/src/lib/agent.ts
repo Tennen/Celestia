@@ -37,8 +37,7 @@ export type AgentSettings = {
     command?: string;
     cwd?: string;
     timeout_ms?: number;
-    codex_model?: string;
-    codex_reasoning?: string;
+    codex_provider_id?: string;
     max_fix_attempts?: number;
     test_commands?: Array<{ name: string; command: string; timeout_ms?: number }>;
     auto_commit?: boolean;
@@ -51,7 +50,7 @@ export type AgentSettings = {
   search_engines?: Array<Record<string, unknown>>;
   memory?: Record<string, unknown>;
   md2img?: Record<string, unknown>;
-  knowledge?: { enabled: boolean; base_dir?: string; codex_model?: string; codex_reasoning?: string; timeout_ms?: number; max_output_chars?: number };
+  knowledge?: { enabled: boolean; base_dir?: string; codex_provider_id?: string; timeout_ms?: number };
   updated_at: string;
 };
 

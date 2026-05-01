@@ -13,18 +13,15 @@ import (
 	"github.com/chentianyu/celestia/internal/models"
 )
 
-func (s *Service) evolutionPlan(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig) (models.AgentEvolutionGoal, error) {
+func (s *Service) evolutionPlan(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig, codexBase models.AgentCodexRequest) (models.AgentEvolutionGoal, error) {
 	goal.Stage = "plan"
 	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: time.Now().UTC(), Stage: "plan", Message: "Generating Codex plan."})
 	goal, _ = s.saveEvolutionGoal(ctx, goal)
-	result, err := s.RunCodex(ctx, models.AgentCodexRequest{
-		TaskID:          goal.ID + "-plan",
-		Prompt:          buildEvolutionPlanPrompt(goal.Goal),
-		Model:           settings.CodexModel,
-		ReasoningEffort: settings.CodexReasoning,
-		TimeoutMS:       settings.TimeoutMS,
-		CWD:             settings.CWD,
-	})
+	req := codexBase
+	req.TaskID = goal.ID + "-plan"
+	req.Prompt = buildEvolutionPlanPrompt(goal.Goal)
+	req.CWD = settings.CWD
+	result, err := s.RunCodex(ctx, req)
 	if err != nil {
 		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
 	}
@@ -42,20 +39,17 @@ func (s *Service) evolutionPlan(ctx context.Context, goal models.AgentEvolutionG
 	return s.saveEvolutionGoal(ctx, goal)
 }
 
-func (s *Service) evolutionStep(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig, stepIndex int) (models.AgentEvolutionGoal, error) {
+func (s *Service) evolutionStep(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig, codexBase models.AgentCodexRequest, stepIndex int) (models.AgentEvolutionGoal, error) {
 	stepText := goal.Plan.Steps[stepIndex]
 	stage := "step_" + intString(stepIndex+1)
 	goal.Stage = stage
 	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: time.Now().UTC(), Stage: stage, Message: "Executing step " + intString(stepIndex+1) + "."})
 	goal, _ = s.saveEvolutionGoal(ctx, goal)
-	result, err := s.RunCodex(ctx, models.AgentCodexRequest{
-		TaskID:          goal.ID + "-" + stage,
-		Prompt:          buildEvolutionStepPrompt(goal, stepIndex, stepText),
-		Model:           settings.CodexModel,
-		ReasoningEffort: settings.CodexReasoning,
-		TimeoutMS:       settings.TimeoutMS,
-		CWD:             settings.CWD,
-	})
+	req := codexBase
+	req.TaskID = goal.ID + "-" + stage
+	req.Prompt = buildEvolutionStepPrompt(goal, stepIndex, stepText)
+	req.CWD = settings.CWD
+	result, err := s.RunCodex(ctx, req)
 	if err != nil {
 		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
 	}
@@ -68,16 +62,13 @@ func (s *Service) evolutionStep(ctx context.Context, goal models.AgentEvolutionG
 	return s.saveEvolutionGoal(ctx, goal)
 }
 
-func (s *Service) evolutionFix(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig, attempt int) (models.AgentEvolutionGoal, error) {
+func (s *Service) evolutionFix(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig, codexBase models.AgentCodexRequest, attempt int) (models.AgentEvolutionGoal, error) {
 	summary := summarizeEvolutionTests(goal.TestResults)
-	result, err := s.RunCodex(ctx, models.AgentCodexRequest{
-		TaskID:          goal.ID + "-fix-" + intString(attempt),
-		Prompt:          buildEvolutionFixPrompt(goal.Goal, summary),
-		Model:           settings.CodexModel,
-		ReasoningEffort: settings.CodexReasoning,
-		TimeoutMS:       settings.TimeoutMS,
-		CWD:             settings.CWD,
-	})
+	req := codexBase
+	req.TaskID = goal.ID + "-fix-" + intString(attempt)
+	req.Prompt = buildEvolutionFixPrompt(goal.Goal, summary)
+	req.CWD = settings.CWD
+	result, err := s.RunCodex(ctx, req)
 	if err != nil {
 		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
 	}
@@ -90,15 +81,12 @@ func (s *Service) evolutionFix(ctx context.Context, goal models.AgentEvolutionGo
 	return s.saveEvolutionGoal(ctx, goal)
 }
 
-func (s *Service) evolutionStructureReview(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig) (models.AgentEvolutionGoal, error) {
-	result, err := s.RunCodex(ctx, models.AgentCodexRequest{
-		TaskID:          goal.ID + "-structure",
-		Prompt:          "Review the current repository structure for duplicated or misplaced code. Return JSON only: {\"issues\":[\"...\"]}.",
-		Model:           settings.CodexModel,
-		ReasoningEffort: settings.CodexReasoning,
-		TimeoutMS:       settings.TimeoutMS,
-		CWD:             settings.CWD,
-	})
+func (s *Service) evolutionStructureReview(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig, codexBase models.AgentCodexRequest) (models.AgentEvolutionGoal, error) {
+	req := codexBase
+	req.TaskID = goal.ID + "-structure"
+	req.Prompt = "Review the current repository structure for duplicated or misplaced code. Return JSON only: {\"issues\":[\"...\"]}."
+	req.CWD = settings.CWD
+	result, err := s.RunCodex(ctx, req)
 	if err != nil {
 		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
 	}

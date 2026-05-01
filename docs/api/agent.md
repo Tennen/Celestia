@@ -15,7 +15,7 @@ GET /api/v1/agent
 Returns the full Agent snapshot:
 
 - `settings`: LLM, terminal, search, memory, md2img, evolution, knowledge, WeCom, and STT configuration. WeCom/STT settings are retained in the snapshot for migrated storage compatibility but are owned by Touchpoints at runtime.
-- `settings.knowledge`: Codex-backed knowledge base settings. `base_dir` is a host directory that Codex uses as its read-only working root for `/kb` slash commands.
+- `settings.knowledge`: Codex-backed knowledge base settings. `base_dir` is a host directory that Codex uses as the knowledge root for `/kb` slash commands; `codex_provider_id` must reference an Agent LLM provider whose `type` is `codex`.
 - `tools`: Agent-owned Eino tool contracts.
 - `direct_input`: input mapping rules owned by Touchpoints before Agent execution.
 - `wecom_menu` and `push`: Touchpoint-owned WeCom menu/users stored in the migrated snapshot document store.
@@ -267,7 +267,7 @@ Evolution goals are queued in Agent state. Running a goal follows the Agent oper
 
 Terminal commands require `settings.terminal.enabled=true` and execute through `/bin/sh -lc` with the configured timeout.
 
-`/agent/codex/run` invokes local `codex exec` directly with workspace-write sandboxing by default and writes command output under `data/agent/codex` in the selected working directory. Request bodies may override `cwd`, `output_dir`, `sandbox`, `model`, `reasoning_effort`, `timeout_ms`, set `skip_git_repo_check=true`, or set `resume_session_id` to continue a prior Codex CLI session.
+`/agent/codex/run` invokes local `codex exec` directly with workspace-write sandboxing by default and writes command output under `data/agent/codex` in the selected working directory. Request bodies may override `cwd`, `output_dir`, `sandbox`, `model`, `reasoning_effort`, `timeout_ms`, set `skip_git_repo_check=true`, or set `resume_session_id` to continue a prior Codex CLI session. Higher-level modules such as evolution and knowledge do not store raw Codex model names; they select an Agent LLM provider with `type: "codex"`, and that provider supplies the Codex model and reasoning effort.
 
 ## Codex Knowledge Base
 
@@ -278,10 +278,8 @@ Knowledge-base Q&A is configured through `PUT /api/v1/agent/settings`:
   "knowledge": {
     "enabled": true,
     "base_dir": "/Users/me/Documents/Knowledge",
-    "codex_model": "gpt-5.2",
-    "codex_reasoning": "high",
-    "timeout_ms": 600000,
-    "max_output_chars": 1800
+    "codex_provider_id": "codex-main",
+    "timeout_ms": 600000
   }
 }
 ```
@@ -295,4 +293,6 @@ Runtime entry is via ProjectInput slash commands, not a separate WeCom path:
 /kb status
 ```
 
-The runner starts `codex exec --sandbox read-only --skip-git-repo-check --cd <base_dir>` for a new session and resumes the caller's active Codex session when the CLI returns a session id. Codex is instructed to inspect files under `base_dir`, cite file paths and line numbers where possible, and state explicitly when the answer is not grounded in the knowledge base. Configure `base_dir` only to directories approved for model-assisted analysis, because file contents may be sent to the configured Codex model provider.
+The runner starts `codex exec --sandbox workspace-write --skip-git-repo-check --cd <base_dir>` for a new session and resumes the caller's active Codex session when the CLI returns a session id. Codex is instructed to inspect files under `base_dir`, cite file paths and line numbers where possible, and write the final Markdown answer to `<base_dir>/.answers/*.md` without modifying other knowledge-base files.
+
+After Codex creates the Markdown answer, Celestia renders it through the md2img renderer and sends the rendered image(s) from WeCom. Render failures fail the command; Celestia does not fall back to returning long Markdown text. Configure `base_dir` only to directories approved for model-assisted analysis, because file contents may be sent to the configured Codex provider.

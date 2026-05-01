@@ -21,11 +21,13 @@ Slash commands are project workflows in `internal/core/project/slash`. WeCom tra
 
 Home slash commands support the same Core-owned home shortcut resolution used by `/api/ai/v1`: device aliases, quick-control aliases, room-qualified targets (`device-or-room.command`), and globally unique command aliases all resolve through the shared Home service before policy/audit and plugin dispatch.
 
-Knowledge slash commands run before the Agent ReAct loop and invoke the local Codex CLI against the configured read-only knowledge base root:
+Knowledge slash commands run before the Agent ReAct loop and invoke the local Codex CLI against the configured knowledge base root:
 
 - `/kb ask <question>` or `/kb <question>` asks against the active Codex knowledge session for the current WeCom/HTTP user.
 - `/kb new [question]` starts a fresh Codex session, useful when prior context is too large or should be discarded.
 - `/kb status` reports whether the knowledge base is enabled, the configured base directory, and the active session for the caller.
+
+Knowledge answers are saved as Markdown under `<base_dir>/.answers`, rendered through the Agent md2img pipeline, and sent to WeCom as image messages. Image rendering or delivery errors fail the command instead of falling back to long text replies.
 
 ## Input Mappings
 

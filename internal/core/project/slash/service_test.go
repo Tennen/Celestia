@@ -55,7 +55,11 @@ func (f *fakeAgentRuntime) RunKnowledge(_ context.Context, req models.AgentKnowl
 	f.knowledgeReqs = append(f.knowledgeReqs, req)
 	if f.knowledgeResult.Session.ID == "" {
 		f.knowledgeResult = models.AgentKnowledgeResult{
-			Answer: "answer from kb",
+			MarkdownPath: "/tmp/answer.md",
+			Images: []models.AgentMarkdownImage{{
+				Path:        "/tmp/answer.png",
+				ContentType: "image/png",
+			}},
 			Session: models.AgentKnowledgeSession{
 				ID:             "kb-session",
 				UserID:         req.UserID,
@@ -299,8 +303,11 @@ func TestRunKnowledgeAskDispatchesCodexKnowledgeRuntime(t *testing.T) {
 	if !handled {
 		t.Fatal("Run() handled = false, want true")
 	}
-	if result.Output != "answer from kb" {
-		t.Fatalf("Run() output = %q, want knowledge answer", result.Output)
+	if result.Output != "Knowledge answer rendered to image." {
+		t.Fatalf("Run() output = %q, want image render status", result.Output)
+	}
+	if len(result.Images) != 1 || result.Images[0].Path != "/tmp/answer.png" {
+		t.Fatalf("Run() images = %+v, want rendered answer image", result.Images)
 	}
 	if len(agent.knowledgeReqs) != 1 {
 		t.Fatalf("knowledge reqs = %d, want 1", len(agent.knowledgeReqs))

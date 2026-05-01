@@ -62,13 +62,19 @@ func (s *Service) runKnowledgeQuestion(ctx context.Context, req models.ProjectIn
 	metadata := map[string]any{
 		"domain":            "knowledge",
 		"action":            "ask",
+		"reply_kind":        "image",
 		"new_session":       newSession,
 		"session_id":        result.Session.ID,
 		"codex_session_id":  result.Session.CodexSessionID,
 		"codex_output_file": result.Codex.OutputFile,
 		"codex_exit_code":   result.Codex.ExitCode,
+		"markdown_path":     result.MarkdownPath,
 	}
-	return strings.TrimSpace(result.Answer), metadata, err
+	metadata = withProjectImages(metadata, result.Images)
+	if err != nil {
+		return "", metadata, err
+	}
+	return "Knowledge answer rendered to image.", metadata, nil
 }
 
 func knowledgeUserID(req models.ProjectInputRequest) string {
@@ -84,6 +90,7 @@ func formatKnowledgeStatus(snapshot models.AgentSnapshot, userID string) string 
 	lines := []string{
 		"Knowledge base: " + status,
 		"Base dir: " + firstNonEmpty(config.BaseDir, "(not configured)"),
+		"Codex provider: " + firstNonEmpty(config.CodexProviderID, "(not configured)"),
 	}
 	if session, ok := activeKnowledgeStatusSession(snapshot.Knowledge.Sessions, userID); ok {
 		lines = append(lines,
@@ -112,4 +119,31 @@ Knowledge commands:
 - /kb new [question]
 - /kb status
 `)
+}
+
+func withProjectImages(metadata map[string]any, images []models.AgentMarkdownImage) map[string]any {
+	projectImages := make([]models.ProjectOutputImage, 0, len(images))
+	imagePaths := make([]string, 0, len(images))
+	for _, image := range images {
+		if strings.TrimSpace(image.Path) == "" {
+			continue
+		}
+		projectImages = append(projectImages, models.ProjectOutputImage{
+			Path:        image.Path,
+			ContentType: firstNonEmpty(image.ContentType, "image/png"),
+			Filename:    pathBase(image.Path),
+		})
+		imagePaths = append(imagePaths, image.Path)
+	}
+	metadata["images"] = projectImages
+	metadata["image_paths"] = imagePaths
+	return metadata
+}
+
+func pathBase(path string) string {
+	parts := strings.Split(strings.ReplaceAll(path, "\\", "/"), "/")
+	if len(parts) == 0 {
+		return "answer.png"
+	}
+	return firstNonEmpty(parts[len(parts)-1], "answer.png")
 }

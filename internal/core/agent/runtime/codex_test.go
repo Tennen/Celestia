@@ -33,3 +33,21 @@ func TestExtractCodexSessionIDFindsNestedJSONLValue(t *testing.T) {
 		t.Fatalf("extractCodexSessionID() = %q, want abc-123", got)
 	}
 }
+
+func TestResolveCodexProviderRequiresCodexType(t *testing.T) {
+	settings := models.AgentSettings{LLMProviders: []models.AgentLLMProvider{
+		{ID: "chat", Type: "openai"},
+		{ID: "codex-main", Type: "codex", Model: "gpt-test", ChatPath: "high"},
+	}}
+
+	provider, err := resolveCodexProvider(settings, "codex-main")
+	if err != nil {
+		t.Fatalf("resolveCodexProvider() error = %v", err)
+	}
+	if provider.Model != "gpt-test" || provider.ChatPath != "high" {
+		t.Fatalf("provider = %+v", provider)
+	}
+	if _, err := resolveCodexProvider(settings, "chat"); err == nil {
+		t.Fatal("resolveCodexProvider(openai) error = nil, want type rejection")
+	}
+}

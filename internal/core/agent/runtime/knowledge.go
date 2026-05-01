@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/core/agent/workflows/renderer"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )
@@ -42,6 +43,10 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 	if err != nil {
 		return models.AgentKnowledgeResult{}, err
 	}
+	codexProvider, err := resolveCodexProvider(snapshot.Settings, config.CodexProviderID)
+	if err != nil {
+		return models.AgentKnowledgeResult{}, err
+	}
 	userID := firstNonEmpty(req.UserID, "default")
 	session, ok := activeKnowledgeSession(snapshot.Knowledge.Sessions, userID)
 	if req.NewSession || !ok {
@@ -51,29 +56,42 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 	if !req.NewSession && strings.TrimSpace(session.CodexSessionID) != "" {
 		resumeSessionID = session.CodexSessionID
 	}
+	answerPath, err := prepareKnowledgeAnswerPath(baseDir, session.ID)
+	if err != nil {
+		return models.AgentKnowledgeResult{}, err
+	}
+	codexReq := codexRequestFromProvider(codexProvider, config.TimeoutMS)
 	outputDir, _ := filepath.Abs(filepath.Join("data", "agent", "knowledge", "codex"))
-	result, runErr := s.RunCodex(ctx, models.AgentCodexRequest{
-		TaskID:           "kb-" + session.ID + "-" + time.Now().UTC().Format("20060102150405"),
-		Prompt:           buildKnowledgePrompt(baseDir, question, resumeSessionID != ""),
-		Model:            firstNonEmpty(config.CodexModel, snapshot.Settings.Evolution.CodexModel),
-		ReasoningEffort:  firstNonEmpty(config.CodexReasoning, snapshot.Settings.Evolution.CodexReasoning),
-		TimeoutMS:        config.TimeoutMS,
-		CWD:              baseDir,
-		OutputDir:        outputDir,
-		Sandbox:          "read-only",
-		ResumeSessionID:  resumeSessionID,
-		SkipGitRepoCheck: true,
-	})
+	codexReq.TaskID = "kb-" + session.ID + "-" + time.Now().UTC().Format("20060102150405")
+	codexReq.Prompt = buildKnowledgePrompt(baseDir, answerPath, question, resumeSessionID != "")
+	codexReq.CWD = baseDir
+	codexReq.OutputDir = outputDir
+	codexReq.Sandbox = "workspace-write"
+	codexReq.ResumeSessionID = resumeSessionID
+	codexReq.SkipGitRepoCheck = true
+	result, runErr := s.RunCodex(ctx, codexReq)
 	now := time.Now().UTC()
 	session.Active = true
 	session.Source = firstNonEmpty(req.Source, session.Source)
 	session.LastQuestion = question
-	session.LastOutputFile = result.OutputFile
+	session.LastMarkdown = answerPath
 	session.UpdatedAt = now
 	session.Status = "succeeded"
 	session.LastError = ""
 	if strings.TrimSpace(result.SessionID) != "" {
 		session.CodexSessionID = strings.TrimSpace(result.SessionID)
+	}
+	if runErr != nil {
+		session.Status = "failed"
+		session.LastError = runErr.Error()
+	}
+	markdown := ""
+	rendered := models.AgentMarkdownRenderResult{}
+	if runErr == nil {
+		markdown, runErr = readKnowledgeAnswer(answerPath)
+	}
+	if runErr == nil {
+		rendered, runErr = s.renderKnowledgeAnswer(ctx, snapshot.Settings.MD2Img, markdown, answerPath)
 	}
 	if runErr != nil {
 		session.Status = "failed"
@@ -88,8 +106,7 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 	if saveErr != nil {
 		return models.AgentKnowledgeResult{}, saveErr
 	}
-	answer := trimKnowledgeAnswer(result.Output, config.MaxOutputChars)
-	return models.AgentKnowledgeResult{Answer: answer, Session: session, Codex: result}, runErr
+	return models.AgentKnowledgeResult{MarkdownPath: answerPath, Images: rendered.Images, Session: session, Codex: result}, runErr
 }
 
 func validateKnowledgeBaseDir(config models.AgentKnowledgeConfig) (string, error) {
@@ -114,7 +131,7 @@ func validateKnowledgeBaseDir(config models.AgentKnowledgeConfig) (string, error
 	return abs, nil
 }
 
-func buildKnowledgePrompt(baseDir string, question string, resumed bool) string {
+func buildKnowledgePrompt(baseDir string, answerPath string, question string, resumed bool) string {
 	mode := "Start a new Codex CLI knowledge-base QA session."
 	if resumed {
 		mode = "Continue the existing Codex CLI knowledge-base QA session."
@@ -123,19 +140,23 @@ func buildKnowledgePrompt(baseDir string, question string, resumed bool) string 
 %s
 
 Knowledge base root: %s
+Required answer markdown path: %s
 
 Instructions:
 - Treat the knowledge base root as the only source of truth.
 - Inspect files under the knowledge base root with local search/read commands such as rg, find, sed, and cat.
 - Do not use web search or external sources.
-- Do not modify, create, or delete knowledge-base files.
+- Do not modify, create, or delete knowledge-base files except the required Markdown answer file under .answers.
+- Write the final answer as a complete Markdown document to the required answer markdown path.
+- Use headings, lists, tables, and code blocks when they improve readability.
 - Answer in the same language as the user's question.
 - Cite supporting file paths and line numbers when possible.
 - If the answer cannot be grounded in the knowledge-base files, say that the knowledge base does not contain enough information.
+- After saving the Markdown file, keep your final chat response brief; Celestia will read and render the Markdown file.
 
 User question:
 %s
-`, mode, baseDir, question))
+`, mode, baseDir, answerPath, question))
 }
 
 func newKnowledgeSession(userID string, source string, now time.Time) models.AgentKnowledgeSession {
@@ -173,12 +194,38 @@ func activateKnowledgeSession(sessions []models.AgentKnowledgeSession, next mode
 	return truncateList(out, 50)
 }
 
-func trimKnowledgeAnswer(answer string, maxChars int) string {
-	trimmed := strings.TrimSpace(answer)
-	limit := maxInt(maxChars, 1800)
-	runes := []rune(trimmed)
-	if len(runes) <= limit {
-		return trimmed
+func prepareKnowledgeAnswerPath(baseDir string, sessionID string) (string, error) {
+	answerDir := filepath.Join(baseDir, ".answers")
+	if err := os.MkdirAll(answerDir, 0o755); err != nil {
+		return "", err
 	}
-	return string(runes[:limit]) + "\n\n[truncated]"
+	stem := time.Now().UTC().Format("20060102-150405") + "-" + strings.ReplaceAll(sessionID, "-", "")
+	if len(stem) > 48 {
+		stem = stem[:48]
+	}
+	return filepath.Join(answerDir, stem+".md"), nil
+}
+
+func readKnowledgeAnswer(path string) (string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("knowledge answer markdown was not created: %w", err)
+	}
+	markdown := strings.TrimSpace(string(raw))
+	if markdown == "" {
+		return "", errors.New("knowledge answer markdown is empty")
+	}
+	return markdown, nil
+}
+
+func (s *Service) renderKnowledgeAnswer(ctx context.Context, settings models.AgentMD2ImgConfig, markdown string, answerPath string) (models.AgentMarkdownRenderResult, error) {
+	if !settings.Enabled {
+		return models.AgentMarkdownRenderResult{}, errors.New("md2img is disabled in agent settings")
+	}
+	outputDir := filepath.Join(filepath.Dir(answerPath), "images", strings.TrimSuffix(filepath.Base(answerPath), filepath.Ext(answerPath)))
+	return renderer.RenderMarkdown(ctx, models.AgentMarkdownRenderRequest{
+		Markdown:  markdown,
+		Mode:      firstNonEmpty(settings.Mode, "long-image"),
+		OutputDir: outputDir,
+	}, settings)
 }

@@ -125,8 +125,8 @@ func (s *Service) handleWeComBridgePayload(ctx context.Context, payload weComBri
 		if strings.TrimSpace(record.DispatchText) == "" {
 			return nil
 		}
-		conversation, err := s.runTouchpointInput(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: record.DispatchText, Actor: "wecom-bridge"})
-		return s.replyWeComBridge(ctx, payload.FromUser, conversation.Response, err)
+		result, err := s.runTouchpointInput(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: record.DispatchText, Actor: "wecom-bridge"})
+		return s.replyWeComBridge(ctx, payload.FromUser, result, err)
 	}
 	input := strings.TrimSpace(payload.Text)
 	if msgType == "voice" {
@@ -145,22 +145,35 @@ func (s *Service) handleWeComBridgePayload(ctx context.Context, payload weComBri
 	if _, err := s.recordWeComMessage(ctx, msgType, payload.FromUser, payload.ToUser, payload.AgentID, payload.MessageID, input); err != nil {
 		return err
 	}
-	conversation, err := s.runTouchpointInput(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: input, Actor: "wecom-bridge"})
-	return s.replyWeComBridge(ctx, payload.FromUser, conversation.Response, err)
+	result, err := s.runTouchpointInput(ctx, models.AgentConversationRequest{SessionID: payload.FromUser, Input: input, Actor: "wecom-bridge"})
+	return s.replyWeComBridge(ctx, payload.FromUser, result, err)
 }
 
-func (s *Service) replyWeComBridge(ctx context.Context, toUser string, text string, priorErr error) error {
-	response := strings.TrimSpace(text)
+func (s *Service) replyWeComBridge(ctx context.Context, toUser string, result models.ProjectInputResult, priorErr error) error {
 	if priorErr != nil {
-		response = firstNonEmpty(response, priorErr.Error())
-	}
-	if response == "" {
+		if isImageOnlyProjectResult(result) {
+			return priorErr
+		}
+		response := firstNonEmpty(result.ResponseText, priorErr.Error())
+		if response == "" {
+			return priorErr
+		}
+		if err := s.SendWeComMessage(ctx, WeComSendRequest{ToUser: toUser, Text: response}); err != nil {
+			return err
+		}
 		return priorErr
+	}
+	if len(result.Images) > 0 {
+		return s.SendProjectImages(ctx, toUser, result.Images)
+	}
+	response := strings.TrimSpace(result.ResponseText)
+	if response == "" {
+		return nil
 	}
 	if err := s.SendWeComMessage(ctx, WeComSendRequest{ToUser: toUser, Text: response}); err != nil {
 		return err
 	}
-	return priorErr
+	return nil
 }
 
 func parseSSEData(raw string) string {

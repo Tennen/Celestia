@@ -334,9 +334,6 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	if settings.Knowledge.TimeoutMS <= 0 {
 		settings.Knowledge.TimeoutMS = 600000
 	}
-	if settings.Knowledge.MaxOutputChars <= 0 {
-		settings.Knowledge.MaxOutputChars = 1800
-	}
 	if strings.TrimSpace(settings.WeCom.BaseURL) == "" {
 		settings.WeCom.BaseURL = "https://qyapi.weixin.qq.com"
 	}

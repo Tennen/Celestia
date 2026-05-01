@@ -11,6 +11,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -45,6 +47,41 @@ func (s *Service) SendWeComImage(ctx context.Context, req WeComImageRequest) err
 		"image":   map[string]any{"media_id": mediaID},
 	}
 	return s.sendWeComPayload(ctx, config, payload)
+}
+
+func (s *Service) SendProjectImages(ctx context.Context, toUser string, images []models.ProjectOutputImage) error {
+	if len(images) == 0 {
+		return errors.New("project output image is required")
+	}
+	for _, image := range images {
+		path := strings.TrimSpace(image.Path)
+		if path == "" {
+			return errors.New("project output image path is required")
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := s.SendWeComImage(ctx, WeComImageRequest{
+			ToUser:      toUser,
+			Base64:      base64.StdEncoding.EncodeToString(raw),
+			Filename:    firstNonEmpty(image.Filename, filepath.Base(path)),
+			ContentType: firstNonEmpty(image.ContentType, "image/png"),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isImageOnlyProjectResult(result models.ProjectInputResult) bool {
+	if len(result.Images) > 0 {
+		return true
+	}
+	if result.Slash == nil || result.Slash.Metadata == nil {
+		return false
+	}
+	return strings.TrimSpace(fmt.Sprint(result.Slash.Metadata["reply_kind"])) == "image"
 }
 
 func (s *Service) sendWeComPayload(ctx context.Context, config models.AgentWeComConfig, message map[string]any) error {
