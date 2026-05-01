@@ -17,10 +17,18 @@ import (
 func (s *Service) StartKnowledgeSession(ctx context.Context, req models.AgentKnowledgeRequest) (models.AgentKnowledgeSession, error) {
 	userID := firstNonEmpty(req.UserID, "default")
 	source := strings.TrimSpace(req.Source)
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return models.AgentKnowledgeSession{}, err
+	}
+	base, _, err := resolveKnowledgeBase(snapshot.Settings.Knowledge, req.KnowledgeBaseID)
+	if err != nil {
+		return models.AgentKnowledgeSession{}, err
+	}
 	var session models.AgentKnowledgeSession
-	_, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
+	_, err = s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		now := time.Now().UTC()
-		session = newKnowledgeSession(userID, source, now)
+		session = newKnowledgeSession(userID, source, base.ID, now)
 		snapshot.Knowledge.Sessions = activateKnowledgeSession(snapshot.Knowledge.Sessions, session)
 		snapshot.Knowledge.UpdatedAt = now
 		snapshot.UpdatedAt = now
@@ -39,7 +47,7 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 		return models.AgentKnowledgeResult{}, err
 	}
 	config := snapshot.Settings.Knowledge
-	baseDir, err := validateKnowledgeBaseDir(config)
+	base, baseDir, err := resolveKnowledgeBase(config, req.KnowledgeBaseID)
 	if err != nil {
 		return models.AgentKnowledgeResult{}, err
 	}
@@ -48,9 +56,9 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 		return models.AgentKnowledgeResult{}, err
 	}
 	userID := firstNonEmpty(req.UserID, "default")
-	session, ok := activeKnowledgeSession(snapshot.Knowledge.Sessions, userID)
+	session, ok := activeKnowledgeSession(snapshot.Knowledge.Sessions, userID, base.ID)
 	if req.NewSession || !ok {
-		session = newKnowledgeSession(userID, req.Source, time.Now().UTC())
+		session = newKnowledgeSession(userID, req.Source, base.ID, time.Now().UTC())
 	}
 	resumeSessionID := ""
 	if !req.NewSession && strings.TrimSpace(session.CodexSessionID) != "" {
@@ -109,13 +117,34 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 	return models.AgentKnowledgeResult{MarkdownPath: answerPath, Images: rendered.Images, Session: session, Codex: result}, runErr
 }
 
-func validateKnowledgeBaseDir(config models.AgentKnowledgeConfig) (string, error) {
+func resolveKnowledgeBase(config models.AgentKnowledgeConfig, baseID string) (models.AgentKnowledgeBase, string, error) {
 	if !config.Enabled {
-		return "", errors.New("knowledge base is disabled")
+		return models.AgentKnowledgeBase{}, "", errors.New("knowledge base is disabled")
 	}
-	baseDir := strings.TrimSpace(config.BaseDir)
+	target := strings.TrimSpace(baseID)
+	if target == "" {
+		target = strings.TrimSpace(config.DefaultBaseID)
+	}
+	if target == "" {
+		return models.AgentKnowledgeBase{}, "", errors.New("knowledge_base_id is required")
+	}
+	for _, base := range config.Bases {
+		if strings.TrimSpace(base.ID) != target {
+			continue
+		}
+		if !base.Enabled {
+			return models.AgentKnowledgeBase{}, "", fmt.Errorf("knowledge base %q is disabled", target)
+		}
+		abs, err := validateKnowledgeBaseDir(base)
+		return base, abs, err
+	}
+	return models.AgentKnowledgeBase{}, "", fmt.Errorf("knowledge base %q is not configured", target)
+}
+
+func validateKnowledgeBaseDir(base models.AgentKnowledgeBase) (string, error) {
+	baseDir := strings.TrimSpace(base.BaseDir)
 	if baseDir == "" {
-		return "", errors.New("knowledge base base_dir is required")
+		return "", fmt.Errorf("knowledge base %q base_dir is required", strings.TrimSpace(base.ID))
 	}
 	abs, err := filepath.Abs(baseDir)
 	if err != nil {
@@ -159,21 +188,22 @@ User question:
 `, mode, baseDir, answerPath, question))
 }
 
-func newKnowledgeSession(userID string, source string, now time.Time) models.AgentKnowledgeSession {
+func newKnowledgeSession(userID string, source string, baseID string, now time.Time) models.AgentKnowledgeSession {
 	return models.AgentKnowledgeSession{
-		ID:        uuid.NewString(),
-		UserID:    strings.TrimSpace(userID),
-		Source:    strings.TrimSpace(source),
-		Active:    true,
-		Status:    "ready",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:              uuid.NewString(),
+		KnowledgeBaseID: strings.TrimSpace(baseID),
+		UserID:          strings.TrimSpace(userID),
+		Source:          strings.TrimSpace(source),
+		Active:          true,
+		Status:          "ready",
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 }
 
-func activeKnowledgeSession(sessions []models.AgentKnowledgeSession, userID string) (models.AgentKnowledgeSession, bool) {
+func activeKnowledgeSession(sessions []models.AgentKnowledgeSession, userID string, baseID string) (models.AgentKnowledgeSession, bool) {
 	for _, session := range sessions {
-		if session.Active && strings.TrimSpace(session.UserID) == strings.TrimSpace(userID) {
+		if session.Active && strings.TrimSpace(session.UserID) == strings.TrimSpace(userID) && strings.TrimSpace(session.KnowledgeBaseID) == strings.TrimSpace(baseID) {
 			return session, true
 		}
 	}
@@ -186,7 +216,7 @@ func activateKnowledgeSession(sessions []models.AgentKnowledgeSession, next mode
 		if session.ID == next.ID {
 			continue
 		}
-		if strings.TrimSpace(session.UserID) == strings.TrimSpace(next.UserID) {
+		if strings.TrimSpace(session.UserID) == strings.TrimSpace(next.UserID) && strings.TrimSpace(session.KnowledgeBaseID) == strings.TrimSpace(next.KnowledgeBaseID) {
 			session.Active = false
 		}
 		out = append(out, session)

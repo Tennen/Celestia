@@ -21,13 +21,15 @@ Slash commands are project workflows in `internal/core/project/slash`. WeCom tra
 
 Home slash commands support the same Core-owned home shortcut resolution used by `/api/ai/v1`: device aliases, quick-control aliases, room-qualified targets (`device-or-room.command`), and globally unique command aliases all resolve through the shared Home service before policy/audit and plugin dispatch.
 
-Knowledge slash commands run before the Agent ReAct loop and invoke the local Codex CLI against the configured knowledge base root:
+Knowledge slash commands run before the Agent ReAct loop and invoke the local Codex CLI against the selected configured knowledge base root:
 
-- `/kb ask <question>` or `/kb <question>` asks against the active Codex knowledge session for the current WeCom/HTTP user.
-- `/kb new [question]` starts a fresh Codex session, useful when prior context is too large or should be discarded.
-- `/kb status` reports whether the knowledge base is enabled, the configured base directory, and the active session for the caller.
+- `/kb ask <question>` or `/kb <question>` asks against the default knowledge base for the current WeCom/HTTP user.
+- `/kb @<base-id> ask <question>` or `/kb @<base-id> <question>` asks against a specific knowledge base.
+- `/kb new [@base-id] [question]` starts a fresh Codex session for the selected base, useful when prior context is too large or should be discarded.
+- `/kb list` reports configured bases.
+- `/kb status [@base-id]` reports the configured bases and the active session for the caller on the selected base.
 
-Knowledge answers are saved as Markdown under `<base_dir>/.answers`, rendered through the Agent md2img pipeline, and sent to WeCom as image messages. Image rendering or delivery errors fail the command instead of falling back to long text replies.
+Knowledge answers are saved as Markdown under the selected `<base_dir>/.answers`, rendered through the Agent md2img pipeline, and sent to WeCom as image messages. Image rendering or delivery errors fail the command instead of falling back to long text replies.
 
 ## Input Mappings
 

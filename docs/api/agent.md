@@ -15,14 +15,14 @@ GET /api/v1/agent
 Returns the full Agent snapshot:
 
 - `settings`: LLM providers, Agent providers, terminal, search, memory, md2img, evolution, knowledge, WeCom, and STT configuration. WeCom/STT settings are retained in the snapshot for migrated storage compatibility but are owned by Touchpoints at runtime.
-- `settings.knowledge`: Codex-backed knowledge base settings. `base_dir` is a host directory that Codex uses as the knowledge root for `/kb` slash commands; `agent_provider_id` must reference an Agent provider whose `type` is `codex`.
+- `settings.knowledge`: Codex-backed knowledge base settings. `bases[]` lists host directories that Codex can use as knowledge roots for `/kb` slash commands; `default_base_id` is used when a command does not specify `@base-id`; `agent_provider_id` must reference an Agent provider whose `type` is `codex`.
 - `tools`: Agent-owned Eino tool contracts.
 - `direct_input`: input mapping rules owned by Touchpoints before Agent execution.
 - `wecom_menu` and `push`: Touchpoint-owned WeCom menu/users stored in the migrated snapshot document store.
 - `conversations`: retained Agent conversation turns, including slash command result records.
 - `memory`: raw turns, compacted summary memory, and active short conversation windows.
 - `search`: recent search query logs, capped at the latest 50 runs.
-- `workflow`, `writing`, `market`, `evolution`, and `knowledge`: Agent-owned state. `workflow` stores the generic workflow canvas (`active_workflow_id`, `workflows[]`) plus runtime history/state (`runs[]`, `sent_log`, `source_states[]`, `timer_states[]`) used for modular orchestration. `knowledge` stores retained Codex knowledge sessions keyed by caller.
+- `workflow`, `writing`, `market`, `evolution`, and `knowledge`: Agent-owned state. `workflow` stores the generic workflow canvas (`active_workflow_id`, `workflows[]`) plus runtime history/state (`runs[]`, `sent_log`, `source_states[]`, `timer_states[]`) used for modular orchestration. `knowledge` stores retained Codex knowledge sessions keyed by caller and knowledge base.
 
 ## Runtime Settings
 
@@ -36,7 +36,7 @@ LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ol
 
 Agent providers are separate provider profiles for Agent-owned executors. The current `codex` Agent provider invokes the local `codex exec --json --sandbox workspace-write` runner and supplies model, reasoning effort, and timeout defaults to modules such as Evolution and Knowledge.
 
-Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/workflows/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden. Knowledge-base Q&A is disabled unless `settings.knowledge.enabled=true` and `settings.knowledge.base_dir` points at an accessible host directory.
+Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/workflows/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden. Knowledge-base Q&A is disabled unless `settings.knowledge.enabled=true` and the selected enabled knowledge base points at an accessible host directory.
 
 ## Conversation
 
@@ -279,7 +279,21 @@ Knowledge-base Q&A is configured through `PUT /api/v1/agent/settings`:
 {
   "knowledge": {
     "enabled": true,
-    "base_dir": "/Users/me/Documents/Knowledge",
+    "default_base_id": "ops",
+    "bases": [
+      {
+        "id": "ops",
+        "name": "Operations",
+        "base_dir": "/Users/me/Documents/Knowledge/Ops",
+        "enabled": true
+      },
+      {
+        "id": "design",
+        "name": "Design",
+        "base_dir": "/Users/me/Documents/Knowledge/Design",
+        "enabled": true
+      }
+    ],
     "agent_provider_id": "codex-main",
     "timeout_ms": 600000
   }
@@ -291,10 +305,13 @@ Runtime entry is via ProjectInput slash commands, not a separate WeCom path:
 ```text
 /kb ask <question>
 /kb <question>
-/kb new [question]
-/kb status
+/kb @<base-id> ask <question>
+/kb @<base-id> <question>
+/kb new [@base-id] [question]
+/kb list
+/kb status [@base-id]
 ```
 
-The runner starts `codex exec --sandbox workspace-write --skip-git-repo-check --cd <base_dir>` for a new session and resumes the caller's active Codex session when the CLI returns a session id. Codex is instructed to inspect files under `base_dir`, cite file paths and line numbers where possible, and write the final Markdown answer to `<base_dir>/.answers/*.md` without modifying other knowledge-base files.
+The runner starts `codex exec --sandbox workspace-write --skip-git-repo-check --cd <base_dir>` for the selected knowledge base and resumes the caller's active Codex session for the same `user + knowledge_base_id` when the CLI returns a session id. Codex is instructed to inspect files under `base_dir`, cite file paths and line numbers where possible, and write the final Markdown answer to `<base_dir>/.answers/*.md` without modifying other knowledge-base files.
 
-After Codex creates the Markdown answer, Celestia renders it through the md2img renderer and sends the rendered image(s) from WeCom. Render failures fail the command; Celestia does not fall back to returning long Markdown text. Configure `base_dir` only to directories approved for model-assisted analysis, because file contents may be sent to the configured Agent provider.
+After Codex creates the Markdown answer, Celestia renders it through the md2img renderer and sends the rendered image(s) from WeCom. Render failures fail the command; Celestia does not fall back to returning long Markdown text. Configure knowledge base directories only to paths approved for model-assisted analysis, because file contents may be sent to the configured Agent provider.

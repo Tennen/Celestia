@@ -107,8 +107,10 @@ Slash commands:
 - /market run [open|midday|close] [notes]
 - /market import <fund codes>
 - /kb ask <question>
-- /kb new [question]
-- /kb status
+- /kb @<base-id> ask <question>
+- /kb new [@base-id] [question]
+- /kb list
+- /kb status [@base-id]
 `)
 }
 

@@ -47,7 +47,7 @@ func (f *fakeAgentRuntime) ImportMarketPortfolioCodes(context.Context, models.Ag
 
 func (f *fakeAgentRuntime) StartKnowledgeSession(_ context.Context, req models.AgentKnowledgeRequest) (models.AgentKnowledgeSession, error) {
 	f.startedSessions = append(f.startedSessions, req)
-	session := models.AgentKnowledgeSession{ID: "kb-session", UserID: req.UserID, Active: true, Status: "ready"}
+	session := models.AgentKnowledgeSession{ID: "kb-session", KnowledgeBaseID: req.KnowledgeBaseID, UserID: req.UserID, Active: true, Status: "ready"}
 	return session, nil
 }
 
@@ -61,11 +61,12 @@ func (f *fakeAgentRuntime) RunKnowledge(_ context.Context, req models.AgentKnowl
 				ContentType: "image/png",
 			}},
 			Session: models.AgentKnowledgeSession{
-				ID:             "kb-session",
-				UserID:         req.UserID,
-				CodexSessionID: "codex-session",
-				Active:         true,
-				Status:         "succeeded",
+				ID:              "kb-session",
+				KnowledgeBaseID: req.KnowledgeBaseID,
+				UserID:          req.UserID,
+				CodexSessionID:  "codex-session",
+				Active:          true,
+				Status:          "succeeded",
 			},
 			Codex: models.AgentCodexResult{OutputFile: "data/agent/knowledge/codex/out.txt"},
 		}
@@ -318,6 +319,31 @@ func TestRunKnowledgeAskDispatchesCodexKnowledgeRuntime(t *testing.T) {
 	}
 	if result.Metadata["codex_session_id"] != "codex-session" {
 		t.Fatalf("codex session metadata = %#v", result.Metadata["codex_session_id"])
+	}
+}
+
+func TestRunKnowledgeAskDispatchesSelectedKnowledgeBase(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeAgentRuntime{}
+	svc := New(nil, agent)
+
+	_, handled, err := svc.Run(ctx, models.ProjectInputRequest{
+		Input:  `/kb @ops ask release checklist`,
+		UserID: "alice",
+		Source: "wecom",
+	})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if len(agent.knowledgeReqs) != 1 {
+		t.Fatalf("knowledge reqs = %d, want 1", len(agent.knowledgeReqs))
+	}
+	req := agent.knowledgeReqs[0]
+	if req.KnowledgeBaseID != "ops" || req.Question != "release checklist" {
+		t.Fatalf("knowledge req = %+v", req)
 	}
 }
 

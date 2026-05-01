@@ -12,14 +12,9 @@ export type AgentLLMProvider = {
   timeout_ms?: number;
 };
 
-export type AgentProvider = {
-  id: string;
-  name: string;
-  type: string;
-  model?: string;
-  reasoning_effort?: string;
-  timeout_ms?: number;
-};
+export type AgentProvider = { id: string; name: string; type: string; model?: string; reasoning_effort?: string; timeout_ms?: number };
+
+export type AgentKnowledgeBase = { id: string; name: string; base_dir: string; enabled: boolean };
 
 export type AgentSettings = {
   runtime_mode: string;
@@ -60,7 +55,7 @@ export type AgentSettings = {
   search_engines?: Array<Record<string, unknown>>;
   memory?: Record<string, unknown>;
   md2img?: Record<string, unknown>;
-  knowledge?: { enabled: boolean; base_dir?: string; agent_provider_id?: string; timeout_ms?: number };
+  knowledge?: { enabled: boolean; default_base_id?: string; bases?: AgentKnowledgeBase[]; agent_provider_id?: string; timeout_ms?: number };
   updated_at: string;
 };
 
@@ -441,7 +436,10 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
       search_engines: arrayOrEmpty(settings.search_engines),
       wecom: settings.wecom ?? { enabled: false },
       terminal: settings.terminal ?? { enabled: false },
-      knowledge: settings.knowledge ?? { enabled: false },
+      knowledge: {
+        ...(settings.knowledge ?? { enabled: false }),
+        bases: arrayOrEmpty(settings.knowledge?.bases),
+      },
       evolution: {
         ...(settings.evolution ?? {}),
         test_commands: arrayOrEmpty(settings.evolution?.test_commands),

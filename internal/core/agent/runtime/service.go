@@ -334,6 +334,9 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	if settings.Evolution.MaxFixAttempts <= 0 {
 		settings.Evolution.MaxFixAttempts = 2
 	}
+	if settings.Knowledge.Bases == nil {
+		settings.Knowledge.Bases = []models.AgentKnowledgeBase{}
+	}
 	if settings.Knowledge.TimeoutMS <= 0 {
 		settings.Knowledge.TimeoutMS = 600000
 	}
