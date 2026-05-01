@@ -51,6 +51,7 @@ export type AgentSettings = {
   search_engines?: Array<Record<string, unknown>>;
   memory?: Record<string, unknown>;
   md2img?: Record<string, unknown>;
+  knowledge?: { enabled: boolean; base_dir?: string; codex_model?: string; codex_reasoning?: string; timeout_ms?: number; max_output_chars?: number };
   updated_at: string;
 };
 
@@ -257,6 +258,7 @@ export type AgentSnapshot = {
     goals: AgentEvolutionGoal[];
     updated_at: string;
   };
+  knowledge?: { sessions: Array<Record<string, unknown>>; updated_at: string };
   updated_at: string;
 };
 
@@ -391,6 +393,10 @@ export function runAgentCodex(payload: {
   reasoning_effort?: string;
   timeout_ms?: number;
   cwd?: string;
+  output_dir?: string;
+  sandbox?: string;
+  resume_session_id?: string;
+  skip_git_repo_check?: boolean;
 }) {
   return request<Record<string, unknown>>('/agent/codex/run', { method: 'POST', body: JSON.stringify(payload) });
 }
@@ -425,6 +431,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
       search_engines: arrayOrEmpty(settings.search_engines),
       wecom: settings.wecom ?? { enabled: false },
       terminal: settings.terminal ?? { enabled: false },
+      knowledge: settings.knowledge ?? { enabled: false },
       evolution: {
         ...(settings.evolution ?? {}),
         test_commands: arrayOrEmpty(settings.evolution?.test_commands),

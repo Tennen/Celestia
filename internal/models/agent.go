@@ -25,6 +25,7 @@ type AgentSnapshot struct {
 	Writing       AgentWritingSnapshot   `json:"writing"`
 	Market        AgentMarketSnapshot    `json:"market"`
 	Evolution     AgentEvolutionSnapshot `json:"evolution"`
+	Knowledge     AgentKnowledgeSnapshot `json:"knowledge"`
 	UpdatedAt     time.Time              `json:"updated_at"`
 }
 
@@ -39,6 +40,7 @@ type AgentSettings struct {
 	SearchEngines        []AgentSearchProvider `json:"search_engines"`
 	Memory               AgentMemoryConfig     `json:"memory"`
 	MD2Img               AgentMD2ImgConfig     `json:"md2img"`
+	Knowledge            AgentKnowledgeConfig  `json:"knowledge"`
 	UpdatedAt            time.Time             `json:"updated_at"`
 }
 

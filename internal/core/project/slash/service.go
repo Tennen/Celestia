@@ -16,6 +16,8 @@ type AgentRuntime interface {
 	Snapshot(context.Context) (models.AgentSnapshot, error)
 	RunMarketAnalysis(context.Context, coreagent.MarketRunRequest) (models.AgentMarketRun, error)
 	ImportMarketPortfolioCodes(context.Context, models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error)
+	StartKnowledgeSession(context.Context, models.AgentKnowledgeRequest) (models.AgentKnowledgeSession, error)
+	RunKnowledge(context.Context, models.AgentKnowledgeRequest) (models.AgentKnowledgeResult, error)
 }
 
 type HomeRuntime interface {
@@ -59,6 +61,8 @@ func (s *Service) Run(ctx context.Context, req models.ProjectInputRequest) (mode
 		output, metadata, err = s.runHome(ctx, req, args)
 	case "market":
 		output, metadata, err = s.runMarket(ctx, args)
+	case "kb", "knowledge":
+		output, metadata, err = s.runKnowledge(ctx, req, args)
 	default:
 		err = fmt.Errorf("unknown slash command %q", command)
 	}

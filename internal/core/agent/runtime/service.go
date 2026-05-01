@@ -28,9 +28,9 @@ type Service struct {
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
 	return &Service{
-		store: store,
-		bus:   bus,
-		stop:  make(chan struct{}),
+		store:        store,
+		bus:          bus,
+		stop:         make(chan struct{}),
 		workflowJobs: make(chan workflowScheduledRun, 256),
 	}
 }
@@ -189,6 +189,10 @@ func defaultSnapshot() models.AgentSnapshot {
 			Goals:     []models.AgentEvolutionGoal{},
 			UpdatedAt: now,
 		},
+		Knowledge: models.AgentKnowledgeSnapshot{
+			Sessions:  []models.AgentKnowledgeSession{},
+			UpdatedAt: now,
+		},
 		UpdatedAt: now,
 	}
 }
@@ -265,6 +269,10 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.Evolution.Goals == nil {
 		snapshot.Evolution.Goals = []models.AgentEvolutionGoal{}
 	}
+	if snapshot.Knowledge.Sessions == nil {
+		snapshot.Knowledge.Sessions = []models.AgentKnowledgeSession{}
+	}
+	snapshot.Knowledge.Sessions = truncateList(snapshot.Knowledge.Sessions, 50)
 	return snapshot
 }
 
@@ -322,6 +330,12 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	}
 	if settings.Evolution.MaxFixAttempts <= 0 {
 		settings.Evolution.MaxFixAttempts = 2
+	}
+	if settings.Knowledge.TimeoutMS <= 0 {
+		settings.Knowledge.TimeoutMS = 600000
+	}
+	if settings.Knowledge.MaxOutputChars <= 0 {
+		settings.Knowledge.MaxOutputChars = 1800
 	}
 	if strings.TrimSpace(settings.WeCom.BaseURL) == "" {
 		settings.WeCom.BaseURL = "https://qyapi.weixin.qq.com"

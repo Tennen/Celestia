@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	coreagent "github.com/chentianyu/celestia/internal/core/agent"
 	"github.com/chentianyu/celestia/internal/core/audit"
 	"github.com/chentianyu/celestia/internal/core/control"
 	"github.com/chentianyu/celestia/internal/core/policy"
@@ -22,6 +23,50 @@ type fakeCommandExecutor struct {
 		device models.Device
 		req    models.CommandRequest
 	}
+}
+
+type fakeAgentRuntime struct {
+	snapshot        models.AgentSnapshot
+	knowledgeReqs   []models.AgentKnowledgeRequest
+	startedSessions []models.AgentKnowledgeRequest
+	knowledgeResult models.AgentKnowledgeResult
+	knowledgeErr    error
+}
+
+func (f *fakeAgentRuntime) Snapshot(context.Context) (models.AgentSnapshot, error) {
+	return f.snapshot, nil
+}
+
+func (f *fakeAgentRuntime) RunMarketAnalysis(context.Context, coreagent.MarketRunRequest) (models.AgentMarketRun, error) {
+	return models.AgentMarketRun{}, nil
+}
+
+func (f *fakeAgentRuntime) ImportMarketPortfolioCodes(context.Context, models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error) {
+	return models.AgentMarketImportCodesResponse{}, nil
+}
+
+func (f *fakeAgentRuntime) StartKnowledgeSession(_ context.Context, req models.AgentKnowledgeRequest) (models.AgentKnowledgeSession, error) {
+	f.startedSessions = append(f.startedSessions, req)
+	session := models.AgentKnowledgeSession{ID: "kb-session", UserID: req.UserID, Active: true, Status: "ready"}
+	return session, nil
+}
+
+func (f *fakeAgentRuntime) RunKnowledge(_ context.Context, req models.AgentKnowledgeRequest) (models.AgentKnowledgeResult, error) {
+	f.knowledgeReqs = append(f.knowledgeReqs, req)
+	if f.knowledgeResult.Session.ID == "" {
+		f.knowledgeResult = models.AgentKnowledgeResult{
+			Answer: "answer from kb",
+			Session: models.AgentKnowledgeSession{
+				ID:             "kb-session",
+				UserID:         req.UserID,
+				CodexSessionID: "codex-session",
+				Active:         true,
+				Status:         "succeeded",
+			},
+			Codex: models.AgentCodexResult{OutputFile: "data/agent/knowledge/codex/out.txt"},
+		}
+	}
+	return f.knowledgeResult, f.knowledgeErr
 }
 
 func (f *fakeCommandExecutor) ExecuteCommand(_ context.Context, device models.Device, req models.CommandRequest) (models.CommandResponse, error) {
@@ -235,5 +280,79 @@ func TestRunHomeResolvesGlobalControlAlias(t *testing.T) {
 	}
 	if got, ok := executor.calls[0].req.Params["value"].(float64); !ok || got != 55 {
 		t.Fatalf("call.req.Params[value] = %#v, want 55", executor.calls[0].req.Params["value"])
+	}
+}
+
+func TestRunKnowledgeAskDispatchesCodexKnowledgeRuntime(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeAgentRuntime{}
+	svc := New(nil, agent)
+
+	result, handled, err := svc.Run(ctx, models.ProjectInputRequest{
+		Input:     `/kb ask "设备接入流程是什么"`,
+		SessionID: "wecom-alice",
+		Source:    "wecom",
+	})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if result.Output != "answer from kb" {
+		t.Fatalf("Run() output = %q, want knowledge answer", result.Output)
+	}
+	if len(agent.knowledgeReqs) != 1 {
+		t.Fatalf("knowledge reqs = %d, want 1", len(agent.knowledgeReqs))
+	}
+	req := agent.knowledgeReqs[0]
+	if req.Question != "设备接入流程是什么" || req.UserID != "wecom-alice" || req.Source != "wecom" || req.NewSession {
+		t.Fatalf("knowledge req = %+v", req)
+	}
+	if result.Metadata["codex_session_id"] != "codex-session" {
+		t.Fatalf("codex session metadata = %#v", result.Metadata["codex_session_id"])
+	}
+}
+
+func TestRunKnowledgeNewStartsFreshSessionWithoutQuestion(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeAgentRuntime{}
+	svc := New(nil, agent)
+
+	result, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/kb new`, UserID: "alice", Source: "wecom"})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if !strings.Contains(result.Output, "kb-session") {
+		t.Fatalf("Run() output = %q, want session id", result.Output)
+	}
+	if len(agent.startedSessions) != 1 {
+		t.Fatalf("started sessions = %d, want 1", len(agent.startedSessions))
+	}
+	if agent.startedSessions[0].UserID != "alice" {
+		t.Fatalf("started session user = %q, want alice", agent.startedSessions[0].UserID)
+	}
+}
+
+func TestRunKnowledgeNewWithQuestionForcesFreshCodexSession(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeAgentRuntime{}
+	svc := New(nil, agent)
+
+	_, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/kb new reset context`, SessionID: "alice"})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if len(agent.knowledgeReqs) != 1 {
+		t.Fatalf("knowledge reqs = %d, want 1", len(agent.knowledgeReqs))
+	}
+	if !agent.knowledgeReqs[0].NewSession || agent.knowledgeReqs[0].Question != "reset context" {
+		t.Fatalf("knowledge req = %+v", agent.knowledgeReqs[0])
 	}
 }

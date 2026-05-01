@@ -135,6 +135,16 @@ func loadAgentEvolutionGoalsDocument(doc models.AgentDocument, snapshot *models.
 	return nil
 }
 
+func loadAgentKnowledgeSessionsDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
+	var payload agentKnowledgeSessionsDocument
+	if err := decodeAgentDocument(doc, &payload); err != nil {
+		return err
+	}
+	snapshot.Knowledge.Sessions = payload.Sessions
+	snapshot.Knowledge.UpdatedAt = firstTime(payload.UpdatedAt, doc.UpdatedAt)
+	return nil
+}
+
 func loadPlainAgentDocument[T any](apply func(*models.AgentSnapshot, T, time.Time)) func(models.AgentDocument, *models.AgentSnapshot) error {
 	return func(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
 		var payload T
@@ -212,4 +222,5 @@ func clearSnapshotPersistenceTimes(snapshot *models.AgentSnapshot) {
 	snapshot.Writing.UpdatedAt = time.Time{}
 	snapshot.Market.UpdatedAt = time.Time{}
 	snapshot.Evolution.UpdatedAt = time.Time{}
+	snapshot.Knowledge.UpdatedAt = time.Time{}
 }

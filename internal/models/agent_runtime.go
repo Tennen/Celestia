@@ -42,17 +42,22 @@ type AgentSpeechResult struct {
 }
 
 type AgentCodexRequest struct {
-	TaskID          string `json:"task_id,omitempty"`
-	Prompt          string `json:"prompt"`
-	Model           string `json:"model,omitempty"`
-	ReasoningEffort string `json:"reasoning_effort,omitempty"`
-	TimeoutMS       int    `json:"timeout_ms,omitempty"`
-	CWD             string `json:"cwd,omitempty"`
+	TaskID           string `json:"task_id,omitempty"`
+	Prompt           string `json:"prompt"`
+	Model            string `json:"model,omitempty"`
+	ReasoningEffort  string `json:"reasoning_effort,omitempty"`
+	TimeoutMS        int    `json:"timeout_ms,omitempty"`
+	CWD              string `json:"cwd,omitempty"`
+	OutputDir        string `json:"output_dir,omitempty"`
+	Sandbox          string `json:"sandbox,omitempty"`
+	ResumeSessionID  string `json:"resume_session_id,omitempty"`
+	SkipGitRepoCheck bool   `json:"skip_git_repo_check,omitempty"`
 }
 
 type AgentCodexResult struct {
 	TaskID     string    `json:"task_id"`
 	OK         bool      `json:"ok"`
+	SessionID  string    `json:"session_id,omitempty"`
 	OutputFile string    `json:"output_file,omitempty"`
 	Output     string    `json:"output,omitempty"`
 	Error      string    `json:"error,omitempty"`

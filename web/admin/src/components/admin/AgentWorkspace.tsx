@@ -8,6 +8,7 @@ import { agentPanelLabel, type AgentPanelId } from '../../lib/agent-admin';
 import { fetchAgentSnapshot, stableJSON, type AgentSnapshot } from '../../lib/agent';
 import { AgentEvolutionPanel } from './AgentEvolutionPanel';
 import { AgentInputPanel } from './AgentInputPanel';
+import { AgentKnowledgePanel } from './AgentKnowledgePanel';
 import { AgentLLMPanel } from './AgentLLMPanel';
 import { AgentMarketPanel } from './AgentMarketPanel';
 import { AgentSearchPanel } from './AgentSearchPanel';
@@ -113,6 +114,7 @@ export function AgentWorkspace({ activePanel }: Props) {
         {activePanel === 'writing' ? <AgentWritingPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'market' ? <AgentMarketPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'evolution' ? <AgentEvolutionPanel snapshot={snapshot} onRun={run} /> : null}
+        {activePanel === 'knowledge' ? <AgentKnowledgePanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'search' ? <AgentSearchPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
 
         {result?.panel === activePanel && result.text ? (

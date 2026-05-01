@@ -3,6 +3,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,20 +27,14 @@ func (s *Service) RunCodex(ctx context.Context, req models.AgentCodexRequest) (m
 	if cwd == "" {
 		cwd = "."
 	}
-	outputDir := filepath.Join(cwd, "data", "agent", "codex")
+	outputDir := resolveCodexOutputDir(cwd, req.OutputDir)
 	_ = os.MkdirAll(outputDir, 0o755)
 	outputFile := filepath.Join(outputDir, taskID+".txt")
 	timeout := time.Duration(maxInt(req.TimeoutMS, snapshot.Settings.Evolution.TimeoutMS)) * time.Millisecond
 	if timeout <= 0 {
 		timeout = 15 * time.Minute
 	}
-	args := []string{"-a", "never", "exec", "--json", "--sandbox", "workspace-write", "-o", outputFile}
-	if strings.TrimSpace(req.Model) != "" {
-		args = append(args, "--model", strings.TrimSpace(req.Model))
-	}
-	if strings.TrimSpace(req.ReasoningEffort) != "" {
-		args = append(args, "--config", "model_reasoning_effort="+quoteCodexConfig(req.ReasoningEffort))
-	}
+	args := buildCodexArgs(req, cwd, outputFile)
 	args = append(args, req.Prompt)
 
 	started := time.Now().UTC()
@@ -63,6 +58,7 @@ func (s *Service) RunCodex(ctx context.Context, req models.AgentCodexRequest) (m
 	result := models.AgentCodexResult{
 		TaskID:     taskID,
 		OK:         err == nil,
+		SessionID:  extractCodexSessionID(output.String()),
 		OutputFile: outputFile,
 		Output:     strings.TrimSpace(firstNonEmpty(string(fileBytes), output.String())),
 		ExitCode:   exitCode,
@@ -73,6 +69,85 @@ func (s *Service) RunCodex(ctx context.Context, req models.AgentCodexRequest) (m
 		result.Error = err.Error()
 	}
 	return result, err
+}
+
+func resolveCodexOutputDir(cwd string, outputDir string) string {
+	if strings.TrimSpace(outputDir) == "" {
+		return filepath.Join(cwd, "data", "agent", "codex")
+	}
+	if filepath.IsAbs(outputDir) {
+		return filepath.Clean(outputDir)
+	}
+	return filepath.Join(cwd, outputDir)
+}
+
+func buildCodexArgs(req models.AgentCodexRequest, cwd string, outputFile string) []string {
+	args := []string{"-a", "never", "exec"}
+	if strings.TrimSpace(req.ResumeSessionID) != "" {
+		args = append(args, "resume", "--json", "-o", outputFile)
+		args = appendCodexModelArgs(args, req)
+		if req.SkipGitRepoCheck {
+			args = append(args, "--skip-git-repo-check")
+		}
+		args = append(args, strings.TrimSpace(req.ResumeSessionID))
+		return args
+	}
+	sandbox := strings.TrimSpace(req.Sandbox)
+	if sandbox == "" {
+		sandbox = "workspace-write"
+	}
+	args = append(args, "--json", "--sandbox", sandbox, "-o", outputFile, "--cd", cwd)
+	args = appendCodexModelArgs(args, req)
+	if req.SkipGitRepoCheck {
+		args = append(args, "--skip-git-repo-check")
+	}
+	return args
+}
+
+func appendCodexModelArgs(args []string, req models.AgentCodexRequest) []string {
+	if strings.TrimSpace(req.Model) != "" {
+		args = append(args, "--model", strings.TrimSpace(req.Model))
+	}
+	if strings.TrimSpace(req.ReasoningEffort) != "" {
+		args = append(args, "--config", "model_reasoning_effort="+quoteCodexConfig(req.ReasoningEffort))
+	}
+	return args
+}
+
+func extractCodexSessionID(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		var payload any
+		if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &payload); err != nil {
+			continue
+		}
+		if sessionID := findCodexSessionID(payload); sessionID != "" {
+			return sessionID
+		}
+	}
+	return ""
+}
+
+func findCodexSessionID(value any) string {
+	switch typed := value.(type) {
+	case map[string]any:
+		for _, key := range []string{"session_id", "sessionId"} {
+			if sessionID, ok := typed[key].(string); ok && strings.TrimSpace(sessionID) != "" {
+				return strings.TrimSpace(sessionID)
+			}
+		}
+		for _, child := range typed {
+			if sessionID := findCodexSessionID(child); sessionID != "" {
+				return sessionID
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if sessionID := findCodexSessionID(child); sessionID != "" {
+				return sessionID
+			}
+		}
+	}
+	return ""
 }
 
 func quoteCodexConfig(value string) string {

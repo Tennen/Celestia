@@ -21,6 +21,7 @@ const (
 	agentSettingsSearchDocumentKey    = "agent/settings/search"
 	agentSettingsMemoryDocumentKey    = "agent/settings/memory"
 	agentSettingsMD2ImgDocumentKey    = "agent/settings/md2img"
+	agentSettingsKnowledgeDocumentKey = "agent/settings/knowledge"
 
 	agentSearchLogDocumentKey           = "agent/search/log"
 	agentDirectInputDocumentKey         = "agent/direct-input"
@@ -38,6 +39,7 @@ const (
 	agentMarketConfigDocumentKey        = "agent/market/config"
 	agentMarketRunsDocumentKey          = "agent/market/runs"
 	agentEvolutionGoalsDocumentKey      = "agent/evolution/goals"
+	agentKnowledgeSessionsDocumentKey   = "agent/knowledge/sessions"
 )
 
 type agentDocumentLoader struct {
@@ -138,6 +140,11 @@ type agentEvolutionGoalsDocument struct {
 	UpdatedAt time.Time                   `json:"updated_at"`
 }
 
+type agentKnowledgeSessionsDocument struct {
+	Sessions  []models.AgentKnowledgeSession `json:"sessions"`
+	UpdatedAt time.Time                      `json:"updated_at"`
+}
+
 func (s *Service) loadSplitSnapshot(ctx context.Context) (models.AgentSnapshot, error) {
 	snapshot := defaultSnapshot()
 	clearSnapshotPersistenceTimes(&snapshot)
@@ -205,6 +212,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 	writingUpdatedAt := firstTime(snapshot.Writing.UpdatedAt, snapshot.UpdatedAt)
 	marketUpdatedAt := firstTime(snapshot.Market.UpdatedAt, snapshot.UpdatedAt)
 	evolutionUpdatedAt := firstTime(snapshot.Evolution.UpdatedAt, snapshot.UpdatedAt)
+	knowledgeUpdatedAt := firstTime(snapshot.Knowledge.UpdatedAt, snapshot.UpdatedAt)
 
 	writes := []struct {
 		key       string
@@ -235,6 +243,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 		},
 		{key: agentSettingsMemoryDocumentKey, domain: "agent.settings.memory", payload: withUpdatedAt(settings.Memory, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
 		{key: agentSettingsMD2ImgDocumentKey, domain: "agent.settings.md2img", payload: withUpdatedAt(settings.MD2Img, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
+		{key: agentSettingsKnowledgeDocumentKey, domain: "agent.settings.knowledge", payload: withUpdatedAt(settings.Knowledge, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
 		{key: agentSearchLogDocumentKey, domain: "agent.search.log", payload: agentSearchLogDocument{RecentQueries: snapshot.Search.RecentQueries, UpdatedAt: searchUpdatedAt}, updatedAt: searchUpdatedAt},
 		{key: agentDirectInputDocumentKey, domain: "agent.input.direct", payload: snapshot.DirectInput, updatedAt: firstTime(snapshot.DirectInput.UpdatedAt, snapshot.UpdatedAt)},
 		{
@@ -287,6 +296,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 		{key: agentMarketConfigDocumentKey, domain: "agent.market.config", payload: agentMarketConfigDocument{Config: snapshot.Market.Config, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},
 		{key: agentMarketRunsDocumentKey, domain: "agent.market.runs", payload: agentMarketRunsDocument{Runs: snapshot.Market.Runs, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},
 		{key: agentEvolutionGoalsDocumentKey, domain: "agent.evolution.goals", payload: agentEvolutionGoalsDocument{Goals: snapshot.Evolution.Goals, UpdatedAt: evolutionUpdatedAt}, updatedAt: evolutionUpdatedAt},
+		{key: agentKnowledgeSessionsDocumentKey, domain: "agent.knowledge.sessions", payload: agentKnowledgeSessionsDocument{Sessions: snapshot.Knowledge.Sessions, UpdatedAt: knowledgeUpdatedAt}, updatedAt: knowledgeUpdatedAt},
 	}
 
 	for _, write := range writes {
@@ -352,6 +362,9 @@ func agentDocumentLoaders() []agentDocumentLoader {
 		{key: agentSettingsMD2ImgDocumentKey, load: loadWrappedAgentDocument[models.AgentMD2ImgConfig](func(snapshot *models.AgentSnapshot, payload models.AgentMD2ImgConfig, _ time.Time) {
 			snapshot.Settings.MD2Img = payload
 		})},
+		{key: agentSettingsKnowledgeDocumentKey, load: loadWrappedAgentDocument[models.AgentKnowledgeConfig](func(snapshot *models.AgentSnapshot, payload models.AgentKnowledgeConfig, _ time.Time) {
+			snapshot.Settings.Knowledge = payload
+		})},
 		{key: agentSearchLogDocumentKey, load: loadAgentSearchLogDocument},
 		{key: agentDirectInputDocumentKey, load: loadPlainAgentDocument[models.AgentDirectInputConfig](func(snapshot *models.AgentSnapshot, payload models.AgentDirectInputConfig, updatedAt time.Time) {
 			if payload.UpdatedAt.IsZero() {
@@ -373,6 +386,7 @@ func agentDocumentLoaders() []agentDocumentLoader {
 		{key: agentMarketConfigDocumentKey, load: loadAgentMarketConfigDocument},
 		{key: agentMarketRunsDocumentKey, load: loadAgentMarketRunsDocument},
 		{key: agentEvolutionGoalsDocumentKey, load: loadAgentEvolutionGoalsDocument},
+		{key: agentKnowledgeSessionsDocumentKey, load: loadAgentKnowledgeSessionsDocument},
 	}
 }
 
