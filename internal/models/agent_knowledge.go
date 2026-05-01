@@ -5,7 +5,7 @@ import "time"
 type AgentKnowledgeConfig struct {
 	Enabled         bool   `json:"enabled"`
 	BaseDir         string `json:"base_dir,omitempty"`
-	CodexProviderID string `json:"codex_provider_id,omitempty"`
+	AgentProviderID string `json:"agent_provider_id,omitempty"`
 	TimeoutMS       int    `json:"timeout_ms,omitempty"`
 }
 

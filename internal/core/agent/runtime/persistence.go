@@ -13,15 +13,16 @@ import (
 const (
 	agentLegacyStateDocumentKey = "agent/state"
 
-	agentSettingsLLMDocumentKey       = "agent/settings/llm"
-	agentSettingsWeComDocumentKey     = "agent/settings/wecom"
-	agentSettingsTerminalDocumentKey  = "agent/settings/terminal"
-	agentSettingsEvolutionDocumentKey = "agent/settings/evolution"
-	agentSettingsSTTDocumentKey       = "agent/settings/stt"
-	agentSettingsSearchDocumentKey    = "agent/settings/search"
-	agentSettingsMemoryDocumentKey    = "agent/settings/memory"
-	agentSettingsMD2ImgDocumentKey    = "agent/settings/md2img"
-	agentSettingsKnowledgeDocumentKey = "agent/settings/knowledge"
+	agentSettingsLLMDocumentKey            = "agent/settings/llm"
+	agentSettingsAgentProvidersDocumentKey = "agent/settings/agent-providers"
+	agentSettingsWeComDocumentKey          = "agent/settings/wecom"
+	agentSettingsTerminalDocumentKey       = "agent/settings/terminal"
+	agentSettingsEvolutionDocumentKey      = "agent/settings/evolution"
+	agentSettingsSTTDocumentKey            = "agent/settings/stt"
+	agentSettingsSearchDocumentKey         = "agent/settings/search"
+	agentSettingsMemoryDocumentKey         = "agent/settings/memory"
+	agentSettingsMD2ImgDocumentKey         = "agent/settings/md2img"
+	agentSettingsKnowledgeDocumentKey      = "agent/settings/knowledge"
 
 	agentSearchLogDocumentKey           = "agent/search/log"
 	agentDirectInputDocumentKey         = "agent/direct-input"
@@ -52,6 +53,11 @@ type agentSettingsLLMDocument struct {
 	DefaultLLMProviderID string                    `json:"default_llm_provider_id"`
 	LLMProviders         []models.AgentLLMProvider `json:"llm_providers"`
 	UpdatedAt            time.Time                 `json:"updated_at"`
+}
+
+type agentSettingsAgentProvidersDocument struct {
+	AgentProviders []models.AgentProvider `json:"agent_providers"`
+	UpdatedAt      time.Time              `json:"updated_at"`
 }
 
 type agentSettingsSearchDocument struct {
@@ -231,6 +237,12 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 			},
 			updatedAt: settingsUpdatedAt,
 		},
+		{
+			key:       agentSettingsAgentProvidersDocumentKey,
+			domain:    "agent.settings.agent-providers",
+			payload:   agentSettingsAgentProvidersDocument{AgentProviders: settings.AgentProviders, UpdatedAt: settingsUpdatedAt},
+			updatedAt: settingsUpdatedAt,
+		},
 		{key: agentSettingsWeComDocumentKey, domain: "agent.settings.wecom", payload: withUpdatedAt(settings.WeCom, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
 		{key: agentSettingsTerminalDocumentKey, domain: "agent.settings.terminal", payload: withUpdatedAt(settings.Terminal, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
 		{key: agentSettingsEvolutionDocumentKey, domain: "agent.settings.evolution", payload: withUpdatedAt(settings.Evolution, settingsUpdatedAt), updatedAt: settingsUpdatedAt},
@@ -343,6 +355,7 @@ func (s *Service) upsertAgentJSON(ctx context.Context, key string, domain string
 func agentDocumentLoaders() []agentDocumentLoader {
 	return []agentDocumentLoader{
 		{key: agentSettingsLLMDocumentKey, load: loadAgentSettingsLLMDocument},
+		{key: agentSettingsAgentProvidersDocumentKey, load: loadAgentSettingsAgentProvidersDocument},
 		{key: agentSettingsWeComDocumentKey, load: loadWrappedAgentDocument[models.AgentWeComConfig](func(snapshot *models.AgentSnapshot, payload models.AgentWeComConfig, _ time.Time) {
 			snapshot.Settings.WeCom = payload
 		})},
@@ -398,6 +411,15 @@ func loadAgentSettingsLLMDocument(doc models.AgentDocument, snapshot *models.Age
 	snapshot.Settings.RuntimeMode = payload.RuntimeMode
 	snapshot.Settings.DefaultLLMProviderID = payload.DefaultLLMProviderID
 	snapshot.Settings.LLMProviders = payload.LLMProviders
+	return nil
+}
+
+func loadAgentSettingsAgentProvidersDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
+	var payload agentSettingsAgentProvidersDocument
+	if err := decodeAgentDocument(doc, &payload); err != nil {
+		return err
+	}
+	snapshot.Settings.AgentProviders = payload.AgentProviders
 	return nil
 }
 

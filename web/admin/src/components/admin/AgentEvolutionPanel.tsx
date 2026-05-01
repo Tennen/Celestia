@@ -25,7 +25,7 @@ export function AgentEvolutionPanel({ snapshot, onRun }: Props) {
   const [command, setCommand] = useState(snapshot.settings.evolution.command ?? '');
   const [cwd, setCwd] = useState(snapshot.settings.evolution.cwd ?? '');
   const [timeout, setTimeout] = useState(numberValue(snapshot.settings.evolution.timeout_ms));
-  const [codexProviderId, setCodexProviderId] = useState(snapshot.settings.evolution.codex_provider_id ?? '');
+  const [agentProviderId, setAgentProviderId] = useState(snapshot.settings.evolution.agent_provider_id ?? '');
   const [maxFixAttempts, setMaxFixAttempts] = useState(numberValue(snapshot.settings.evolution.max_fix_attempts));
   const [autoCommit, setAutoCommit] = useState(snapshot.settings.evolution.auto_commit === true);
   const [autoPush, setAutoPush] = useState(snapshot.settings.evolution.auto_push === true);
@@ -35,26 +35,26 @@ export function AgentEvolutionPanel({ snapshot, onRun }: Props) {
     () => snapshot.evolution.goals.find((item) => item.status !== 'succeeded') ?? snapshot.evolution.goals[0],
     [snapshot.evolution.goals],
   );
-  const codexProviders = useMemo(
-    () => snapshot.settings.llm_providers.filter((provider) => provider.type === 'codex'),
-    [snapshot.settings.llm_providers],
+  const agentProviders = useMemo(
+    () => snapshot.settings.agent_providers,
+    [snapshot.settings.agent_providers],
   );
   const providerOptions = useMemo(
     () => [
-      { value: '', label: 'select codex provider' },
-      ...codexProviders.map((provider) => ({
+      { value: '', label: 'select agent provider' },
+      ...agentProviders.map((provider) => ({
         value: provider.id,
         label: `${provider.name || provider.id}${provider.model ? ` · ${provider.model}` : ''}`,
       })),
     ],
-    [codexProviders],
+    [agentProviders],
   );
 
   useEffect(() => {
     setCommand(snapshot.settings.evolution.command ?? '');
     setCwd(snapshot.settings.evolution.cwd ?? '');
     setTimeout(numberValue(snapshot.settings.evolution.timeout_ms));
-    setCodexProviderId(snapshot.settings.evolution.codex_provider_id ?? '');
+    setAgentProviderId(snapshot.settings.evolution.agent_provider_id ?? '');
     setMaxFixAttempts(numberValue(snapshot.settings.evolution.max_fix_attempts));
     setAutoCommit(snapshot.settings.evolution.auto_commit === true);
     setAutoPush(snapshot.settings.evolution.auto_push === true);
@@ -72,7 +72,7 @@ export function AgentEvolutionPanel({ snapshot, onRun }: Props) {
             command: command.trim() || undefined,
             cwd: cwd.trim() || undefined,
             timeout_ms: parseOptionalNumber(timeout),
-            codex_provider_id: codexProviderId.trim() || undefined,
+            agent_provider_id: agentProviderId.trim() || undefined,
             max_fix_attempts: parseOptionalNumber(maxFixAttempts),
             auto_commit: autoCommit,
             auto_push: autoPush,
@@ -131,7 +131,7 @@ export function AgentEvolutionPanel({ snapshot, onRun }: Props) {
             <Field label="Command" value={command} onChange={setCommand} />
             <Field label="Cwd" value={cwd} onChange={setCwd} />
             <Field label="Timeout ms" value={timeout} onChange={setTimeout} />
-            <SelectField label="Codex provider" value={codexProviderId} options={providerOptions} onChange={setCodexProviderId} />
+            <SelectField label="Agent provider" value={agentProviderId} options={providerOptions} onChange={setAgentProviderId} />
             <Field label="Max fix attempts" value={maxFixAttempts} onChange={setMaxFixAttempts} />
           </FieldGrid>
           <ToggleField label="Auto commit" checked={autoCommit} onChange={setAutoCommit} />

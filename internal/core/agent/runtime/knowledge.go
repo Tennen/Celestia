@@ -43,7 +43,7 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 	if err != nil {
 		return models.AgentKnowledgeResult{}, err
 	}
-	codexProvider, err := resolveCodexProvider(snapshot.Settings, config.CodexProviderID)
+	agentProvider, err := resolveCodexAgentProvider(snapshot.Settings, config.AgentProviderID)
 	if err != nil {
 		return models.AgentKnowledgeResult{}, err
 	}
@@ -60,7 +60,7 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 	if err != nil {
 		return models.AgentKnowledgeResult{}, err
 	}
-	codexReq := codexRequestFromProvider(codexProvider, config.TimeoutMS)
+	codexReq := codexRequestFromAgentProvider(agentProvider, config.TimeoutMS)
 	outputDir, _ := filepath.Abs(filepath.Join("data", "agent", "knowledge", "codex"))
 	codexReq.TaskID = "kb-" + session.ID + "-" + time.Now().UTC().Format("20060102150405")
 	codexReq.Prompt = buildKnowledgePrompt(baseDir, answerPath, question, resumeSessionID != "")

@@ -12,10 +12,20 @@ export type AgentLLMProvider = {
   timeout_ms?: number;
 };
 
+export type AgentProvider = {
+  id: string;
+  name: string;
+  type: string;
+  model?: string;
+  reasoning_effort?: string;
+  timeout_ms?: number;
+};
+
 export type AgentSettings = {
   runtime_mode: string;
   default_llm_provider_id: string;
   llm_providers: AgentLLMProvider[];
+  agent_providers: AgentProvider[];
   wecom: {
     corp_id?: string;
     corp_secret?: string;
@@ -37,7 +47,7 @@ export type AgentSettings = {
     command?: string;
     cwd?: string;
     timeout_ms?: number;
-    codex_provider_id?: string;
+    agent_provider_id?: string;
     max_fix_attempts?: number;
     test_commands?: Array<{ name: string; command: string; timeout_ms?: number }>;
     auto_commit?: boolean;
@@ -50,7 +60,7 @@ export type AgentSettings = {
   search_engines?: Array<Record<string, unknown>>;
   memory?: Record<string, unknown>;
   md2img?: Record<string, unknown>;
-  knowledge?: { enabled: boolean; base_dir?: string; codex_provider_id?: string; timeout_ms?: number };
+  knowledge?: { enabled: boolean; base_dir?: string; agent_provider_id?: string; timeout_ms?: number };
   updated_at: string;
 };
 
@@ -427,6 +437,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
     settings: {
       ...settings,
       llm_providers: arrayOrEmpty(settings.llm_providers),
+      agent_providers: arrayOrEmpty(settings.agent_providers),
       search_engines: arrayOrEmpty(settings.search_engines),
       wecom: settings.wecom ?? { enabled: false },
       terminal: settings.terminal ?? { enabled: false },

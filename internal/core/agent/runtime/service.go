@@ -283,6 +283,9 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	if settings.LLMProviders == nil {
 		settings.LLMProviders = []models.AgentLLMProvider{}
 	}
+	if settings.AgentProviders == nil {
+		settings.AgentProviders = []models.AgentProvider{}
+	}
 	if settings.SearchEngines == nil {
 		settings.SearchEngines = []models.AgentSearchProvider{}
 	}

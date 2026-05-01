@@ -11,7 +11,7 @@ import { AgentInputPanel } from './AgentInputPanel';
 import { AgentKnowledgePanel } from './AgentKnowledgePanel';
 import { AgentLLMPanel } from './AgentLLMPanel';
 import { AgentMarketPanel } from './AgentMarketPanel';
-import { AgentSearchPanel } from './AgentSearchPanel';
+import { AgentProvidersPanel } from './AgentProvidersPanel';
 import { AgentWritingPanel } from './AgentWritingPanel';
 
 export type AgentRunner = (label: string, action: () => Promise<unknown>, refresh?: boolean) => void;
@@ -85,6 +85,9 @@ export function AgentWorkspace({ activePanel }: Props) {
     );
   }
 
+  const llmProviderCount = snapshot.settings.llm_providers.length;
+  const agentProviderCount = snapshot.settings.agent_providers.length;
+
   return (
     <ScrollArea className="detail-scroll">
       <div className="detail-stack agent-detail-stack">
@@ -94,9 +97,8 @@ export function AgentWorkspace({ activePanel }: Props) {
             <h2 className="text-2xl font-semibold tracking-tight">{agentPanelLabel(activePanel)}</h2>
           </div>
           <div className="toolbar">
-            <Badge tone={snapshot.settings.llm_providers.length ? 'good' : 'warn'}>
-              {snapshot.settings.llm_providers.length} LLM
-            </Badge>
+            <Badge tone={llmProviderCount ? 'good' : 'warn'}>{llmProviderCount} LLM</Badge>
+            <Badge tone={agentProviderCount ? 'accent' : 'neutral'}>{agentProviderCount} Agent</Badge>
             <Badge tone={snapshot.settings.md2img?.enabled ? 'good' : 'neutral'}>md2img</Badge>
             <Badge tone={snapshot.settings.terminal.enabled ? 'warn' : 'neutral'}>Terminal</Badge>
             <Button variant="secondary" onClick={() => void load()} disabled={busy === 'load'}>
@@ -115,7 +117,7 @@ export function AgentWorkspace({ activePanel }: Props) {
         {activePanel === 'market' ? <AgentMarketPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'evolution' ? <AgentEvolutionPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'knowledge' ? <AgentKnowledgePanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
-        {activePanel === 'search' ? <AgentSearchPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
+        {activePanel === 'search' ? <AgentProvidersPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
 
         {result?.panel === activePanel && result.text ? (
           <Card className="panel log-panel agent-result-panel">

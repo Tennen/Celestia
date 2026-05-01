@@ -34,20 +34,20 @@ func TestExtractCodexSessionIDFindsNestedJSONLValue(t *testing.T) {
 	}
 }
 
-func TestResolveCodexProviderRequiresCodexType(t *testing.T) {
-	settings := models.AgentSettings{LLMProviders: []models.AgentLLMProvider{
-		{ID: "chat", Type: "openai"},
-		{ID: "codex-main", Type: "codex", Model: "gpt-test", ChatPath: "high"},
+func TestResolveCodexAgentProviderRequiresCodexType(t *testing.T) {
+	settings := models.AgentSettings{AgentProviders: []models.AgentProvider{
+		{ID: "browser", Type: "browser"},
+		{ID: "codex-main", Type: "codex", Model: "gpt-test", ReasoningEffort: "high"},
 	}}
 
-	provider, err := resolveCodexProvider(settings, "codex-main")
+	provider, err := resolveCodexAgentProvider(settings, "codex-main")
 	if err != nil {
-		t.Fatalf("resolveCodexProvider() error = %v", err)
+		t.Fatalf("resolveCodexAgentProvider() error = %v", err)
 	}
-	if provider.Model != "gpt-test" || provider.ChatPath != "high" {
+	if provider.Model != "gpt-test" || provider.ReasoningEffort != "high" {
 		t.Fatalf("provider = %+v", provider)
 	}
-	if _, err := resolveCodexProvider(settings, "chat"); err == nil {
-		t.Fatal("resolveCodexProvider(openai) error = nil, want type rejection")
+	if _, err := resolveCodexAgentProvider(settings, "browser"); err == nil {
+		t.Fatal("resolveCodexAgentProvider(browser) error = nil, want type rejection")
 	}
 }

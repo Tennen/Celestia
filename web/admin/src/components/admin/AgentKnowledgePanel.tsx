@@ -16,28 +16,28 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
   const config = snapshot.settings.knowledge ?? { enabled: false };
   const [enabled, setEnabled] = useState(config.enabled === true);
   const [baseDir, setBaseDir] = useState(config.base_dir ?? '');
-  const [codexProviderId, setCodexProviderId] = useState(config.codex_provider_id ?? '');
+  const [agentProviderId, setAgentProviderId] = useState(config.agent_provider_id ?? '');
   const [timeout, setTimeoutValue] = useState(numberValue(config.timeout_ms));
-  const codexProviders = useMemo(
-    () => snapshot.settings.llm_providers.filter((provider) => provider.type === 'codex'),
-    [snapshot.settings.llm_providers],
+  const agentProviders = useMemo(
+    () => snapshot.settings.agent_providers,
+    [snapshot.settings.agent_providers],
   );
   const providerOptions = useMemo(
     () => [
-      { value: '', label: 'select codex provider' },
-      ...codexProviders.map((provider) => ({
+      { value: '', label: 'select agent provider' },
+      ...agentProviders.map((provider) => ({
         value: provider.id,
         label: `${provider.name || provider.id}${provider.model ? ` · ${provider.model}` : ''}`,
       })),
     ],
-    [codexProviders],
+    [agentProviders],
   );
 
   useEffect(() => {
     const next = snapshot.settings.knowledge ?? { enabled: false };
     setEnabled(next.enabled === true);
     setBaseDir(next.base_dir ?? '');
-    setCodexProviderId(next.codex_provider_id ?? '');
+    setAgentProviderId(next.agent_provider_id ?? '');
     setTimeoutValue(numberValue(next.timeout_ms));
   }, [snapshot]);
 
@@ -50,7 +50,7 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
           knowledge: {
             enabled,
             base_dir: baseDir.trim() || undefined,
-            codex_provider_id: codexProviderId.trim() || undefined,
+            agent_provider_id: agentProviderId.trim() || undefined,
             timeout_ms: parseOptionalNumber(timeout),
           },
         }),
@@ -69,7 +69,7 @@ export function AgentKnowledgePanel({ snapshot, busy, onRun }: Props) {
           <ToggleField label="Enable /kb slash command" checked={enabled} onChange={setEnabled} />
           <Field label="Base directory" value={baseDir} placeholder="/Users/me/Documents/Knowledge" onChange={setBaseDir} />
           <FieldGrid>
-            <SelectField label="Codex provider" value={codexProviderId} options={providerOptions} onChange={setCodexProviderId} />
+            <SelectField label="Agent provider" value={agentProviderId} options={providerOptions} onChange={setAgentProviderId} />
             <Field label="Timeout ms" value={timeout} placeholder="600000" onChange={setTimeoutValue} />
           </FieldGrid>
           <Button onClick={save} disabled={busy === 'settings-save'}>

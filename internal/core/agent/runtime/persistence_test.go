@@ -47,6 +47,13 @@ func TestAgentPersistenceWritesBusinessDocuments(t *testing.T) {
 		Type:  "openai",
 		Model: "gpt-5.4",
 	}}
+	settings.AgentProviders = []models.AgentProvider{{
+		ID:              "codex-main",
+		Name:            "Codex",
+		Type:            "codex",
+		Model:           "gpt-5.5",
+		ReasoningEffort: "high",
+	}}
 	settings.SearchEngines = []models.AgentSearchProvider{{
 		ID:      "bing-main",
 		Name:    "Bing",
@@ -79,6 +86,12 @@ func TestAgentPersistenceWritesBusinessDocuments(t *testing.T) {
 	readAgentDocument(t, store, agentSettingsLLMDocumentKey, &llmDoc)
 	if len(llmDoc.LLMProviders) != 1 || llmDoc.LLMProviders[0].Type != "openai" {
 		t.Fatalf("LLM settings doc was not persisted by business domain: %+v", llmDoc)
+	}
+
+	var agentProviderDoc agentSettingsAgentProvidersDocument
+	readAgentDocument(t, store, agentSettingsAgentProvidersDocumentKey, &agentProviderDoc)
+	if len(agentProviderDoc.AgentProviders) != 1 || agentProviderDoc.AgentProviders[0].Type != "codex" {
+		t.Fatalf("agent provider settings doc was not persisted by business domain: %+v", agentProviderDoc)
 	}
 
 	var searchDoc agentSettingsSearchDocument

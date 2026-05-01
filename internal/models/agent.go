@@ -33,6 +33,7 @@ type AgentSettings struct {
 	RuntimeMode          string                `json:"runtime_mode"`
 	DefaultLLMProviderID string                `json:"default_llm_provider_id"`
 	LLMProviders         []AgentLLMProvider    `json:"llm_providers"`
+	AgentProviders       []AgentProvider       `json:"agent_providers"`
 	WeCom                AgentWeComConfig      `json:"wecom"`
 	Terminal             AgentTerminalConfig   `json:"terminal"`
 	Evolution            AgentEvolutionConfig  `json:"evolution"`
@@ -53,6 +54,15 @@ type AgentLLMProvider struct {
 	Model     string `json:"model,omitempty"`
 	ChatPath  string `json:"chat_path,omitempty"`
 	TimeoutMS int    `json:"timeout_ms,omitempty"`
+}
+
+type AgentProvider struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Type            string `json:"type"`
+	Model           string `json:"model,omitempty"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+	TimeoutMS       int    `json:"timeout_ms,omitempty"`
 }
 
 type AgentSearchProvider struct {
@@ -137,7 +147,7 @@ type AgentEvolutionConfig struct {
 	Command         string                      `json:"command,omitempty"`
 	CWD             string                      `json:"cwd,omitempty"`
 	TimeoutMS       int                         `json:"timeout_ms,omitempty"`
-	CodexProviderID string                      `json:"codex_provider_id,omitempty"`
+	AgentProviderID string                      `json:"agent_provider_id,omitempty"`
 	MaxFixAttempts  int                         `json:"max_fix_attempts,omitempty"`
 	TestCommands    []AgentEvolutionTestCommand `json:"test_commands,omitempty"`
 	AutoCommit      bool                        `json:"auto_commit,omitempty"`

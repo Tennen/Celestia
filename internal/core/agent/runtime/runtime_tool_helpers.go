@@ -50,7 +50,7 @@ func detectMarketPhase(input string) string {
 	}
 }
 
-func (s *Service) setCodexEvolutionProvider(ctx context.Context, providerID string) (models.AgentEvolutionConfig, error) {
+func (s *Service) setEvolutionAgentProvider(ctx context.Context, providerID string) (models.AgentEvolutionConfig, error) {
 	snapshot, err := s.Snapshot(ctx)
 	if err != nil {
 		return models.AgentEvolutionConfig{}, err
@@ -60,10 +60,10 @@ func (s *Service) setCodexEvolutionProvider(ctx context.Context, providerID stri
 		return snapshot.Settings.Evolution, nil
 	}
 	settings := snapshot.Settings
-	if _, err := resolveCodexProvider(settings, trimmed); err != nil {
+	if _, err := resolveCodexAgentProvider(settings, trimmed); err != nil {
 		return models.AgentEvolutionConfig{}, err
 	}
-	settings.Evolution.CodexProviderID = trimmed
+	settings.Evolution.AgentProviderID = trimmed
 	next, err := s.SaveSettings(ctx, settings)
 	return next.Settings.Evolution, err
 }

@@ -90,7 +90,7 @@ func formatKnowledgeStatus(snapshot models.AgentSnapshot, userID string) string 
 	lines := []string{
 		"Knowledge base: " + status,
 		"Base dir: " + firstNonEmpty(config.BaseDir, "(not configured)"),
-		"Codex provider: " + firstNonEmpty(config.CodexProviderID, "(not configured)"),
+		"Agent provider: " + firstNonEmpty(config.AgentProviderID, "(not configured)"),
 	}
 	if session, ok := activeKnowledgeStatusSession(snapshot.Knowledge.Sessions, userID); ok {
 		lines = append(lines,

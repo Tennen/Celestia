@@ -69,11 +69,11 @@ func (s *Service) runMarketTool(ctx context.Context, input marketToolInput) (any
 }
 
 type evolutionToolInput struct {
-	Action          string `json:"action,omitempty" jsonschema_description:"queue, run, status, tick, or set_codex_provider."`
+	Action          string `json:"action,omitempty" jsonschema_description:"queue, run, status, tick, or set_agent_provider."`
 	GoalID          string `json:"goal_id,omitempty" jsonschema_description:"Evolution goal id."`
 	Goal            string `json:"goal,omitempty" jsonschema_description:"Goal text for queued implementation work."`
 	CommitMessage   string `json:"commit_message,omitempty" jsonschema_description:"Optional commit message for a queued goal."`
-	CodexProviderID string `json:"codex_provider_id,omitempty" jsonschema_description:"Agent LLM provider id whose type is codex."`
+	AgentProviderID string `json:"agent_provider_id,omitempty" jsonschema_description:"Agent provider id whose type is codex."`
 }
 
 func (s *Service) evolutionToolSpec() agentToolSpec {
@@ -82,7 +82,7 @@ func (s *Service) evolutionToolSpec() agentToolSpec {
 		Name:         "evolution_operator",
 		Description:  desc,
 		Keywords:     []string{"evolution", "coding", "codex", "代码", "自进化"},
-		Params:       []string{"action", "goal_id", "goal", "commit_message", "codex_provider_id"},
+		Params:       []string{"action", "goal_id", "goal", "commit_message", "agent_provider_id"},
 		PreferResult: true,
 		NewTool: func(s *Service) (einotool.InvokableTool, error) {
 			return utils.InferTool("evolution_operator", desc, s.runEvolutionTool)
@@ -107,8 +107,8 @@ func (s *Service) runEvolutionTool(ctx context.Context, input evolutionToolInput
 		return s.evolutionStatus(ctx, input.GoalID)
 	case "tick":
 		return s.runNextEvolutionGoal(ctx)
-	case "set_codex_provider":
-		return s.setCodexEvolutionProvider(ctx, input.CodexProviderID)
+	case "set_agent_provider":
+		return s.setEvolutionAgentProvider(ctx, input.AgentProviderID)
 	default:
 		return nil, errors.New("unsupported evolution action")
 	}
