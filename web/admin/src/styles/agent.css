@@ -304,13 +304,12 @@
 
   .workflow-node,
   .workflow-group-node {
-    @apply relative rounded-2xl border bg-white/95 px-4 py-3 text-xs shadow-sm transition-[border-color,box-shadow,transform];
+    @apply relative flex flex-col gap-1 rounded-2xl border bg-white/95 px-4 py-3 text-xs shadow-sm transition-[border-color,box-shadow,transform];
     border-color: var(--border-light);
+    overflow: visible;
   }
 
   .workflow-node {
-    min-width: 190px;
-    min-height: 108px;
     cursor: grab;
   }
 
@@ -345,7 +344,8 @@
   }
 
   .workflow-node__text-editor {
-    @apply mt-1 min-h-[108px] w-full resize-none rounded-xl border px-3 py-2 text-sm leading-6 outline-none transition-colors;
+    @apply mt-1 w-full resize-none rounded-xl border px-3 py-2 text-sm leading-6 outline-none transition-colors;
+    min-height: 0;
     border-color: color-mix(in srgb, var(--border-light) 88%, white);
     background: color-mix(in srgb, white 92%, var(--bg-accent));
     color: var(--text-primary);
@@ -366,10 +366,10 @@
   }
 
   .workflow-node__handle {
-    position: relative;
-    z-index: 3;
-    width: 20px;
-    height: 20px;
+    position: absolute;
+    z-index: 4;
+    width: 18px;
+    height: 18px;
     border: 3px solid white;
     border-radius: 9999px;
     background: color-mix(in srgb, var(--primary) 82%, var(--glow));
@@ -377,8 +377,8 @@
       0 0 0 2px color-mix(in srgb, var(--primary-soft) 68%, white),
       0 10px 18px color-mix(in srgb, var(--glow) 26%, transparent);
     cursor: crosshair;
+    pointer-events: auto;
     transition:
-      transform 120ms ease,
       box-shadow 120ms ease,
       background-color 120ms ease;
   }
@@ -399,7 +399,7 @@
   .workflow-node__handle::after {
     content: '';
     position: absolute;
-    inset: -8px;
+    inset: -7px;
     border-radius: 9999px;
   }
 
@@ -408,7 +408,6 @@
   .workflow-node__handle.connectingfrom,
   .workflow-node__handle.connectingto,
   .workflow-node__handle.connectionindicator {
-    transform: scale(1.08);
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--glow) 58%, white),
       0 0 0 8px color-mix(in srgb, var(--primary-soft) 20%, transparent),
