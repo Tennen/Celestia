@@ -30,6 +30,9 @@ func (c collectedWorkflowInputs) onlyBlockedByTimer() bool {
 func (e *workflowExecutor) collect(nodeID string, targetHandle string) (collectedWorkflowInputs, error) {
 	out := collectedWorkflowInputs{}
 	for _, edge := range e.incomingByHandle(nodeID, targetHandle) {
+		if !e.shouldCollectEdgeInTriggeredRun(nodeID, edge) {
+			continue
+		}
 		value, err := e.evaluate(edge.Source)
 		if err != nil {
 			return out, err

@@ -35,6 +35,7 @@ type workflowExecutor struct {
 	deliveryErrors []models.AgentRunError
 	sourceStates   map[string]models.AgentWorkflowSourceState
 	timerStates    map[string]models.AgentWorkflowTimerState
+	timerScopes    map[string]map[string]struct{}
 	sourceUpdates  map[string]workflowSourceStateUpdate
 	sentItems      map[string]models.AgentWorkflowItem
 }
@@ -149,6 +150,7 @@ func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.
 		nodeResults:   map[string]models.AgentWorkflowNodeResult{},
 		sourceStates:  workflowSourceStateSet(sourceStates),
 		timerStates:   workflowTimerStateSet(timerStates),
+		timerScopes:   buildWorkflowTimerScopes(nodes, outgoing),
 		sourceUpdates: map[string]workflowSourceStateUpdate{},
 		sentItems:     map[string]models.AgentWorkflowItem{},
 	}
@@ -159,6 +161,9 @@ func (e *workflowExecutor) targetNodes() []string {
 	hasWeComOutput := false
 	for _, node := range e.workflow.Nodes {
 		if node.Type == workflowNodeTypeWeComOutput {
+			if !e.shouldEvaluateNodeInTriggeredRun(node.ID) {
+				continue
+			}
 			hasWeComOutput = true
 			targets = append(targets, node.ID)
 		}
@@ -169,6 +174,9 @@ func (e *workflowExecutor) targetNodes() []string {
 	targets = targets[:0]
 	for _, node := range e.workflow.Nodes {
 		if node.Type == workflowNodeTypeGroup || node.Type == workflowNodeTypeTimer {
+			continue
+		}
+		if !e.shouldEvaluateNodeInTriggeredRun(node.ID) {
 			continue
 		}
 		if len(e.outgoing[node.ID]) == 0 {
