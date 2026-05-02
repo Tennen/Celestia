@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -32,7 +35,11 @@ func RenderMarkdown(ctx context.Context, req models.AgentMarkdownRenderRequest, 
 	timeout := time.Duration(maxInt(settings.TimeoutMS, 60000)) * time.Millisecond
 	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(reqCtx, "/bin/sh", "-lc", firstNonEmpty(settings.Command, "node internal/core/agent/workflows/renderer/md2img/render.mjs"))
+	scriptPath := bundledRendererScript()
+	cmd := exec.CommandContext(reqCtx, "/bin/sh", "-lc", rendererCommand(settings.Command, scriptPath))
+	if root := repositoryRoot(scriptPath); root != "" {
+		cmd.Dir = root
+	}
 	cmd.Stdin = bytes.NewReader(raw)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -78,4 +85,91 @@ func maxInt(value int, fallback int) int {
 		return value
 	}
 	return fallback
+}
+
+const rendererScriptRel = "internal/core/agent/workflows/renderer/md2img/render.mjs"
+
+func bundledRendererCommand(scriptPath string) string {
+	if strings.TrimSpace(scriptPath) == "" {
+		return "node " + rendererScriptRel
+	}
+	return "node " + shellQuote(scriptPath)
+}
+
+func rendererCommand(configured string, scriptPath string) string {
+	command := strings.TrimSpace(configured)
+	if command == "" || isBundledRendererCommand(command) {
+		return bundledRendererCommand(scriptPath)
+	}
+	return command
+}
+
+func isBundledRendererCommand(command string) bool {
+	normalized := filepath.ToSlash(command)
+	return strings.Contains(normalized, rendererScriptRel) || strings.Contains(normalized, "internal/core/agent/md2img/render.mjs")
+}
+
+func bundledRendererScript() string {
+	if _, file, _, ok := runtime.Caller(0); ok {
+		if path := filepath.Join(filepath.Dir(file), "md2img", "render.mjs"); fileExists(path) {
+			return path
+		}
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		if path := findFromParents(cwd, rendererScriptRel); path != "" {
+			return path
+		}
+	}
+	if exe, err := os.Executable(); err == nil {
+		if path := findFromParents(filepath.Dir(exe), rendererScriptRel); path != "" {
+			return path
+		}
+	}
+	return ""
+}
+
+func repositoryRoot(scriptPath string) string {
+	if strings.TrimSpace(scriptPath) != "" {
+		if root := findGoModRoot(filepath.Dir(scriptPath)); root != "" {
+			return root
+		}
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		return findGoModRoot(cwd)
+	}
+	return ""
+}
+
+func findFromParents(start string, rel string) string {
+	for dir := filepath.Clean(start); ; dir = filepath.Dir(dir) {
+		path := filepath.Join(dir, filepath.FromSlash(rel))
+		if fileExists(path) {
+			return path
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+	}
+}
+
+func findGoModRoot(start string) string {
+	for dir := filepath.Clean(start); ; dir = filepath.Dir(dir) {
+		if fileExists(filepath.Join(dir, "go.mod")) {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+	}
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }

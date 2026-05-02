@@ -36,7 +36,7 @@ LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ol
 
 Agent providers are separate provider profiles for Agent-owned executors. The current `codex` Agent provider invokes the local `codex exec --json --sandbox workspace-write` runner and supplies model, reasoning effort, and timeout defaults to modules such as Evolution and Knowledge.
 
-Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses `node internal/core/agent/workflows/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden. Knowledge-base Q&A is disabled unless `settings.knowledge.enabled=true` and the selected enabled knowledge base points at an accessible host directory.
+Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses the bundled renderer at `internal/core/agent/workflows/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden. Knowledge-base Q&A is disabled unless `settings.knowledge.enabled=true` and the selected enabled knowledge base points at an accessible host directory.
 
 ## Conversation
 
@@ -254,7 +254,7 @@ Body:
 }
 ```
 
-`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. The default command is `node internal/core/agent/workflows/renderer/md2img/render.mjs`; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
+`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` when a custom command is configured and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. When `command` is empty, Celestia locates and runs the bundled `internal/core/agent/workflows/renderer/md2img/render.mjs` script from the repository root; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
 
 ## Evolution And Terminal
 

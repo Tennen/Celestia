@@ -320,7 +320,6 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 		settings.MD2Img.Enabled = true
 	}
 	settings.MD2Img.Mode = firstNonEmpty(settings.MD2Img.Mode, "long-image")
-	settings.MD2Img.Command = firstNonEmpty(settings.MD2Img.Command, "node internal/core/agent/workflows/renderer/md2img/render.mjs")
 	settings.MD2Img.OutputDir = firstNonEmpty(settings.MD2Img.OutputDir, "data/agent/renderer/md2img")
 	if settings.MD2Img.TimeoutMS <= 0 {
 		settings.MD2Img.TimeoutMS = 60000

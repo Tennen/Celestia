@@ -28,7 +28,8 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
   const [memoryEnabled, setMemoryEnabled] = useState(snapshot.settings.memory?.enabled === true);
   const [memoryRounds, setMemoryRounds] = useState(numberValue(snapshot.settings.memory?.compact_every_rounds));
   const [md2imgEnabled, setMd2imgEnabled] = useState(snapshot.settings.md2img?.enabled === true);
-  const [md2imgMode, setMd2imgMode] = useState(textOf(snapshot.settings.md2img?.default_mode) || 'long-image');
+  const [md2imgMode, setMd2imgMode] = useState(textOf(snapshot.settings.md2img?.mode) || 'long-image');
+  const [md2imgCommand, setMd2imgCommand] = useState(textOf(snapshot.settings.md2img?.command));
   const [md2imgOutputDir, setMd2imgOutputDir] = useState(textOf(snapshot.settings.md2img?.output_dir));
   const [md2imgTimeout, setMd2imgTimeout] = useState(numberValue(snapshot.settings.md2img?.timeout_ms));
 
@@ -39,7 +40,8 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
     setMemoryEnabled(snapshot.settings.memory?.enabled === true);
     setMemoryRounds(numberValue(snapshot.settings.memory?.compact_every_rounds));
     setMd2imgEnabled(snapshot.settings.md2img?.enabled === true);
-    setMd2imgMode(textOf(snapshot.settings.md2img?.default_mode) || 'long-image');
+    setMd2imgMode(textOf(snapshot.settings.md2img?.mode) || 'long-image');
+    setMd2imgCommand(textOf(snapshot.settings.md2img?.command));
     setMd2imgOutputDir(textOf(snapshot.settings.md2img?.output_dir));
     setMd2imgTimeout(numberValue(snapshot.settings.md2img?.timeout_ms));
   }, [snapshot]);
@@ -60,7 +62,8 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
       md2img: {
         ...(snapshot.settings.md2img ?? {}),
         enabled: md2imgEnabled,
-        default_mode: md2imgMode,
+        mode: md2imgMode,
+        command: md2imgCommand.trim() || undefined,
         output_dir: md2imgOutputDir.trim() || undefined,
         timeout_ms: parseOptionalNumber(md2imgTimeout),
       },
@@ -84,6 +87,7 @@ export function AgentLLMPanel({ snapshot, busy, onRun }: Props) {
           <ToggleField label="Memory context enabled" checked={memoryEnabled} onChange={setMemoryEnabled} />
           <Field label="Compact every rounds" value={memoryRounds} onChange={setMemoryRounds} />
           <ToggleField label="Markdown image pipeline enabled" checked={md2imgEnabled} onChange={setMd2imgEnabled} />
+          <Field label="md2img command" value={md2imgCommand} placeholder="blank uses bundled renderer" onChange={setMd2imgCommand} />
           <FieldGrid>
             <SelectField label="md2img mode" value={md2imgMode} options={md2imgModes} onChange={setMd2imgMode} />
             <Field label="Output directory" value={md2imgOutputDir} onChange={setMd2imgOutputDir} />
