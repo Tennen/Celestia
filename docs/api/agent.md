@@ -310,8 +310,12 @@ Runtime entry is via ProjectInput slash commands, not a separate WeCom path:
 /kb new [@base-id] [question]
 /kb list
 /kb status [@base-id]
+/kb answers list
+/kb @<base-id> answers list
+/kb answers get <id>
+/kb @<base-id> answers get <id>
 ```
 
 The runner starts `codex exec --sandbox workspace-write --skip-git-repo-check --cd <base_dir>` for the selected knowledge base and resumes the caller's active Codex session for the same `user + knowledge_base_id` when the CLI returns a session id. Codex is instructed to inspect files under `base_dir`, cite file paths and line numbers where possible, and write the final Markdown answer to `<base_dir>/.answers/*.md` without modifying other knowledge-base files.
 
-After Codex creates the Markdown answer, Celestia renders it through the md2img renderer and sends the rendered image(s) from WeCom. Render failures fail the command; Celestia does not fall back to returning long Markdown text. Configure knowledge base directories only to paths approved for model-assisted analysis, because file contents may be sent to the configured Agent provider.
+After Codex creates the Markdown answer, Celestia renders it through the md2img renderer and sends the rendered image(s) from WeCom. `answers list` returns the latest 20 Markdown answer ids from the selected `<base_dir>/.answers`, and `answers get <id>` re-renders that Markdown answer to image(s). Render failures fail the command; Celestia does not fall back to returning long Markdown text. Configure knowledge base directories only to paths approved for model-assisted analysis, because file contents may be sent to the configured Agent provider.

@@ -111,6 +111,8 @@ Slash commands:
 - /kb new [@base-id] [question]
 - /kb list
 - /kb status [@base-id]
+- /kb answers list
+- /kb answers get <id>
 `)
 }
 

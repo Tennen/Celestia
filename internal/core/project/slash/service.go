@@ -18,6 +18,8 @@ type AgentRuntime interface {
 	ImportMarketPortfolioCodes(context.Context, models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error)
 	StartKnowledgeSession(context.Context, models.AgentKnowledgeRequest) (models.AgentKnowledgeSession, error)
 	RunKnowledge(context.Context, models.AgentKnowledgeRequest) (models.AgentKnowledgeResult, error)
+	ListKnowledgeAnswers(context.Context, models.AgentKnowledgeAnswersRequest) ([]models.AgentKnowledgeAnswer, error)
+	RenderKnowledgeAnswer(context.Context, models.AgentKnowledgeAnswerRequest) (models.AgentKnowledgeAnswerRenderResult, error)
 }
 
 type HomeRuntime interface {

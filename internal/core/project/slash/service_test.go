@@ -31,6 +31,8 @@ type fakeAgentRuntime struct {
 	startedSessions []models.AgentKnowledgeRequest
 	knowledgeResult models.AgentKnowledgeResult
 	knowledgeErr    error
+	answerListReqs  []models.AgentKnowledgeAnswersRequest
+	answerGetReqs   []models.AgentKnowledgeAnswerRequest
 }
 
 func (f *fakeAgentRuntime) Snapshot(context.Context) (models.AgentSnapshot, error) {
@@ -72,6 +74,32 @@ func (f *fakeAgentRuntime) RunKnowledge(_ context.Context, req models.AgentKnowl
 		}
 	}
 	return f.knowledgeResult, f.knowledgeErr
+}
+
+func (f *fakeAgentRuntime) ListKnowledgeAnswers(_ context.Context, req models.AgentKnowledgeAnswersRequest) ([]models.AgentKnowledgeAnswer, error) {
+	f.answerListReqs = append(f.answerListReqs, req)
+	return []models.AgentKnowledgeAnswer{{
+		ID:              "20260502-090000-answer",
+		KnowledgeBaseID: req.KnowledgeBaseID,
+		Filename:        "20260502-090000-answer.md",
+		Title:           "Release checklist",
+		CreatedAt:       time.Date(2026, 5, 2, 9, 0, 0, 0, time.UTC),
+	}}, nil
+}
+
+func (f *fakeAgentRuntime) RenderKnowledgeAnswer(_ context.Context, req models.AgentKnowledgeAnswerRequest) (models.AgentKnowledgeAnswerRenderResult, error) {
+	f.answerGetReqs = append(f.answerGetReqs, req)
+	return models.AgentKnowledgeAnswerRenderResult{
+		Answer: models.AgentKnowledgeAnswer{
+			ID:              req.ID,
+			KnowledgeBaseID: req.KnowledgeBaseID,
+			Path:            "/tmp/answer.md",
+		},
+		Images: []models.AgentMarkdownImage{{
+			Path:        "/tmp/answer.png",
+			ContentType: "image/png",
+		}},
+	}, nil
 }
 
 func (f *fakeCommandExecutor) ExecuteCommand(_ context.Context, device models.Device, req models.CommandRequest) (models.CommandResponse, error) {
@@ -344,6 +372,46 @@ func TestRunKnowledgeAskDispatchesSelectedKnowledgeBase(t *testing.T) {
 	req := agent.knowledgeReqs[0]
 	if req.KnowledgeBaseID != "ops" || req.Question != "release checklist" {
 		t.Fatalf("knowledge req = %+v", req)
+	}
+}
+
+func TestRunKnowledgeAnswersListUsesSelectedBase(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeAgentRuntime{}
+	svc := New(nil, agent)
+
+	result, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/kb @ops answers list`, UserID: "alice"})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if len(agent.answerListReqs) != 1 || agent.answerListReqs[0].KnowledgeBaseID != "ops" || agent.answerListReqs[0].Limit != 20 {
+		t.Fatalf("answer list reqs = %+v", agent.answerListReqs)
+	}
+	if !strings.Contains(result.Output, "20260502-090000-answer") {
+		t.Fatalf("Run() output = %q, want answer id", result.Output)
+	}
+}
+
+func TestRunKnowledgeAnswersGetRendersImage(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeAgentRuntime{}
+	svc := New(nil, agent)
+
+	result, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/kb @ops answers get 20260502-090000-answer`, UserID: "alice"})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if len(agent.answerGetReqs) != 1 || agent.answerGetReqs[0].KnowledgeBaseID != "ops" || agent.answerGetReqs[0].ID != "20260502-090000-answer" {
+		t.Fatalf("answer get reqs = %+v", agent.answerGetReqs)
+	}
+	if len(result.Images) != 1 || result.Images[0].Path != "/tmp/answer.png" {
+		t.Fatalf("Run() images = %+v, want rendered answer image", result.Images)
 	}
 }
 

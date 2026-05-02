@@ -51,3 +51,29 @@ type AgentKnowledgeResult struct {
 	Session      AgentKnowledgeSession `json:"session"`
 	Codex        AgentCodexResult      `json:"codex"`
 }
+
+type AgentKnowledgeAnswersRequest struct {
+	KnowledgeBaseID string `json:"knowledge_base_id,omitempty"`
+	Limit           int    `json:"limit,omitempty"`
+}
+
+type AgentKnowledgeAnswerRequest struct {
+	KnowledgeBaseID string `json:"knowledge_base_id,omitempty"`
+	ID              string `json:"id"`
+}
+
+type AgentKnowledgeAnswer struct {
+	ID              string    `json:"id"`
+	KnowledgeBaseID string    `json:"knowledge_base_id"`
+	Filename        string    `json:"filename"`
+	Path            string    `json:"path"`
+	Title           string    `json:"title,omitempty"`
+	SizeBytes       int64     `json:"size_bytes"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type AgentKnowledgeAnswerRenderResult struct {
+	Answer AgentKnowledgeAnswer `json:"answer"`
+	Images []AgentMarkdownImage `json:"images"`
+}

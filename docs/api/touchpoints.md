@@ -28,6 +28,8 @@ Knowledge slash commands run before the Agent ReAct loop and invoke the local Co
 - `/kb new [@base-id] [question]` starts a fresh Codex session for the selected base, useful when prior context is too large or should be discarded.
 - `/kb list` reports configured bases.
 - `/kb status [@base-id]` reports the configured bases and the active session for the caller on the selected base.
+- `/kb answers list` or `/kb @<base-id> answers list` lists the latest 20 saved Markdown answers under `.answers`.
+- `/kb answers get <id>` or `/kb @<base-id> answers get <id>` re-renders a saved Markdown answer to image messages.
 
 Knowledge answers are saved as Markdown under the selected `<base_dir>/.answers`, rendered through the Agent md2img pipeline, and sent to WeCom as image messages. Image rendering or delivery errors fail the command instead of falling back to long text replies.
 

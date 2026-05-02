@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -115,6 +117,57 @@ func (s *Service) RunKnowledge(ctx context.Context, req models.AgentKnowledgeReq
 		return models.AgentKnowledgeResult{}, saveErr
 	}
 	return models.AgentKnowledgeResult{MarkdownPath: answerPath, Images: rendered.Images, Session: session, Codex: result}, runErr
+}
+
+func (s *Service) ListKnowledgeAnswers(ctx context.Context, req models.AgentKnowledgeAnswersRequest) ([]models.AgentKnowledgeAnswer, error) {
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	base, baseDir, err := resolveKnowledgeBase(snapshot.Settings.Knowledge, req.KnowledgeBaseID)
+	if err != nil {
+		return nil, err
+	}
+	answers, err := listKnowledgeAnswerFiles(base, baseDir)
+	if err != nil {
+		return nil, err
+	}
+	sort.SliceStable(answers, func(i, j int) bool {
+		return answers[i].CreatedAt.After(answers[j].CreatedAt)
+	})
+	limit := maxInt(req.Limit, 20)
+	if len(answers) > limit {
+		answers = answers[:limit]
+	}
+	return answers, nil
+}
+
+func (s *Service) RenderKnowledgeAnswer(ctx context.Context, req models.AgentKnowledgeAnswerRequest) (models.AgentKnowledgeAnswerRenderResult, error) {
+	id := strings.TrimSpace(req.ID)
+	if id == "" {
+		return models.AgentKnowledgeAnswerRenderResult{}, errors.New("knowledge answer id is required")
+	}
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return models.AgentKnowledgeAnswerRenderResult{}, err
+	}
+	base, baseDir, err := resolveKnowledgeBase(snapshot.Settings.Knowledge, req.KnowledgeBaseID)
+	if err != nil {
+		return models.AgentKnowledgeAnswerRenderResult{}, err
+	}
+	answer, err := knowledgeAnswerByID(base, baseDir, id)
+	if err != nil {
+		return models.AgentKnowledgeAnswerRenderResult{}, err
+	}
+	markdown, err := readKnowledgeAnswer(answer.Path)
+	if err != nil {
+		return models.AgentKnowledgeAnswerRenderResult{}, err
+	}
+	rendered, err := s.renderKnowledgeAnswer(ctx, snapshot.Settings.MD2Img, markdown, answer.Path)
+	if err != nil {
+		return models.AgentKnowledgeAnswerRenderResult{}, err
+	}
+	return models.AgentKnowledgeAnswerRenderResult{Answer: answer, Images: rendered.Images}, nil
 }
 
 func resolveKnowledgeBase(config models.AgentKnowledgeConfig, baseID string) (models.AgentKnowledgeBase, string, error) {
@@ -236,6 +289,87 @@ func prepareKnowledgeAnswerPath(baseDir string, sessionID string) (string, error
 	return filepath.Join(answerDir, stem+".md"), nil
 }
 
+func listKnowledgeAnswerFiles(base models.AgentKnowledgeBase, baseDir string) ([]models.AgentKnowledgeAnswer, error) {
+	answerDir := filepath.Join(baseDir, ".answers")
+	entries, err := os.ReadDir(answerDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return []models.AgentKnowledgeAnswer{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	answers := make([]models.AgentKnowledgeAnswer, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".md" {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		path := filepath.Join(answerDir, entry.Name())
+		answers = append(answers, knowledgeAnswerFromFile(base, path, info))
+	}
+	return answers, nil
+}
+
+func knowledgeAnswerByID(base models.AgentKnowledgeBase, baseDir string, id string) (models.AgentKnowledgeAnswer, error) {
+	if strings.ContainsAny(id, `/\`) || id == "." || id == ".." {
+		return models.AgentKnowledgeAnswer{}, errors.New("knowledge answer id is invalid")
+	}
+	path := filepath.Join(baseDir, ".answers", id+".md")
+	info, err := os.Stat(path)
+	if err != nil {
+		return models.AgentKnowledgeAnswer{}, fmt.Errorf("knowledge answer %q is not accessible: %w", id, err)
+	}
+	if info.IsDir() {
+		return models.AgentKnowledgeAnswer{}, fmt.Errorf("knowledge answer %q is not a markdown file", id)
+	}
+	return knowledgeAnswerFromFile(base, path, info), nil
+}
+
+func knowledgeAnswerFromFile(base models.AgentKnowledgeBase, path string, info os.FileInfo) models.AgentKnowledgeAnswer {
+	filename := filepath.Base(path)
+	id := strings.TrimSuffix(filename, filepath.Ext(filename))
+	createdAt := knowledgeAnswerCreatedAt(id, info.ModTime())
+	return models.AgentKnowledgeAnswer{
+		ID:              id,
+		KnowledgeBaseID: strings.TrimSpace(base.ID),
+		Filename:        filename,
+		Path:            path,
+		Title:           readKnowledgeAnswerTitle(path),
+		SizeBytes:       info.Size(),
+		CreatedAt:       createdAt,
+		UpdatedAt:       info.ModTime(),
+	}
+}
+
+func knowledgeAnswerCreatedAt(id string, fallback time.Time) time.Time {
+	if len(id) >= len("20060102-150405") {
+		if parsed, err := time.ParseInLocation("20060102-150405", id[:15], time.UTC); err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func readKnowledgeAnswerTitle(path string) string {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			return strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+		}
+		if trimmed != "" {
+			return truncateText(trimmed, 80)
+		}
+	}
+	return ""
+}
+
 func readKnowledgeAnswer(path string) (string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -246,6 +380,14 @@ func readKnowledgeAnswer(path string) (string, error) {
 		return "", errors.New("knowledge answer markdown is empty")
 	}
 	return markdown, nil
+}
+
+func truncateText(value string, maxRunes int) string {
+	runes := []rune(strings.TrimSpace(value))
+	if len(runes) <= maxRunes {
+		return string(runes)
+	}
+	return string(runes[:maxRunes]) + "..."
 }
 
 func (s *Service) renderKnowledgeAnswer(ctx context.Context, settings models.AgentMD2ImgConfig, markdown string, answerPath string) (models.AgentMarkdownRenderResult, error) {

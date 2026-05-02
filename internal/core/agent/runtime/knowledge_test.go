@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -19,6 +21,32 @@ func TestKnowledgeSessionIsScopedByBase(t *testing.T) {
 	}
 	if session, ok := activeKnowledgeSession(sessions, "alice", "design"); !ok || !session.Active {
 		t.Fatalf("design session = %+v, %v; want active", session, ok)
+	}
+}
+
+func TestListKnowledgeAnswerFilesReturnsMarkdownAnswers(t *testing.T) {
+	baseDir := t.TempDir()
+	answerDir := filepath.Join(baseDir, ".answers")
+	if err := os.MkdirAll(answerDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	path := filepath.Join(answerDir, "20260502-090000-answer.md")
+	if err := os.WriteFile(path, []byte("# Answer Title\n\nBody"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(answerDir, "ignore.txt"), []byte("ignore"), 0o644); err != nil {
+		t.Fatalf("WriteFile(ignore) error = %v", err)
+	}
+
+	answers, err := listKnowledgeAnswerFiles(models.AgentKnowledgeBase{ID: "ops"}, baseDir)
+	if err != nil {
+		t.Fatalf("listKnowledgeAnswerFiles() error = %v", err)
+	}
+	if len(answers) != 1 {
+		t.Fatalf("answers = %+v, want one markdown answer", answers)
+	}
+	if answers[0].ID != "20260502-090000-answer" || answers[0].Title != "Answer Title" || answers[0].KnowledgeBaseID != "ops" {
+		t.Fatalf("answer = %+v", answers[0])
 	}
 }
 

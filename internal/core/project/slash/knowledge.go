@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 )
@@ -22,6 +23,8 @@ func (s *Service) runKnowledge(ctx context.Context, req models.ProjectInputReque
 	}
 	action := strings.ToLower(strings.TrimSpace(args[0]))
 	switch action {
+	case "answers":
+		return s.runKnowledgeAnswers(ctx, baseID, args[1:])
 	case "list", "bases":
 		snapshot, err := s.agent.Snapshot(ctx)
 		if err != nil {
@@ -67,6 +70,41 @@ func (s *Service) runKnowledge(ctx context.Context, req models.ProjectInputReque
 		return s.runKnowledgeQuestion(ctx, req, baseID, question, false)
 	default:
 		return s.runKnowledgeQuestion(ctx, req, baseID, strings.Join(args, " "), false)
+	}
+}
+
+func (s *Service) runKnowledgeAnswers(ctx context.Context, baseID string, args []string) (string, map[string]any, error) {
+	if len(args) == 0 || equalRef(args[0], "help") {
+		return knowledgeAnswersHelp(), map[string]any{"domain": "knowledge", "action": "answers_help"}, nil
+	}
+	action := strings.ToLower(strings.TrimSpace(args[0]))
+	switch action {
+	case "list":
+		answers, err := s.agent.ListKnowledgeAnswers(ctx, models.AgentKnowledgeAnswersRequest{KnowledgeBaseID: baseID, Limit: 20})
+		if err != nil {
+			return "", map[string]any{"domain": "knowledge", "action": "answers_list"}, err
+		}
+		return formatKnowledgeAnswers(answers), map[string]any{"domain": "knowledge", "action": "answers_list", "knowledge_base_id": baseID}, nil
+	case "get":
+		if len(args) < 2 || strings.TrimSpace(args[1]) == "" {
+			return "", map[string]any{"domain": "knowledge", "action": "answers_get"}, errors.New("usage: /kb answers get <id>")
+		}
+		result, err := s.agent.RenderKnowledgeAnswer(ctx, models.AgentKnowledgeAnswerRequest{KnowledgeBaseID: baseID, ID: strings.TrimSpace(args[1])})
+		metadata := map[string]any{
+			"domain":            "knowledge",
+			"action":            "answers_get",
+			"reply_kind":        "image",
+			"answer_id":         result.Answer.ID,
+			"knowledge_base_id": result.Answer.KnowledgeBaseID,
+			"markdown_path":     result.Answer.Path,
+		}
+		metadata = withProjectImages(metadata, result.Images)
+		if err != nil {
+			return "", metadata, err
+		}
+		return "Knowledge answer rendered to image.", metadata, nil
+	default:
+		return "", map[string]any{"domain": "knowledge", "action": "answers"}, fmt.Errorf("unsupported answers action %q", action)
 	}
 }
 
@@ -136,6 +174,18 @@ func formatKnowledgeBases(snapshot models.AgentSnapshot) string {
 	return strings.Join(lines, "\n")
 }
 
+func formatKnowledgeAnswers(answers []models.AgentKnowledgeAnswer) string {
+	if len(answers) == 0 {
+		return "No knowledge answers found."
+	}
+	lines := []string{"Knowledge answers:"}
+	for _, answer := range answers {
+		title := firstNonEmpty(answer.Title, answer.Filename)
+		lines = append(lines, fmt.Sprintf("- %s [%s] %s", answer.ID, answer.CreatedAt.Format(time.RFC3339), title))
+	}
+	return strings.Join(lines, "\n")
+}
+
 func formatKnowledgeStatus(snapshot models.AgentSnapshot, userID string, baseID string) string {
 	lines := []string{formatKnowledgeBases(snapshot)}
 	targetBaseID := firstNonEmpty(baseID, snapshot.Settings.Knowledge.DefaultBaseID)
@@ -163,11 +213,23 @@ func knowledgeHelp() string {
 	return strings.TrimSpace(`
 Knowledge commands:
 - /kb list
+- /kb answers list
+- /kb answers get <id>
 - /kb ask <question>
 - /kb @<base-id> ask <question>
 - /kb @<base-id> <question>
 - /kb new [@base-id] [question]
 - /kb status [@base-id]
+`)
+}
+
+func knowledgeAnswersHelp() string {
+	return strings.TrimSpace(`
+Knowledge answer commands:
+- /kb answers list
+- /kb @<base-id> answers list
+- /kb answers get <id>
+- /kb @<base-id> answers get <id>
 `)
 }
 
