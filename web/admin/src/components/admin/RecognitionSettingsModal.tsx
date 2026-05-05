@@ -105,7 +105,7 @@ export function RecognitionSettingsModal({
         </CardHeader>
         <div className="admin-modal__scroll">
           <CardContent className="stack recognition-settings-modal__content">
-            <div className="automation-field">
+            <div className="form-field">
               <label>Recognition Service WebSocket URL</label>
               <Input
                 value={draft.service_ws_url}
@@ -114,7 +114,7 @@ export function RecognitionSettingsModal({
               />
             </div>
 
-            <div className="automation-field">
+            <div className="form-field">
               <label>Selected Model</label>
               <Input
                 value={draft.model_name}
@@ -123,7 +123,7 @@ export function RecognitionSettingsModal({
               />
             </div>
 
-            <div className="automation-field">
+            <div className="form-field">
               <label>Event Capture Retention Hours</label>
               <Input
                 type="number"
@@ -142,7 +142,7 @@ export function RecognitionSettingsModal({
               </p>
             </div>
 
-            <div className="automation-field">
+            <div className="form-field">
               <div className="button-row">
                 <label>Supported Entities</label>
                 <Button variant="secondary" onClick={onRefreshEntities} disabled={busy === 'refresh_entities'}>
@@ -208,7 +208,7 @@ export function RecognitionSettingsModal({
             {runtime?.sync_error ? <p className="muted">Sync error: {runtime.sync_error}</p> : null}
 
             {runtime?.runtime && Object.keys(runtime.runtime).length > 0 ? (
-              <div className="automation-field">
+              <div className="form-field">
                 <label>Reported Runtime Payload</label>
                 <pre className="plugin-config__preview">{prettyJson(runtime.runtime)}</pre>
               </div>

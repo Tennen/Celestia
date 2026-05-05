@@ -52,7 +52,6 @@ Command endpoints accept an optional `X-Actor` header. When omitted:
 
 - [Runtime And Plugin Management API](api/runtime-plugins.md): `/api/v1` health, dashboard, plugin catalog, install state, and plugin lifecycle operations
 - [Capabilities Inventory API](api/capabilities.md): `/api/v1/capabilities` inventory and capability-specific entrypoints
-- [Automation Capability API](api/automation.md): `automation` capability behavior and `/api/v1/automations` CRUD
 - [Vision Stay Zone Capability API](api/vision-stay-zone.md): `vision_entity_stay_zone` capability detail, config sync, status, and event ingestion
 - [Vision Service Integration Contract](api/vision-service-contract.md): downstream-facing HTTP/JSON contract that the external Vision Service must implement
 - [Device Query, Control, and Preferences](api/devices.md): `/api/v1/devices`, `/api/external/v1/devices`, and admin-side device/control preferences

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import {
-  fetchAutomations,
   fetchAudits,
   fetchCapabilities,
   fetchCatalogPlugins,
@@ -14,7 +13,6 @@ import {
   applyAdminStreamFrame,
   emptyLoadState,
   mergeLoadStateData,
-  sortAutomations,
   sortCapabilities,
   sortDevices,
   sortPlugins,
@@ -56,7 +54,6 @@ function loadRemoteState(frame: {
   catalog: LoadState['catalog'];
   plugins: LoadState['plugins'];
   capabilities: LoadState['capabilities'];
-  automations: LoadState['automations'];
   devices: LoadState['devices'];
   events: LoadState['events'];
   audits: LoadState['audits'];
@@ -66,7 +63,6 @@ function loadRemoteState(frame: {
     catalog: frame.catalog,
     plugins: sortPlugins(frame.plugins),
     capabilities: sortCapabilities(frame.capabilities),
-    automations: sortAutomations(frame.automations),
     devices: sortDevices(frame.devices),
     events: frame.events,
     audits: frame.audits,
@@ -93,12 +89,11 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     );
 
     try {
-      const [dashboard, catalog, plugins, capabilities, automations, devices, events, audits] = await Promise.all([
+      const [dashboard, catalog, plugins, capabilities, devices, events, audits] = await Promise.all([
         fetchDashboard(),
         fetchCatalogPlugins(),
         fetchPlugins(),
         fetchCapabilities(),
-        fetchAutomations(),
         fetchDevices(),
         fetchEvents({ limit: 80 }),
         fetchAudits(80),
@@ -111,7 +106,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           catalog,
           plugins,
           capabilities,
-          automations,
           devices,
           events,
           audits,

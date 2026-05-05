@@ -20,7 +20,6 @@ type adminStreamFrame struct {
 	Dashboard    *models.DashboardSummary    `json:"dashboard,omitempty"`
 	Plugins      *[]models.PluginRuntimeView `json:"plugins,omitempty"`
 	Capabilities *[]models.Capability        `json:"capabilities,omitempty"`
-	Automations  *[]models.Automation        `json:"automations,omitempty"`
 	Devices      *[]models.DeviceView        `json:"devices,omitempty"`
 	Events       *[]models.Event             `json:"events,omitempty"`
 	Audits       *[]models.AuditRecord       `json:"audits,omitempty"`
@@ -109,10 +108,6 @@ func (s *Server) adminStreamSnapshot(ctx context.Context) (adminStreamFrame, err
 	if err != nil {
 		return adminStreamFrame{}, err
 	}
-	automations, err := s.gateway.ListAutomations(ctx)
-	if err != nil {
-		return adminStreamFrame{}, err
-	}
 	devices, err := s.gateway.ListDevices(ctx, gatewayapi.DeviceFilter{})
 	if err != nil {
 		return adminStreamFrame{}, err
@@ -130,7 +125,6 @@ func (s *Server) adminStreamSnapshot(ctx context.Context) (adminStreamFrame, err
 		Dashboard:    &dashboard,
 		Plugins:      slicePtr(plugins),
 		Capabilities: slicePtr(capabilities),
-		Automations:  slicePtr(automations),
 		Devices:      slicePtr(devices),
 		Events:       slicePtr(events),
 		Audits:       slicePtr(audits),
@@ -177,12 +171,6 @@ func (s *Server) adminStreamFrameForEvent(ctx context.Context, event models.Even
 			return adminStreamFrame{}, err
 		}
 		frame.Capabilities = slicePtr(capabilities)
-	case models.EventAutomationTriggered, models.EventAutomationFailed:
-		automations, err := s.gateway.ListAutomations(ctx)
-		if err != nil {
-			return adminStreamFrame{}, err
-		}
-		frame.Automations = slicePtr(automations)
 	}
 
 	return frame, nil

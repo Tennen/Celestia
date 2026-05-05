@@ -6,24 +6,24 @@ import (
 	"github.com/chentianyu/celestia/internal/models"
 )
 
-func TestEvaluateTreatsAutomationActorAsAdmin(t *testing.T) {
+func TestEvaluateTreatsWorkflowActorAsAdmin(t *testing.T) {
 	svc := New()
 
-	decision := svc.Evaluate("automation:washer-done", "push_voice_message")
+	decision := svc.Evaluate("workflow:washer-done", "push_voice_message")
 	if !decision.Allowed {
-		t.Fatalf("Evaluate() should allow automation actor, got %#v", decision)
+		t.Fatalf("Evaluate() should allow workflow actor, got %#v", decision)
 	}
 	if decision.RiskLevel != models.RiskLevelLow {
 		t.Fatalf("RiskLevel = %q, want %q", decision.RiskLevel, models.RiskLevelLow)
 	}
 }
 
-func TestEvaluateTreatsAutomationActorAsAdminForHighRiskActions(t *testing.T) {
+func TestEvaluateTreatsWorkflowActorAsAdminForHighRiskActions(t *testing.T) {
 	svc := New()
 
-	decision := svc.Evaluate("automation:washer-done", "start")
+	decision := svc.Evaluate("workflow:washer-done", "start")
 	if !decision.Allowed {
-		t.Fatalf("Evaluate() should allow automation actor for admin-level actions, got %#v", decision)
+		t.Fatalf("Evaluate() should allow workflow actor for admin-level actions, got %#v", decision)
 	}
 	if decision.RiskLevel != models.RiskLevelHigh {
 		t.Fatalf("RiskLevel = %q, want %q", decision.RiskLevel, models.RiskLevelHigh)

@@ -59,7 +59,7 @@ func normalizeActorRole(actor string) string {
 	switch {
 	case role == "":
 		return "admin"
-	case strings.HasPrefix(role, "automation:"):
+	case strings.HasPrefix(role, "workflow:"):
 		return "admin"
 	default:
 		return role

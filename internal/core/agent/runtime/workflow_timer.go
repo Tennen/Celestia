@@ -16,7 +16,7 @@ func (e *workflowExecutor) executeTimerNode(node models.AgentWorkflowNode) (work
 	if err != nil {
 		return workflowNodeValue{}, "", nil, err
 	}
-	_, triggered := e.runOptions.TriggeredTimerNode[node.ID]
+	_, triggered := e.runOptions.TriggeredNode[node.ID]
 	summary := "Timer inactive for this run"
 	if triggered {
 		summary = "Scheduled timer fired"
@@ -30,8 +30,6 @@ func (e *workflowExecutor) executeTimerNode(node models.AgentWorkflowNode) (work
 	case timeschedule.ScheduleDaily:
 		metadata["at"] = spec.At
 	case timeschedule.ScheduleInterval:
-		metadata["window_start"] = spec.WindowStart
-		metadata["window_end"] = spec.WindowEnd
 		metadata["interval_seconds"] = spec.IntervalSeconds
 	}
 	return workflowNodeValue{Triggered: triggered}, summary, metadata, nil
@@ -41,8 +39,8 @@ func normalizeWorkflowTimerConfig(config workflowTimerNodeConfig) (timeschedule.
 	return timeschedule.Normalize(&timeschedule.Spec{
 		Schedule:        strings.TrimSpace(config.Schedule),
 		At:              strings.TrimSpace(config.At),
-		WindowStart:     strings.TrimSpace(config.WindowStart),
-		WindowEnd:       strings.TrimSpace(config.WindowEnd),
+		IntervalStart:   "00:00",
+		IntervalEnd:     "00:00",
 		IntervalSeconds: config.IntervalSeconds,
 		Timezone:        strings.TrimSpace(config.Timezone),
 	})

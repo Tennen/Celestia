@@ -71,7 +71,7 @@ func callOpenAICompatible(ctx context.Context, provider models.AgentLLMProvider,
 	payload := map[string]any{
 		"model": firstNonEmpty(provider.Model, "gpt-4.1-mini"),
 		"messages": []chatMessage{
-			{Role: "system", Content: "You are Celestia's local automation agent. Be concise and operational."},
+			{Role: "system", Content: "You are Celestia's local workflow agent. Be concise and operational."},
 			{Role: "user", Content: prompt},
 		},
 	}
@@ -95,7 +95,7 @@ func callOllama(ctx context.Context, provider models.AgentLLMProvider, prompt st
 		"model":  provider.Model,
 		"stream": false,
 		"messages": []chatMessage{
-			{Role: "system", Content: "You are Celestia's local automation agent. Be concise and operational."},
+			{Role: "system", Content: "You are Celestia's local workflow agent. Be concise and operational."},
 			{Role: "user", Content: prompt},
 		},
 	}

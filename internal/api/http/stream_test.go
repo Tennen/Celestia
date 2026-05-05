@@ -24,7 +24,6 @@ type stubGateway struct {
 	listedVisionEvents   []models.Event
 	listedEvents         []models.Event
 	listedEventsFilter   gatewayapi.EventFilter
-	savedAutomation      models.Automation
 	deletedVisionRuleID  string
 	deletedVisionEventID string
 	deleteVisionEventErr error
@@ -79,16 +78,6 @@ func (g *stubGateway) DeleteVisionRuleEvent(_ context.Context, ruleID string, ev
 }
 func (g *stubGateway) GetVisionEventCapture(_ context.Context, _ string) (models.VisionEventCaptureAsset, error) {
 	return models.VisionEventCaptureAsset{}, nil
-}
-func (g *stubGateway) ListAutomations(_ context.Context) ([]models.Automation, error) {
-	return nil, nil
-}
-func (g *stubGateway) SaveAutomation(_ context.Context, automation models.Automation) (models.Automation, error) {
-	g.savedAutomation = automation
-	return automation, nil
-}
-func (g *stubGateway) DeleteAutomation(_ context.Context, _ string) error {
-	return nil
 }
 func (g *stubGateway) GetAgentSnapshot(_ context.Context) (models.AgentSnapshot, error) {
 	return models.AgentSnapshot{}, nil

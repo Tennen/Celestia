@@ -1,5 +1,4 @@
 import type {
-  Automation,
   AuditRecord,
   CapabilityDetail,
   CapabilitySummary,
@@ -81,10 +80,6 @@ export async function fetchPlugins() {
 
 export async function fetchCapabilities() {
   return request<CapabilitySummary[]>('/capabilities');
-}
-
-export async function fetchAutomations() {
-  return request<Automation[]>('/automations');
 }
 
 export async function fetchCapability(capabilityId: string) {
@@ -206,27 +201,6 @@ export async function fetchPluginLogs(pluginId: string) {
 export async function fetchDevices(query = '') {
   const suffix = query ? `?q=${encodeURIComponent(query)}` : '';
   return request<DeviceView[]>(`/devices${suffix}`);
-}
-
-export async function saveAutomation(payload: Automation) {
-  const isUpdate = Boolean(payload.id?.trim());
-  const path = isUpdate ? `/automations/${payload.id}` : '/automations';
-  const body = {
-    ...payload,
-    last_triggered_at: payload.last_triggered_at || undefined,
-    last_run_status: undefined,
-    last_error: undefined,
-    created_at: payload.created_at || undefined,
-    updated_at: payload.updated_at || undefined,
-  };
-  return request<Automation>(path, {
-    method: isUpdate ? 'PUT' : 'POST',
-    body: JSON.stringify(body),
-  });
-}
-
-export async function deleteAutomation(automationId: string) {
-  return request<{ ok: boolean }>(`/automations/${automationId}`, { method: 'DELETE' });
 }
 
 export async function fetchDevice(deviceId: string) {

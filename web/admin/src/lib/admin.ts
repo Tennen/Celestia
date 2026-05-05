@@ -1,6 +1,5 @@
 import type {
   AdminStreamFrame,
-  Automation,
   AuditRecord,
   CapabilitySummary,
   CatalogPlugin,
@@ -24,7 +23,6 @@ export type LoadState = {
   catalog: CatalogPlugin[];
   plugins: PluginRuntimeView[];
   capabilities: CapabilitySummary[];
-  automations: Automation[];
   devices: DeviceView[];
   events: EventRecord[];
   audits: AuditRecord[];
@@ -36,7 +34,7 @@ export type LoadState = {
 
 export type RemoteLoadState = Pick<
   LoadState,
-  'dashboard' | 'catalog' | 'plugins' | 'capabilities' | 'automations' | 'devices' | 'events' | 'audits'
+  'dashboard' | 'catalog' | 'plugins' | 'capabilities' | 'devices' | 'events' | 'audits'
 >;
 
 export const emptyLoadState = (): LoadState => ({
@@ -44,7 +42,6 @@ export const emptyLoadState = (): LoadState => ({
   catalog: [],
   plugins: [],
   capabilities: [],
-  automations: [],
   devices: [],
   events: [],
   audits: [],
@@ -67,10 +64,6 @@ export function sortPlugins(items: PluginRuntimeView[]) {
 }
 
 export function sortCapabilities(items: CapabilitySummary[]) {
-  return asArray(items).sort((a, b) => compareText(a.name || a.id, b.name || b.id));
-}
-
-export function sortAutomations(items: Automation[]) {
   return asArray(items).sort((a, b) => compareText(a.name || a.id, b.name || b.id));
 }
 
@@ -120,7 +113,6 @@ export function mergeLoadStateData(current: LoadState, next: RemoteLoadState): R
     catalog: mergeStableList(current.catalog, next.catalog, (item) => item.id),
     plugins: mergeStableList(current.plugins, next.plugins, (item) => item.record.plugin_id),
     capabilities: mergeStableList(current.capabilities, next.capabilities, (item) => item.id),
-    automations: mergeStableList(current.automations, next.automations, (item) => item.id),
     devices: mergeStableList(current.devices, next.devices, (item) => item.device.id),
     events: mergeStableList(current.events, next.events, (item) => item.id),
     audits: mergeStableList(current.audits, next.audits, (item) => item.id),
@@ -139,7 +131,6 @@ export function applyAdminStreamFrame(current: LoadState, frame: AdminStreamFram
     catalog: current.catalog,
     plugins: frame.plugins ? sortPlugins(frame.plugins) : current.plugins,
     capabilities: frame.capabilities ? sortCapabilities(frame.capabilities) : current.capabilities,
-    automations: frame.automations ? sortAutomations(frame.automations) : current.automations,
     devices: frame.devices ? sortDevices(frame.devices) : current.devices,
     events: frame.events
       ? asArray(frame.events)

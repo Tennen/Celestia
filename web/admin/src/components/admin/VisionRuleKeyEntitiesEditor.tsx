@@ -79,7 +79,7 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
   };
 
   return (
-    <div className="automation-field">
+    <div className="form-field">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <label>Key Entities</label>
@@ -137,8 +137,8 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
                   </Button>
                 </div>
 
-                <div className="automation-field-grid">
-                  <div className="automation-field">
+                <div className="form-field-grid">
+                  <div className="form-field">
                     <label>Name</label>
                     <Input
                       value={keyEntity.name}
@@ -158,7 +158,7 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
                       placeholder={`Key Entity #${keyEntity.id}`}
                     />
                   </div>
-                  <div className="automation-field">
+                  <div className="form-field">
                     <label>Entity ID</label>
                     <Input
                       type="number"
@@ -182,12 +182,12 @@ export function VisionRuleKeyEntitiesEditor({ onError, onUpdateRule, rule }: Pro
                   </div>
                 </div>
 
-                <div className="automation-field-grid">
-                  <div className="automation-field">
+                <div className="form-field-grid">
+                  <div className="form-field">
                     <label>Reference Image</label>
                     <Input type="file" accept="image/*" onChange={(event) => void handleKeyEntityImageChange(keyEntity.id, event)} />
                   </div>
-                  <div className="automation-field">
+                  <div className="form-field">
                     <label>Description</label>
                     <Textarea
                       value={keyEntity.description ?? ''}

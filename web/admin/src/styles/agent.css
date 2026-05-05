@@ -248,7 +248,23 @@
   }
 
   .workflow-builder__library-item-head {
-    @apply inline-flex items-center gap-2 font-medium;
+    @apply flex w-full items-center gap-2 font-medium;
+  }
+
+  .workflow-builder__node-kind {
+    margin-left: auto;
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    padding: 0.05rem 0.4rem;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    line-height: 1.2;
+    text-transform: capitalize;
+  }
+
+  .workflow-builder__node-kind.is-trigger {
+    border-color: var(--primary-soft);
+    color: var(--primary);
   }
 
   .workflow-builder__library-item-desc {

@@ -16,7 +16,7 @@ func (s *Service) claimDueWorkflowTimerNodes(ctx context.Context, now time.Time)
 		if len(dueByWorkflow) == 0 {
 			return nil
 		}
-		claimed = buildWorkflowScheduledRuns(snapshot.Workflow.Workflows, dueByWorkflow, settings)
+		claimed = buildWorkflowScheduledRuns(snapshot.Workflow.Workflows, dueByWorkflow, settings, "timer", models.Event{}, now)
 		for workflowID, nodeIDs := range dueByWorkflow {
 			snapshot.Workflow.TimerStates = upsertWorkflowTimerState(snapshot.Workflow.TimerStates, workflowID, nodeIDs, now)
 		}

@@ -2,10 +2,10 @@ package runtime
 
 import "github.com/chentianyu/celestia/internal/models"
 
-func buildWorkflowTimerScopes(nodes map[string]models.AgentWorkflowNode, outgoing map[string][]models.AgentWorkflowEdge) map[string]map[string]struct{} {
+func buildWorkflowTriggerScopes(nodes map[string]models.AgentWorkflowNode, outgoing map[string][]models.AgentWorkflowEdge) map[string]map[string]struct{} {
 	scopes := map[string]map[string]struct{}{}
 	for nodeID, node := range nodes {
-		if node.Type != workflowNodeTypeTimer {
+		if !workflowNodeIsAutonomousTrigger(node.Type) {
 			continue
 		}
 		queue := []string{nodeID}
@@ -29,21 +29,21 @@ func buildWorkflowTimerScopes(nodes map[string]models.AgentWorkflowNode, outgoin
 	return scopes
 }
 
-func (e *workflowExecutor) hasTriggeredTimers() bool {
-	return len(e.runOptions.TriggeredTimerNode) > 0
+func (e *workflowExecutor) hasTriggeredNodes() bool {
+	return len(e.runOptions.TriggeredNode) > 0
 }
 
-func (e *workflowExecutor) nodeHasTimerScope(nodeID string) bool {
-	return len(e.timerScopes[nodeID]) > 0
+func (e *workflowExecutor) nodeHasTriggerScope(nodeID string) bool {
+	return len(e.triggerScopes[nodeID]) > 0
 }
 
-func (e *workflowExecutor) nodeMatchesTriggeredTimer(nodeID string) bool {
-	scope := e.timerScopes[nodeID]
+func (e *workflowExecutor) nodeMatchesTriggeredNode(nodeID string) bool {
+	scope := e.triggerScopes[nodeID]
 	if len(scope) == 0 {
 		return false
 	}
-	for timerID := range e.runOptions.TriggeredTimerNode {
-		if _, ok := scope[timerID]; ok {
+	for triggerID := range e.runOptions.TriggeredNode {
+		if _, ok := scope[triggerID]; ok {
 			return true
 		}
 	}
@@ -51,21 +51,21 @@ func (e *workflowExecutor) nodeMatchesTriggeredTimer(nodeID string) bool {
 }
 
 func (e *workflowExecutor) shouldEvaluateNodeInTriggeredRun(nodeID string) bool {
-	if !e.hasTriggeredTimers() {
+	if !e.hasTriggeredNodes() {
 		return true
 	}
-	return e.nodeMatchesTriggeredTimer(nodeID)
+	return e.nodeMatchesTriggeredNode(nodeID)
 }
 
 func (e *workflowExecutor) shouldCollectEdgeInTriggeredRun(targetID string, edge models.AgentWorkflowEdge) bool {
-	if !e.hasTriggeredTimers() {
+	if !e.hasTriggeredNodes() {
 		return true
 	}
 	sourceID := edge.Source
-	if e.nodeMatchesTriggeredTimer(sourceID) {
+	if e.nodeMatchesTriggeredNode(sourceID) {
 		return true
 	}
-	if e.nodeHasTimerScope(sourceID) {
+	if e.nodeHasTriggerScope(sourceID) {
 		return false
 	}
 	node, ok := e.nodes[sourceID]
@@ -77,7 +77,7 @@ func (e *workflowExecutor) shouldCollectEdgeInTriggeredRun(targetID string, edge
 
 func workflowNodeSupportsTriggeredRun(nodeType string) bool {
 	switch nodeType {
-	case workflowNodeTypeText, workflowNodeTypeGroup:
+	case workflowNodeTypeText, workflowNodeTypeGroup, workflowNodeTypeTimeWindow:
 		return true
 	default:
 		return false

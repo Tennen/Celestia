@@ -2,7 +2,7 @@
 
 ## Tooling Research
 
-For a production CLI that must be reliable for agent-driven automation, we evaluated mainstream Go CLI libraries:
+For a production CLI that must be reliable for agent-driven workflows, we evaluated mainstream Go CLI libraries:
 
 - `spf13/cobra`
   - very high ecosystem adoption and long-running stability

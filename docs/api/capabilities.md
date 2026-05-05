@@ -6,12 +6,10 @@ These routes stay under `/api/v1` and expose the Core-owned capability inventory
 
 Current built-in capability ids:
 
-- `automation`
 - `vision_entity_stay_zone`
 
 Capability-specific payloads and mutation routes live in their own documents:
 
-- [Automation Capability API](automation.md)
 - [Vision Stay Zone Capability API](vision-stay-zone.md)
 
 ## List Capabilities
@@ -22,20 +20,6 @@ Response:
 
 ```json
 [
-  {
-    "id": "automation",
-    "kind": "automation",
-    "name": "Automations",
-    "description": "Core-owned state-change automations that execute device actions.",
-    "enabled": true,
-    "status": "healthy",
-    "summary": {
-      "total": 3,
-      "enabled_count": 2,
-      "last_triggered_at": "2026-04-08T09:30:00Z"
-    },
-    "updated_at": "2026-04-08T09:30:00Z"
-  },
   {
     "id": "vision_entity_stay_zone",
     "kind": "vision_entity_stay_zone",
@@ -62,5 +46,4 @@ Response:
 
 The response shape is capability-specific. See:
 
-- [Automation Capability API](automation.md) for the `automation` capability and its CRUD surface
 - [Vision Stay Zone Capability API](vision-stay-zone.md) for the `vision_entity_stay_zone` detail payload and mutation routes

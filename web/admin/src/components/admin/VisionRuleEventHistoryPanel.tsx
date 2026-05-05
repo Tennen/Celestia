@@ -271,7 +271,7 @@ export function VisionRuleEventHistoryPanel({ onBack, onError, rule, updatedAtKe
             title={rule.name || rule.id}
             description="Persisted recognition history for this rule within the configured retention window."
             aside={
-              <div className="automation-editor__meta">
+              <div className="form-editor__meta">
                 <Button type="button" variant="secondary" size="sm" onClick={onBack}>
                   <ArrowLeft className="h-4 w-4" />
                   <span>Back To Rule</span>

@@ -15,8 +15,8 @@ type Spec struct {
 	Schedule        string
 	At              string
 	Timezone        string
-	WindowStart     string
-	WindowEnd       string
+	IntervalStart   string
+	IntervalEnd     string
 	IntervalSeconds int
 }
 
@@ -56,13 +56,13 @@ func Normalize(spec *Spec) (Spec, error) {
 		}
 		return Spec{Schedule: schedule, At: at, Timezone: timezone}, nil
 	case ScheduleInterval:
-		windowStart := strings.TrimSpace(spec.WindowStart)
-		windowEnd := strings.TrimSpace(spec.WindowEnd)
-		if _, err := ParseClockHM(windowStart); err != nil {
-			return Spec{}, fmt.Errorf("invalid window_start: %w", err)
+		intervalStart := strings.TrimSpace(spec.IntervalStart)
+		intervalEnd := strings.TrimSpace(spec.IntervalEnd)
+		if _, err := ParseClockHM(intervalStart); err != nil {
+			return Spec{}, fmt.Errorf("invalid interval start: %w", err)
 		}
-		if _, err := ParseClockHM(windowEnd); err != nil {
-			return Spec{}, fmt.Errorf("invalid window_end: %w", err)
+		if _, err := ParseClockHM(intervalEnd); err != nil {
+			return Spec{}, fmt.Errorf("invalid interval end: %w", err)
 		}
 		if spec.IntervalSeconds <= 0 {
 			return Spec{}, errors.New("interval_seconds must be greater than 0")
@@ -70,8 +70,8 @@ func Normalize(spec *Spec) (Spec, error) {
 		return Spec{
 			Schedule:        schedule,
 			Timezone:        timezone,
-			WindowStart:     windowStart,
-			WindowEnd:       windowEnd,
+			IntervalStart:   intervalStart,
+			IntervalEnd:     intervalEnd,
 			IntervalSeconds: spec.IntervalSeconds,
 		}, nil
 	default:
@@ -122,7 +122,7 @@ func matchesDaily(now time.Time, spec *Spec, lastTriggeredAt *time.Time, locatio
 }
 
 func matchesInterval(now time.Time, spec *Spec, lastTriggeredAt *time.Time, location *time.Location) bool {
-	windowStart, windowEnd, ok := intervalWindowBounds(now.In(location), spec.WindowStart, spec.WindowEnd, location)
+	windowStart, windowEnd, ok := intervalWindowBounds(now.In(location), spec.IntervalStart, spec.IntervalEnd, location)
 	if !ok {
 		return false
 	}

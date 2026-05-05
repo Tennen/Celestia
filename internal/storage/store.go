@@ -15,11 +15,6 @@ type Store interface {
 	ListPluginRecords(context.Context) ([]models.PluginInstallRecord, error)
 	DeletePluginRecord(context.Context, string) error
 
-	UpsertAutomation(context.Context, models.Automation) error
-	GetAutomation(context.Context, string) (models.Automation, bool, error)
-	ListAutomations(context.Context) ([]models.Automation, error)
-	DeleteAutomation(context.Context, string) error
-
 	UpsertAgentDocument(context.Context, models.AgentDocument) error
 	GetAgentDocument(context.Context, string) (models.AgentDocument, bool, error)
 	DeleteAgentDocument(context.Context, string) error

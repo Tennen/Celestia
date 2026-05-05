@@ -39,6 +39,13 @@ func (e *workflowExecutor) executeRSSNode(node models.AgentWorkflowNode) (workfl
 		if inputErr != nil {
 			return workflowNodeValue{}, "", nil, inputErr
 		}
+		if triggerInputs.hasBlockingWindow() {
+			return workflowNodeValue{Text: "", Items: nil, Blocked: true, BlockedByWindow: true}, "RSS outside time window", map[string]any{
+				"item_count":          0,
+				"trigger_input_count": len(triggerEdges),
+				"blocked_by_window":   true,
+			}, nil
+		}
 		if triggerInputs.triggers == 0 {
 			return workflowNodeValue{Text: "", Items: nil, Blocked: true, BlockedByTimer: true}, "RSS waiting for timer trigger", map[string]any{
 				"item_count":          0,

@@ -96,7 +96,7 @@ export function VisionRuleEditorCard({
           description="Bind a camera and RTSP source to a generic entity stay-zone rule. Rules may either target one catalog entity or leave the selector empty so the Vision Service reports every recognized entity inside the zone, with an optional behavior hint for semantic fallback checks."
           aside={
             selectedRule ? (
-              <div className="automation-editor__meta">
+              <div className="form-editor__meta">
                 <Badge size="xs" tone={selectedRule.enabled ? 'good' : 'neutral'}>
                   {selectedRule.enabled ? 'enabled' : 'disabled'}
                 </Badge>
@@ -118,8 +118,8 @@ export function VisionRuleEditorCard({
       <CardContent className="stack">
         {selectedRule ? (
           <>
-            <div className="automation-field-grid">
-              <div className="automation-field">
+            <div className="form-field-grid">
+              <div className="form-field">
                 <label>Name</label>
                 <Input
                   value={selectedRule.name}
@@ -129,7 +129,7 @@ export function VisionRuleEditorCard({
                   placeholder="Feeder Zone Stay"
                 />
               </div>
-              <div className="automation-field">
+              <div className="form-field">
                 <label>Rule ID</label>
                 <Input
                   value={selectedRule.id}
@@ -143,8 +143,8 @@ export function VisionRuleEditorCard({
               </div>
             </div>
 
-            <div className="automation-field-grid">
-              <div className="automation-field">
+            <div className="form-field-grid">
+              <div className="form-field">
                 <label>Camera Device</label>
                 <select
                   className="select"
@@ -168,7 +168,7 @@ export function VisionRuleEditorCard({
                   ))}
                 </select>
               </div>
-              <div className="automation-field">
+              <div className="form-field">
                 <label>Stay Threshold Seconds</label>
                 <Input
                   type="number"
@@ -204,7 +204,7 @@ export function VisionRuleEditorCard({
               <p className="muted">The current Vision Service catalog is empty, so this rule can only run in all-entities mode right now.</p>
             ) : null}
 
-            <div className="automation-field">
+            <div className="form-field">
               <label>Target Entity</label>
               <select
                 className="select"
@@ -235,7 +235,7 @@ export function VisionRuleEditorCard({
               </p>
             </div>
 
-            <div className="automation-field">
+            <div className="form-field">
               <label>Behavior</label>
               <Input
                 value={selectedRule.behavior}
@@ -255,7 +255,7 @@ export function VisionRuleEditorCard({
 
             <VisionRuleKeyEntitiesEditor onError={onError} onUpdateRule={onUpdateRule} rule={selectedRule} />
 
-            <div className="automation-field">
+            <div className="form-field">
               <label>Resolved RTSP Source</label>
               <Input
                 value={displayedRTSPSourceURL}
@@ -269,8 +269,8 @@ export function VisionRuleEditorCard({
               </p>
             </div>
 
-            <div className="automation-field-grid automation-field-grid--compact">
-              <div className="automation-field">
+            <div className="form-field-grid form-field-grid--compact">
+              <div className="form-field">
                 <label>Rule Enabled</label>
                 <div className="vision-switch-row">
                   <Switch
@@ -282,7 +282,7 @@ export function VisionRuleEditorCard({
                   <span>{selectedRule.enabled ? 'Enabled' : 'Disabled'}</span>
                 </div>
               </div>
-              <div className="automation-field">
+              <div className="form-field">
                 <label>Recognition Toggle</label>
                 <div className="vision-switch-row">
                   <Switch
@@ -299,7 +299,7 @@ export function VisionRuleEditorCard({
               </div>
             </div>
 
-            <div className="automation-field">
+            <div className="form-field">
               <Collapsible.Root open={!zoneEditorCollapsed} onOpenChange={(open) => setZoneEditorCollapsed(!open)}>
                 <div className="vision-zone-editor__header">
                   <label>Zone Selection</label>

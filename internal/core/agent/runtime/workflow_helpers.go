@@ -9,13 +9,18 @@ import (
 )
 
 const (
-	workflowNodeTypeGroup          = "group"
-	workflowNodeTypeTimer          = "timer"
-	workflowNodeTypeRSSSources     = "rss_sources"
-	workflowNodeTypeText           = "text"
-	workflowNodeTypeLLM            = "llm"
-	workflowNodeTypeSearchProvider = "search_provider"
-	workflowNodeTypeWeComOutput    = "wecom_output"
+	workflowNodeTypeGroup              = "group"
+	workflowNodeTypeTimer              = "timer"
+	workflowNodeTypeDeviceStateChanged = "device_state_changed"
+	workflowNodeTypeDeviceStateIs      = "device_state_is"
+	workflowNodeTypeTimeWindow         = "time_window"
+	workflowNodeTypeRSSSources         = "rss_sources"
+	workflowNodeTypeText               = "text"
+	workflowNodeTypeLLM                = "llm"
+	workflowNodeTypeSearchProvider     = "search_provider"
+	workflowNodeTypeWeComOutput        = "wecom_output"
+	workflowNodeTypeDeviceCommand      = "device_command"
+	workflowNodeTypeAgentFunction      = "agent_function"
 )
 
 func defaultWorkflowNodeLabel(nodeType string) string {
@@ -26,6 +31,12 @@ func defaultWorkflowNodeLabel(nodeType string) string {
 		return "RSS Sources"
 	case workflowNodeTypeTimer:
 		return "Timer"
+	case workflowNodeTypeDeviceStateChanged:
+		return "Device State Changed"
+	case workflowNodeTypeDeviceStateIs:
+		return "Device State Is"
+	case workflowNodeTypeTimeWindow:
+		return "Time Window"
 	case workflowNodeTypeText:
 		return "Text"
 	case workflowNodeTypeLLM:
@@ -34,8 +45,30 @@ func defaultWorkflowNodeLabel(nodeType string) string {
 		return "Search Provider"
 	case workflowNodeTypeWeComOutput:
 		return "WeCom Output"
+	case workflowNodeTypeDeviceCommand:
+		return "Device Command"
+	case workflowNodeTypeAgentFunction:
+		return "Agent Function"
 	default:
 		return "Workflow Node"
+	}
+}
+
+func workflowNodeIsAutonomousTrigger(nodeType string) bool {
+	switch canonicalWorkflowNodeType(nodeType) {
+	case workflowNodeTypeTimer, workflowNodeTypeDeviceStateChanged, workflowNodeTypeDeviceStateIs:
+		return true
+	default:
+		return false
+	}
+}
+
+func workflowNodeCannotBeRunTarget(nodeType string) bool {
+	switch canonicalWorkflowNodeType(nodeType) {
+	case workflowNodeTypeGroup, workflowNodeTypeTimer, workflowNodeTypeDeviceStateChanged, workflowNodeTypeDeviceStateIs, workflowNodeTypeTimeWindow:
+		return true
+	default:
+		return false
 	}
 }
 

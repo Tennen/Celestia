@@ -211,7 +211,7 @@ export function ZoneBoxEditor({ cameraDevice, value, onChange }: Props) {
           ['width', value.width],
           ['height', value.height],
         ].map(([field, fieldValue]) => (
-          <div key={field} className="automation-field">
+          <div key={field} className="form-field">
             <label>{field}</label>
             <Input
               value={Math.round((fieldValue as number) * 100)}

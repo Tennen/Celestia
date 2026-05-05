@@ -2,12 +2,12 @@
 
 Back to the [API index](../api.md).
 
-Touchpoints are project-level input/output adapters. They are not Agent tools. HTTP, WeCom, automation time triggers, and future external inputs normalize into a `ProjectInput` envelope before slash command dispatch and optional Agent execution.
+Touchpoints are project-level input/output adapters. They are not Agent tools. HTTP, WeCom, workflow agent-function nodes, and future external inputs normalize into a `ProjectInput` envelope before slash command dispatch and optional Agent execution.
 
 ## Input Flow
 
 ```text
-HTTP / WeCom / Automation
+HTTP / WeCom / workflow agent_function
         |
         v
 ProjectInput

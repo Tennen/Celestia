@@ -67,8 +67,7 @@ export function AppSidemenu(props: Props) {
     refreshing,
   } = props;
 
-  const capabilityItemCount = (capability: CapabilitySummary) =>
-    capability.kind === 'automation' ? summaryNumber(capability, 'total') : summaryNumber(capability, 'rule_count');
+  const capabilityItemCount = (capability: CapabilitySummary) => summaryNumber(capability, 'rule_count');
 
   return (
     <aside className="sidemenu">

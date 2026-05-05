@@ -28,10 +28,6 @@ type Service interface {
 	DeleteVisionRuleEvent(ctx context.Context, ruleID string, eventID string) error
 	GetVisionEventCapture(ctx context.Context, captureID string) (models.VisionEventCaptureAsset, error)
 
-	ListAutomations(ctx context.Context) ([]models.Automation, error)
-	SaveAutomation(ctx context.Context, automation models.Automation) (models.Automation, error)
-	DeleteAutomation(ctx context.Context, id string) error
-
 	GetAgentSnapshot(ctx context.Context) (models.AgentSnapshot, error)
 	SaveAgentSettings(ctx context.Context, settings models.AgentSettings) (models.AgentSnapshot, error)
 	SaveAgentDirectInput(ctx context.Context, config models.AgentDirectInputConfig) (models.AgentSnapshot, error)

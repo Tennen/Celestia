@@ -45,6 +45,7 @@ import {
 } from '../../../lib/workflow-canvas';
 import { WorkflowCanvasInspector } from './WorkflowCanvasInspector';
 import { workflowCanvasNodeTypes } from './WorkflowCanvasNodes';
+import { useAdminStore } from '../../../stores/adminStore';
 
 type WorkflowRunner = (label: string, action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown>;
 
@@ -58,6 +59,7 @@ type Props = {
 };
 
 export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenList, onWorkflowSaved }: Props) {
+  const devices = useAdminStore((state) => state.devices);
   const [draft, setDraft] = useState<AgentWorkflowDefinition>(() => buildDraft(snapshot, workflowId));
   const [flowNodes, setFlowNodes] = useState<Node[]>(() => buildDraft(snapshot, workflowId).nodes.map((node) => toFlowNode(node, handleTextNodeChange)));
   const [flowEdges, setFlowEdges] = useState<Edge[]>(() => buildDraft(snapshot, workflowId).edges.map((edge) => toFlowEdge(edge)));
@@ -124,6 +126,13 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
         value: user.id,
         label: user.name || user.wecom_user || user.id,
       })),
+  ];
+  const deviceOptions = [
+    { value: '', label: 'Select Device' },
+    ...devices.map((view) => ({
+      value: view.device.id,
+      label: view.device.name || view.device.alias || view.device.id,
+    })),
   ];
 
   const saveWorkflow = async () => {
@@ -302,6 +311,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
                     <div className="workflow-builder__library-item-head">
                       <Plus className="h-3.5 w-3.5" />
                       <span>{item.label}</span>
+                      {item.kind ? <span className={`workflow-builder__node-kind is-${item.kind}`}>{item.kind}</span> : null}
                     </div>
                     <span className="workflow-builder__library-item-desc">{item.description}</span>
                   </button>
@@ -316,7 +326,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
             {flowNodes.length === 0 ? (
               <div className="workflow-builder__canvas-empty">
                 <strong>Start from the left palette</strong>
-                <span>Add RSS, text, model, provider, and output nodes to begin wiring this workflow.</span>
+                <span>Add triggers, gates, actions, model, provider, and output nodes to begin wiring this workflow.</span>
               </div>
             ) : null}
             <ReactFlow
@@ -366,6 +376,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
                     providerOptions={providerOptions}
                     searchProviderOptions={searchProviderOptions}
                     wecomOptions={wecomOptions}
+                    deviceOptions={deviceOptions}
                     onChange={updateSelectedNode}
                     onDelete={() => {
                       setDraft((current) => {

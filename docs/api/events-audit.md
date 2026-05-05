@@ -60,11 +60,6 @@ Device inventory lifecycle events use:
 
 When a plugin emits either inventory event with `payload.device`, Core updates the persisted device registry before the event is published. `device.updated` is the path used for runtime changes to device metadata such as `online`, name, or capability metadata that are not represented inside `device.state.changed`.
 
-Core-generated automation execution events use:
-
-- `automation.triggered`
-- `automation.failed`
-
 Capability runtime health changes use:
 
 - `capability.status.changed`
@@ -140,17 +135,16 @@ Each frame may include:
 - `dashboard`
 - `plugins`
 - `capabilities`
-- `automations`
 - `devices`
 - `events` or single `event`
 - `audits` or single `audit`
 - `reason` describing the source change such as `device.state.changed`, `plugin.lifecycle.changed`, or `audit.recorded`
 
-On connect, the `sync` payload contains the current dashboard, plugin runtime views, capability summaries, automations, device views, recent events, and recent audits.
+On connect, the `sync` payload contains the current dashboard, plugin runtime views, capability summaries, device views, recent events, and recent audits.
 
 Subsequent `update` payloads are emitted only when Core state changes:
 
-- runtime events from plugin/device/capability/automation flows update the relevant Admin slices
+- runtime events from plugin/device/capability flows update the relevant Admin slices
 - newly appended audit records are pushed without requiring the Admin UI to poll `/api/v1/audits`
 
 Example:

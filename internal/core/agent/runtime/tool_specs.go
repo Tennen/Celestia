@@ -67,7 +67,7 @@ func (s *Service) workflowToolSpec() agentToolSpec {
 	return agentToolSpec{
 		Name:         "workflow",
 		Description:  desc,
-		Keywords:     []string{"workflow", "rss", "automation", "digest", "日报", "新闻摘要"},
+		Keywords:     []string{"workflow", "rss", "digest", "日报", "新闻摘要"},
 		Params:       []string{"action", "workflow_id"},
 		PreferResult: true,
 		NewTool: func(s *Service) (einotool.InvokableTool, error) {

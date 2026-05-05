@@ -1,11 +1,11 @@
 # Celestia Software Architecture
 
-Celestia is a Go Core gateway plus a React admin console for real home-device orchestration, project-level touchpoints, automations, and a local Agent runtime.
+Celestia is a Go Core gateway plus a React admin console for real home-device orchestration, project-level touchpoints, workflow triggers, and a local Agent runtime.
 
 ## Top-Level Runtime
 
 ```text
-Admin UI / HTTP / WeCom / Automation / external callers
+Admin UI / HTTP / WeCom / workflow triggers / external callers
         |
         v
 Gateway HTTP API
@@ -18,7 +18,6 @@ Core Runtime
   - Control Catalog
   - Policy / Audit
   - Plugin Manager
-  - Automation
   - Touchpoint Input
   - Slash Commands
   - Agent Runtime
@@ -64,7 +63,7 @@ Supported production plugins are Xiaomi, Petkit, Haier hOn, and Hikvision/EZVIZ.
 Touchpoints are project-level input/output adapters. They are not Agent tools and they are not owned by the Agent runtime.
 
 ```text
-HTTP conversation / WeCom text / WeCom click / WeCom voice / Automation time trigger
+HTTP conversation / WeCom text / WeCom click / WeCom voice / workflow agent_function
         |
         v
 ProjectInput envelope
@@ -121,14 +120,21 @@ Not Agent-owned:
 - Eastmoney market data lookup
 - md2img renderer implementation
 - Device command execution
-- Automation scheduling
 - Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance paths
 
-## Automation
+## Workflow Triggers
 
-Automations are Core-owned. A time condition can trigger an action that sends text into the project input layer. The Agent is treated as a special input/output function only when the action kind is `agent`.
+Agent workflows own orchestration graph state. Trigger nodes such as `timer`, `device_state_changed`, and `device_state_is` can start a workflow run without a manual API call.
 
-Automation output touchpoints can deliver the Agent or slash result to:
+`time_window` is modeled as an accessory gate that can be connected beside a trigger or directly into a triggered execution path. It constrains when the trigger path can continue, while remaining separate from the trigger node itself.
+
+Execution nodes use Core-owned runtime boundaries:
+
+- `device_command` passes through policy, audit, and the plugin command executor.
+- `agent_function` sends a normalized project input envelope through slash dispatch and the Agent runtime.
+- `wecom_output` sends through the Touchpoints WeCom runtime.
+
+Workflow output touchpoints can deliver Agent or slash results to:
 
 - WeCom users
 - voice-capable devices through native device commands

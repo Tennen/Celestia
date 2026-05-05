@@ -40,8 +40,6 @@ const (
 	EventPluginHealthChanged     EventType = "plugin.health.changed"
 	EventPluginLifecycleState    EventType = "plugin.lifecycle.changed"
 	EventCapabilityStatusChanged EventType = "capability.status.changed"
-	EventAutomationTriggered     EventType = "automation.triggered"
-	EventAutomationFailed        EventType = "automation.failed"
 	EventAgentStateChanged       EventType = "agent.state.changed"
 	EventAgentTaskFailed         EventType = "agent.task.failed"
 )

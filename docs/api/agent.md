@@ -166,19 +166,33 @@ Workflow runtime fields such as `runs[]`, `sent_log[]`, `source_states[]`, and `
 
 Legacy `profile_id` is still accepted as an alias during the migration window for older clients.
 
-The first workflow-canvas delivery supports these node types:
+Workflow canvas supports these node types:
 
 - `group`
 - `timer`
+- `device_state_changed`
+- `device_state_is`
+- `time_window`
 - `rss_sources`
 - `text`
 - `llm`
 - `search_provider`
 - `wecom_output`
+- `device_command`
+- `agent_function`
 
 Current executable ports:
 
 - `timer.trigger -> rss_sources.trigger`
+- `timer.trigger -> device_command.trigger`
+- `timer.trigger -> agent_function.trigger`
+- `device_state_changed.trigger -> device_command.trigger`
+- `device_state_changed.trigger -> agent_function.trigger`
+- `device_state_is.trigger -> device_command.trigger`
+- `device_state_is.trigger -> agent_function.trigger`
+- `time_window.gate -> <triggered node>.trigger`
+- `time_window.gate -> <execution node>.trigger`
+- `device_state_is.gate -> <execution node>.trigger`
 - `rss_sources -> llm.context`
 - `text -> text`
 - `text -> llm.prompt`
@@ -189,20 +203,24 @@ Current executable ports:
 
 Runtime behavior:
 
-1. `timer` stores per-node schedule execution state in `workflow.timer_states[]` and uses the same backend schedule module as Core automation time triggers.
-2. `timer` supports `schedule: "daily"` with `at/timezone`, and `schedule: "interval"` with `window_start/window_end/interval_seconds/timezone`.
-3. Saving the workflow through `PUT /api/v1/agent/workflow` makes timer nodes eligible for the backend scheduler immediately; no separate publish/run step is required.
-4. The scheduler creates one workflow run per due timer node. If multiple timers in the same workflow fire on the same tick, they execute as separate queued runs instead of being merged into one fan-in run.
-5. Manual `POST /api/v1/agent/workflow/run` does not activate timer nodes. Only non-timer paths, or paths already receiving non-timer input, execute in that manual run.
-6. `rss_sources` may accept `timer.trigger` input. When a trigger edge exists and no timer fired for the current run, the RSS node emits no items.
-7. `rss_sources` stores per-source request state in `workflow.source_states[]`, sends `If-Modified-Since` using the last stored `Last-Modified` value or previous request time, records the latest raw response body, and emits only items newly appearing relative to the previous body by RSS `guid` or Atom `id` (falling back to URL/text when a feed omits stable ids).
-8. A `304 Not Modified` response advances the RSS source request timestamp and emits no items.
-9. Without timer-driven async fan-in, multiple upstream `rss_sources` connected to one `llm` are aggregated in a single run. When separate timers feed that shared `llm`, each timer run uses the same `llm` configuration but executes independently.
-10. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
-11. `search_provider` uses the configured Core search provider profile.
-12. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
-13. `wecom_output` sends through the existing Touchpoints WeCom runtime.
-14. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.
+1. `timer`, `device_state_changed`, and `device_state_is` are autonomous trigger nodes. Saving the workflow through `PUT /api/v1/agent/workflow` makes enabled trigger nodes eligible for backend scheduling or event dispatch immediately; no separate publish step is required.
+2. `timer` supports `schedule: "daily"` with `at/timezone`, and `schedule: "interval"` with `interval_seconds/timezone`. Time windows are modeled with connected `time_window` nodes instead of fields on the timer node.
+3. `device_state_changed` fires from the persisted `device.state.changed` event stream and can match a device id, state key, operator, value, and optional `from`/`to` values.
+4. `device_state_is` can act as an autonomous trigger when connected from its `trigger` output, or as a gate when connected from its `gate` output. It evaluates the current Core-owned device state snapshot.
+5. `time_window` is an accessory gate. When connected directly to a trigger or in parallel to the same downstream execution path, it constrains the trigger to its configured `start/end/timezone` window.
+6. The scheduler creates one workflow run per due trigger node. If multiple triggers in the same workflow fire on the same tick or state event, they execute as separate queued runs instead of being merged into one fan-in run.
+7. Manual `POST /api/v1/agent/workflow/run` does not activate autonomous trigger nodes. Only non-trigger paths, or paths already receiving manual input, execute in that manual run.
+8. `rss_sources` may accept trigger input. When a trigger edge exists and no trigger fired for the current run, the RSS node emits no items.
+9. `rss_sources` stores per-source request state in `workflow.source_states[]`, sends `If-Modified-Since` using the last stored `Last-Modified` value or previous request time, records the latest raw response body, and emits only items newly appearing relative to the previous body by RSS `guid` or Atom `id` (falling back to URL/text when a feed omits stable ids).
+10. A `304 Not Modified` response advances the RSS source request timestamp and emits no items.
+11. Without trigger-driven async fan-in, multiple upstream `rss_sources` connected to one `llm` are aggregated in a single run. When separate triggers feed that shared `llm`, each trigger run uses the same `llm` configuration but executes independently.
+12. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
+13. `search_provider` uses the configured Core search provider profile.
+14. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
+15. `device_command` executes a real gateway device command through Core policy, audit, and the owning plugin command executor. It does not bypass command authorization.
+16. `agent_function` sends a project input envelope through the existing project input layer, so slash commands run before the Agent ReAct loop and configured touchpoint output is reused.
+17. `wecom_output` sends through the existing Touchpoints WeCom runtime.
+18. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.
 
 ## Writing Organizer
 

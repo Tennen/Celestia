@@ -5,7 +5,6 @@ import "time"
 type CapabilityKind string
 
 const (
-	CapabilityKindAutomation           CapabilityKind = "automation"
 	CapabilityKindVisionEntityStayZone CapabilityKind = "vision_entity_stay_zone"
 )
 
@@ -22,14 +21,7 @@ type Capability struct {
 
 type CapabilityDetail struct {
 	Capability
-	Automation *AutomationCapabilityDetail `json:"automation,omitempty"`
-	Vision     *VisionCapabilityDetail     `json:"vision,omitempty"`
-}
-
-type AutomationCapabilityDetail struct {
-	Total           int        `json:"total"`
-	EnabledCount    int        `json:"enabled_count"`
-	LastTriggeredAt *time.Time `json:"last_triggered_at,omitempty"`
+	Vision *VisionCapabilityDetail `json:"vision,omitempty"`
 }
 
 type VisionCapabilityDetail struct {

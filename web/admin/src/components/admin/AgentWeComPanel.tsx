@@ -206,7 +206,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>User Editor</CardTitle>
-            <CardDescription>Recipient aliases used by touchpoints, automations, and manual sends</CardDescription>
+            <CardDescription>Recipient aliases used by touchpoints, workflows, and manual sends</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="button-row">

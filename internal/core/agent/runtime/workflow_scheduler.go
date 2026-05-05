@@ -26,6 +26,52 @@ func (s *Service) handleWorkflowTimeTick(now time.Time) {
 	s.enqueueWorkflowScheduledRuns(jobs)
 }
 
+func (s *Service) startWorkflowEventTriggers() {
+	if s.bus == nil {
+		return
+	}
+	s.eventOnce.Do(func() {
+		id, ch := s.bus.Subscribe(128)
+		s.eventSubID = id
+		s.eventSubscribed = true
+		go func() {
+			for {
+				select {
+				case <-s.stop:
+					return
+				case event, ok := <-ch:
+					if !ok {
+						return
+					}
+					if event.Type != models.EventDeviceStateChanged {
+						continue
+					}
+					go s.handleWorkflowStateTriggerEvent(event)
+				}
+			}
+		}()
+	})
+}
+
+func (s *Service) handleWorkflowStateTriggerEvent(event models.Event) {
+	s.startWorkflowSchedulerWorker()
+	snapshot, err := s.Snapshot(context.Background())
+	if err != nil {
+		log.Printf("workflow: state trigger snapshot failed: %v", err)
+		return
+	}
+	now := event.TS
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	dueByWorkflow := dueWorkflowStateTriggerNodes(snapshot.Workflow, event, now)
+	if len(dueByWorkflow) == 0 {
+		return
+	}
+	jobs := buildWorkflowScheduledRuns(snapshot.Workflow.Workflows, dueByWorkflow, snapshot.Settings, "state", event, now)
+	s.enqueueWorkflowScheduledRuns(jobs)
+}
+
 func dueWorkflowTimerNodes(snapshot models.AgentWorkflowSnapshot, now time.Time) map[string][]string {
 	states := workflowTimerStateSet(snapshot.TimerStates)
 	out := map[string][]string{}
@@ -35,6 +81,9 @@ func dueWorkflowTimerNodes(snapshot models.AgentWorkflowSnapshot, now time.Time)
 				continue
 			}
 			if len(workflowOutgoingEdges(workflow, node.ID)) == 0 {
+				continue
+			}
+			if !workflowTriggerWindowsMatch(workflow, node.ID, now) {
 				continue
 			}
 			config, err := decodeWorkflowNodeData[workflowTimerNodeConfig](node.Data)
@@ -57,6 +106,40 @@ func dueWorkflowTimerNodes(snapshot models.AgentWorkflowSnapshot, now time.Time)
 		}
 	}
 	return out
+}
+
+func dueWorkflowStateTriggerNodes(snapshot models.AgentWorkflowSnapshot, event models.Event, now time.Time) map[string][]string {
+	out := map[string][]string{}
+	for _, workflow := range snapshot.Workflows {
+		for _, node := range workflow.Nodes {
+			if node.Type != workflowNodeTypeDeviceStateChanged && node.Type != workflowNodeTypeDeviceStateIs {
+				continue
+			}
+			if len(workflowOutgoingEdges(workflow, node.ID)) == 0 {
+				continue
+			}
+			if !workflowTriggerWindowsMatch(workflow, node.ID, now) {
+				continue
+			}
+			if workflowStateTriggerMatches(node, event) {
+				out[workflow.ID] = append(out[workflow.ID], node.ID)
+			}
+		}
+	}
+	return out
+}
+
+func workflowStateTriggerMatches(node models.AgentWorkflowNode, event models.Event) bool {
+	switch node.Type {
+	case workflowNodeTypeDeviceStateChanged:
+		config, err := decodeWorkflowNodeData[workflowDeviceStateChangedConfig](node.Data)
+		return err == nil && matchesWorkflowStateChangedNode(config, event)
+	case workflowNodeTypeDeviceStateIs:
+		config, err := decodeWorkflowNodeData[workflowDeviceStateIsConfig](node.Data)
+		return err == nil && matchesWorkflowStateIsNode(config, event)
+	default:
+		return false
+	}
 }
 
 func workflowOutgoingEdges(workflow models.AgentWorkflow, nodeID string) []models.AgentWorkflowEdge {

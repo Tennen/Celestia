@@ -15,15 +15,20 @@ import (
 )
 
 type Service struct {
-	store          storage.Store
-	bus            *eventbus.Bus
-	workflowOutput workflowOutputRuntime
-	mu             sync.Mutex
-	startOnce      sync.Once
-	workerOnce     sync.Once
-	stop           chan struct{}
-	stopOnce       sync.Once
-	workflowJobs   chan workflowScheduledRun
+	store           storage.Store
+	bus             *eventbus.Bus
+	workflowOutput  workflowOutputRuntime
+	workflowInput   workflowInputRuntime
+	workflowDevices WorkflowDeviceRuntime
+	mu              sync.Mutex
+	startOnce       sync.Once
+	eventOnce       sync.Once
+	workerOnce      sync.Once
+	stop            chan struct{}
+	stopOnce        sync.Once
+	workflowJobs    chan workflowScheduledRun
+	eventSubID      int
+	eventSubscribed bool
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
@@ -40,6 +45,7 @@ func (s *Service) Init(ctx context.Context) error {
 		return err
 	}
 	s.startWorkflowSchedulerWorker()
+	s.startWorkflowEventTriggers()
 	s.startOnce.Do(func() {
 		go s.runWorkflowTimeScheduler()
 	})
@@ -50,6 +56,9 @@ func (s *Service) Close() {
 	s.stopOnce.Do(func() {
 		close(s.stop)
 	})
+	if s.bus != nil && s.eventSubscribed {
+		s.bus.Unsubscribe(s.eventSubID)
+	}
 }
 
 func (s *Service) Snapshot(ctx context.Context) (models.AgentSnapshot, error) {

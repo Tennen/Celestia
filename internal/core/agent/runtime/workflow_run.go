@@ -12,13 +12,14 @@ import (
 )
 
 type workflowNodeValue struct {
-	Prompt         string
-	Text           string
-	Items          []models.AgentWorkflowItem
-	Search         *models.AgentSearchResult
-	Triggered      bool
-	Blocked        bool
-	BlockedByTimer bool
+	Prompt          string
+	Text            string
+	Items           []models.AgentWorkflowItem
+	Search          *models.AgentSearchResult
+	Triggered       bool
+	Blocked         bool
+	BlockedByTimer  bool
+	BlockedByWindow bool
 }
 
 type workflowExecutor struct {
@@ -36,20 +37,20 @@ type workflowExecutor struct {
 	deliveryErrors []models.AgentRunError
 	sourceStates   map[string]models.AgentWorkflowSourceState
 	timerStates    map[string]models.AgentWorkflowTimerState
-	timerScopes    map[string]map[string]struct{}
+	triggerScopes  map[string]map[string]struct{}
 	sourceUpdates  map[string]workflowSourceStateUpdate
 	sentItems      map[string]models.AgentWorkflowItem
 }
 
 type workflowRunOptions struct {
-	TriggeredTimerNode map[string]struct{}
+	TriggeredNode map[string]struct{}
+	SourceEvent   models.Event
+	TriggeredAt   time.Time
 }
 
 type workflowTimerNodeConfig struct {
 	Schedule        string `json:"schedule"`
 	At              string `json:"at"`
-	WindowStart     string `json:"window_start,omitempty"`
-	WindowEnd       string `json:"window_end,omitempty"`
 	IntervalSeconds int    `json:"interval_seconds,omitempty"`
 	Timezone        string `json:"timezone,omitempty"`
 }
@@ -151,7 +152,7 @@ func newWorkflowExecutor(ctx context.Context, service *Service, workflow models.
 		nodeResults:   map[string]models.AgentWorkflowNodeResult{},
 		sourceStates:  workflowSourceStateSet(sourceStates),
 		timerStates:   workflowTimerStateSet(timerStates),
-		timerScopes:   buildWorkflowTimerScopes(nodes, outgoing),
+		triggerScopes: buildWorkflowTriggerScopes(nodes, outgoing),
 		sourceUpdates: map[string]workflowSourceStateUpdate{},
 		sentItems:     map[string]models.AgentWorkflowItem{},
 	}
@@ -174,7 +175,7 @@ func (e *workflowExecutor) targetNodes() []string {
 	}
 	targets = targets[:0]
 	for _, node := range e.workflow.Nodes {
-		if node.Type == workflowNodeTypeGroup || node.Type == workflowNodeTypeTimer {
+		if workflowNodeCannotBeRunTarget(node.Type) {
 			continue
 		}
 		if !e.shouldEvaluateNodeInTriggeredRun(node.ID) {
@@ -226,6 +227,12 @@ func (e *workflowExecutor) execute(node models.AgentWorkflowNode) (workflowNodeV
 		return workflowNodeValue{}, "Group container", map[string]any{"children": len(e.groupChildren(node.ID))}, nil
 	case workflowNodeTypeTimer:
 		return e.executeTimerNode(node)
+	case workflowNodeTypeDeviceStateChanged:
+		return e.executeDeviceStateChangedNode(node)
+	case workflowNodeTypeDeviceStateIs:
+		return e.executeDeviceStateIsNode(node)
+	case workflowNodeTypeTimeWindow:
+		return e.executeTimeWindowNode(node)
 	case workflowNodeTypeRSSSources:
 		return e.executeRSSNode(node)
 	case workflowNodeTypeText:
@@ -236,6 +243,10 @@ func (e *workflowExecutor) execute(node models.AgentWorkflowNode) (workflowNodeV
 		return e.executeLLMNode(node)
 	case workflowNodeTypeWeComOutput:
 		return e.executeWeComOutputNode(node)
+	case workflowNodeTypeDeviceCommand:
+		return e.executeDeviceCommandNode(node)
+	case workflowNodeTypeAgentFunction:
+		return e.executeAgentFunctionNode(node)
 	default:
 		return workflowNodeValue{}, "", nil, fmt.Errorf("unsupported workflow node type %q", node.Type)
 	}
@@ -253,6 +264,12 @@ func (e *workflowExecutor) executeTextNode(node models.AgentWorkflowNode) (workf
 	textParts := append([]string{}, inputs.texts...)
 	textParts = append(textParts, firstNonEmpty(strings.TrimSpace(config.Text), strings.TrimSpace(config.Prompt)))
 	text := strings.Join(orderedWorkflowStrings(textParts), "\n\n")
+	if inputs.hasBlockingWindow() {
+		return workflowNodeValue{Blocked: true, BlockedByWindow: true}, "Text outside time window", map[string]any{
+			"blocked_by_window": true,
+			"input_count":       inputs.count(),
+		}, nil
+	}
 	if text == "" {
 		if inputs.onlyBlockedByTimer() {
 			return workflowNodeValue{Blocked: true, BlockedByTimer: true}, "Text waiting for timer upstream", map[string]any{
@@ -327,6 +344,14 @@ func (e *workflowExecutor) executeLLMNode(node models.AgentWorkflowNode) (workfl
 	if searchErr != nil {
 		return workflowNodeValue{}, "", nil, searchErr
 	}
+	if promptInputs.hasBlockingWindow() || contextInputs.hasBlockingWindow() || searchInputs.hasBlockingWindow() {
+		return workflowNodeValue{Blocked: true, BlockedByWindow: true}, "LLM outside time window", map[string]any{
+			"blocked_by_window": true,
+			"prompt_inputs":     promptInputs.count(),
+			"context_inputs":    contextInputs.count(),
+			"search_inputs":     searchInputs.count(),
+		}, nil
+	}
 	if len(e.incomingByHandle(node.ID, "tool")) > 0 {
 		return workflowNodeValue{}, "", nil, errors.New("llm tool handle is reserved but not executable yet")
 	}
@@ -387,56 +412,6 @@ func (e *workflowExecutor) executeLLMNode(node models.AgentWorkflowNode) (workfl
 			"chars": len(output),
 			"items": len(contextItems),
 		}, nil
-}
-
-func (e *workflowExecutor) executeWeComOutputNode(node models.AgentWorkflowNode) (workflowNodeValue, string, map[string]any, error) {
-	config, err := decodeWorkflowNodeData[wecomOutputConfig](node.Data)
-	if err != nil {
-		return workflowNodeValue{}, "", nil, err
-	}
-	if e.service.workflowOutput == nil {
-		return workflowNodeValue{}, "", nil, errors.New("wecom output runtime is not configured")
-	}
-	inputs, inputErr := e.collect(node.ID, "")
-	if inputErr != nil {
-		return workflowNodeValue{}, "", nil, inputErr
-	}
-	text := strings.Join(orderedWorkflowStrings(inputs.texts), "\n\n")
-	if strings.TrimSpace(text) == "" {
-		if inputs.onlyBlockedByTimer() {
-			return workflowNodeValue{Blocked: true, BlockedByTimer: true}, "WeCom waiting for timer upstream", map[string]any{
-				"blocked_by_timer": true,
-				"input_count":      inputs.count(),
-			}, nil
-		}
-		if inputs.onlyBlocked() {
-			return workflowNodeValue{Blocked: true}, "WeCom waiting for upstream text", map[string]any{
-				"blocked_by_upstream": true,
-				"input_count":         inputs.count(),
-			}, nil
-		}
-		return workflowNodeValue{}, "", nil, errors.New("wecom output node requires text input")
-	}
-	toUser := strings.TrimSpace(config.ToUser)
-	if toUser == "" {
-		return workflowNodeValue{}, "", nil, errors.New("wecom output node requires to_user")
-	}
-	if sendErr := e.service.workflowOutput.SendWeComText(e.ctx, toUser, text); sendErr != nil {
-		e.deliveryErrors = append(e.deliveryErrors, models.AgentRunError{Target: toUser, Error: sendErr.Error()})
-		return workflowNodeValue{}, "", nil, sendErr
-	}
-	for _, item := range inputs.items {
-		key := normalizeWorkflowURL(item.URL)
-		if key == "" {
-			continue
-		}
-		e.sentItems[key] = item
-	}
-	return workflowNodeValue{Text: text, Items: append([]models.AgentWorkflowItem{}, inputs.items...)}, "Delivered to WeCom", map[string]any{
-		"to_user":    toUser,
-		"text_chars": len(text),
-		"item_count": len(inputs.items),
-	}, nil
 }
 
 func (e *workflowExecutor) groupChildren(groupID string) []models.AgentWorkflowNode {

@@ -18,8 +18,8 @@ func TestNormalizeDefaultsDailySchedule(t *testing.T) {
 func TestNormalizeIntervalSchedule(t *testing.T) {
 	spec, err := Normalize(&Spec{
 		Schedule:        ScheduleInterval,
-		WindowStart:     "08:00",
-		WindowEnd:       "18:00",
+		IntervalStart:   "08:00",
+		IntervalEnd:     "18:00",
 		IntervalSeconds: 600,
 		Timezone:        "UTC",
 	})
@@ -29,8 +29,8 @@ func TestNormalizeIntervalSchedule(t *testing.T) {
 	if spec.Schedule != ScheduleInterval {
 		t.Fatalf("Schedule = %q, want %q", spec.Schedule, ScheduleInterval)
 	}
-	if spec.WindowStart != "08:00" || spec.WindowEnd != "18:00" {
-		t.Fatalf("window = %s -> %s, want 08:00 -> 18:00", spec.WindowStart, spec.WindowEnd)
+	if spec.IntervalStart != "08:00" || spec.IntervalEnd != "18:00" {
+		t.Fatalf("interval bounds = %s -> %s, want 08:00 -> 18:00", spec.IntervalStart, spec.IntervalEnd)
 	}
 	if spec.IntervalSeconds != 600 {
 		t.Fatalf("IntervalSeconds = %d, want 600", spec.IntervalSeconds)
@@ -51,8 +51,8 @@ func TestMatchesRejectsDuplicateMinuteTriggers(t *testing.T) {
 func TestMatchesIntervalTriggersPerSlotWithinWindow(t *testing.T) {
 	spec := &Spec{
 		Schedule:        ScheduleInterval,
-		WindowStart:     "08:00",
-		WindowEnd:       "18:00",
+		IntervalStart:   "08:00",
+		IntervalEnd:     "18:00",
 		IntervalSeconds: 600,
 		Timezone:        "UTC",
 	}
@@ -80,8 +80,8 @@ func TestMatchesIntervalTriggersPerSlotWithinWindow(t *testing.T) {
 func TestMatchesIntervalSupportsOvernightWindows(t *testing.T) {
 	spec := &Spec{
 		Schedule:        ScheduleInterval,
-		WindowStart:     "22:00",
-		WindowEnd:       "02:00",
+		IntervalStart:   "22:00",
+		IntervalEnd:     "02:00",
 		IntervalSeconds: 3600,
 		Timezone:        "UTC",
 	}

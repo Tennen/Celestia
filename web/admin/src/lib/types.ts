@@ -1,7 +1,7 @@
 export type RiskLevel = 'low' | 'medium' | 'high';
 export type PluginStatus = 'installed' | 'enabled' | 'disabled';
 export type HealthState = 'unknown' | 'healthy' | 'degraded' | 'unhealthy' | 'stopped';
-export type CapabilityKind = 'automation' | 'vision_entity_stay_zone';
+export type CapabilityKind = 'vision_entity_stay_zone';
 export type DeviceKind =
   | 'light'
   | 'switch'
@@ -66,64 +66,6 @@ export type PluginHealth = {
   process_pid?: number;
 };
 
-export type AutomationLogic = 'all' | 'any';
-export type AutomationMatchOperator = 'any' | 'equals' | 'not_equals' | 'in' | 'not_in' | 'exists' | 'missing';
-export type AutomationRunStatus = 'idle' | 'succeeded' | 'failed';
-
-export type AutomationStateMatch = {
-  operator: AutomationMatchOperator;
-  value?: unknown;
-};
-
-export type AutomationConditionType = 'state_changed' | 'current_state' | 'time';
-
-export type AutomationTimeCondition = {
-  schedule: 'daily' | string;
-  at?: string;
-  window_start?: string;
-  window_end?: string;
-  interval_seconds?: number;
-  timezone?: string;
-};
-
-export type AutomationCondition = {
-  type?: AutomationConditionType;
-  device_id?: string;
-  state_key?: string;
-  from?: AutomationStateMatch;
-  to?: AutomationStateMatch;
-  match?: AutomationStateMatch;
-  time?: AutomationTimeCondition;
-};
-
-export type AutomationTimeWindow = {
-  start: string;
-  end: string;
-};
-
-export type AutomationAction = {
-  kind?: 'device' | 'agent';
-  device_id: string;
-  label?: string;
-  action: string;
-  params?: Record<string, unknown>;
-};
-
-export type Automation = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  condition_logic: AutomationLogic;
-  conditions?: AutomationCondition[];
-  time_window?: AutomationTimeWindow | null;
-  actions: AutomationAction[];
-  last_triggered_at?: string | null;
-  last_run_status?: AutomationRunStatus;
-  last_error?: string;
-  created_at: string;
-  updated_at: string;
-};
-
 export type PluginRuntimeView = {
   record: PluginInstallRecord;
   manifest?: PluginManifest | null;
@@ -144,12 +86,6 @@ export type CapabilitySummary = {
   status: HealthState;
   summary?: Record<string, unknown>;
   updated_at: string;
-};
-
-export type AutomationCapabilityDetail = {
-  total: number;
-  enabled_count: number;
-  last_triggered_at?: string | null;
 };
 
 export type VisionEntitySelector = {
@@ -243,7 +179,6 @@ export type VisionCapabilityDetail = {
 };
 
 export type CapabilityDetail = CapabilitySummary & {
-  automation?: AutomationCapabilityDetail | null;
   vision?: VisionCapabilityDetail | null;
 };
 
@@ -373,7 +308,6 @@ export type AdminStreamFrame = {
   dashboard?: DashboardSummary | null;
   plugins?: PluginRuntimeView[];
   capabilities?: CapabilitySummary[];
-  automations?: Automation[];
   devices?: DeviceView[];
   events?: EventRecord[];
   audits?: AuditRecord[];

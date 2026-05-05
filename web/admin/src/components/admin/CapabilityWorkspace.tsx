@@ -1,7 +1,6 @@
 import { Card, CardContent } from '../ui/card';
 import { capabilityDisplayName } from '../../lib/capability';
 import { useAdminStore } from '../../stores/adminStore';
-import { AutomationWorkspace } from './AutomationWorkspace';
 import { VisionCapabilityPanel } from './VisionCapabilityPanel';
 
 type Props = {
@@ -21,10 +20,6 @@ export function CapabilityWorkspace({ selectedCapabilityId }: Props) {
         </CardContent>
       </Card>
     );
-  }
-
-  if (selectedCapability.id === 'automation') {
-    return <AutomationWorkspace />;
   }
 
   if (selectedCapability.id === 'vision_entity_stay_zone') {

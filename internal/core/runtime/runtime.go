@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/chentianyu/celestia/internal/core/agent"
+	agentruntime "github.com/chentianyu/celestia/internal/core/agent/runtime"
 	"github.com/chentianyu/celestia/internal/core/audit"
-	"github.com/chentianyu/celestia/internal/core/automation"
 	"github.com/chentianyu/celestia/internal/core/capability"
 	"github.com/chentianyu/celestia/internal/core/control"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
@@ -29,7 +29,6 @@ type Runtime struct {
 	Registry   *registry.Service
 	State      *state.Service
 	Audit      *audit.Service
-	Automation *automation.Service
 	Capability *capability.Service
 	Controls   *control.Service
 	Home       *control.HomeService
@@ -59,19 +58,17 @@ func New(store storage.Store) *Runtime {
 	voiceSvc := voice.New(agentSvc)
 	touchpointSvc := touchpoint.New(agentSvc, agentSvc)
 	agentSvc.SetWorkflowOutputRuntime(touchpointSvc)
+	agentSvc.SetWorkflowInputRuntime(inputSvc)
+	agentSvc.SetWorkflowDeviceRuntime(agentruntime.NewWorkflowDeviceRuntime(registrySvc, stateSvc, policySvc, auditSvc, pluginMgr))
 	touchpointSvc.SetInputRunner(inputSvc)
 	touchpointSvc.SetVoiceProvider(voiceSvc)
-	automationSvc := automation.New(store, bus, registrySvc, stateSvc, policySvc, auditSvc, pluginMgr)
-	automationSvc.SetAgentRuntime(inputSvc)
-	automationSvc.SetWeComRuntime(touchpointSvc)
 	return &Runtime{
 		Store:      store,
 		EventBus:   bus,
 		Registry:   registrySvc,
 		State:      stateSvc,
 		Audit:      auditSvc,
-		Automation: automationSvc,
-		Capability: capability.New(automationSvc, visionSvc),
+		Capability: capability.New(visionSvc),
 		Controls:   controlSvc,
 		Home:       homeSvc,
 		Policy:     policySvc,
@@ -105,9 +102,6 @@ func (r *Runtime) Reconcile(ctx context.Context) error {
 }
 
 func (r *Runtime) Shutdown(ctx context.Context) error {
-	if r.Automation != nil {
-		r.Automation.Close()
-	}
 	if r.Vision != nil {
 		r.Vision.Close()
 	}
