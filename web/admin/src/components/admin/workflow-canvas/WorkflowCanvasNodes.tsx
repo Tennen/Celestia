@@ -127,7 +127,6 @@ export function WorkflowCanvasNode({ data, selected }: NodeProps) {
       return (
         <NodeShell title={view.title} description="Action: sends a real command through the gateway." selected={selected}>
           <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="trigger" />
-          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Left} id="text" />
         </NodeShell>
       );
     case 'agent_function':
