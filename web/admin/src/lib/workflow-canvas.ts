@@ -65,9 +65,9 @@ export function defaultNodeData(type: WorkflowNodeType): Record<string, unknown>
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
       };
     case 'device_state_changed':
-      return { device_id: '', state_key: '', from: { operator: 'any' }, to: { operator: 'exists' } };
+      return { device_id: '', state_key: '', from: { operator: 'not_equals' }, to: { operator: 'equals' } };
     case 'device_state_is':
-      return { device_id: '', state_key: '', match: { operator: 'exists' } };
+      return { device_id: '', state_key: '', match: { operator: 'equals' } };
     case 'time_window':
       return { start: '08:00', end: '18:00', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '' };
     case 'rss_sources':

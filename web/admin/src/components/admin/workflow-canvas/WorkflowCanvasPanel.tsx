@@ -43,6 +43,7 @@ import {
   workflowNodeCatalog,
   type WorkflowNodeType,
 } from '../../../lib/workflow-canvas';
+import { workflowNodeDataWithDeviceDefaults } from '../../../lib/workflow-node-options';
 import { WorkflowCanvasInspector } from './WorkflowCanvasInspector';
 import { workflowCanvasNodeTypes } from './WorkflowCanvasNodes';
 import { useAdminStore } from '../../../stores/adminStore';
@@ -127,14 +128,6 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
         label: user.name || user.wecom_user || user.id,
       })),
   ];
-  const deviceOptions = [
-    { value: '', label: 'Select Device' },
-    ...devices.map((view) => ({
-      value: view.device.id,
-      label: view.device.name || view.device.alias || view.device.id,
-    })),
-  ];
-
   const saveWorkflow = async () => {
     onWorkflowSaved(draft.id);
     await onRun('workflow-save', () =>
@@ -165,6 +158,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
 
   const addNode = (type: WorkflowNodeType) => {
     const node = createWorkflowNode(type, draft.nodes.length + 1);
+    node.data = workflowNodeDataWithDeviceDefaults(type, node.data ?? {}, devices);
     if (selectedNode?.type === 'group' && type !== 'group') {
       node.parent_id = selectedNode.id;
       node.position = { x: 24, y: 48 + draft.nodes.filter((item) => item.parent_id === selectedNode.id).length * 92 };
@@ -376,7 +370,7 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
                     providerOptions={providerOptions}
                     searchProviderOptions={searchProviderOptions}
                     wecomOptions={wecomOptions}
-                    deviceOptions={deviceOptions}
+                    devices={devices}
                     onChange={updateSelectedNode}
                     onDelete={() => {
                       setDraft((current) => {
