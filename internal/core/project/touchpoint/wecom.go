@@ -57,14 +57,8 @@ func (s *Service) PublishWeComMenu(ctx context.Context) (models.AgentWeComMenuSn
 	if len(snapshot.WeComMenu.ValidationErrors) > 0 {
 		return models.AgentWeComMenuSnapshot{}, errors.New(strings.Join(snapshot.WeComMenu.ValidationErrors, "; "))
 	}
-	token, err := s.wecomAccessToken(ctx, snapshot.Settings.WeCom)
-	if err != nil {
-		return models.AgentWeComMenuSnapshot{}, err
-	}
 	payload := buildWeComMenuPayload(snapshot.WeComMenu.Config)
-	endpoint := strings.TrimRight(snapshot.Settings.WeCom.BaseURL, "/") + "/cgi-bin/menu/create"
-	params := url.Values{"access_token": {token}, "agentid": {snapshot.Settings.WeCom.AgentID}}
-	if err := wecomPost(ctx, endpoint+"?"+params.Encode(), payload, nil); err != nil {
+	if err := s.publishWeComMenuPayload(ctx, snapshot.Settings.WeCom, payload); err != nil {
 		return models.AgentWeComMenuSnapshot{}, err
 	}
 	next, err := s.update(ctx, func(item *models.AgentSnapshot) error {
@@ -79,6 +73,28 @@ func (s *Service) PublishWeComMenu(ctx context.Context) (models.AgentWeComMenuSn
 		return models.AgentWeComMenuSnapshot{}, err
 	}
 	return next.WeComMenu, nil
+}
+
+func (s *Service) publishWeComMenuPayload(ctx context.Context, config models.AgentWeComConfig, payload map[string]any) error {
+	if strings.TrimSpace(config.BridgeURL) != "" {
+		token, err := s.wecomBridgeToken(ctx, config)
+		if err != nil {
+			return err
+		}
+		endpoint := strings.TrimRight(config.BridgeURL, "/") + "/proxy/menu/create"
+		return wecomBridgePost(ctx, endpoint, config.BridgeToken, map[string]any{
+			"access_token": token,
+			"agentid":      strings.TrimSpace(config.AgentID),
+			"menu":         payload,
+		}, nil)
+	}
+	token, err := s.wecomAccessToken(ctx, config)
+	if err != nil {
+		return err
+	}
+	endpoint := strings.TrimRight(firstNonEmpty(config.BaseURL, "https://qyapi.weixin.qq.com"), "/") + "/cgi-bin/menu/create"
+	params := url.Values{"access_token": {token}, "agentid": {config.AgentID}}
+	return wecomPost(ctx, endpoint+"?"+params.Encode(), payload, nil)
 }
 
 func (s *Service) SendWeComMessage(ctx context.Context, req WeComSendRequest) error {

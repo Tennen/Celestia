@@ -100,17 +100,17 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         <Card className="panel">
           <CardHeader>
             <CardTitle>WeCom Settings</CardTitle>
-            <CardDescription>Project touchpoint app, bridge, and message delivery settings</CardDescription>
+            <CardDescription>Project touchpoint app, bridge proxy, and message delivery settings</CardDescription>
           </CardHeader>
           <CardContent className="stack">
-            <ToggleField label="WeCom enabled" checked={settings.enabled} onChange={(enabled) => setSettings({ ...settings, enabled })} />
-            <ToggleField label="Bridge stream enabled" checked={settings.bridge_stream_enabled === true} onChange={(bridge_stream_enabled) => setSettings({ ...settings, bridge_stream_enabled })} />
+            <ToggleField label="WeCom integration enabled" checked={settings.enabled} onChange={(enabled) => setSettings({ ...settings, enabled })} />
+            <ToggleField label="Bridge inbound stream" checked={settings.bridge_stream_enabled === true} onChange={(bridge_stream_enabled) => setSettings({ ...settings, bridge_stream_enabled })} />
             <FieldGrid>
               <Field label="Corp ID" value={settings.corp_id ?? ''} onChange={(corp_id) => setSettings({ ...settings, corp_id })} />
               <Field label="Corp Secret" value={settings.corp_secret ?? ''} onChange={(corp_secret) => setSettings({ ...settings, corp_secret })} />
               <Field label="Agent ID" value={settings.agent_id ?? ''} onChange={(agent_id) => setSettings({ ...settings, agent_id })} />
-              <Field label="Base URL" value={settings.base_url ?? ''} onChange={(base_url) => setSettings({ ...settings, base_url })} />
-              <Field label="Bridge URL" value={settings.bridge_url ?? ''} onChange={(bridge_url) => setSettings({ ...settings, bridge_url })} />
+              <Field label="WeCom API Base URL" value={settings.base_url ?? ''} onChange={(base_url) => setSettings({ ...settings, base_url })} />
+              <Field label="Bridge Proxy URL" value={settings.bridge_url ?? ''} onChange={(bridge_url) => setSettings({ ...settings, bridge_url })} />
               <Field label="Bridge Token" value={settings.bridge_token ?? ''} onChange={(bridge_token) => setSettings({ ...settings, bridge_token })} />
               <Field label="Audio directory" value={settings.audio_dir ?? ''} onChange={(audio_dir) => setSettings({ ...settings, audio_dir })} />
               <Field label="Text max bytes" value={textMaxBytes} onChange={setTextMaxBytes} />

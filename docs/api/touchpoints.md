@@ -81,7 +81,7 @@ POST /api/v1/touchpoints/wecom/menu/publish
 
 `PUT` stores and validates a menu config. Nested WeCom menu groups are preserved through `sub_buttons`; Celestia supports WeCom's 3 top-level buttons and 5 sub-buttons per group.
 
-`POST /publish` publishes the generated payload using `settings.wecom`. If `settings.wecom.bridge_url` is set, media/send operations use bridge-compatible routes; menu publishing uses the configured WeCom API base URL.
+`POST /publish` publishes the generated payload using `settings.wecom`. If `settings.wecom.bridge_url` is set, menu publishing and media/send operations use bridge-compatible proxy routes. Without a bridge URL, menu publishing uses the configured WeCom API base URL.
 
 ## WeCom Send
 

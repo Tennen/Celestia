@@ -2,8 +2,12 @@ package touchpoint
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/chentianyu/celestia/internal/core/agent"
@@ -83,5 +87,106 @@ func TestSendWeComMessageRejectsUnconfiguredTargetBeforeDelivery(t *testing.T) {
 	err := svc.SendWeComMessage(ctx, WeComSendRequest{ToUser: "missing", Text: "hello"})
 	if err == nil || !strings.Contains(err.Error(), "not a configured user") {
 		t.Fatalf("SendWeComMessage() error = %v, want configured-user rejection", err)
+	}
+}
+
+func TestPublishWeComMenuUsesBridgeWhenConfigured(t *testing.T) {
+	ctx := context.Background()
+	var mu sync.Mutex
+	var tokenPayload map[string]string
+	var menuPayload struct {
+		AccessToken string         `json:"access_token"`
+		AgentID     string         `json:"agentid"`
+		Menu        map[string]any `json:"menu"`
+	}
+	bridge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer bridge-secret" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		switch r.URL.Path {
+		case "/proxy/gettoken":
+			var payload map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Errorf("decode token payload: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			mu.Lock()
+			tokenPayload = payload
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok","access_token":"bridge-access-token"}`))
+		case "/proxy/menu/create":
+			var payload struct {
+				AccessToken string         `json:"access_token"`
+				AgentID     string         `json:"agentid"`
+				Menu        map[string]any `json:"menu"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Errorf("decode menu payload: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			mu.Lock()
+			menuPayload = payload
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok"}`))
+		default:
+			t.Errorf("unexpected bridge path %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(bridge.Close)
+
+	svc, agentSvc := newTouchpointPersistenceTestService(t)
+	if _, err := agentSvc.UpdateSnapshot(ctx, func(snapshot *models.AgentSnapshot) error {
+		snapshot.Settings.WeCom = models.AgentWeComConfig{
+			Enabled:     true,
+			CorpID:      "corp-id",
+			CorpSecret:  "corp-secret",
+			AgentID:     "1000001",
+			BaseURL:     "http://127.0.0.1:1",
+			BridgeURL:   bridge.URL,
+			BridgeToken: "bridge-secret",
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("UpdateSnapshot() error = %v", err)
+	}
+	if _, err := svc.SaveWeComMenu(ctx, models.AgentWeComMenuConfig{Buttons: []models.AgentWeComButton{{
+		ID:           "menu-status",
+		Name:         "Status",
+		Key:          "status",
+		Enabled:      true,
+		DispatchText: "/status",
+	}}}); err != nil {
+		t.Fatalf("SaveWeComMenu() error = %v", err)
+	}
+
+	menu, err := svc.PublishWeComMenu(ctx)
+	if err != nil {
+		t.Fatalf("PublishWeComMenu() error = %v", err)
+	}
+	if menu.Config.LastPublishedAt == nil {
+		t.Fatalf("PublishWeComMenu() did not record last_published_at")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if tokenPayload["corpid"] != "corp-id" || tokenPayload["corpsecret"] != "corp-secret" {
+		t.Fatalf("bridge token payload = %+v", tokenPayload)
+	}
+	if menuPayload.AccessToken != "bridge-access-token" || menuPayload.AgentID != "1000001" {
+		t.Fatalf("bridge menu payload token/agent = %+v", menuPayload)
+	}
+	buttons, ok := menuPayload.Menu["button"].([]any)
+	if !ok || len(buttons) != 1 {
+		t.Fatalf("bridge menu buttons = %#v", menuPayload.Menu["button"])
+	}
+	button, ok := buttons[0].(map[string]any)
+	if !ok || button["type"] != "click" || button["name"] != "Status" || button["key"] != "status" {
+		t.Fatalf("bridge menu button = %#v", buttons[0])
 	}
 }
