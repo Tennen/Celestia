@@ -75,13 +75,14 @@ Legacy `/api/v1/agent/push` is not registered.
 ## WeCom Menu
 
 ```http
+GET /api/v1/touchpoints/wecom/menu
 PUT /api/v1/touchpoints/wecom/menu
-POST /api/v1/touchpoints/wecom/menu/publish
+DELETE /api/v1/touchpoints/wecom/menu
 ```
 
-`PUT` stores and validates a menu config. Nested WeCom menu groups are preserved through `sub_buttons`; Celestia supports WeCom's 3 top-level buttons and 5 sub-buttons per group.
+`GET` reads the current app menu from WeCom. `PUT` validates and creates/overwrites the WeCom app menu. `DELETE` calls WeCom's menu delete endpoint and is the supported reset path; sending an empty `button` list to create is rejected before reaching WeCom. Celestia supports WeCom's 3 top-level buttons and 5 sub-buttons per group. A publishable menu must include at least one enabled button, and every enabled group must contain at least one enabled sub-button.
 
-`POST /publish` publishes the generated payload using `settings.wecom`. If `settings.wecom.bridge_url` is set, menu publishing and media/send operations use bridge-compatible proxy routes. Without a bridge URL, menu publishing uses the configured WeCom API base URL.
+Menu get/create/delete use `settings.wecom`. If `settings.wecom.bridge_url` is set, these operations use bridge-compatible proxy routes. Without a bridge URL, they use the configured WeCom API base URL.
 
 ## WeCom Send
 
@@ -124,7 +125,7 @@ POST /api/v1/touchpoints/wecom/ingress
 `/ingress` is the synchronous WeCom entrypoint:
 
 - text messages enter ProjectInput
-- click events resolve menu `dispatch_text` and enter ProjectInput
+- click events use WeCom `EventKey` as the ProjectInput text
 - voice messages download media, run the configured voice provider when enabled, then enter ProjectInput
 
 The HTTP response is WeCom XML text. Send `Accept: application/json` to inspect the structured result instead.

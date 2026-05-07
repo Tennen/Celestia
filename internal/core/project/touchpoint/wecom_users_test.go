@@ -90,7 +90,7 @@ func TestSendWeComMessageRejectsUnconfiguredTargetBeforeDelivery(t *testing.T) {
 	}
 }
 
-func TestPublishWeComMenuUsesBridgeWhenConfigured(t *testing.T) {
+func TestSaveWeComMenuUsesBridgeWhenConfigured(t *testing.T) {
 	ctx := context.Background()
 	var mu sync.Mutex
 	var tokenPayload map[string]string
@@ -155,22 +155,18 @@ func TestPublishWeComMenuUsesBridgeWhenConfigured(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpdateSnapshot() error = %v", err)
 	}
-	if _, err := svc.SaveWeComMenu(ctx, models.AgentWeComMenuConfig{Buttons: []models.AgentWeComButton{{
+	menu, err := svc.SaveWeComMenu(ctx, models.AgentWeComMenuConfig{Buttons: []models.AgentWeComButton{{
 		ID:           "menu-status",
 		Name:         "Status",
 		Key:          "status",
 		Enabled:      true,
 		DispatchText: "/status",
-	}}}); err != nil {
+	}}})
+	if err != nil {
 		t.Fatalf("SaveWeComMenu() error = %v", err)
 	}
-
-	menu, err := svc.PublishWeComMenu(ctx)
-	if err != nil {
-		t.Fatalf("PublishWeComMenu() error = %v", err)
-	}
 	if menu.Config.LastPublishedAt == nil {
-		t.Fatalf("PublishWeComMenu() did not record last_published_at")
+		t.Fatalf("SaveWeComMenu() did not record last_published_at")
 	}
 
 	mu.Lock()
@@ -189,4 +185,146 @@ func TestPublishWeComMenuUsesBridgeWhenConfigured(t *testing.T) {
 	if !ok || button["type"] != "click" || button["name"] != "Status" || button["key"] != "status" {
 		t.Fatalf("bridge menu button = %#v", buttons[0])
 	}
+}
+
+func TestSaveWeComMenuIncludesBridgeErrorBody(t *testing.T) {
+	ctx := context.Background()
+	bridge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/proxy/gettoken":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok","access_token":"bridge-access-token"}`))
+		case "/proxy/menu/create":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`{"errcode":40058,"errmsg":"invalid button name"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(bridge.Close)
+
+	svc, agentSvc := newTouchpointPersistenceTestService(t)
+	if _, err := agentSvc.UpdateSnapshot(ctx, func(snapshot *models.AgentSnapshot) error {
+		snapshot.Settings.WeCom = models.AgentWeComConfig{
+			Enabled:    true,
+			CorpID:     "corp-id",
+			CorpSecret: "corp-secret",
+			AgentID:    "1000001",
+			BridgeURL:  bridge.URL,
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("UpdateSnapshot() error = %v", err)
+	}
+	_, err := svc.SaveWeComMenu(ctx, models.AgentWeComMenuConfig{Buttons: []models.AgentWeComButton{{
+		ID:           "menu-status",
+		Name:         "Status",
+		Key:          "status",
+		Enabled:      true,
+		DispatchText: "/status",
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "invalid button name") {
+		t.Fatalf("SaveWeComMenu() error = %v, want bridge body detail", err)
+	}
+}
+
+func TestGetAndDeleteWeComMenuUseBridgeWhenConfigured(t *testing.T) {
+	ctx := context.Background()
+	var mu sync.Mutex
+	paths := []string{}
+	bridge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
+		switch r.URL.Path {
+		case "/proxy/gettoken":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok","access_token":"bridge-access-token"}`))
+		case "/proxy/menu/get":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok","button":[{"type":"click","name":"Status","key":"status"}]}`))
+		case "/proxy/menu/delete":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(bridge.Close)
+
+	svc, agentSvc := newTouchpointPersistenceTestService(t)
+	if _, err := agentSvc.UpdateSnapshot(ctx, func(snapshot *models.AgentSnapshot) error {
+		snapshot.Settings.WeCom = models.AgentWeComConfig{
+			Enabled:    true,
+			CorpID:     "corp-id",
+			CorpSecret: "corp-secret",
+			AgentID:    "1000001",
+			BridgeURL:  bridge.URL,
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("UpdateSnapshot() error = %v", err)
+	}
+
+	menu, err := svc.GetWeComMenu(ctx)
+	if err != nil {
+		t.Fatalf("GetWeComMenu() error = %v", err)
+	}
+	if len(menu.Config.Buttons) != 1 || menu.Config.Buttons[0].Key != "status" {
+		t.Fatalf("GetWeComMenu() = %+v", menu.Config.Buttons)
+	}
+	deleted, err := svc.DeleteWeComMenu(ctx)
+	if err != nil {
+		t.Fatalf("DeleteWeComMenu() error = %v", err)
+	}
+	if len(deleted.Config.Buttons) != 0 {
+		t.Fatalf("DeleteWeComMenu() buttons = %+v, want empty", deleted.Config.Buttons)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !containsText(paths, "/proxy/menu/get") || !containsText(paths, "/proxy/menu/delete") {
+		t.Fatalf("bridge paths = %+v", paths)
+	}
+}
+
+func TestSaveWeComMenuRejectsUnpublishablePayload(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newTouchpointPersistenceTestService(t)
+
+	menu, err := svc.SaveWeComMenu(ctx, models.AgentWeComMenuConfig{})
+	if err == nil {
+		t.Fatalf("SaveWeComMenu(empty) error = nil, want validation error")
+	}
+	if len(menu.ValidationErrors) != 1 || !strings.Contains(menu.ValidationErrors[0], "at least one enabled button") {
+		t.Fatalf("empty menu validation = %+v", menu.ValidationErrors)
+	}
+
+	menu, err = svc.SaveWeComMenu(ctx, models.AgentWeComMenuConfig{Buttons: []models.AgentWeComButton{{
+		ID:      "group-empty",
+		Name:    "Group",
+		Enabled: true,
+		SubButtons: []models.AgentWeComButton{{
+			ID:      "child-disabled",
+			Name:    "Disabled",
+			Key:     "disabled",
+			Enabled: false,
+		}},
+	}}})
+	if err == nil {
+		t.Fatalf("SaveWeComMenu(empty group) error = nil, want validation error")
+	}
+	if !containsText(menu.ValidationErrors, "at least one enabled sub-button") {
+		t.Fatalf("empty group validation = %+v", menu.ValidationErrors)
+	}
+}
+
+func containsText(values []string, want string) bool {
+	for _, value := range values {
+		if strings.Contains(value, want) {
+			return true
+		}
+	}
+	return false
 }

@@ -1,5 +1,9 @@
 import { request } from './api';
+import { normalizeWeComMenuSnapshot, type AgentPushSnapshot, type AgentWeComMenuConfig, type AgentWeComMenuSnapshot } from './agent-wecom';
 import { normalizeAgentWorkflowSnapshot, type AgentWorkflowSnapshot } from './agent-workflow';
+
+export { deleteAgentWeComMenu, fetchAgentWeComMenu, saveAgentWeComMenu } from './agent-wecom';
+export type { AgentPushSnapshot, AgentWeComButton, AgentWeComMenuConfig, AgentWeComMenuSnapshot, AgentWeComUser } from './agent-wecom';
 
 export type AgentLLMProvider = {
   id: string;
@@ -96,42 +100,6 @@ export type AgentDirectInputRule = {
 export type AgentDirectInputConfig = {
   version: number;
   rules: AgentDirectInputRule[];
-  updated_at: string;
-};
-
-export type AgentWeComButton = {
-  id: string;
-  name: string;
-  key: string;
-  enabled: boolean;
-  dispatch_text: string;
-  sub_buttons?: AgentWeComButton[];
-};
-
-export type AgentWeComMenuConfig = {
-  version: number;
-  buttons: AgentWeComButton[];
-  updated_at: string;
-  last_published_at?: string | null;
-};
-
-export type AgentWeComMenuSnapshot = {
-  config: AgentWeComMenuConfig;
-  recent_events: Array<Record<string, unknown>>;
-  publish_payload?: Record<string, unknown> | null;
-  validation_errors?: string[];
-};
-
-export type AgentWeComUser = {
-  id: string;
-  name: string;
-  wecom_user: string;
-  enabled: boolean;
-  updated_at?: string;
-};
-
-export type AgentPushSnapshot = {
-  users: AgentWeComUser[];
   updated_at: string;
 };
 
@@ -303,14 +271,6 @@ export function saveAgentPush(payload: AgentPushSnapshot) {
   return request<AgentSnapshot>('/touchpoints/wecom/users', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
 }
 
-export function saveAgentWeComMenu(payload: AgentWeComMenuConfig) {
-  return request<AgentSnapshot>('/touchpoints/wecom/menu', { method: 'PUT', body: JSON.stringify(payload) }).then(normalizeAgentSnapshot);
-}
-
-export function publishAgentWeComMenu() {
-  return request<AgentWeComMenuSnapshot>('/touchpoints/wecom/menu/publish', { method: 'POST' });
-}
-
 export function sendAgentWeComMessage(payload: { to_user: string; text: string }) {
   return request<{ ok: boolean }>('/touchpoints/wecom/send', { method: 'POST', body: JSON.stringify(payload) });
 }
@@ -455,13 +415,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
       rules: arrayOrEmpty(directInput.rules),
     },
     wecom_menu: {
-      ...wecomMenu,
-      config: {
-        ...wecomConfig,
-        buttons: arrayOrEmpty(wecomConfig.buttons),
-      },
-      recent_events: arrayOrEmpty(wecomMenu.recent_events),
-      validation_errors: arrayOrEmpty(wecomMenu.validation_errors),
+      ...normalizeWeComMenuSnapshot({ ...wecomMenu, config: wecomConfig }),
     },
     push: {
       ...push,

@@ -31,13 +31,25 @@ func (s *HTTPService) SaveAgentPush(ctx context.Context, push models.AgentPushSn
 	return s.putAgentSnapshot(ctx, "/api/v1/touchpoints/wecom/users", push)
 }
 
-func (s *HTTPService) SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
-	return s.putAgentSnapshot(ctx, "/api/v1/touchpoints/wecom/menu", config)
+func (s *HTTPService) GetAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
+	var out models.AgentWeComMenuSnapshot
+	if err := s.request(ctx, http.MethodGet, "/api/v1/touchpoints/wecom/menu", nil, nil, &out, ""); err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	return out, nil
 }
 
-func (s *HTTPService) PublishAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
+func (s *HTTPService) SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentWeComMenuSnapshot, error) {
 	var out models.AgentWeComMenuSnapshot
-	if err := s.request(ctx, http.MethodPost, "/api/v1/touchpoints/wecom/menu/publish", nil, nil, &out, ""); err != nil {
+	if err := s.request(ctx, http.MethodPut, "/api/v1/touchpoints/wecom/menu", nil, config, &out, ""); err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) DeleteAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
+	var out models.AgentWeComMenuSnapshot
+	if err := s.request(ctx, http.MethodDelete, "/api/v1/touchpoints/wecom/menu", nil, nil, &out, ""); err != nil {
 		return models.AgentWeComMenuSnapshot{}, err
 	}
 	return out, nil

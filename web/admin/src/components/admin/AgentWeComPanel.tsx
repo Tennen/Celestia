@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Save, Send, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
 import {
-  publishAgentWeComMenu,
+  deleteAgentWeComMenu,
+  fetchAgentWeComMenu,
   saveAgentPush,
   saveAgentSettings,
   saveAgentWeComMenu,
@@ -40,10 +41,25 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   const [sttCommand, setSttCommand] = useState(textOf(snapshot.settings.stt?.command));
   const [sttTimeout, setSttTimeout] = useState(numberValue(snapshot.settings.stt?.timeout_ms));
   const [buttons, setButtons] = useState<AgentWeComButton[]>(snapshot.wecom_menu.config.buttons);
+  const [menuError, setMenuError] = useState('');
+  const [menuLoading, setMenuLoading] = useState(false);
   const [pushUser, setPushUser] = useState<PushUser>(snapshot.push.users[0] ?? emptyPushUser());
   const [toUser, setToUser] = useState('');
   const [message, setMessage] = useState('');
   const sendableUsers = useMemo(() => wecomUserOptions(snapshot.push.users), [snapshot.push.users]);
+
+  const loadMenu = async () => {
+    setMenuLoading(true);
+    setMenuError('');
+    try {
+      const menu = await fetchAgentWeComMenu();
+      setButtons(menu.config.buttons);
+    } catch (err) {
+      setMenuError(err instanceof Error ? err.message : 'Failed to load WeCom menu');
+    } finally {
+      setMenuLoading(false);
+    }
+  };
 
   useEffect(() => {
     setSettings(snapshot.settings.wecom);
@@ -52,10 +68,13 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
     setSttProvider(textOf(snapshot.settings.stt?.provider) || 'fast-whisper');
     setSttCommand(textOf(snapshot.settings.stt?.command));
     setSttTimeout(numberValue(snapshot.settings.stt?.timeout_ms));
-    setButtons(snapshot.wecom_menu.config.buttons);
     setPushUser(snapshot.push.users[0] ?? emptyPushUser());
     setToUser((current) => (sendableUsers.some((user) => user.id === current) ? current : (sendableUsers[0]?.id ?? '')));
   }, [snapshot, sendableUsers]);
+
+  useEffect(() => {
+    void loadMenu();
+  }, [snapshot.settings.wecom.enabled, snapshot.settings.wecom.bridge_url, snapshot.settings.wecom.agent_id]);
 
   const saveSettings = () => {
     onRun(
@@ -77,7 +96,19 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   };
 
   const saveMenu = () => {
-    onRun('wecom-save', () => saveAgentWeComMenu({ ...snapshot.wecom_menu.config, buttons: normalizeMenuButtons(buttons) }), false);
+    onRun('wecom-save', async () => {
+      const menu = await saveAgentWeComMenu({ ...snapshot.wecom_menu.config, buttons: normalizeMenuButtons(buttons) });
+      setButtons(menu.config.buttons);
+      return menu;
+    });
+  };
+
+  const deleteMenu = () => {
+    onRun('wecom-delete', async () => {
+      const menu = await deleteAgentWeComMenu();
+      setButtons(menu.config.buttons);
+      return menu;
+    });
   };
 
   const savePushUser = () => {
@@ -157,17 +188,21 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
                 <Plus className="mr-2 h-4 w-4" />
                 Add Top Level
               </Button>
+              <Button variant="secondary" onClick={() => void loadMenu()} disabled={menuLoading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${menuLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
               <Button onClick={saveMenu} disabled={busy === 'wecom-save'}>
                 <Save className="mr-2 h-4 w-4" />
-                Save Menu
+                Save to WeCom
               </Button>
-              <Button variant="secondary" onClick={() => onRun('wecom-publish', () => publishAgentWeComMenu())}>
-                Publish
+              <Button variant="danger" onClick={deleteMenu} disabled={busy === 'wecom-delete'}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Remote
               </Button>
-              <Badge tone={snapshot.wecom_menu.validation_errors?.length ? 'bad' : 'good'}>
-                {snapshot.wecom_menu.validation_errors?.length ? `${snapshot.wecom_menu.validation_errors.length} issues` : 'publishable'}
-              </Badge>
+              <Badge tone={menuError ? 'bad' : buttons.length ? 'good' : 'neutral'}>{menuError ? 'load failed' : buttons.length ? 'remote menu' : 'empty'}</Badge>
             </div>
+            {menuError ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">{menuError}</div> : null}
             {buttons.map((button, index) => (
               <MenuButtonEditor
                 key={button.id}
@@ -317,7 +352,6 @@ function LeafFields(props: { button: AgentWeComButton; onChange: (next: AgentWeC
   return (
     <>
       <Field label="EventKey" value={props.button.key} onChange={(key) => props.onChange({ ...props.button, key })} />
-      <Textarea value={props.button.dispatch_text} onChange={(event) => props.onChange({ ...props.button, dispatch_text: event.target.value })} placeholder="Text sent into the Agent, e.g. Run the close market analysis" />
     </>
   );
 }
@@ -334,8 +368,8 @@ function normalizeMenuButtons(buttons: AgentWeComButton[]) {
     ...button,
     id: button.id || slugId(button.name, 'menu'),
     key: (button.sub_buttons ?? []).length > 0 ? '' : button.key,
-    dispatch_text: (button.sub_buttons ?? []).length > 0 ? '' : button.dispatch_text,
-    sub_buttons: (button.sub_buttons ?? []).map((subButton) => ({ ...subButton, id: subButton.id || slugId(subButton.name, 'submenu') })),
+    dispatch_text: (button.sub_buttons ?? []).length > 0 ? '' : button.key,
+    sub_buttons: (button.sub_buttons ?? []).map((subButton) => ({ ...subButton, dispatch_text: subButton.key, id: subButton.id || slugId(subButton.name, 'submenu') })),
   }));
 }
 

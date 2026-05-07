@@ -32,13 +32,24 @@ func (s *RuntimeService) SaveAgentPush(ctx context.Context, push models.AgentPus
 	return s.agentSnapshot(ctx, snapshot, err)
 }
 
-func (s *RuntimeService) SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
-	snapshot, err := s.runtime.Touchpoint.SaveWeComMenu(ctx, config)
-	return s.agentSnapshot(ctx, snapshot, err)
+func (s *RuntimeService) GetAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
+	menu, err := s.runtime.Touchpoint.GetWeComMenu(ctx)
+	if err != nil {
+		return models.AgentWeComMenuSnapshot{}, statusError(http.StatusBadRequest, err)
+	}
+	return menu, nil
 }
 
-func (s *RuntimeService) PublishAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
-	menu, err := s.runtime.Touchpoint.PublishWeComMenu(ctx)
+func (s *RuntimeService) SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentWeComMenuSnapshot, error) {
+	menu, err := s.runtime.Touchpoint.SaveWeComMenu(ctx, config)
+	if err != nil {
+		return models.AgentWeComMenuSnapshot{}, statusError(http.StatusBadRequest, err)
+	}
+	return menu, nil
+}
+
+func (s *RuntimeService) DeleteAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
+	menu, err := s.runtime.Touchpoint.DeleteWeComMenu(ctx)
 	if err != nil {
 		return models.AgentWeComMenuSnapshot{}, statusError(http.StatusBadRequest, err)
 	}

@@ -28,17 +28,66 @@ type WeComImageRequest struct {
 	ContentType string `json:"content_type,omitempty"`
 }
 
-func (s *Service) SaveWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
-	return s.update(ctx, func(snapshot *models.AgentSnapshot) error {
-		now := time.Now().UTC()
-		config.Version = 1
-		config.UpdatedAt = now
-		snapshot.WeComMenu.Config = config
-		snapshot.WeComMenu.PublishPayload = buildWeComMenuPayload(config)
-		snapshot.WeComMenu.ValidationErrors = validateWeComMenu(config)
-		snapshot.UpdatedAt = now
-		return nil
-	})
+func (s *Service) GetWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	menu, err := s.fetchWeComMenu(ctx, snapshot.Settings.WeCom)
+	if err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	menu.RecentEvents = snapshot.WeComMenu.RecentEvents
+	return menu, nil
+}
+
+func (s *Service) SaveWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentWeComMenuSnapshot, error) {
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	validationErrors := validateWeComMenu(config)
+	if len(validationErrors) > 0 {
+		return models.AgentWeComMenuSnapshot{
+			Config:           normalizeWeComMenuConfig(config),
+			RecentEvents:     snapshot.WeComMenu.RecentEvents,
+			PublishPayload:   buildWeComMenuPayload(config),
+			ValidationErrors: validationErrors,
+		}, errors.New(strings.Join(validationErrors, "; "))
+	}
+	payload := buildWeComMenuPayload(config)
+	if err := s.createWeComMenu(ctx, snapshot.Settings.WeCom, payload); err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	now := time.Now().UTC()
+	config = normalizeWeComMenuConfig(config)
+	config.LastPublishedAt = &now
+	return models.AgentWeComMenuSnapshot{
+		Config:         config,
+		RecentEvents:   snapshot.WeComMenu.RecentEvents,
+		PublishPayload: payload,
+	}, nil
+}
+
+func (s *Service) DeleteWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	if err := s.deleteWeComMenu(ctx, snapshot.Settings.WeCom); err != nil {
+		return models.AgentWeComMenuSnapshot{}, err
+	}
+	now := time.Now().UTC()
+	return models.AgentWeComMenuSnapshot{
+		Config: models.AgentWeComMenuConfig{
+			Version:         1,
+			Buttons:         []models.AgentWeComButton{},
+			UpdatedAt:       now,
+			LastPublishedAt: &now,
+		},
+		RecentEvents:   snapshot.WeComMenu.RecentEvents,
+		PublishPayload: map[string]any{"button": []any{}},
+	}, nil
 }
 
 func (s *Service) ResolveWeComRecipient(ctx context.Context, target string) (models.AgentPushUser, error) {
@@ -47,54 +96,6 @@ func (s *Service) ResolveWeComRecipient(ctx context.Context, target string) (mod
 		return models.AgentPushUser{}, err
 	}
 	return resolveWeComRecipient(snapshot.Push.Users, target)
-}
-
-func (s *Service) PublishWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error) {
-	snapshot, err := s.Snapshot(ctx)
-	if err != nil {
-		return models.AgentWeComMenuSnapshot{}, err
-	}
-	if len(snapshot.WeComMenu.ValidationErrors) > 0 {
-		return models.AgentWeComMenuSnapshot{}, errors.New(strings.Join(snapshot.WeComMenu.ValidationErrors, "; "))
-	}
-	payload := buildWeComMenuPayload(snapshot.WeComMenu.Config)
-	if err := s.publishWeComMenuPayload(ctx, snapshot.Settings.WeCom, payload); err != nil {
-		return models.AgentWeComMenuSnapshot{}, err
-	}
-	next, err := s.update(ctx, func(item *models.AgentSnapshot) error {
-		now := time.Now().UTC()
-		item.WeComMenu.PublishPayload = payload
-		item.WeComMenu.Config.LastPublishedAt = &now
-		item.WeComMenu.Config.UpdatedAt = now
-		item.UpdatedAt = now
-		return nil
-	})
-	if err != nil {
-		return models.AgentWeComMenuSnapshot{}, err
-	}
-	return next.WeComMenu, nil
-}
-
-func (s *Service) publishWeComMenuPayload(ctx context.Context, config models.AgentWeComConfig, payload map[string]any) error {
-	if strings.TrimSpace(config.BridgeURL) != "" {
-		token, err := s.wecomBridgeToken(ctx, config)
-		if err != nil {
-			return err
-		}
-		endpoint := strings.TrimRight(config.BridgeURL, "/") + "/proxy/menu/create"
-		return wecomBridgePost(ctx, endpoint, config.BridgeToken, map[string]any{
-			"access_token": token,
-			"agentid":      strings.TrimSpace(config.AgentID),
-			"menu":         payload,
-		}, nil)
-	}
-	token, err := s.wecomAccessToken(ctx, config)
-	if err != nil {
-		return err
-	}
-	endpoint := strings.TrimRight(firstNonEmpty(config.BaseURL, "https://qyapi.weixin.qq.com"), "/") + "/cgi-bin/menu/create"
-	params := url.Values{"access_token": {token}, "agentid": {config.AgentID}}
-	return wecomPost(ctx, endpoint+"?"+params.Encode(), payload, nil)
 }
 
 func (s *Service) SendWeComMessage(ctx context.Context, req WeComSendRequest) error {
@@ -246,22 +247,17 @@ func (s *Service) recordWeComEvent(ctx context.Context, eventType, eventKey, fro
 	}
 	now := time.Now().UTC()
 	record := models.AgentWeComEventRecord{
-		ID:         uuid.NewString(),
-		EventType:  firstNonEmpty(eventType, "click"),
-		EventKey:   strings.TrimSpace(eventKey),
-		FromUser:   strings.TrimSpace(fromUser),
-		ToUser:     strings.TrimSpace(toUser),
-		AgentID:    strings.TrimSpace(agentID),
-		Status:     "recorded",
-		ReceivedAt: now,
+		ID:           uuid.NewString(),
+		EventType:    firstNonEmpty(eventType, "click"),
+		EventKey:     strings.TrimSpace(eventKey),
+		FromUser:     strings.TrimSpace(fromUser),
+		ToUser:       strings.TrimSpace(toUser),
+		AgentID:      strings.TrimSpace(agentID),
+		DispatchText: strings.TrimSpace(eventKey),
+		Status:       "dispatched",
+		ReceivedAt:   now,
 	}
 	next, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
-		if button, ok := findWeComButton(snapshot.WeComMenu.Config.Buttons, record.EventKey); ok {
-			record.MatchedButtonID = button.ID
-			record.MatchedButtonName = button.Name
-			record.DispatchText = button.DispatchText
-			record.Status = "dispatched"
-		}
 		snapshot.WeComMenu.RecentEvents = append([]models.AgentWeComEventRecord{record}, snapshot.WeComMenu.RecentEvents...)
 		snapshot.WeComMenu.RecentEvents = truncateList(snapshot.WeComMenu.RecentEvents, 50)
 		snapshot.UpdatedAt = now
@@ -413,28 +409,43 @@ func validateWeComMenu(config models.AgentWeComMenuConfig) []string {
 	if len(config.Buttons) > 3 {
 		out = append(out, "WeCom supports at most 3 top-level buttons")
 	}
+	enabledButtons := 0
 	for _, button := range config.Buttons {
+		if !button.Enabled {
+			continue
+		}
+		enabledButtons++
 		if strings.TrimSpace(button.Name) == "" {
 			out = append(out, "button name is required")
-		}
-		if len(button.SubButtons) == 0 && strings.TrimSpace(button.Key) == "" {
-			out = append(out, "leaf button key is required")
 		}
 		if len(button.SubButtons) > 5 {
 			out = append(out, "WeCom supports at most 5 sub-buttons per group")
 		}
+		if len(button.SubButtons) == 0 {
+			if strings.TrimSpace(button.Key) == "" {
+				out = append(out, "leaf button key is required")
+			}
+			continue
+		}
+		enabledChildren := 0
+		for _, child := range button.SubButtons {
+			if !child.Enabled {
+				continue
+			}
+			enabledChildren++
+			if strings.TrimSpace(child.Name) == "" {
+				out = append(out, "sub-button name is required")
+			}
+			if strings.TrimSpace(child.Key) == "" {
+				out = append(out, "sub-button key is required")
+			}
+		}
+		if enabledChildren == 0 {
+			out = append(out, "menu group requires at least one enabled sub-button")
+		}
+	}
+	if enabledButtons == 0 {
+		out = append(out, "WeCom menu requires at least one enabled button")
 	}
 	return out
-}
-
-func findWeComButton(buttons []models.AgentWeComButton, key string) (models.AgentWeComButton, bool) {
-	for _, button := range buttons {
-		if button.Enabled && strings.TrimSpace(button.Key) == strings.TrimSpace(key) {
-			return button, true
-		}
-		if child, ok := findWeComButton(button.SubButtons, key); ok {
-			return child, true
-		}
-	}
-	return models.AgentWeComButton{}, false
 }

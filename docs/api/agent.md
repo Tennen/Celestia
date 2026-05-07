@@ -18,7 +18,7 @@ Returns the full Agent snapshot:
 - `settings.knowledge`: Codex-backed knowledge base settings. `bases[]` lists host directories that Codex can use as knowledge roots for `/kb` slash commands; `default_base_id` is used when a command does not specify `@base-id`; `agent_provider_id` must reference an Agent provider whose `type` is `codex`.
 - `tools`: Agent-owned Eino tool contracts.
 - `direct_input`: input mapping rules owned by Touchpoints before Agent execution.
-- `wecom_menu` and `push`: Touchpoint-owned WeCom menu/users stored in the migrated snapshot document store.
+- `wecom_menu` and `push`: migrated Touchpoint state retained for compatibility. Runtime WeCom menu read/write/delete uses the Touchpoints WeCom menu API and the remote WeCom app menu as source of truth.
 - `conversations`: retained Agent conversation turns, including slash command result records.
 - `memory`: raw turns, compacted summary memory, and active short conversation windows.
 - `search`: recent search query logs, capped at the latest 50 runs.

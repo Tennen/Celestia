@@ -32,8 +32,9 @@ type Service interface {
 	SaveAgentSettings(ctx context.Context, settings models.AgentSettings) (models.AgentSnapshot, error)
 	SaveAgentDirectInput(ctx context.Context, config models.AgentDirectInputConfig) (models.AgentSnapshot, error)
 	SaveAgentPush(ctx context.Context, push models.AgentPushSnapshot) (models.AgentSnapshot, error)
-	SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentSnapshot, error)
-	PublishAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error)
+	GetAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error)
+	SaveAgentWeComMenu(ctx context.Context, config models.AgentWeComMenuConfig) (models.AgentWeComMenuSnapshot, error)
+	DeleteAgentWeComMenu(ctx context.Context) (models.AgentWeComMenuSnapshot, error)
 	SendAgentWeComMessage(ctx context.Context, req AgentWeComSendRequest) error
 	SendAgentWeComImage(ctx context.Context, req AgentWeComImageRequest) error
 	RecordAgentWeComCallback(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error)

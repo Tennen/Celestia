@@ -231,7 +231,12 @@ func wecomBridgePost(ctx context.Context, endpoint string, bridgeToken string, p
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= http.StatusBadRequest {
-		return fmt.Errorf("WeCom bridge http %s", resp.Status)
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		detail := strings.TrimSpace(string(data))
+		if detail == "" {
+			detail = resp.Status
+		}
+		return fmt.Errorf("WeCom bridge http %s: %s", resp.Status, detail)
 	}
 	var envelope struct {
 		ErrCode int    `json:"errcode"`

@@ -60,21 +60,30 @@ func (s *Server) handleAgentPush(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, snapshot)
 }
 
+func (s *Server) handleAgentWeComMenuGet(w http.ResponseWriter, r *http.Request) {
+	menu, err := s.gateway.GetAgentWeComMenu(r.Context())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, menu)
+}
+
 func (s *Server) handleAgentWeComMenu(w http.ResponseWriter, r *http.Request) {
 	var payload models.AgentWeComMenuConfig
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
-	snapshot, err := s.gateway.SaveAgentWeComMenu(r.Context(), payload)
+	menu, err := s.gateway.SaveAgentWeComMenu(r.Context(), payload)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, snapshot)
+	writeJSON(w, http.StatusOK, menu)
 }
 
-func (s *Server) handleAgentWeComMenuPublish(w http.ResponseWriter, r *http.Request) {
-	menu, err := s.gateway.PublishAgentWeComMenu(r.Context())
+func (s *Server) handleAgentWeComMenuDelete(w http.ResponseWriter, r *http.Request) {
+	menu, err := s.gateway.DeleteAgentWeComMenu(r.Context())
 	if err != nil {
 		writeServiceError(w, err)
 		return

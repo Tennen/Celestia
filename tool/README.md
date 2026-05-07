@@ -1,6 +1,6 @@
 # Tools
 
-This directory contains standalone scripts and bridge programs used by Paimon.
+This directory contains standalone scripts and bridge programs used by Celestia.
 
 ## Files
 
@@ -15,8 +15,8 @@ Build Go bridge:
 ```bash
 sudo apt-get update
 sudo apt-get install -y golang
-cd /path/to/Paimon
-go build -o wecom-bridge ./tools/wecom-bridge.go
+cd /path/to/Celestia
+go build -o wecom-bridge ./tool
 ```
 
 Create env file (e.g. `/etc/wecom-bridge.env`):
@@ -33,14 +33,7 @@ PORT=8080
 Run (foreground):
 
 ```bash
-/path/to/Paimon/wecom-bridge
-```
-
-Optional Node bridge:
-
-```bash
-npm --prefix tools install
-npm --prefix tools start
+/path/to/Celestia/wecom-bridge
 ```
 
 Systemd unit (silent):
@@ -53,8 +46,8 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/wecom-bridge.env
-WorkingDirectory=/path/to/Paimon
-ExecStart=/path/to/Paimon/wecom-bridge
+WorkingDirectory=/path/to/Celestia
+ExecStart=/path/to/Celestia/wecom-bridge
 Restart=on-failure
 RestartSec=2
 StandardOutput=null
@@ -72,7 +65,9 @@ Endpoints:
 - `GET /stream` (SSE stream for local agent)
 - `POST /proxy/gettoken` (forward gettoken to WeCom)
 - `POST /proxy/send` (forward send message to WeCom)
+- `POST /proxy/menu/get` (forward app menu get to WeCom)
 - `POST /proxy/menu/create` (forward app menu create to WeCom)
+- `POST /proxy/menu/delete` (forward app menu delete to WeCom)
 - `POST /proxy/media/upload` (forward media upload to WeCom, expects base64)
 - `POST /proxy/media/get` (forward media get from WeCom, returns base64)
 

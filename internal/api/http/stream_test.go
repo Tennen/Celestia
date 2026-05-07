@@ -91,10 +91,13 @@ func (g *stubGateway) SaveAgentDirectInput(_ context.Context, _ models.AgentDire
 func (g *stubGateway) SaveAgentPush(_ context.Context, _ models.AgentPushSnapshot) (models.AgentSnapshot, error) {
 	return models.AgentSnapshot{}, nil
 }
-func (g *stubGateway) SaveAgentWeComMenu(_ context.Context, _ models.AgentWeComMenuConfig) (models.AgentSnapshot, error) {
-	return models.AgentSnapshot{}, nil
+func (g *stubGateway) GetAgentWeComMenu(_ context.Context) (models.AgentWeComMenuSnapshot, error) {
+	return models.AgentWeComMenuSnapshot{}, nil
 }
-func (g *stubGateway) PublishAgentWeComMenu(_ context.Context) (models.AgentWeComMenuSnapshot, error) {
+func (g *stubGateway) SaveAgentWeComMenu(_ context.Context, _ models.AgentWeComMenuConfig) (models.AgentWeComMenuSnapshot, error) {
+	return models.AgentWeComMenuSnapshot{}, nil
+}
+func (g *stubGateway) DeleteAgentWeComMenu(_ context.Context) (models.AgentWeComMenuSnapshot, error) {
 	return models.AgentWeComMenuSnapshot{}, nil
 }
 func (g *stubGateway) SendAgentWeComMessage(_ context.Context, _ gatewayapi.AgentWeComSendRequest) error {
