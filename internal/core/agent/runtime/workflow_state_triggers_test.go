@@ -57,6 +57,29 @@ func TestDueWorkflowStateTriggerNodesSkipsStateChangeOutsideWindow(t *testing.T)
 	}
 }
 
+func TestDueWorkflowStateTriggerNodesSupportsWindowAttachedToTrigger(t *testing.T) {
+	workflow := workflowStateTriggerWindowAttachedDefinition()
+	event := models.Event{
+		Type:     models.EventDeviceStateChanged,
+		DeviceID: "device-1",
+		TS:       time.Date(2026, 4, 28, 9, 30, 0, 0, time.UTC),
+		Payload: map[string]any{
+			"previous_state": map[string]any{"power": false},
+			"state":          map[string]any{"power": true},
+		},
+	}
+	due := dueWorkflowStateTriggerNodes(models.AgentWorkflowSnapshot{Workflows: []models.AgentWorkflow{workflow}}, event, event.TS)
+	if got := due[workflow.ID]; len(got) != 1 || got[0] != "state-changed" {
+		t.Fatalf("due state triggers = %#v, want state-changed", due)
+	}
+
+	event.TS = time.Date(2026, 4, 28, 20, 30, 0, 0, time.UTC)
+	due = dueWorkflowStateTriggerNodes(models.AgentWorkflowSnapshot{Workflows: []models.AgentWorkflow{workflow}}, event, event.TS)
+	if len(due) != 0 {
+		t.Fatalf("due state triggers = %#v, want none outside trigger-attached window", due)
+	}
+}
+
 func TestRunWorkflowExecutesDeviceCommandBehindStateIsGate(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newAgentPersistenceTestService(t)
@@ -175,6 +198,25 @@ func workflowStateTriggerDefinition() models.AgentWorkflow {
 			Target: "command",
 		}},
 	}
+}
+
+func workflowStateTriggerWindowAttachedDefinition() models.AgentWorkflow {
+	workflow := workflowStateTriggerDefinition()
+	workflow.ID = "workflow-state-trigger-window-attached"
+	workflow.Edges = []models.AgentWorkflowEdge{{
+		ID:           "edge-window-state",
+		Source:       "window",
+		SourceHandle: "gate",
+		Target:       "state-changed",
+		TargetHandle: "window",
+	}, {
+		ID:           "edge-state-command",
+		Source:       "state-changed",
+		SourceHandle: "trigger",
+		Target:       "command",
+		TargetHandle: "trigger",
+	}}
+	return workflow
 }
 
 func workflowSerialStateGatesDefinition() models.AgentWorkflow {

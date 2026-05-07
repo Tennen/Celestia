@@ -89,6 +89,10 @@ export function WorkflowWorkspace({ activePage, onSelectPage }: Props) {
 
   const openWorkflow = (workflowId: string) => {
     setSelectedWorkflowId(workflowId);
+  };
+
+  const editWorkflow = (workflowId: string) => {
+    setSelectedWorkflowId(workflowId);
     onSelectPage('builder');
   };
 
@@ -132,6 +136,7 @@ export function WorkflowWorkspace({ activePage, onSelectPage }: Props) {
             selectedWorkflowId={selectedWorkflowId}
             onCreateWorkflow={createWorkflow}
             onOpenWorkflow={openWorkflow}
+            onEditWorkflow={editWorkflow}
           />
         </div>
       </ScrollArea>

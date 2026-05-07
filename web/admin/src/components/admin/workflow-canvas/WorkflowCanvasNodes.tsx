@@ -49,16 +49,18 @@ export function WorkflowCanvasNode({ data, selected }: NodeProps) {
     case 'timer':
       const timerDescription =
         view.payload?.schedule === 'interval'
-          ? 'Trigger: starts on each interval, optionally gated by a Time Window.'
+          ? 'Trigger: starts on each interval, optionally gated by a sidecar Time Window.'
           : 'Trigger: starts on the configured daily schedule.';
       return (
         <NodeShell title={view.title} description={timerDescription} selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Left} id="window" />
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="trigger" />
         </NodeShell>
       );
     case 'device_state_changed':
       return (
         <NodeShell title={view.title} description="Trigger: starts when the configured state transition occurs." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Left} id="window" />
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="trigger" />
         </NodeShell>
       );
@@ -66,13 +68,13 @@ export function WorkflowCanvasNode({ data, selected }: NodeProps) {
       return (
         <NodeShell title={view.title} description="Trigger or gate: passes when current state matches." selected={selected}>
           <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="trigger" />
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Left} id="window" />
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="trigger" />
         </NodeShell>
       );
     case 'time_window':
       return (
-        <NodeShell title={view.title} description="Accessory: constrain a connected trigger path by time." selected={selected}>
-          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="trigger" />
+        <NodeShell title={view.title} description="Accessory: connect to a trigger's sidecar window port." selected={selected}>
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="gate" />
         </NodeShell>
       );
