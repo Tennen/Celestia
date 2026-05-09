@@ -15,8 +15,10 @@ Build Go bridge:
 ```bash
 sudo apt-get update
 sudo apt-get install -y golang
-cd /path/to/Celestia
-go build -o wecom-bridge ./tool
+mkdir -p /opt/wecom-bridge
+# Copy this repository's tool/ directory contents to /opt/wecom-bridge first.
+cd /opt/wecom-bridge
+go build -o wecom-bridge .
 ```
 
 Create env file (e.g. `/etc/wecom-bridge.env`):
@@ -33,7 +35,7 @@ PORT=8080
 Run (foreground):
 
 ```bash
-/path/to/Celestia/wecom-bridge
+/opt/wecom-bridge/wecom-bridge
 ```
 
 Systemd unit (silent):
@@ -46,8 +48,8 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/wecom-bridge.env
-WorkingDirectory=/path/to/Celestia
-ExecStart=/path/to/Celestia/wecom-bridge
+WorkingDirectory=/opt/wecom-bridge
+ExecStart=/opt/wecom-bridge/wecom-bridge
 Restart=on-failure
 RestartSec=2
 StandardOutput=null
