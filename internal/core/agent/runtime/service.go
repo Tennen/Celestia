@@ -15,28 +15,15 @@ import (
 )
 
 type Service struct {
-	store           storage.Store
-	bus             *eventbus.Bus
-	workflowOutput  workflowOutputRuntime
-	workflowInput   workflowInputRuntime
-	workflowDevices WorkflowDeviceRuntime
-	mu              sync.Mutex
-	startOnce       sync.Once
-	eventOnce       sync.Once
-	workerOnce      sync.Once
-	stop            chan struct{}
-	stopOnce        sync.Once
-	workflowJobs    chan workflowScheduledRun
-	eventSubID      int
-	eventSubscribed bool
+	store storage.Store
+	bus   *eventbus.Bus
+	mu    sync.Mutex
 }
 
 func New(store storage.Store, bus *eventbus.Bus) *Service {
 	return &Service{
-		store:        store,
-		bus:          bus,
-		stop:         make(chan struct{}),
-		workflowJobs: make(chan workflowScheduledRun, 256),
+		store: store,
+		bus:   bus,
 	}
 }
 
@@ -44,21 +31,10 @@ func (s *Service) Init(ctx context.Context) error {
 	if _, err := s.Snapshot(ctx); err != nil {
 		return err
 	}
-	s.startWorkflowSchedulerWorker()
-	s.startWorkflowEventTriggers()
-	s.startOnce.Do(func() {
-		go s.runWorkflowTimeScheduler()
-	})
 	return nil
 }
 
 func (s *Service) Close() {
-	s.stopOnce.Do(func() {
-		close(s.stop)
-	})
-	if s.bus != nil && s.eventSubscribed {
-		s.bus.Unsubscribe(s.eventSubID)
-	}
 }
 
 func (s *Service) Snapshot(ctx context.Context) (models.AgentSnapshot, error) {
@@ -261,11 +237,9 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.Workflow.SourceStates == nil {
 		snapshot.Workflow.SourceStates = []models.AgentWorkflowSourceState{}
 	}
-	snapshot.Workflow.SourceStates = pruneWorkflowSourceStates(snapshot.Workflow.SourceStates, snapshot.Workflow.Workflows)
 	if snapshot.Workflow.TimerStates == nil {
 		snapshot.Workflow.TimerStates = []models.AgentWorkflowTimerState{}
 	}
-	snapshot.Workflow.TimerStates = pruneWorkflowTimerStates(snapshot.Workflow.TimerStates, snapshot.Workflow.Workflows)
 	if snapshot.Writing.Topics == nil {
 		snapshot.Writing.Topics = []models.AgentWritingTopic{}
 	}

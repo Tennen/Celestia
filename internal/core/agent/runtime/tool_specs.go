@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/chentianyu/celestia/internal/models"
 	einotool "github.com/cloudwego/eino/components/tool"
@@ -55,85 +54,6 @@ func (s *Service) runSearchTool(ctx context.Context, input searchToolInput) (mod
 			Sites:   append([]string{}, input.Sites...),
 		}},
 	})
-}
-
-type workflowToolInput struct {
-	Action     string `json:"action,omitempty" jsonschema_description:"run, state, list_workflows, get_workflow, use_workflow, or list_runs."`
-	WorkflowID string `json:"workflow_id,omitempty" jsonschema_description:"Workflow id."`
-}
-
-func (s *Service) workflowToolSpec() agentToolSpec {
-	desc := "Run and inspect Celestia workflows composed from modular nodes such as RSS, prompt, LLM, search, and WeCom output."
-	return agentToolSpec{
-		Name:         "workflow",
-		Description:  desc,
-		Keywords:     []string{"workflow", "rss", "digest", "日报", "新闻摘要"},
-		Params:       []string{"action", "workflow_id"},
-		PreferResult: true,
-		NewTool: func(s *Service) (einotool.InvokableTool, error) {
-			return utils.InferTool("workflow", desc, s.runWorkflowTool)
-		},
-		RequestToJSON: func(req models.AgentToolRunRequest) (string, error) {
-			text := strings.TrimSpace(req.Input)
-			if text != "" && isJSONObject(text) {
-				return text, nil
-			}
-			return marshalCompactJSON(map[string]any{"action": "run", "workflow_id": text})
-		},
-	}
-}
-
-func (s *Service) runWorkflowTool(ctx context.Context, input workflowToolInput) (any, error) {
-	action := strings.ToLower(firstNonEmpty(input.Action, "run"))
-	switch action {
-	case "run", "digest", "summary":
-		return s.RunWorkflow(ctx, input.WorkflowID)
-	case "state", "status":
-		snapshot, err := s.Snapshot(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return map[string]any{
-			"active_workflow_id": snapshot.Workflow.ActiveWorkflowID,
-			"workflows":          len(snapshot.Workflow.Workflows),
-			"runs":               len(snapshot.Workflow.Runs),
-			"sent_log":           len(snapshot.Workflow.SentLog),
-		}, nil
-	case "list_workflows":
-		snapshot, err := s.Snapshot(ctx)
-		return snapshot.Workflow.Workflows, err
-	case "get_workflow":
-		snapshot, err := s.Snapshot(ctx)
-		if err != nil {
-			return nil, err
-		}
-		workflow, ok := selectWorkflow(snapshot.Workflow, input.WorkflowID)
-		if !ok {
-			return nil, errors.New("workflow not found")
-		}
-		return workflow, nil
-	case "use_workflow":
-		snapshot, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
-			workflow, ok := selectWorkflow(snapshot.Workflow, input.WorkflowID)
-			if !ok {
-				return errors.New("workflow not found")
-			}
-			now := time.Now().UTC()
-			snapshot.Workflow.ActiveWorkflowID = workflow.ID
-			snapshot.Workflow.UpdatedAt = now
-			snapshot.UpdatedAt = now
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		return snapshot.Workflow, nil
-	case "list_runs":
-		snapshot, err := s.Snapshot(ctx)
-		return snapshot.Workflow.Runs, err
-	default:
-		return nil, errors.New("unsupported workflow action")
-	}
 }
 
 type writingToolInput struct {

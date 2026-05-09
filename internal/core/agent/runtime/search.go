@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	coresearch "github.com/chentianyu/celestia/internal/core/agent/providers/search"
+	coresearch "github.com/chentianyu/celestia/internal/core/search"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )

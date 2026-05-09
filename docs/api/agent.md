@@ -22,7 +22,8 @@ Returns the full Agent snapshot:
 - `conversations`: retained Agent conversation turns, including slash command result records.
 - `memory`: raw turns, compacted summary memory, and active short conversation windows.
 - `search`: recent search query logs, capped at the latest 50 runs.
-- `workflow`, `writing`, `market`, `evolution`, and `knowledge`: Agent-owned state. `workflow` stores the generic workflow canvas (`active_workflow_id`, `workflows[]`) plus runtime history/state (`runs[]`, `sent_log`, `source_states[]`, `timer_states[]`) used for modular orchestration. `knowledge` stores retained Codex knowledge sessions keyed by caller and knowledge base.
+- `workflow`: Core-owned generic workflow state surfaced in the Agent snapshot for API compatibility. It stores the workflow canvas (`active_workflow_id`, `workflows[]`) plus runtime history/state (`runs[]`, `sent_log`, `source_states[]`, `timer_states[]`) used for modular orchestration.
+- `writing`, `market`, `evolution`, and `knowledge`: Agent-owned state. `knowledge` stores retained Codex knowledge sessions keyed by caller and knowledge base.
 
 ## Runtime Settings
 
@@ -36,7 +37,7 @@ LLM providers support `openai`, `openai-like`, `llama-server`, `gpt-plugin`, `ol
 
 Agent providers are separate provider profiles for Agent-owned executors. The current `codex` Agent provider invokes the local `codex exec --json --sandbox workspace-write` runner and supplies model, reasoning effort, and timeout defaults to modules such as Evolution and Knowledge.
 
-Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses the bundled renderer at `internal/core/agent/workflows/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden. Knowledge-base Q&A is disabled unless `settings.knowledge.enabled=true` and the selected enabled knowledge base points at an accessible host directory.
+Terminal execution is disabled unless `settings.terminal.enabled` is true. Memory defaults to enabled when no memory config exists; set `settings.memory.enabled=false` to disable prompt memory injection and compaction. md2img defaults to enabled when no md2img config exists and uses the bundled renderer at `internal/core/workflow/renderer/md2img/render.mjs`, writing to `data/agent/renderer/md2img` unless overridden. Knowledge-base Q&A is disabled unless `settings.knowledge.enabled=true` and the selected enabled knowledge base points at an accessible host directory.
 
 ## Conversation
 
@@ -114,7 +115,7 @@ Search engines are read from `settings.search_engines`. Supported providers:
 - `serpapi`: calls `GET /search.json` with `engine`, `q`, `hl`, `gl`, `num`, and `api_key`
 - `qianfan`: calls Baidu Qianfan `POST /v2/ai_search/web_search`
 
-Provider execution lives in `internal/core/agent/providers/search`; the Agent wrapper records the latest 50 query logs into `snapshot.search.recent_queries`.
+Provider execution lives in `internal/core/search`; the Agent wrapper records the latest 50 query logs into `snapshot.search.recent_queries`.
 
 If no profile is configured, Celestia bootstraps from `SERPAPI_KEY` and `QIANFAN_SEARCH_*` environment variables.
 
@@ -249,7 +250,7 @@ POST /api/v1/agent/market/portfolio/import-codes
 POST /api/v1/agent/market/run
 ```
 
-The Agent owns the Market workflow state and report generation. Reusable Eastmoney estimate/security lookup code lives in `internal/core/agent/workflows/market`.
+The Agent owns the Market portfolio state and report orchestration. Reusable Eastmoney estimate/security lookup code lives in `internal/core/workflow/market`.
 
 A run calls Eastmoney fund estimate data for each holding and runs the configured search engine for recent fund news. The run is marked `eastmoney_search` and records per-asset source chain, search results, and errors.
 
@@ -272,7 +273,7 @@ Body:
 }
 ```
 
-`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` when a custom command is configured and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. When `command` is empty, Celestia locates and runs the bundled `internal/core/agent/workflows/renderer/md2img/render.mjs` script from the repository root; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
+`mode` can be `long-image` or `multi-page`. The renderer reads `settings.md2img.command` when a custom command is configured and writes PNG files under `settings.md2img.output_dir` unless `output_dir` is supplied in the request. When `command` is empty, Celestia locates and runs the bundled `internal/core/workflow/renderer/md2img/render.mjs` script from the repository root; it requires the root npm dependencies `playwright`, `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, and `rehype-stringify`, plus an installed Playwright Chromium browser.
 
 ## Evolution And Terminal
 

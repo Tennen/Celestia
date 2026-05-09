@@ -3,7 +3,7 @@ package runtime
 import (
 	"context"
 
-	coremarket "github.com/chentianyu/celestia/internal/core/agent/workflows/market"
+	coremarket "github.com/chentianyu/celestia/internal/core/workflow/market"
 	"github.com/chentianyu/celestia/internal/models"
 )
 

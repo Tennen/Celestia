@@ -106,6 +106,9 @@ Slash commands:
 - /market portfolio
 - /market run [open|midday|close] [notes]
 - /market import <fund codes>
+- /workflow list
+- /workflow run [workflow-id]
+- /workflow runs
 - /kb ask <question>
 - /kb @<base-id> ask <question>
 - /kb new [@base-id] [question]

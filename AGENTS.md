@@ -89,16 +89,18 @@ Use these boundaries when deciding where code belongs:
 - `internal/core/audit`: command audit recording.
 - `internal/core/eventbus`: in-process event fanout inside Core.
 - `internal/core/oauth`: Core-owned Xiaomi OAuth session lifecycle and callback completion.
+- `internal/core/llm`: Core LLM provider selection and HTTP-compatible text generation used by Agent, workflow, and other Core workflows.
+- `internal/core/search`: search provider execution and provider payload normalization. Search engines are provider profiles, not Agent capabilities. Agent may store search settings/logs, but provider HTTP execution belongs here.
+- `internal/core/workflow`: Core-owned generic workflow backend. Workflow definitions, execution, scheduling, trigger dispatch, RSS source snapshots, sent-item logs, timer state, LLM/search workflow nodes, device command nodes, and workflow run history belong here.
+- `internal/core/workflow/market`: Eastmoney estimate/security lookup and reusable Market report helpers.
+- `internal/core/workflow/renderer`: renderer workflow implementation and assets such as md2img.
 - `internal/core/project/input`: project-level input envelope and pre-Agent dispatch. HTTP, WeCom, and automation input should enter here before reaching the Agent.
 - `internal/core/project/slash`: deterministic project workflows invoked by slash commands. Native home control belongs here and must use Core registry/state/control/policy/audit/command execution, not LLM intent inference.
 - `internal/core/project/touchpoint`: project-level touchpoint facade for WeCom users, menu publishing, ingress, and output delivery.
 - `internal/core/project/voice`: STT provider execution. Voice ingress currently belongs to the WeCom touchpoint chain, not to a separate Agent page.
 - `internal/core/agent`: public Agent facade only. Do not add migrated feature files directly to this package root.
-- `internal/core/agent/runtime`: Eino ReAct loop, Agent tools, memory integration, persistence, and Agent-owned orchestration. A thing belongs here only when it is part of the Agent runtime itself.
+- `internal/core/agent/runtime`: Eino ReAct loop, Agent tools, memory integration, Agent-owned persistence, and Agent-owned orchestration. A thing belongs here only when it is part of the Agent runtime itself.
 - `internal/core/agent/runtime/memory`: memory windowing, retrieval, and compaction implementation used by the Agent loop.
-- `internal/core/agent/providers/search`: search provider execution and provider payload normalization. Search engines are provider profiles, not Agent capabilities. Agent may store search settings/logs, but provider HTTP execution belongs here.
-- `internal/core/agent/workflows/market`: Eastmoney estimate/security lookup and reusable Market report helpers. Agent may orchestrate Market analysis, but vendor/data lookup code belongs here.
-- `internal/core/agent/workflows/renderer`: renderer workflow implementation and assets such as md2img. Agent may call the renderer, but renderer implementation does not belong under `internal/core/agent/runtime`.
 - `internal/coreapi`: the approved plugin-to-Core backchannel, including persisted config updates.
 - `internal/models`: shared canonical models and payload shapes. Do not leak vendor-specific structs past this layer.
 - `internal/pluginapi`: plugin RPC contract helpers and protobuf/grpc bindings.
@@ -112,6 +114,7 @@ Use these boundaries when deciding where code belongs:
 ## Module Placement Rules
 
 - Put Core-owned cross-plugin concerns under `internal/core`, not inside a vendor plugin.
+- Put generic workflow backend concerns under `internal/core/workflow`, not under `internal/core/agent` or `internal/core/agent/runtime`.
 - Put vendor HTTP clients, auth flows, and payload translation inside that vendor's plugin tree.
 - Put shared transport or protocol helpers in `internal/pluginapi`, `internal/pluginruntime`, or `internal/coreapi` only when they are truly vendor-agnostic.
 - Keep admin presentation logic in `web/admin/src/components`, data fetching/hooks in `web/admin/src/lib` or `web/admin/src/hooks`, and styling split by responsibility.
@@ -127,7 +130,9 @@ Use these boundaries when deciding where code belongs:
 
 - Keep vendor-specific code inside its plugin tree.
 - Keep touchpoint transport code out of Agent tools. The Agent may consume normalized input and produce text, but it must not own WeCom/HTTP/voice transport semantics.
-- Keep provider execution and reusable engines in their Core packages (`search`, `market`, `voice`, `renderer`) instead of adding more provider/client code to `internal/core/agent`.
+- Keep provider execution and reusable engines in their Core packages (`llm`, `search`, `workflow/market`, `voice`, `workflow/renderer`) instead of adding more provider/client code to `internal/core/agent`.
+- Keep generic workflow execution, workflow scheduling, workflow trigger evaluation, RSS source state, workflow sent logs, and workflow run history out of Agent runtime. Workflow nodes may call Core LLM/search packages, but Agent runtime must not provide workflow's backend dependencies.
+- Agent must not expose workflow as a direct Agent tool. Workflow invocation should enter through the gateway API, project input, or slash-command layer before the Agent loop.
 - New slash commands must live under `internal/core/project/slash`, run before the Agent loop, and be covered by backend tests when they dispatch real Core actions.
 - Home/device slash commands must call Celestia native device control APIs and must pass through policy and audit before reaching plugins.
 - Prefer package boundaries that match the real integration flow: `auth`, `api/cloud`, `discovery`, `mapper`, `state`, `events`, `capability`.

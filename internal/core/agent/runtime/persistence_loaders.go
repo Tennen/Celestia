@@ -56,35 +56,6 @@ func loadAgentMemoryWindowsDocument(doc models.AgentDocument, snapshot *models.A
 	return nil
 }
 
-func loadAgentWorkflowDefinitionsDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
-	var payload agentWorkflowDefinitionsDocument
-	if err := decodeAgentDocument(doc, &payload); err != nil {
-		return err
-	}
-	snapshot.Workflow.ActiveWorkflowID = payload.ActiveWorkflowID
-	snapshot.Workflow.Workflows = payload.Workflows
-	snapshot.Workflow.UpdatedAt = maxTime(snapshot.Workflow.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
-	return nil
-}
-
-func loadAgentWorkflowRunsDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
-	var payload agentWorkflowRunsDocument
-	if err := decodeAgentDocument(doc, &payload); err != nil {
-		return err
-	}
-	for idx := range payload.Runs {
-		if payload.Runs[idx].StartedAt.IsZero() {
-			payload.Runs[idx].StartedAt = payload.Runs[idx].CreatedAt
-		}
-	}
-	snapshot.Workflow.Runs = payload.Runs
-	snapshot.Workflow.SentLog = payload.SentLog
-	snapshot.Workflow.SourceStates = payload.SourceStates
-	snapshot.Workflow.TimerStates = payload.TimerStates
-	snapshot.Workflow.UpdatedAt = maxTime(snapshot.Workflow.UpdatedAt, firstTime(payload.UpdatedAt, doc.UpdatedAt))
-	return nil
-}
-
 func loadAgentWritingTopicsDocument(doc models.AgentDocument, snapshot *models.AgentSnapshot) error {
 	var payload agentWritingTopicsDocument
 	if err := decodeAgentDocument(doc, &payload); err != nil {

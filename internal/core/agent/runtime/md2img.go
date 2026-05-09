@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/chentianyu/celestia/internal/core/agent/workflows/renderer"
+	"github.com/chentianyu/celestia/internal/core/workflow/renderer"
 	"github.com/chentianyu/celestia/internal/models"
 )
 

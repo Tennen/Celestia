@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chentianyu/celestia/internal/core/agent/workflows/renderer"
+	"github.com/chentianyu/celestia/internal/core/workflow/renderer"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )

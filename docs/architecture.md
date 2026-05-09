@@ -92,6 +92,9 @@ Slash commands are deterministic project workflows that run before Agent inferen
 - `/market portfolio`
 - `/market run [open|midday|close] [notes]`
 - `/market import <fund codes>`
+- `/workflow list`
+- `/workflow run [workflow-id]`
+- `/workflow runs`
 
 Home commands use the native registry, state, control catalog, policy, audit, and plugin command executor. They do not require LLM intent detection.
 
@@ -106,7 +109,7 @@ Agent-owned domains:
 - Search settings and recent search logs
 - Topic summary
 - Writing organizer
-- Market analysis implementation
+- Market portfolio/report orchestration
 - Evolution operator
 - Terminal, Codex runner, md2img, Apple Notes, Apple Reminders tools
 
@@ -119,12 +122,13 @@ Not Agent-owned:
 - Search provider HTTP execution
 - Eastmoney market data lookup
 - md2img renderer implementation
+- Generic workflow execution, scheduling, triggers, RSS source state, and workflow run history
 - Device command execution
 - Home Assistant, ChatGPT bridge, OpenAI quota, and system maintenance paths
 
 ## Workflow Triggers
 
-Agent workflows own orchestration graph state. Trigger nodes such as `timer`, `device_state_changed`, and `device_state_is` can start a workflow run without a manual API call.
+Core workflows own orchestration graph state. Trigger nodes such as `timer`, `device_state_changed`, and `device_state_is` can start a workflow run without a manual API call.
 
 `time_window` is modeled as an accessory gate that can be connected beside a trigger or directly into a triggered execution path. It constrains when the trigger path can continue, while remaining separate from the trigger node itself.
 
@@ -145,7 +149,7 @@ WeCom users are validated before save or send; arbitrary undeclared WeCom target
 
 - `/api/v1`: admin and project runtime APIs
 - `/api/v1/touchpoints`: project-level input/touchpoint configuration and WeCom ingress
-- `/api/v1/agent`: Agent configuration and Agent-owned workflows
+- `/api/v1/agent`: Agent configuration and the compatibility workflow API surface
 - `/api/v1/devices`: admin device inventory and controls
 - `/api/external/v1`: stable external device query/control
 - `/api/ai/v1`: semantic device catalog and command execution
@@ -164,7 +168,7 @@ Top-level workspaces:
 - Devices
 - Activity
 
-Agent sidebar subpages are limited to Agent-owned domains: Runtime, Conversation, Skills, Workflows, Evolution, and Providers. WeCom, slash commands, voice provider settings, and input mappings live under Touchpoints.
+Agent sidebar subpages are limited to Agent-owned domains plus the workflow API surface. WeCom, slash commands, voice provider settings, and input mappings live under Touchpoints.
 
 ## Persistence
 
@@ -174,11 +178,13 @@ Core persistence is SQLite-backed. Agent and touchpoint configuration currently 
 - `internal/core/project/slash`: deterministic slash workflows
 - `internal/core/project/touchpoint`: project touchpoint facade
 - `internal/core/project/voice`: STT provider execution
+- `internal/core/llm`: Core LLM provider execution
+- `internal/core/search`: search provider execution
+- `internal/core/workflow`: workflow definitions, execution, scheduling, triggers, RSS source state, sent logs, timer state, and run history
+- `internal/core/workflow/market`: Eastmoney estimate/security lookup and Market prompt helpers
+- `internal/core/workflow/renderer`: md2img renderer implementation and assets
 - `internal/core/agent`: public Agent facade only
 - `internal/core/agent/runtime`: Eino Agent loop, tool registry, Agent-owned orchestration, and persistence
 - `internal/core/agent/runtime/memory`: Agent memory windowing, retrieval, and compaction
-- `internal/core/agent/providers/search`: search provider execution
-- `internal/core/agent/workflows/market`: Eastmoney estimate/security lookup and Market prompt helpers
-- `internal/core/agent/workflows/renderer`: md2img renderer implementation and assets
 
 New runtime behavior should follow those ownership boundaries even when existing persisted document keys still contain historical `agent/*` names.

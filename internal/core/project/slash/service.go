@@ -27,16 +27,26 @@ type HomeRuntime interface {
 	Execute(context.Context, control.HomeRequest) (control.HomeResult, error)
 }
 
-type Service struct {
-	home  HomeRuntime
-	agent AgentRuntime
+type WorkflowRuntime interface {
+	Snapshot(context.Context) (models.AgentSnapshot, error)
+	RunWorkflow(context.Context, string) (models.AgentWorkflowRun, error)
 }
 
-func New(home HomeRuntime, agent AgentRuntime) *Service {
-	return &Service{
+type Service struct {
+	home     HomeRuntime
+	agent    AgentRuntime
+	workflow WorkflowRuntime
+}
+
+func New(home HomeRuntime, agent AgentRuntime, workflowRuntime ...WorkflowRuntime) *Service {
+	svc := &Service{
 		home:  home,
 		agent: agent,
 	}
+	if len(workflowRuntime) > 0 {
+		svc.workflow = workflowRuntime[0]
+	}
+	return svc
 }
 
 func (s *Service) Run(ctx context.Context, req models.ProjectInputRequest) (models.SlashCommandResult, bool, error) {
@@ -65,6 +75,8 @@ func (s *Service) Run(ctx context.Context, req models.ProjectInputRequest) (mode
 		output, metadata, err = s.runMarket(ctx, args)
 	case "kb", "knowledge":
 		output, metadata, err = s.runKnowledge(ctx, req, args)
+	case "workflow":
+		output, metadata, err = s.runWorkflow(ctx, args)
 	default:
 		err = fmt.Errorf("unknown slash command %q", command)
 	}

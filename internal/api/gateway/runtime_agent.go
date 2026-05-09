@@ -14,7 +14,7 @@ func (s *RuntimeService) GetAgentSnapshot(ctx context.Context) (models.AgentSnap
 	if err != nil {
 		return models.AgentSnapshot{}, statusError(http.StatusInternalServerError, err)
 	}
-	return snapshot, nil
+	return s.withWorkflowSnapshot(ctx, snapshot)
 }
 
 func (s *RuntimeService) SaveAgentSettings(ctx context.Context, settings models.AgentSettings) (models.AgentSnapshot, error) {
@@ -140,12 +140,18 @@ func (s *RuntimeService) RunAgentTool(
 }
 
 func (s *RuntimeService) SaveAgentWorkflow(ctx context.Context, workflow models.AgentWorkflowSnapshot) (models.AgentSnapshot, error) {
-	snapshot, err := s.runtime.Agent.SaveWorkflow(ctx, workflow)
-	return s.agentSnapshot(ctx, snapshot, err)
+	if _, err := s.runtime.Workflow.SaveWorkflow(ctx, workflow); err != nil {
+		return models.AgentSnapshot{}, statusError(http.StatusBadRequest, err)
+	}
+	snapshot, err := s.runtime.Agent.Snapshot(ctx)
+	if err != nil {
+		return models.AgentSnapshot{}, statusError(http.StatusInternalServerError, err)
+	}
+	return s.withWorkflowSnapshot(ctx, snapshot)
 }
 
 func (s *RuntimeService) RunAgentWorkflow(ctx context.Context, workflowID string) (models.AgentWorkflowRun, error) {
-	run, err := s.runtime.Agent.RunWorkflow(ctx, workflowID)
+	run, err := s.runtime.Workflow.RunWorkflow(ctx, workflowID)
 	if err != nil {
 		return models.AgentWorkflowRun{}, statusError(http.StatusBadRequest, err)
 	}
@@ -253,9 +259,21 @@ func (s *RuntimeService) RunAgentMarkdownRender(ctx context.Context, req models.
 	return result, nil
 }
 
-func (s *RuntimeService) agentSnapshot(_ context.Context, snapshot models.AgentSnapshot, err error) (models.AgentSnapshot, error) {
+func (s *RuntimeService) agentSnapshot(ctx context.Context, snapshot models.AgentSnapshot, err error) (models.AgentSnapshot, error) {
 	if err != nil {
 		return models.AgentSnapshot{}, statusError(http.StatusBadRequest, err)
 	}
+	return s.withWorkflowSnapshot(ctx, snapshot)
+}
+
+func (s *RuntimeService) withWorkflowSnapshot(ctx context.Context, snapshot models.AgentSnapshot) (models.AgentSnapshot, error) {
+	if s.runtime.Workflow == nil {
+		return snapshot, nil
+	}
+	workflowSnapshot, err := s.runtime.Workflow.Snapshot(ctx)
+	if err != nil {
+		return models.AgentSnapshot{}, statusError(http.StatusInternalServerError, err)
+	}
+	snapshot.Workflow = workflowSnapshot.Workflow
 	return snapshot, nil
 }

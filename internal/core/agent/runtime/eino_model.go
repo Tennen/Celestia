@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	corellm "github.com/chentianyu/celestia/internal/core/llm"
 	"github.com/chentianyu/celestia/internal/models"
 	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
@@ -20,7 +21,7 @@ type einoChatModel struct {
 }
 
 func newEinoChatModel(settings models.AgentSettings) (*einoChatModel, error) {
-	provider, ok := selectProvider(settings, "")
+	provider, ok := corellm.SelectProvider(settings, "")
 	if !ok {
 		return nil, errors.New("no LLM provider configured")
 	}
@@ -137,7 +138,7 @@ func (m *einoChatModel) generateOpenAICompatible(ctx context.Context, input []*s
 		} `json:"choices"`
 	}
 	endpoint := baseURL + "/" + strings.TrimLeft(chatPath, "/")
-	if err := postJSON(ctx, m.provider, endpoint, payload, &out); err != nil {
+	if err := corellm.PostJSON(ctx, m.provider, endpoint, payload, &out); err != nil {
 		return nil, err
 	}
 	if len(out.Choices) == 0 {
@@ -160,7 +161,7 @@ func (m *einoChatModel) generateOllama(ctx context.Context, input []*schema.Mess
 	var out struct {
 		Message ollamaChatMessage `json:"message"`
 	}
-	if err := postJSON(ctx, m.provider, baseURL+"/api/chat", payload, &out); err != nil {
+	if err := corellm.PostJSON(ctx, m.provider, baseURL+"/api/chat", payload, &out); err != nil {
 		return nil, err
 	}
 	return fromOllamaChatMessage(out.Message), nil

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/chentianyu/celestia/internal/core/agent"
-	agentruntime "github.com/chentianyu/celestia/internal/core/agent/runtime"
 	"github.com/chentianyu/celestia/internal/core/audit"
 	"github.com/chentianyu/celestia/internal/core/capability"
 	"github.com/chentianyu/celestia/internal/core/control"
@@ -19,6 +18,7 @@ import (
 	"github.com/chentianyu/celestia/internal/core/registry"
 	"github.com/chentianyu/celestia/internal/core/state"
 	"github.com/chentianyu/celestia/internal/core/vision"
+	"github.com/chentianyu/celestia/internal/core/workflow"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/chentianyu/celestia/internal/storage"
 )
@@ -36,6 +36,7 @@ type Runtime struct {
 	OAuth      *oauthsvc.Service
 	PluginMgr  *pluginmgr.Manager
 	Vision     *vision.Service
+	Workflow   *workflow.Service
 	Agent      *agent.Service
 	Slash      *slash.Service
 	Input      *input.Service
@@ -50,16 +51,17 @@ func New(store storage.Store) *Runtime {
 	auditSvc := audit.New(store)
 	pluginMgr := pluginmgr.New(store, registrySvc, stateSvc, bus)
 	visionSvc := vision.New(store, registrySvc, stateSvc, bus)
+	workflowSvc := workflow.New(store, bus)
 	agentSvc := agent.New(store, bus)
 	controlSvc := control.New()
 	homeSvc := control.NewHomeService(store, registrySvc, stateSvc, controlSvc, policySvc, auditSvc, pluginMgr, visionSvc)
-	slashSvc := slash.New(homeSvc, agentSvc)
+	slashSvc := slash.New(homeSvc, agentSvc, workflowSvc)
 	inputSvc := input.New(agentSvc, slashSvc)
 	voiceSvc := voice.New(agentSvc)
 	touchpointSvc := touchpoint.New(agentSvc, agentSvc)
-	agentSvc.SetWorkflowOutputRuntime(touchpointSvc)
-	agentSvc.SetWorkflowInputRuntime(inputSvc)
-	agentSvc.SetWorkflowDeviceRuntime(agentruntime.NewWorkflowDeviceRuntime(registrySvc, stateSvc, policySvc, auditSvc, pluginMgr))
+	workflowSvc.SetWorkflowOutputRuntime(touchpointSvc)
+	workflowSvc.SetWorkflowInputRuntime(inputSvc)
+	workflowSvc.SetWorkflowDeviceRuntime(workflow.NewWorkflowDeviceRuntime(registrySvc, stateSvc, policySvc, auditSvc, pluginMgr))
 	touchpointSvc.SetInputRunner(inputSvc)
 	touchpointSvc.SetVoiceProvider(voiceSvc)
 	return &Runtime{
@@ -75,6 +77,7 @@ func New(store storage.Store) *Runtime {
 		OAuth:      oauthsvc.New(store),
 		PluginMgr:  pluginMgr,
 		Vision:     visionSvc,
+		Workflow:   workflowSvc,
 		Agent:      agentSvc,
 		Slash:      slashSvc,
 		Input:      inputSvc,
@@ -93,6 +96,11 @@ func (r *Runtime) Reconcile(ctx context.Context) error {
 			return err
 		}
 	}
+	if r.Workflow != nil {
+		if err := r.Workflow.Init(ctx); err != nil {
+			return err
+		}
+	}
 	if r.Touchpoint != nil {
 		if err := r.Touchpoint.Init(ctx); err != nil {
 			return err
@@ -104,6 +112,9 @@ func (r *Runtime) Reconcile(ctx context.Context) error {
 func (r *Runtime) Shutdown(ctx context.Context) error {
 	if r.Vision != nil {
 		r.Vision.Close()
+	}
+	if r.Workflow != nil {
+		r.Workflow.Close()
 	}
 	if r.Touchpoint != nil {
 		r.Touchpoint.Close()

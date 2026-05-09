@@ -21,6 +21,12 @@ Slash commands are project workflows in `internal/core/project/slash`. WeCom tra
 
 Home slash commands support the same Core-owned home shortcut resolution used by `/api/ai/v1`: device aliases, quick-control aliases, room-qualified targets (`device-or-room.command`), and globally unique command aliases all resolve through the shared Home service before policy/audit and plugin dispatch.
 
+Workflow slash commands run before the Agent ReAct loop and invoke the Core-owned workflow runtime:
+
+- `/workflow list` reports configured workflows and the active workflow.
+- `/workflow run [workflow-id]` starts the selected workflow, or the active workflow when no id is supplied.
+- `/workflow runs` lists recent workflow runs.
+
 Knowledge slash commands run before the Agent ReAct loop and invoke the local Codex CLI against the selected configured knowledge base root:
 
 - `/kb ask <question>` or `/kb <question>` asks against the default knowledge base for the current WeCom/HTTP user.
