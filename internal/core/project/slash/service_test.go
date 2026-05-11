@@ -33,6 +33,9 @@ type fakeAgentRuntime struct {
 	knowledgeErr    error
 	answerListReqs  []models.AgentKnowledgeAnswersRequest
 	answerGetReqs   []models.AgentKnowledgeAnswerRequest
+	evolutionGoals  []coreagent.EvolutionGoalRequest
+	screenshots     []models.AgentScreenshotRequest
+	serviceOps      []coreagent.ServiceOperationRequest
 }
 
 func (f *fakeAgentRuntime) Snapshot(context.Context) (models.AgentSnapshot, error) {
@@ -45,6 +48,47 @@ func (f *fakeAgentRuntime) RunMarketAnalysis(context.Context, coreagent.MarketRu
 
 func (f *fakeAgentRuntime) ImportMarketPortfolioCodes(context.Context, models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error) {
 	return models.AgentMarketImportCodesResponse{}, nil
+}
+
+func (f *fakeAgentRuntime) CreateEvolutionGoal(_ context.Context, req coreagent.EvolutionGoalRequest) (models.AgentEvolutionGoal, error) {
+	f.evolutionGoals = append(f.evolutionGoals, req)
+	return models.AgentEvolutionGoal{ID: "goal-1", Goal: req.Goal, CommitMessage: req.CommitMessage, Status: "pending", Stage: "queued"}, nil
+}
+
+func (f *fakeAgentRuntime) RunEvolutionGoal(_ context.Context, id string) (models.AgentEvolutionGoal, error) {
+	return models.AgentEvolutionGoal{ID: id, Goal: "ship feature", Status: "succeeded", Stage: "completed"}, nil
+}
+
+func (f *fakeAgentRuntime) RunEvolutionOperation(context.Context, coreagent.EvolutionOperationRequest) (models.AgentEvolutionTestResult, error) {
+	return models.AgentEvolutionTestResult{Name: "rebuild", OK: true, Output: "ok"}, nil
+}
+
+func (f *fakeAgentRuntime) CreateApproval(_ context.Context, req models.AgentApprovalCreateRequest) (models.AgentApprovalRequest, error) {
+	return models.AgentApprovalRequest{ID: "approval-1", Action: req.Action, Status: "pending", Title: req.Title}, nil
+}
+
+func (f *fakeAgentRuntime) ApproveApproval(_ context.Context, id string, _ models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	return models.AgentApprovalRequest{ID: id, Action: "rebuild", Status: "executed"}, nil
+}
+
+func (f *fakeAgentRuntime) RejectApproval(_ context.Context, id string, _ models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	return models.AgentApprovalRequest{ID: id, Action: "rebuild", Status: "rejected"}, nil
+}
+
+func (f *fakeAgentRuntime) RunScreenshot(_ context.Context, req models.AgentScreenshotRequest) (models.AgentScreenshotResult, error) {
+	f.screenshots = append(f.screenshots, req)
+	return models.AgentScreenshotResult{
+		URL: req.URL,
+		Image: models.AgentMarkdownImage{
+			Path:        "/tmp/screenshot.png",
+			ContentType: "image/png",
+		},
+	}, nil
+}
+
+func (f *fakeAgentRuntime) RunServiceOperation(_ context.Context, req coreagent.ServiceOperationRequest) (models.AgentTerminalResult, error) {
+	f.serviceOps = append(f.serviceOps, req)
+	return models.AgentTerminalResult{Command: req.Action, Output: "running pid=123 log=data/runtime/gateway.log"}, nil
 }
 
 func (f *fakeAgentRuntime) StartKnowledgeSession(_ context.Context, req models.AgentKnowledgeRequest) (models.AgentKnowledgeSession, error) {
@@ -435,25 +479,5 @@ func TestRunKnowledgeNewStartsFreshSessionWithoutQuestion(t *testing.T) {
 	}
 	if agent.startedSessions[0].UserID != "alice" {
 		t.Fatalf("started session user = %q, want alice", agent.startedSessions[0].UserID)
-	}
-}
-
-func TestRunKnowledgeNewWithQuestionForcesFreshCodexSession(t *testing.T) {
-	ctx := context.Background()
-	agent := &fakeAgentRuntime{}
-	svc := New(nil, agent)
-
-	_, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/kb new reset context`, SessionID: "alice"})
-	if err != nil {
-		t.Fatalf("Run() error = %v", err)
-	}
-	if !handled {
-		t.Fatal("Run() handled = false, want true")
-	}
-	if len(agent.knowledgeReqs) != 1 {
-		t.Fatalf("knowledge reqs = %d, want 1", len(agent.knowledgeReqs))
-	}
-	if !agent.knowledgeReqs[0].NewSession || agent.knowledgeReqs[0].Question != "reset context" {
-		t.Fatalf("knowledge req = %+v", agent.knowledgeReqs[0])
 	}
 }

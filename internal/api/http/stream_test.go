@@ -154,6 +154,21 @@ func (g *stubGateway) CreateAgentEvolutionGoal(_ context.Context, _ gatewayapi.A
 func (g *stubGateway) RunAgentEvolutionGoal(_ context.Context, _ string) (models.AgentEvolutionGoal, error) {
 	return models.AgentEvolutionGoal{}, nil
 }
+func (g *stubGateway) RunAgentEvolutionOperation(_ context.Context, _ gatewayapi.AgentEvolutionOperationRequest) (models.AgentEvolutionTestResult, error) {
+	return models.AgentEvolutionTestResult{}, nil
+}
+func (g *stubGateway) CreateAgentApproval(_ context.Context, _ models.AgentApprovalCreateRequest) (models.AgentApprovalRequest, error) {
+	return models.AgentApprovalRequest{}, nil
+}
+func (g *stubGateway) ApproveAgentApproval(_ context.Context, _ string, _ models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	return models.AgentApprovalRequest{}, nil
+}
+func (g *stubGateway) RejectAgentApproval(_ context.Context, _ string, _ models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	return models.AgentApprovalRequest{}, nil
+}
+func (g *stubGateway) RunAgentServiceOperation(_ context.Context, _ gatewayapi.AgentServiceOperationRequest) (models.AgentTerminalResult, error) {
+	return models.AgentTerminalResult{}, nil
+}
 func (g *stubGateway) RunAgentTerminal(_ context.Context, _ models.AgentTerminalRequest) (models.AgentTerminalResult, error) {
 	return models.AgentTerminalResult{}, nil
 }
@@ -168,6 +183,9 @@ func (g *stubGateway) RunAgentCodex(_ context.Context, _ models.AgentCodexReques
 }
 func (g *stubGateway) RunAgentMarkdownRender(_ context.Context, _ models.AgentMarkdownRenderRequest) (models.AgentMarkdownRenderResult, error) {
 	return models.AgentMarkdownRenderResult{}, nil
+}
+func (g *stubGateway) RunAgentScreenshot(_ context.Context, _ models.AgentScreenshotRequest) (models.AgentScreenshotResult, error) {
+	return models.AgentScreenshotResult{}, nil
 }
 func (g *stubGateway) ListDevices(_ context.Context, _ gatewayapi.DeviceFilter) ([]models.DeviceView, error) {
 	return nil, nil

@@ -11,6 +11,7 @@ import { AgentInputPanel } from './AgentInputPanel';
 import { AgentKnowledgePanel } from './AgentKnowledgePanel';
 import { AgentLLMPanel } from './AgentLLMPanel';
 import { AgentMarketPanel } from './AgentMarketPanel';
+import { AgentOpsPanel } from './AgentOpsPanel';
 import { AgentProvidersPanel } from './AgentProvidersPanel';
 import { AgentWritingPanel } from './AgentWritingPanel';
 
@@ -116,6 +117,7 @@ export function AgentWorkspace({ activePanel }: Props) {
         {activePanel === 'writing' ? <AgentWritingPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'market' ? <AgentMarketPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'evolution' ? <AgentEvolutionPanel snapshot={snapshot} onRun={run} /> : null}
+        {activePanel === 'ops' ? <AgentOpsPanel snapshot={snapshot} onRun={run} /> : null}
         {activePanel === 'knowledge' ? <AgentKnowledgePanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
         {activePanel === 'search' ? <AgentProvidersPanel snapshot={snapshot} busy={busy} onRun={run} /> : null}
 

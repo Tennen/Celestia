@@ -218,6 +218,48 @@ func (s *HTTPService) RunAgentEvolutionGoal(ctx context.Context, goalID string) 
 	return out, nil
 }
 
+func (s *HTTPService) RunAgentEvolutionOperation(ctx context.Context, req AgentEvolutionOperationRequest) (models.AgentEvolutionTestResult, error) {
+	var out models.AgentEvolutionTestResult
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/evolution/ops/run", nil, req, &out, ""); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) CreateAgentApproval(ctx context.Context, req models.AgentApprovalCreateRequest) (models.AgentApprovalRequest, error) {
+	var out models.AgentApprovalRequest
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/approvals", nil, req, &out, ""); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) ApproveAgentApproval(ctx context.Context, id string, req models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	var out models.AgentApprovalRequest
+	path := fmt.Sprintf("/api/v1/agent/approvals/%s/approve", url.PathEscape(id))
+	if err := s.request(ctx, http.MethodPost, path, nil, req, &out, ""); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) RejectAgentApproval(ctx context.Context, id string, req models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	var out models.AgentApprovalRequest
+	path := fmt.Sprintf("/api/v1/agent/approvals/%s/reject", url.PathEscape(id))
+	if err := s.request(ctx, http.MethodPost, path, nil, req, &out, ""); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) RunAgentServiceOperation(ctx context.Context, req AgentServiceOperationRequest) (models.AgentTerminalResult, error) {
+	var out models.AgentTerminalResult
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/service/ops", nil, req, &out, ""); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 func (s *HTTPService) RunAgentTerminal(ctx context.Context, req models.AgentTerminalRequest) (models.AgentTerminalResult, error) {
 	var out models.AgentTerminalResult
 	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/terminal", nil, req, &out, ""); err != nil {
@@ -254,6 +296,14 @@ func (s *HTTPService) RunAgentMarkdownRender(ctx context.Context, req models.Age
 	var out models.AgentMarkdownRenderResult
 	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/md2img/render", nil, req, &out, ""); err != nil {
 		return models.AgentMarkdownRenderResult{}, err
+	}
+	return out, nil
+}
+
+func (s *HTTPService) RunAgentScreenshot(ctx context.Context, req models.AgentScreenshotRequest) (models.AgentScreenshotResult, error) {
+	var out models.AgentScreenshotResult
+	if err := s.request(ctx, http.MethodPost, "/api/v1/agent/screenshot", nil, req, &out, ""); err != nil {
+		return out, err
 	}
 	return out, nil
 }

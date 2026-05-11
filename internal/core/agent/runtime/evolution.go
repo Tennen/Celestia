@@ -52,6 +52,7 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 	settings := snapshot.Settings.Evolution
 	agentProvider, agentProviderErr := resolveCodexAgentProvider(snapshot.Settings, settings.AgentProviderID)
 	codexBase := codexRequestFromAgentProvider(agentProvider, settings.TimeoutMS)
+	codexBase.ApprovalPolicy = settings.CodexApprovalPolicy
 	goal, ok := findEvolutionGoal(snapshot.Evolution.Goals, goalID)
 	if !ok {
 		return models.AgentEvolutionGoal{}, errors.New("evolution goal not found")
@@ -149,6 +150,18 @@ func (s *Service) RunEvolutionGoal(ctx context.Context, goalID string) (models.A
 		goal, err = s.evolutionPush(ctx, goal, settings)
 		if err != nil {
 			return s.failEvolutionGoal(ctx, goalID, "push_failed", err.Error())
+		}
+	}
+	if settings.AutoRebuild {
+		goal, err = s.evolutionRebuild(ctx, goal, settings)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, "rebuild_failed", err.Error())
+		}
+	}
+	if settings.AutoRestart {
+		goal, err = s.evolutionRestart(ctx, goal, settings)
+		if err != nil {
+			return s.failEvolutionGoal(ctx, goalID, "restart_failed", err.Error())
 		}
 	}
 

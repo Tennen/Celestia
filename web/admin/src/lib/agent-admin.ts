@@ -1,4 +1,4 @@
-export type AgentPanelId = 'llm' | 'conversation' | 'writing' | 'market' | 'evolution' | 'knowledge' | 'search';
+export type AgentPanelId = 'llm' | 'conversation' | 'writing' | 'market' | 'evolution' | 'ops' | 'knowledge' | 'search';
 
 export const agentPanelItems: Array<{ id: AgentPanelId; label: string }> = [
   { id: 'llm', label: 'Runtime' },
@@ -6,6 +6,7 @@ export const agentPanelItems: Array<{ id: AgentPanelId; label: string }> = [
   { id: 'writing', label: 'Writing' },
   { id: 'market', label: 'Market' },
   { id: 'evolution', label: 'Evolution' },
+  { id: 'ops', label: 'Ops' },
   { id: 'knowledge', label: 'Knowledge' },
   { id: 'search', label: 'Providers' },
 ];

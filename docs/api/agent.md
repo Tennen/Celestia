@@ -280,15 +280,70 @@ Body:
 ```http
 POST /api/v1/agent/evolution/goals
 POST /api/v1/agent/evolution/goals/{id}/run
+POST /api/v1/agent/evolution/ops/run
+POST /api/v1/agent/approvals
+POST /api/v1/agent/approvals/{id}/approve
+POST /api/v1/agent/approvals/{id}/reject
+POST /api/v1/agent/service/ops
 POST /api/v1/agent/terminal
 POST /api/v1/agent/codex/run
+POST /api/v1/agent/screenshot
 ```
 
-Evolution goals are queued in Agent state. Running a goal follows the Agent operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push when `settings.evolution.auto_commit` or `settings.evolution.auto_push` are enabled.
+Evolution goals are queued in Agent state. Running a goal follows the Agent operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push/rebuild/restart when `settings.evolution.auto_commit`, `auto_push`, `auto_rebuild`, or `auto_restart` are enabled. `settings.evolution.codex_approval_policy` is passed to Codex as `--ask-for-approval`; supported values are `never`, `on-request`, and `untrusted`.
+
+`/agent/evolution/ops/run` runs explicit local operations:
+
+```json
+{
+  "action": "rebuild",
+  "goal_id": "optional-goal-id",
+  "commit_message": "optional commit message"
+}
+```
+
+Supported actions are `commit`, `push`, `rebuild`, and `restart`. Rebuild defaults to `./deploy.sh`. Restart defaults to `./tool/celestia-service.sh restart`, which restarts the background gateway process without requiring an interactive terminal.
+
+Approval requests are stored in Agent state:
+
+```json
+{
+  "kind": "evolution_operation",
+  "action": "restart",
+  "goal_id": "optional-goal-id",
+  "title": "Approve evolution restart"
+}
+```
+
+Approving an `evolution_operation` executes the requested operation and stores the result on the approval record. Rejecting marks the request rejected and does not execute it.
+
+`/agent/service/ops` wraps `tool/celestia-service.sh` for local gateway process management:
+
+```json
+{
+  "action": "logs",
+  "lines": 120
+}
+```
+
+Supported actions are `status`, `start`, `stop`, `restart`, and `logs`. The script runs `bin/gateway` in the background with stdout/stderr appended to `data/runtime/gateway.log` and a PID file at `data/runtime/gateway.pid`.
 
 Terminal commands require `settings.terminal.enabled=true` and execute through `/bin/sh -lc` with the configured timeout.
 
 `/agent/codex/run` invokes local `codex exec` directly with workspace-write sandboxing by default and writes command output under `data/agent/codex` in the selected working directory. Request bodies may override `cwd`, `output_dir`, `sandbox`, `model`, `reasoning_effort`, `timeout_ms`, set `skip_git_repo_check=true`, or set `resume_session_id` to continue a prior Codex CLI session. Higher-level modules such as evolution and knowledge do not store raw Codex model names; they select an Agent provider with `type: "codex"`, and that provider supplies the Codex model and reasoning effort.
+
+`/agent/screenshot` captures loopback web pages through Playwright:
+
+```json
+{
+  "url": "http://localhost:3000",
+  "width": 1440,
+  "height": 1000,
+  "full_page": true
+}
+```
+
+Only `http` and `https` URLs targeting `localhost` or loopback IPs are accepted. PNG files are written under `data/agent/screenshots` by default.
 
 ## Codex Knowledge Base
 

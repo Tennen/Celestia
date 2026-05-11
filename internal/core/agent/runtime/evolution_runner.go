@@ -125,15 +125,14 @@ func (s *Service) evolutionChecks(ctx context.Context, goal models.AgentEvolutio
 
 func (s *Service) evolutionCommit(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig) (models.AgentEvolutionGoal, error) {
 	message := firstNonEmpty(goal.CommitMessage, deterministicEvolutionCommitMessage(goal.Goal))
-	if result := runEvolutionShell(ctx, settings, "git add -A", 120000); !result.OK {
-		return goal, errors.New(result.Output)
-	}
-	if result := runEvolutionShell(ctx, settings, "git commit --allow-empty -m "+evolutionShellQuote(message), 120000); !result.OK {
-		return goal, errors.New(result.Output)
+	result, err := runEvolutionCommitCommand(ctx, settings, message)
+	if err != nil {
+		return goal, err
 	}
 	ref, _ := evolutionGitOutput(ctx, settings, "git rev-parse HEAD")
 	goal.CompletedCommit = strings.TrimSpace(ref)
 	goal.CommitMessage = message
+	goal.TestResults = append(goal.TestResults, result)
 	goal.Stage = "commit_done"
 	goal.UpdatedAt = time.Now().UTC()
 	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: goal.UpdatedAt, Stage: "commit", Message: "Committed changes: " + message})
@@ -141,18 +140,13 @@ func (s *Service) evolutionCommit(ctx context.Context, goal models.AgentEvolutio
 }
 
 func (s *Service) evolutionPush(ctx context.Context, goal models.AgentEvolutionGoal, settings models.AgentEvolutionConfig) (models.AgentEvolutionGoal, error) {
+	result, err := runEvolutionPushCommand(ctx, settings)
+	if err != nil {
+		return goal, err
+	}
 	remote := firstNonEmpty(settings.PushRemote, "origin")
-	branch := strings.TrimSpace(settings.PushBranch)
-	if branch == "" {
-		out, err := evolutionGitOutput(ctx, settings, "git rev-parse --abbrev-ref HEAD")
-		if err != nil {
-			return goal, err
-		}
-		branch = strings.TrimSpace(out)
-	}
-	if result := runEvolutionShell(ctx, settings, "git push "+evolutionShellQuote(remote)+" HEAD:"+evolutionShellQuote(branch), 120000); !result.OK {
-		return goal, errors.New(result.Output)
-	}
+	branch := firstNonEmpty(settings.PushBranch, "current branch")
+	goal.TestResults = append(goal.TestResults, result)
 	goal.Stage = "push_done"
 	goal.UpdatedAt = time.Now().UTC()
 	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: goal.UpdatedAt, Stage: "push", Message: "Pushed HEAD to " + remote + "/" + branch})

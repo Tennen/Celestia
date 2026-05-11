@@ -9,6 +9,8 @@ import (
 type Service = runtime.Service
 type MarketRunRequest = runtime.MarketRunRequest
 type EvolutionGoalRequest = runtime.EvolutionGoalRequest
+type EvolutionOperationRequest = runtime.EvolutionOperationRequest
+type ServiceOperationRequest = runtime.ServiceOperationRequest
 type WritingTopicRequest = runtime.WritingTopicRequest
 type WritingMaterialRequest = runtime.WritingMaterialRequest
 type WritingStateUpdateRequest = runtime.WritingStateUpdateRequest

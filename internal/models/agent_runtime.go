@@ -46,6 +46,7 @@ type AgentCodexRequest struct {
 	Prompt           string `json:"prompt"`
 	Model            string `json:"model,omitempty"`
 	ReasoningEffort  string `json:"reasoning_effort,omitempty"`
+	ApprovalPolicy   string `json:"approval_policy,omitempty"`
 	TimeoutMS        int    `json:"timeout_ms,omitempty"`
 	CWD              string `json:"cwd,omitempty"`
 	OutputDir        string `json:"output_dir,omitempty"`

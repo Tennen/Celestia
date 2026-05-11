@@ -82,7 +82,7 @@ func resolveCodexOutputDir(cwd string, outputDir string) string {
 }
 
 func buildCodexArgs(req models.AgentCodexRequest, cwd string, outputFile string) []string {
-	args := []string{"-a", "never", "exec"}
+	args := []string{"-a", normalizeCodexApprovalPolicy(req.ApprovalPolicy), "exec"}
 	if strings.TrimSpace(req.ResumeSessionID) != "" {
 		args = append(args, "resume", "--json", "-o", outputFile)
 		args = appendCodexConfigArgs(args, req)

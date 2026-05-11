@@ -25,6 +25,7 @@ type AgentSnapshot struct {
 	Writing       AgentWritingSnapshot   `json:"writing"`
 	Market        AgentMarketSnapshot    `json:"market"`
 	Evolution     AgentEvolutionSnapshot `json:"evolution"`
+	Approvals     AgentApprovalSnapshot  `json:"approvals"`
 	Knowledge     AgentKnowledgeSnapshot `json:"knowledge"`
 	UpdatedAt     time.Time              `json:"updated_at"`
 }
@@ -144,17 +145,22 @@ type AgentTerminalConfig struct {
 }
 
 type AgentEvolutionConfig struct {
-	Command         string                      `json:"command,omitempty"`
-	CWD             string                      `json:"cwd,omitempty"`
-	TimeoutMS       int                         `json:"timeout_ms,omitempty"`
-	AgentProviderID string                      `json:"agent_provider_id,omitempty"`
-	MaxFixAttempts  int                         `json:"max_fix_attempts,omitempty"`
-	TestCommands    []AgentEvolutionTestCommand `json:"test_commands,omitempty"`
-	AutoCommit      bool                        `json:"auto_commit,omitempty"`
-	AutoPush        bool                        `json:"auto_push,omitempty"`
-	PushRemote      string                      `json:"push_remote,omitempty"`
-	PushBranch      string                      `json:"push_branch,omitempty"`
-	StructureReview bool                        `json:"structure_review,omitempty"`
+	Command             string                      `json:"command,omitempty"`
+	CWD                 string                      `json:"cwd,omitempty"`
+	TimeoutMS           int                         `json:"timeout_ms,omitempty"`
+	AgentProviderID     string                      `json:"agent_provider_id,omitempty"`
+	MaxFixAttempts      int                         `json:"max_fix_attempts,omitempty"`
+	TestCommands        []AgentEvolutionTestCommand `json:"test_commands,omitempty"`
+	AutoCommit          bool                        `json:"auto_commit,omitempty"`
+	AutoPush            bool                        `json:"auto_push,omitempty"`
+	PushRemote          string                      `json:"push_remote,omitempty"`
+	PushBranch          string                      `json:"push_branch,omitempty"`
+	AutoRebuild         bool                        `json:"auto_rebuild,omitempty"`
+	AutoRestart         bool                        `json:"auto_restart,omitempty"`
+	RebuildCommand      string                      `json:"rebuild_command,omitempty"`
+	RestartCommand      string                      `json:"restart_command,omitempty"`
+	CodexApprovalPolicy string                      `json:"codex_approval_policy,omitempty"`
+	StructureReview     bool                        `json:"structure_review,omitempty"`
 }
 
 type AgentEvolutionTestCommand struct {

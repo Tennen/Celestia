@@ -219,6 +219,46 @@ func (s *RuntimeService) RunAgentEvolutionGoal(ctx context.Context, goalID strin
 	return goal, nil
 }
 
+func (s *RuntimeService) RunAgentEvolutionOperation(ctx context.Context, req AgentEvolutionOperationRequest) (models.AgentEvolutionTestResult, error) {
+	result, err := s.runtime.Agent.RunEvolutionOperation(ctx, coreagent.EvolutionOperationRequest(req))
+	if err != nil {
+		return result, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
+func (s *RuntimeService) CreateAgentApproval(ctx context.Context, req models.AgentApprovalCreateRequest) (models.AgentApprovalRequest, error) {
+	item, err := s.runtime.Agent.CreateApproval(ctx, req)
+	if err != nil {
+		return models.AgentApprovalRequest{}, statusError(http.StatusBadRequest, err)
+	}
+	return item, nil
+}
+
+func (s *RuntimeService) ApproveAgentApproval(ctx context.Context, id string, req models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	item, err := s.runtime.Agent.ApproveApproval(ctx, id, req)
+	if err != nil {
+		return item, statusError(http.StatusBadRequest, err)
+	}
+	return item, nil
+}
+
+func (s *RuntimeService) RejectAgentApproval(ctx context.Context, id string, req models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error) {
+	item, err := s.runtime.Agent.RejectApproval(ctx, id, req)
+	if err != nil {
+		return item, statusError(http.StatusBadRequest, err)
+	}
+	return item, nil
+}
+
+func (s *RuntimeService) RunAgentServiceOperation(ctx context.Context, req AgentServiceOperationRequest) (models.AgentTerminalResult, error) {
+	result, err := s.runtime.Agent.RunServiceOperation(ctx, coreagent.ServiceOperationRequest(req))
+	if err != nil {
+		return result, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
 func (s *RuntimeService) RunAgentTerminal(ctx context.Context, req models.AgentTerminalRequest) (models.AgentTerminalResult, error) {
 	result, err := s.runtime.Agent.RunTerminal(ctx, req)
 	if err != nil && result.Command == "" {
@@ -253,6 +293,14 @@ func (s *RuntimeService) RunAgentCodex(ctx context.Context, req models.AgentCode
 
 func (s *RuntimeService) RunAgentMarkdownRender(ctx context.Context, req models.AgentMarkdownRenderRequest) (models.AgentMarkdownRenderResult, error) {
 	result, err := s.runtime.Agent.RunMarkdownRender(ctx, req)
+	if err != nil {
+		return result, statusError(http.StatusBadRequest, err)
+	}
+	return result, nil
+}
+
+func (s *RuntimeService) RunAgentScreenshot(ctx context.Context, req models.AgentScreenshotRequest) (models.AgentScreenshotResult, error) {
+	result, err := s.runtime.Agent.RunScreenshot(ctx, req)
 	if err != nil {
 		return result, statusError(http.StatusBadRequest, err)
 	}

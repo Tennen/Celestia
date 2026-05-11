@@ -27,6 +27,20 @@ Workflow slash commands run before the Agent ReAct loop and invoke the Core-owne
 - `/workflow run [workflow-id]` starts the selected workflow, or the active workflow when no id is supplied.
 - `/workflow runs` lists recent workflow runs.
 
+Evolution and local service slash commands run before the Agent ReAct loop:
+
+- `/evolution status [goal-id]` lists queued self-evolution goals or shows one goal.
+- `/evolution queue <goal> [commit_message=...]` queues a Codex-backed evolution goal.
+- `/evolution run [goal-id]` runs the selected goal, or the next non-succeeded goal when no id is supplied.
+- `/evolution request <commit|push|rebuild|restart> [goal-id]` creates a remote approval request.
+- `/evolution <commit|push|rebuild|restart> [goal_id=...] [commit_message=...]` runs an explicit operation.
+- `/approve <approval-id>` approves and executes a pending operation request.
+- `/reject <approval-id>` rejects a pending operation request.
+- `/service status` reports the background gateway service status.
+- `/service logs [lines=120]` returns recent lines from `data/runtime/gateway.log`.
+- `/service start`, `/service stop`, and `/service restart` call `tool/celestia-service.sh`.
+- `/screenshot <http://localhost:port/path> [width=1440 height=1000 full_page=true]` captures a loopback web page and returns the PNG image.
+
 Knowledge slash commands run before the Agent ReAct loop and invoke the local Codex CLI against the selected configured knowledge base root:
 
 - `/kb ask <question>` or `/kb <question>` asks against the default knowledge base for the current WeCom/HTTP user.

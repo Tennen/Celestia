@@ -174,6 +174,10 @@ func defaultSnapshot() models.AgentSnapshot {
 			Goals:     []models.AgentEvolutionGoal{},
 			UpdatedAt: now,
 		},
+		Approvals: models.AgentApprovalSnapshot{
+			Requests:  []models.AgentApprovalRequest{},
+			UpdatedAt: now,
+		},
 		Knowledge: models.AgentKnowledgeSnapshot{
 			Sessions:  []models.AgentKnowledgeSession{},
 			UpdatedAt: now,
@@ -252,9 +256,13 @@ func normalizeSnapshot(snapshot models.AgentSnapshot) models.AgentSnapshot {
 	if snapshot.Evolution.Goals == nil {
 		snapshot.Evolution.Goals = []models.AgentEvolutionGoal{}
 	}
+	if snapshot.Approvals.Requests == nil {
+		snapshot.Approvals.Requests = []models.AgentApprovalRequest{}
+	}
 	if snapshot.Knowledge.Sessions == nil {
 		snapshot.Knowledge.Sessions = []models.AgentKnowledgeSession{}
 	}
+	snapshot.Approvals.Requests = truncateList(snapshot.Approvals.Requests, 100)
 	snapshot.Knowledge.Sessions = truncateList(snapshot.Knowledge.Sessions, 50)
 	return snapshot
 }
@@ -316,6 +324,13 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 	if settings.Evolution.MaxFixAttempts <= 0 {
 		settings.Evolution.MaxFixAttempts = 2
 	}
+	settings.Evolution.CodexApprovalPolicy = normalizeCodexApprovalPolicy(settings.Evolution.CodexApprovalPolicy)
+	if strings.TrimSpace(settings.Evolution.RebuildCommand) == "" {
+		settings.Evolution.RebuildCommand = "./deploy.sh"
+	}
+	if strings.TrimSpace(settings.Evolution.RestartCommand) == "" {
+		settings.Evolution.RestartCommand = "./tool/celestia-service.sh restart"
+	}
 	if settings.Knowledge.Bases == nil {
 		settings.Knowledge.Bases = []models.AgentKnowledgeBase{}
 	}
@@ -332,6 +347,15 @@ func normalizeSettings(settings models.AgentSettings) models.AgentSettings {
 		settings.WeCom.TextMaxBytes = 1800
 	}
 	return settings
+}
+
+func normalizeCodexApprovalPolicy(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "untrusted", "on-request", "never":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "never"
+	}
 }
 
 func normalizeDirectRule(rule models.AgentDirectInputRule) models.AgentDirectInputRule {

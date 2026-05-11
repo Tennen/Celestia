@@ -53,11 +53,17 @@ type Service interface {
 	RunAgentMarketAnalysis(ctx context.Context, req AgentMarketRunRequest) (models.AgentMarketRun, error)
 	CreateAgentEvolutionGoal(ctx context.Context, req AgentEvolutionGoalRequest) (models.AgentEvolutionGoal, error)
 	RunAgentEvolutionGoal(ctx context.Context, goalID string) (models.AgentEvolutionGoal, error)
+	RunAgentEvolutionOperation(ctx context.Context, req AgentEvolutionOperationRequest) (models.AgentEvolutionTestResult, error)
+	CreateAgentApproval(ctx context.Context, req models.AgentApprovalCreateRequest) (models.AgentApprovalRequest, error)
+	ApproveAgentApproval(ctx context.Context, id string, req models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error)
+	RejectAgentApproval(ctx context.Context, id string, req models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error)
+	RunAgentServiceOperation(ctx context.Context, req AgentServiceOperationRequest) (models.AgentTerminalResult, error)
 	RunAgentTerminal(ctx context.Context, req models.AgentTerminalRequest) (models.AgentTerminalResult, error)
 	RunAgentSearch(ctx context.Context, req models.AgentSearchRequest) (models.AgentSearchResult, error)
 	TranscribeAgentSpeech(ctx context.Context, req models.AgentSpeechRequest) (models.AgentSpeechResult, error)
 	RunAgentCodex(ctx context.Context, req models.AgentCodexRequest) (models.AgentCodexResult, error)
 	RunAgentMarkdownRender(ctx context.Context, req models.AgentMarkdownRenderRequest) (models.AgentMarkdownRenderResult, error)
+	RunAgentScreenshot(ctx context.Context, req models.AgentScreenshotRequest) (models.AgentScreenshotResult, error)
 
 	ListDevices(ctx context.Context, filter DeviceFilter) ([]models.DeviceView, error)
 	GetDevice(ctx context.Context, deviceID string) (models.DeviceView, error)
@@ -125,6 +131,17 @@ type AgentMarketRunRequest struct {
 type AgentEvolutionGoalRequest struct {
 	Goal          string `json:"goal"`
 	CommitMessage string `json:"commit_message,omitempty"`
+}
+
+type AgentEvolutionOperationRequest struct {
+	Action        string `json:"action"`
+	GoalID        string `json:"goal_id,omitempty"`
+	CommitMessage string `json:"commit_message,omitempty"`
+}
+
+type AgentServiceOperationRequest struct {
+	Action string `json:"action"`
+	Lines  int    `json:"lines,omitempty"`
 }
 
 type DeviceFilter struct {

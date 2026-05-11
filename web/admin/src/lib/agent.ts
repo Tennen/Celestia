@@ -53,6 +53,11 @@ export type AgentSettings = {
     auto_push?: boolean;
     push_remote?: string;
     push_branch?: string;
+    auto_rebuild?: boolean;
+    auto_restart?: boolean;
+    rebuild_command?: string;
+    restart_command?: string;
+    codex_approval_policy?: string;
     structure_review?: boolean;
   };
   stt?: Record<string, unknown>;
@@ -212,6 +217,23 @@ export type AgentEvolutionGoal = {
   last_error?: string;
 };
 
+export type AgentApprovalRequest = {
+  id: string;
+  kind: string;
+  action: string;
+  goal_id?: string;
+  title: string;
+  detail?: string;
+  status: string;
+  requested_by?: string;
+  decision_by?: string;
+  decision_note?: string;
+  result?: Record<string, unknown>;
+  error?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AgentSnapshot = {
   settings: AgentSettings;
   search: AgentSearchSnapshot;
@@ -228,6 +250,10 @@ export type AgentSnapshot = {
   market: AgentMarketSnapshot;
   evolution: {
     goals: AgentEvolutionGoal[];
+    updated_at: string;
+  };
+  approvals: {
+    requests: AgentApprovalRequest[];
     updated_at: string;
   };
   knowledge?: { sessions: Array<Record<string, unknown>>; updated_at: string };
@@ -361,6 +387,7 @@ export function runAgentCodex(payload: {
   sandbox?: string;
   resume_session_id?: string;
   skip_git_repo_check?: boolean;
+  approval_policy?: string;
 }) {
   return request<Record<string, unknown>>('/agent/codex/run', { method: 'POST', body: JSON.stringify(payload) });
 }
@@ -386,6 +413,7 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
   const portfolio = market.portfolio ?? ({ cash: 0 } as AgentMarketPortfolio);
   const writing = snapshot.writing ?? { topics: [], updated_at: '' };
   const evolution = snapshot.evolution ?? { goals: [], updated_at: '' };
+  const approvals = snapshot.approvals ?? { requests: [], updated_at: '' };
 
   return {
     ...snapshot,
@@ -439,6 +467,10 @@ export function normalizeAgentSnapshot(input: AgentSnapshot): AgentSnapshot {
     evolution: {
       ...evolution,
       goals: arrayOrEmpty(evolution.goals),
+    },
+    approvals: {
+      ...approvals,
+      requests: arrayOrEmpty(approvals.requests),
     },
   };
 }

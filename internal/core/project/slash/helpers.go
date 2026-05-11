@@ -109,6 +109,16 @@ Slash commands:
 - /workflow list
 - /workflow run [workflow-id]
 - /workflow runs
+- /evolution status [goal-id]
+- /evolution queue <goal> [commit_message=...]
+- /evolution run [goal-id]
+- /evolution request <commit|push|rebuild|restart> [goal-id]
+- /screenshot <http://localhost:port/path> [width=1440 height=1000 full_page=true]
+- /approve <approval-id>
+- /reject <approval-id>
+- /service status
+- /service logs [lines=120]
+- /service start|stop|restart
 - /kb ask <question>
 - /kb @<base-id> ask <question>
 - /kb new [@base-id] [question]

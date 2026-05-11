@@ -33,6 +33,83 @@ func (s *Server) handleAgentEvolutionRun(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, goal)
 }
 
+func (s *Server) handleAgentEvolutionOperationRun(w http.ResponseWriter, r *http.Request) {
+	var payload gatewayapi.AgentEvolutionOperationRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.RunAgentEvolutionOperation(r.Context(), payload)
+	if err != nil {
+		if result.Command != "" {
+			writeJSON(w, gatewayapi.StatusCode(err), result)
+			return
+		}
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleAgentApprovalCreate(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentApprovalCreateRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	item, err := s.gateway.CreateAgentApproval(r.Context(), payload)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) handleAgentApprovalApprove(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentApprovalDecisionRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	item, err := s.gateway.ApproveAgentApproval(r.Context(), r.PathValue("id"), payload)
+	if err != nil {
+		if item.ID != "" {
+			writeJSON(w, gatewayapi.StatusCode(err), item)
+			return
+		}
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) handleAgentApprovalReject(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentApprovalDecisionRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	item, err := s.gateway.RejectAgentApproval(r.Context(), r.PathValue("id"), payload)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) handleAgentServiceOperation(w http.ResponseWriter, r *http.Request) {
+	var payload gatewayapi.AgentServiceOperationRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.RunAgentServiceOperation(r.Context(), payload)
+	if err != nil {
+		if result.Command != "" {
+			writeJSON(w, gatewayapi.StatusCode(err), result)
+			return
+		}
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (s *Server) handleAgentTerminal(w http.ResponseWriter, r *http.Request) {
 	var payload models.AgentTerminalRequest
 	if !decodeJSON(w, r, &payload) {
@@ -99,6 +176,19 @@ func (s *Server) handleAgentMarkdownRender(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	result, err := s.gateway.RunAgentMarkdownRender(r.Context(), payload)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleAgentScreenshot(w http.ResponseWriter, r *http.Request) {
+	var payload models.AgentScreenshotRequest
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	result, err := s.gateway.RunAgentScreenshot(r.Context(), payload)
 	if err != nil {
 		writeServiceError(w, err)
 		return

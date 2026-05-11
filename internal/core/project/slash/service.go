@@ -16,6 +16,14 @@ type AgentRuntime interface {
 	Snapshot(context.Context) (models.AgentSnapshot, error)
 	RunMarketAnalysis(context.Context, coreagent.MarketRunRequest) (models.AgentMarketRun, error)
 	ImportMarketPortfolioCodes(context.Context, models.AgentMarketImportCodesRequest) (models.AgentMarketImportCodesResponse, error)
+	CreateEvolutionGoal(context.Context, coreagent.EvolutionGoalRequest) (models.AgentEvolutionGoal, error)
+	RunEvolutionGoal(context.Context, string) (models.AgentEvolutionGoal, error)
+	RunEvolutionOperation(context.Context, coreagent.EvolutionOperationRequest) (models.AgentEvolutionTestResult, error)
+	CreateApproval(context.Context, models.AgentApprovalCreateRequest) (models.AgentApprovalRequest, error)
+	ApproveApproval(context.Context, string, models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error)
+	RejectApproval(context.Context, string, models.AgentApprovalDecisionRequest) (models.AgentApprovalRequest, error)
+	RunScreenshot(context.Context, models.AgentScreenshotRequest) (models.AgentScreenshotResult, error)
+	RunServiceOperation(context.Context, coreagent.ServiceOperationRequest) (models.AgentTerminalResult, error)
 	StartKnowledgeSession(context.Context, models.AgentKnowledgeRequest) (models.AgentKnowledgeSession, error)
 	RunKnowledge(context.Context, models.AgentKnowledgeRequest) (models.AgentKnowledgeResult, error)
 	ListKnowledgeAnswers(context.Context, models.AgentKnowledgeAnswersRequest) ([]models.AgentKnowledgeAnswer, error)
@@ -77,6 +85,16 @@ func (s *Service) Run(ctx context.Context, req models.ProjectInputRequest) (mode
 		output, metadata, err = s.runKnowledge(ctx, req, args)
 	case "workflow":
 		output, metadata, err = s.runWorkflow(ctx, args)
+	case "evolution", "evolve":
+		output, metadata, err = s.runEvolution(ctx, req, args)
+	case "screenshot", "screen":
+		output, metadata, err = s.runScreenshot(ctx, args)
+	case "approve":
+		output, metadata, err = s.runApproval(ctx, req, args, true)
+	case "reject":
+		output, metadata, err = s.runApproval(ctx, req, args, false)
+	case "service", "gateway":
+		output, metadata, err = s.runServiceOperation(ctx, args)
 	default:
 		err = fmt.Errorf("unknown slash command %q", command)
 	}

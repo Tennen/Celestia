@@ -38,6 +38,7 @@ const (
 	agentMarketConfigDocumentKey      = "agent/market/config"
 	agentMarketRunsDocumentKey        = "agent/market/runs"
 	agentEvolutionGoalsDocumentKey    = "agent/evolution/goals"
+	agentApprovalRequestsDocumentKey  = "agent/approvals/requests"
 	agentKnowledgeSessionsDocumentKey = "agent/knowledge/sessions"
 )
 
@@ -130,6 +131,11 @@ type agentEvolutionGoalsDocument struct {
 	UpdatedAt time.Time                   `json:"updated_at"`
 }
 
+type agentApprovalRequestsDocument struct {
+	Requests  []models.AgentApprovalRequest `json:"requests"`
+	UpdatedAt time.Time                     `json:"updated_at"`
+}
+
 type agentKnowledgeSessionsDocument struct {
 	Sessions  []models.AgentKnowledgeSession `json:"sessions"`
 	UpdatedAt time.Time                      `json:"updated_at"`
@@ -201,6 +207,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 	writingUpdatedAt := firstTime(snapshot.Writing.UpdatedAt, snapshot.UpdatedAt)
 	marketUpdatedAt := firstTime(snapshot.Market.UpdatedAt, snapshot.UpdatedAt)
 	evolutionUpdatedAt := firstTime(snapshot.Evolution.UpdatedAt, snapshot.UpdatedAt)
+	approvalUpdatedAt := firstTime(snapshot.Approvals.UpdatedAt, snapshot.UpdatedAt)
 	knowledgeUpdatedAt := firstTime(snapshot.Knowledge.UpdatedAt, snapshot.UpdatedAt)
 
 	writes := []struct {
@@ -278,6 +285,7 @@ func (s *Service) saveSplitSnapshot(ctx context.Context, snapshot models.AgentSn
 		{key: agentMarketConfigDocumentKey, domain: "agent.market.config", payload: agentMarketConfigDocument{Config: snapshot.Market.Config, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},
 		{key: agentMarketRunsDocumentKey, domain: "agent.market.runs", payload: agentMarketRunsDocument{Runs: snapshot.Market.Runs, UpdatedAt: marketUpdatedAt}, updatedAt: marketUpdatedAt},
 		{key: agentEvolutionGoalsDocumentKey, domain: "agent.evolution.goals", payload: agentEvolutionGoalsDocument{Goals: snapshot.Evolution.Goals, UpdatedAt: evolutionUpdatedAt}, updatedAt: evolutionUpdatedAt},
+		{key: agentApprovalRequestsDocumentKey, domain: "agent.approvals.requests", payload: agentApprovalRequestsDocument{Requests: snapshot.Approvals.Requests, UpdatedAt: approvalUpdatedAt}, updatedAt: approvalUpdatedAt},
 		{key: agentKnowledgeSessionsDocumentKey, domain: "agent.knowledge.sessions", payload: agentKnowledgeSessionsDocument{Sessions: snapshot.Knowledge.Sessions, UpdatedAt: knowledgeUpdatedAt}, updatedAt: knowledgeUpdatedAt},
 	}
 
@@ -367,6 +375,7 @@ func agentDocumentLoaders() []agentDocumentLoader {
 		{key: agentMarketConfigDocumentKey, load: loadAgentMarketConfigDocument},
 		{key: agentMarketRunsDocumentKey, load: loadAgentMarketRunsDocument},
 		{key: agentEvolutionGoalsDocumentKey, load: loadAgentEvolutionGoalsDocument},
+		{key: agentApprovalRequestsDocumentKey, load: loadAgentApprovalRequestsDocument},
 		{key: agentKnowledgeSessionsDocumentKey, load: loadAgentKnowledgeSessionsDocument},
 	}
 }
