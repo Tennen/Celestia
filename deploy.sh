@@ -16,6 +16,10 @@ error() {
   printf '[deploy] ERROR: %s\n' "$*" >&2
 }
 
+warn() {
+  printf '[deploy] WARN: %s\n' "$*"
+}
+
 run_step() {
   local name="$1"
   shift
@@ -39,8 +43,9 @@ run_optional_step() {
     return 0
   else
     local status=$?
-    error "${name} failed with exit code ${status}; continuing deployment"
+    warn "${name} failed with exit code ${status}; continuing deployment"
     OPTIONAL_FAILURES+=("${name} (exit ${status})")
+    return 0
   fi
 }
 
@@ -50,7 +55,7 @@ run_optional_step "make docker-build-hikvision" make docker-build-hikvision
 run_step "npm run build --workspace web/admin" npm run build --workspace web/admin
 
 if ((${#OPTIONAL_FAILURES[@]} > 0)); then
-  error "Deployment completed with non-blocking step failures: ${OPTIONAL_FAILURES[*]}"
+  warn "Deployment completed successfully with non-blocking step failures: ${OPTIONAL_FAILURES[*]}"
 else
   log "Deployment completed successfully"
 fi
