@@ -112,7 +112,7 @@ Slash commands:
 - /evolution status [goal-id]
 - /evolution queue <goal> [commit_message=...]
 - /evolution run [goal-id]
-- /evolution request <commit|push|rebuild|restart> [goal-id]
+- /evolution request <commit|pull|push|rebuild|restart> [goal-id]
 - /screenshot <http://localhost:port/path> [width=1440 height=1000 full_page=true]
 - /approve <approval-id>
 - /reject <approval-id>

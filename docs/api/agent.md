@@ -302,7 +302,7 @@ Evolution goals are queued in Agent state. Running a goal follows the Agent oper
 }
 ```
 
-Supported actions are `commit`, `push`, `rebuild`, and `restart`. Rebuild defaults to `./deploy.sh`. Restart defaults to `./tool/celestia-service.sh restart`, which restarts the background gateway process without requiring an interactive terminal.
+Supported actions are `commit`, `pull`, `push`, `rebuild`, and `restart`. Pull runs `git pull --ff-only` against `settings.evolution.push_remote` and `settings.evolution.push_branch`, defaulting to `origin` and the current branch. Rebuild defaults to `./deploy.sh`. Restart defaults to `./tool/celestia-service.sh restart`, which restarts the background gateway process without requiring an interactive terminal.
 
 Approval requests are stored in Agent state:
 

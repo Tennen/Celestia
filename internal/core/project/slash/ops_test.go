@@ -28,6 +28,26 @@ func TestRunEvolutionQueueDispatchesAgentRuntime(t *testing.T) {
 	}
 }
 
+func TestRunEvolutionPullDispatchesAgentRuntime(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeAgentRuntime{}
+	svc := New(nil, agent)
+
+	result, handled, err := svc.Run(ctx, models.ProjectInputRequest{Input: `/evolution pull goal_id=goal-1`})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !handled {
+		t.Fatal("Run() handled = false, want true")
+	}
+	if len(agent.evolutionOps) != 1 || agent.evolutionOps[0].Action != "pull" || agent.evolutionOps[0].GoalID != "goal-1" {
+		t.Fatalf("evolution ops = %+v", agent.evolutionOps)
+	}
+	if result.Metadata["action"] != "pull" {
+		t.Fatalf("metadata action = %#v, want pull", result.Metadata["action"])
+	}
+}
+
 func TestRunScreenshotReturnsImage(t *testing.T) {
 	ctx := context.Background()
 	agent := &fakeAgentRuntime{}

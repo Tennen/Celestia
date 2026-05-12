@@ -32,8 +32,8 @@ Evolution and local service slash commands run before the Agent ReAct loop:
 - `/evolution status [goal-id]` lists queued self-evolution goals or shows one goal.
 - `/evolution queue <goal> [commit_message=...]` queues a Codex-backed evolution goal.
 - `/evolution run [goal-id]` runs the selected goal, or the next non-succeeded goal when no id is supplied.
-- `/evolution request <commit|push|rebuild|restart> [goal-id]` creates a remote approval request.
-- `/evolution <commit|push|rebuild|restart> [goal_id=...] [commit_message=...]` runs an explicit operation.
+- `/evolution request <commit|pull|push|rebuild|restart> [goal-id]` creates a remote approval request.
+- `/evolution <commit|pull|push|rebuild|restart> [goal_id=...] [commit_message=...]` runs an explicit operation.
 - `/approve <approval-id>` approves and executes a pending operation request.
 - `/reject <approval-id>` rejects a pending operation request.
 - `/service status` reports the background gateway service status.

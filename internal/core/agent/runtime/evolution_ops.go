@@ -36,6 +36,8 @@ func (s *Service) RunEvolutionOperation(ctx context.Context, req EvolutionOperat
 		return runEvolutionCommitCommand(ctx, settings, firstNonEmpty(message, "chore: apply evolution goal"))
 	case "push":
 		return runEvolutionPushCommand(ctx, settings)
+	case "pull":
+		return runEvolutionPullCommand(ctx, settings)
 	case "rebuild":
 		result := runNamedEvolutionCommand(ctx, settings, "rebuild", firstNonEmpty(settings.RebuildCommand, "./deploy.sh"), settings.TimeoutMS)
 		if !result.OK {
@@ -91,14 +93,9 @@ func runEvolutionCommitCommand(ctx context.Context, settings models.AgentEvoluti
 }
 
 func runEvolutionPushCommand(ctx context.Context, settings models.AgentEvolutionConfig) (models.AgentEvolutionTestResult, error) {
-	remote := firstNonEmpty(settings.PushRemote, "origin")
-	branch := strings.TrimSpace(settings.PushBranch)
-	if branch == "" {
-		out, err := evolutionGitOutput(ctx, settings, "git rev-parse --abbrev-ref HEAD")
-		if err != nil {
-			return models.AgentEvolutionTestResult{}, err
-		}
-		branch = strings.TrimSpace(out)
+	remote, branch, err := resolveEvolutionRemoteBranch(ctx, settings)
+	if err != nil {
+		return models.AgentEvolutionTestResult{}, err
 	}
 	command := "git push " + evolutionShellQuote(remote) + " HEAD:" + evolutionShellQuote(branch)
 	result := runNamedEvolutionCommand(ctx, settings, "git push", command, 120000)
@@ -106,6 +103,32 @@ func runEvolutionPushCommand(ctx context.Context, settings models.AgentEvolution
 		return result, errors.New(result.Output)
 	}
 	return result, nil
+}
+
+func runEvolutionPullCommand(ctx context.Context, settings models.AgentEvolutionConfig) (models.AgentEvolutionTestResult, error) {
+	remote, branch, err := resolveEvolutionRemoteBranch(ctx, settings)
+	if err != nil {
+		return models.AgentEvolutionTestResult{}, err
+	}
+	command := "git pull --ff-only " + evolutionShellQuote(remote) + " " + evolutionShellQuote(branch)
+	result := runNamedEvolutionCommand(ctx, settings, "git pull", command, 120000)
+	if !result.OK {
+		return result, errors.New(result.Output)
+	}
+	return result, nil
+}
+
+func resolveEvolutionRemoteBranch(ctx context.Context, settings models.AgentEvolutionConfig) (string, string, error) {
+	remote := firstNonEmpty(settings.PushRemote, "origin")
+	branch := strings.TrimSpace(settings.PushBranch)
+	if branch == "" {
+		out, err := evolutionGitOutput(ctx, settings, "git rev-parse --abbrev-ref HEAD")
+		if err != nil {
+			return "", "", err
+		}
+		branch = strings.TrimSpace(out)
+	}
+	return remote, branch, nil
 }
 
 func runNamedEvolutionCommand(ctx context.Context, settings models.AgentEvolutionConfig, name string, command string, timeoutMS int) models.AgentEvolutionTestResult {
@@ -127,7 +150,7 @@ func runNamedEvolutionCommand(ctx context.Context, settings models.AgentEvolutio
 
 func normalizeEvolutionOperation(action string) string {
 	switch strings.ToLower(strings.TrimSpace(action)) {
-	case "commit", "push", "rebuild", "build", "restart":
+	case "commit", "push", "pull", "rebuild", "build", "restart":
 		if strings.EqualFold(strings.TrimSpace(action), "build") {
 			return "rebuild"
 		}

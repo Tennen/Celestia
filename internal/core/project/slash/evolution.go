@@ -50,7 +50,7 @@ func (s *Service) runEvolution(ctx context.Context, req models.ProjectInputReque
 		return formatEvolutionGoal(goal), map[string]any{"domain": "evolution", "goal_id": goal.ID}, err
 	case "request":
 		return s.requestEvolutionApproval(ctx, req, args[1:])
-	case "commit", "push", "rebuild", "restart", "build":
+	case "commit", "pull", "push", "rebuild", "restart", "build":
 		return s.runEvolutionOperation(ctx, args)
 	default:
 		return "", nil, fmt.Errorf("unknown evolution action %q", args[0])
@@ -182,7 +182,7 @@ Evolution commands:
 - /evolution status [goal-id]
 - /evolution queue <goal> [commit_message=...]
 - /evolution run [goal-id]
-- /evolution request <commit|push|rebuild|restart> [goal-id]
-- /evolution <commit|push|rebuild|restart> [goal_id=...] [commit_message=...]
+- /evolution request <commit|pull|push|rebuild|restart> [goal-id]
+- /evolution <commit|pull|push|rebuild|restart> [goal_id=...] [commit_message=...]
 `)
 }

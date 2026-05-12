@@ -176,7 +176,7 @@ export function AgentEvolutionPanel({ snapshot, onRun }: Props) {
           <ToggleField label="Auto restart" checked={autoRestart} onChange={setAutoRestart} />
           <ToggleField label="Structure review" checked={structureReview} onChange={setStructureReview} />
           <div className="button-row">
-            {['commit', 'push', 'rebuild', 'restart'].map((action) => (
+            {['commit', 'pull', 'push', 'rebuild', 'restart'].map((action) => (
               <Button key={action} variant="secondary" onClick={() => onRun(`evolution-${action}`, () => runEvolutionOperation({ action, goal_id: runnableGoal?.id, commit_message: commitMessage || undefined }))}>
                 <Wrench className="mr-2 h-4 w-4" />
                 {action}
@@ -184,7 +184,7 @@ export function AgentEvolutionPanel({ snapshot, onRun }: Props) {
             ))}
           </div>
           <div className="button-row">
-            {['commit', 'push', 'rebuild', 'restart'].map((action) => (
+            {['commit', 'pull', 'push', 'rebuild', 'restart'].map((action) => (
               <Button key={action} variant="secondary" onClick={() => onRun(`approval-${action}`, () => createAgentApproval({ kind: 'evolution_operation', action, goal_id: runnableGoal?.id, title: `Approve evolution ${action}` }))}>
                 <ShieldCheck className="mr-2 h-4 w-4" />
                 Request {action}

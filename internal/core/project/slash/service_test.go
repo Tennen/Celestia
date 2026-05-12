@@ -34,6 +34,7 @@ type fakeAgentRuntime struct {
 	answerListReqs  []models.AgentKnowledgeAnswersRequest
 	answerGetReqs   []models.AgentKnowledgeAnswerRequest
 	evolutionGoals  []coreagent.EvolutionGoalRequest
+	evolutionOps    []coreagent.EvolutionOperationRequest
 	screenshots     []models.AgentScreenshotRequest
 	serviceOps      []coreagent.ServiceOperationRequest
 }
@@ -59,8 +60,9 @@ func (f *fakeAgentRuntime) RunEvolutionGoal(_ context.Context, id string) (model
 	return models.AgentEvolutionGoal{ID: id, Goal: "ship feature", Status: "succeeded", Stage: "completed"}, nil
 }
 
-func (f *fakeAgentRuntime) RunEvolutionOperation(context.Context, coreagent.EvolutionOperationRequest) (models.AgentEvolutionTestResult, error) {
-	return models.AgentEvolutionTestResult{Name: "rebuild", OK: true, Output: "ok"}, nil
+func (f *fakeAgentRuntime) RunEvolutionOperation(_ context.Context, req coreagent.EvolutionOperationRequest) (models.AgentEvolutionTestResult, error) {
+	f.evolutionOps = append(f.evolutionOps, req)
+	return models.AgentEvolutionTestResult{Name: req.Action, OK: true, Output: "ok"}, nil
 }
 
 func (f *fakeAgentRuntime) CreateApproval(_ context.Context, req models.AgentApprovalCreateRequest) (models.AgentApprovalRequest, error) {
