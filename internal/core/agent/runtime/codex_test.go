@@ -1,7 +1,9 @@
 package runtime
 
 import (
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chentianyu/celestia/internal/models"
@@ -31,6 +33,13 @@ func TestExtractCodexSessionIDFindsNestedJSONLValue(t *testing.T) {
 
 	if got := extractCodexSessionID(output); got != "abc-123" {
 		t.Fatalf("extractCodexSessionID() = %q, want abc-123", got)
+	}
+}
+
+func TestEvolutionCodexErrorIncludesOutput(t *testing.T) {
+	err := evolutionCodexError(models.AgentCodexResult{Error: "exit status 1", Output: `{"steps":["inspect code"]}`}, errors.New("exit status 1"))
+	if err == nil || !strings.Contains(err.Error(), `{"steps":["inspect code"]}`) {
+		t.Fatalf("evolutionCodexError() = %v, want output detail", err)
 	}
 }
 

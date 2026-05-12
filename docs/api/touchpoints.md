@@ -131,7 +131,7 @@ Image body:
 }
 ```
 
-`to_user` must resolve to a configured enabled WeCom user. Text is split by UTF-8 bytes using `settings.wecom.text_max_bytes` (default `1800`).
+`to_user` must resolve to a configured enabled WeCom user. Text is split by UTF-8 bytes using `settings.wecom.text_max_bytes` (default `1800`). Image send uses WeCom temporary media upload, so Celestia enforces the WeCom image media constraints before delivery: each uploaded image must be at least 6 bytes, no larger than 2 MiB, and must be PNG or JPEG. Oversized render outputs are converted to JPEG, then split vertically into multiple JPEG image messages when a single compressed image would still exceed the upload limit.
 
 ## WeCom Ingress
 

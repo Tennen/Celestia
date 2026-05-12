@@ -22,10 +22,11 @@ func (s *Service) evolutionPlan(ctx context.Context, goal models.AgentEvolutionG
 	req.Prompt = buildEvolutionPlanPrompt(goal.Goal)
 	req.CWD = settings.CWD
 	result, err := s.RunCodex(ctx, req)
-	if err != nil {
-		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
-	}
 	steps := parseEvolutionSteps(result.Output)
+	if err != nil && len(steps) == 0 {
+		goal, _ = s.recordEvolutionCodexFailure(ctx, goal, "plan", result, err)
+		return goal, evolutionCodexError(result, err)
+	}
 	if len(steps) == 0 {
 		return goal, errors.New("Codex plan output did not include executable steps")
 	}
@@ -34,7 +35,11 @@ func (s *Service) evolutionPlan(ctx context.Context, goal models.AgentEvolutionG
 	goal.LastCodexOutput = result.Output
 	goal.Stage = "plan_ready"
 	goal.UpdatedAt = time.Now().UTC()
-	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: goal.UpdatedAt, Stage: "plan_ready", Message: "Plan generated with " + intString(len(steps)) + " steps."})
+	message := "Plan generated with " + intString(len(steps)) + " steps."
+	if err != nil {
+		message += " Codex exited non-zero after producing a usable plan."
+	}
+	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: goal.UpdatedAt, Stage: "plan_ready", Message: message})
 	goal.RawTail = appendEvolutionRaw(goal.RawTail, result.Output)
 	return s.saveEvolutionGoal(ctx, goal)
 }
@@ -51,7 +56,8 @@ func (s *Service) evolutionStep(ctx context.Context, goal models.AgentEvolutionG
 	req.CWD = settings.CWD
 	result, err := s.RunCodex(ctx, req)
 	if err != nil {
-		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
+		goal, _ = s.recordEvolutionCodexFailure(ctx, goal, stage, result, err)
+		return goal, evolutionCodexError(result, err)
 	}
 	goal.Plan.CurrentStep = stepIndex + 1
 	goal.LastCodexOutput = result.Output
@@ -70,7 +76,8 @@ func (s *Service) evolutionFix(ctx context.Context, goal models.AgentEvolutionGo
 	req.CWD = settings.CWD
 	result, err := s.RunCodex(ctx, req)
 	if err != nil {
-		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
+		goal, _ = s.recordEvolutionCodexFailure(ctx, goal, "fix_"+intString(attempt), result, err)
+		return goal, evolutionCodexError(result, err)
 	}
 	goal.FixAttempts = attempt
 	goal.Stage = "fix_" + intString(attempt) + "_done"
@@ -88,7 +95,8 @@ func (s *Service) evolutionStructureReview(ctx context.Context, goal models.Agen
 	req.CWD = settings.CWD
 	result, err := s.RunCodex(ctx, req)
 	if err != nil {
-		return goal, errors.New(firstNonEmpty(result.Error, err.Error()))
+		goal, _ = s.recordEvolutionCodexFailure(ctx, goal, "structure", result, err)
+		return goal, evolutionCodexError(result, err)
 	}
 	goal.Stage = "structure_done"
 	goal.LastCodexOutput = result.Output
@@ -236,6 +244,30 @@ func evolutionGitOutput(ctx context.Context, settings models.AgentEvolutionConfi
 		return "", errors.New(result.Output)
 	}
 	return result.Output, nil
+}
+
+func (s *Service) recordEvolutionCodexFailure(ctx context.Context, goal models.AgentEvolutionGoal, stage string, result models.AgentCodexResult, err error) (models.AgentEvolutionGoal, error) {
+	now := time.Now().UTC()
+	goal.UpdatedAt = now
+	goal.LastCodexOutput = strings.TrimSpace(result.Output)
+	if goal.LastCodexOutput != "" {
+		goal.RawTail = appendEvolutionRaw(goal.RawTail, goal.LastCodexOutput)
+	}
+	message := evolutionCodexError(result, err).Error()
+	goal.Events = append(goal.Events, models.AgentEvolutionEvent{At: now, Stage: stage, Message: message})
+	return s.saveEvolutionGoal(ctx, goal)
+}
+
+func evolutionCodexError(result models.AgentCodexResult, err error) error {
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+	}
+	message := firstNonEmpty(result.Error, errText, "codex exited with an error")
+	if output := strings.TrimSpace(result.Output); output != "" {
+		message = strings.TrimSpace(message + "\n" + trimEvolutionText(output, 2400))
+	}
+	return errors.New(message)
 }
 
 func appendEvolutionRaw(lines []models.AgentEvolutionRawLine, text string) []models.AgentEvolutionRawLine {

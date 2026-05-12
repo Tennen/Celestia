@@ -36,17 +36,35 @@ func (s *Service) SendWeComImage(ctx context.Context, req WeComImageRequest) err
 	if err != nil {
 		return err
 	}
-	mediaID, err := s.uploadWeComImage(ctx, config, req)
+	raw, err := decodeWeComImageBase64(req.Base64)
 	if err != nil {
 		return err
 	}
-	payload := map[string]any{
-		"touser":  strings.TrimSpace(recipient.WeComUser),
-		"msgtype": "image",
-		"agentid": parseAgentID(config.AgentID),
-		"image":   map[string]any{"media_id": mediaID},
+	images, err := prepareWeComImages(raw, firstNonEmpty(req.Filename, "celestia.png"), req.ContentType)
+	if err != nil {
+		return err
 	}
-	return s.sendWeComPayload(ctx, config, payload)
+	for _, image := range images {
+		mediaID, err := s.uploadWeComImage(ctx, config, WeComImageRequest{
+			ToUser:      req.ToUser,
+			Base64:      base64.StdEncoding.EncodeToString(image.Bytes),
+			Filename:    image.Filename,
+			ContentType: image.ContentType,
+		})
+		if err != nil {
+			return err
+		}
+		payload := map[string]any{
+			"touser":  strings.TrimSpace(recipient.WeComUser),
+			"msgtype": "image",
+			"agentid": parseAgentID(config.AgentID),
+			"image":   map[string]any{"media_id": mediaID},
+		}
+		if err := s.sendWeComPayload(ctx, config, payload); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) SendProjectImages(ctx context.Context, toUser string, images []models.ProjectOutputImage) error {
@@ -105,6 +123,9 @@ func (s *Service) sendWeComPayload(ctx context.Context, config models.AgentWeCom
 }
 
 func (s *Service) uploadWeComImage(ctx context.Context, config models.AgentWeComConfig, req WeComImageRequest) (string, error) {
+	if err := validateWeComPreparedImage(req); err != nil {
+		return "", err
+	}
 	if strings.TrimSpace(config.BridgeURL) != "" {
 		token, err := s.wecomBridgeToken(ctx, config)
 		if err != nil {

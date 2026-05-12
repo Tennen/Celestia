@@ -290,7 +290,7 @@ POST /api/v1/agent/codex/run
 POST /api/v1/agent/screenshot
 ```
 
-Evolution goals are queued in Agent state. Running a goal follows the Agent operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push/rebuild/restart when `settings.evolution.auto_commit`, `auto_push`, `auto_rebuild`, or `auto_restart` are enabled. `settings.evolution.codex_approval_policy` is passed to Codex as `--ask-for-approval`; supported values are `never`, `on-request`, and `untrusted`.
+Evolution goals are queued in Agent state. Running a goal follows the Agent operator flow: generate a Codex JSON plan, execute each plan step through `codex exec`, run checks, optionally ask Codex for fixes, optionally run a structure review, and optionally commit/push/rebuild/restart when `settings.evolution.auto_commit`, `auto_push`, `auto_rebuild`, or `auto_restart` are enabled. `settings.evolution.codex_approval_policy` is passed to Codex as `--ask-for-approval`; supported values are `never`, `on-request`, and `untrusted`. If Codex exits non-zero after producing a parseable JSON plan, the plan is kept and execution continues; non-zero Codex exits in implementation/fix/review stages fail the goal and persist the Codex output in `last_codex_output` and `raw_tail`.
 
 `/agent/evolution/ops/run` runs explicit local operations:
 
