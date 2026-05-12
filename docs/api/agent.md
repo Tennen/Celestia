@@ -326,7 +326,7 @@ Approving an `evolution_operation` executes the requested operation and stores t
 }
 ```
 
-Supported actions are `status`, `start`, `stop`, `restart`, and `logs`. The script runs `bin/gateway` in the background on `0.0.0.0:8080` by default, with stdout/stderr appended to `data/runtime/gateway.log` and a PID file at `data/runtime/gateway.pid`. Set `CELESTIA_ADDR` when invoking the script to override the listen address.
+Supported actions are `status`, `start`, `stop`, `restart`, and `logs`. The script runs `bin/gateway` in the background on `0.0.0.0:8080` by default, with stdout/stderr appended to `data/runtime/gateway.log` and a PID file at `data/runtime/gateway.pid`. Restart is scheduled through a detached `nohup` worker so a gateway-initiated restart can continue after the old gateway process exits; the worker waits for graceful shutdown, sends SIGKILL after the configured stop timeout if needed, and then starts a fresh gateway. Set `CELESTIA_ADDR` when invoking the script to override the listen address.
 
 Terminal commands require `settings.terminal.enabled=true` and execute through `/bin/sh -lc` with the configured timeout.
 
