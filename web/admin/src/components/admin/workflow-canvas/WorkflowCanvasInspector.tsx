@@ -38,6 +38,7 @@ export function WorkflowCanvasInspector(props: {
       ) : null}
 
       {node.type === 'rss_sources' ? <RSSNodeEditor node={node} onChange={onChange} /> : null}
+      {node.type === 'weather' ? <WeatherNodeEditor node={node} onChange={onChange} /> : null}
       {node.type === 'timer' ? <TimerNodeEditor node={node} onChange={onChange} /> : null}
       {node.type === 'device_state_changed' ? <DeviceStateChangedNodeEditor node={node} devices={devices} onChange={onChange} /> : null}
       {node.type === 'device_state_is' ? <DeviceStateIsNodeEditor node={node} devices={devices} onChange={onChange} /> : null}
@@ -87,6 +88,37 @@ function RSSNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: 
         </div>
       ))}
       {sources.length === 0 ? <div className="detail">Add one or more RSS feeds to this node.</div> : null}
+    </div>
+  );
+}
+
+function WeatherNodeEditor({ node, onChange }: { node: AgentWorkflowNode; onChange: (node: AgentWorkflowNode) => void }) {
+  const providers = asStringArray(node.data?.providers);
+  const setProvider = (provider: string, enabled: boolean) => {
+    const next = enabled ? [...providers, provider] : providers.filter((item) => item !== provider);
+    onChange(updateWorkflowNodeData(node, { providers: Array.from(new Set(next)) }));
+  };
+  return (
+    <div className="stack">
+      <FieldGrid>
+        <Field label="Location" value={String(node.data?.location ?? '')} placeholder="上海 / 北京 / Hangzhou" onChange={(location) => onChange(updateWorkflowNodeData(node, { location }))} />
+        <Field label="Timezone" value={String(node.data?.timezone ?? '')} placeholder="Asia/Shanghai" onChange={(timezone) => onChange(updateWorkflowNodeData(node, { timezone }))} />
+        <Field label="Latitude" value={String(node.data?.latitude ?? '')} placeholder="optional" onChange={(latitude) => onChange(updateWorkflowNodeData(node, { latitude: Number(latitude) || 0 }))} />
+        <Field label="Longitude" value={String(node.data?.longitude ?? '')} placeholder="optional" onChange={(longitude) => onChange(updateWorkflowNodeData(node, { longitude: Number(longitude) || 0 }))} />
+      </FieldGrid>
+      <div className="workflow-canvas__source">
+        <div className="detail">Leave all provider toggles off to use the default no-key sources. Enable China-specific providers when their city id or key is configured.</div>
+        <ToggleField label="Open-Meteo" checked={providers.includes('open_meteo')} onChange={(checked) => setProvider('open_meteo', checked)} />
+        <ToggleField label="wttr.in" checked={providers.includes('wttr_in')} onChange={(checked) => setProvider('wttr_in', checked)} />
+        <ToggleField label="China Weather" checked={providers.includes('weather_com_cn')} onChange={(checked) => setProvider('weather_com_cn', checked)} />
+        <ToggleField label="QWeather" checked={providers.includes('qweather')} onChange={(checked) => setProvider('qweather', checked)} />
+        <ToggleField label="Caiyun" checked={providers.includes('caiyun')} onChange={(checked) => setProvider('caiyun', checked)} />
+      </div>
+      <FieldGrid>
+        <Field label="China Weather City ID" value={String(node.data?.weather_com_city_id ?? '')} placeholder="101020100" onChange={(weather_com_city_id) => onChange(updateWorkflowNodeData(node, { weather_com_city_id }))} />
+        <Field label="QWeather Key" value={String(node.data?.qweather_key ?? '')} placeholder="optional" onChange={(qweather_key) => onChange(updateWorkflowNodeData(node, { qweather_key }))} />
+        <Field label="Caiyun Token" value={String(node.data?.caiyun_token ?? '')} placeholder="optional" onChange={(caiyun_token) => onChange(updateWorkflowNodeData(node, { caiyun_token }))} />
+      </FieldGrid>
     </div>
   );
 }

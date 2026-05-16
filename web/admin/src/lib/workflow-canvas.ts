@@ -7,6 +7,7 @@ export type WorkflowNodeType =
   | 'device_state_is'
   | 'time_window'
   | 'rss_sources'
+  | 'weather'
   | 'text'
   | 'llm'
   | 'search_provider'
@@ -21,6 +22,7 @@ export const workflowNodeCatalog: Array<{ type: WorkflowNodeType; label: string;
   { type: 'device_state_is', label: 'Device State Is', description: 'Autonomously starts or gates a path when current state matches.', kind: 'trigger' },
   { type: 'time_window', label: 'Time Window', description: 'Accessory gate that constrains connected trigger paths by local clock.', kind: 'accessory' },
   { type: 'rss_sources', label: 'RSS Sources', description: 'Fetch RSS or Atom feeds and emit only newly appeared items.' },
+  { type: 'weather', label: 'Weather', description: 'Fetch today weather from weather providers and emit a plain text summary.' },
   { type: 'text', label: 'Text', description: 'Compose reusable text blocks and concatenate upstream text in connection order.' },
   { type: 'llm', label: 'LLM', description: 'Run a selected provider with prompt, context, and optional search input.' },
   { type: 'search_provider', label: 'Search Provider', description: 'Run a configured search provider and stream results into the workflow.' },
@@ -72,6 +74,17 @@ export function defaultNodeData(type: WorkflowNodeType): Record<string, unknown>
       return { start: '08:00', end: '18:00', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '' };
     case 'rss_sources':
       return { sources: [] as AgentWorkflowSource[] };
+    case 'weather':
+      return {
+        location: '上海',
+        latitude: 0,
+        longitude: 0,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+        providers: [] as string[],
+        weather_com_city_id: '',
+        qweather_key: '',
+        caiyun_token: '',
+      };
     case 'text':
       return { text: '' };
     case 'llm':

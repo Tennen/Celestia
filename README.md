@@ -41,11 +41,13 @@ make build
 make docker-build-hikvision
 npm run build --workspace web/admin
 ./deploy.sh
+./tool/redeploy.sh
 CELESTIA_ADDR=127.0.0.1:8080 ./bin/gateway
 go run ./cmd/celctl dashboard
 ```
 
 `./deploy.sh` runs the same build sequence as the README commands. If `make docker-build-hikvision` fails, the script prints an error and continues the remaining deployment steps.
+`./tool/redeploy.sh` is the preferred local rebuild-and-restart entrypoint. It runs `./deploy.sh`, stops the managed gateway service, starts it again, and verifies that `tool/celestia-service.sh status` reports `running`.
 
 The gateway serves the admin build from `web/admin/dist` and persists runtime data to SQLite.
 

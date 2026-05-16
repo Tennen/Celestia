@@ -85,6 +85,13 @@ export function WorkflowCanvasNode({ data, selected }: NodeProps) {
           <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="content" />
         </NodeShell>
       );
+    case 'weather':
+      return (
+        <NodeShell title={view.title} description="Fetches weather only and emits text data." selected={selected}>
+          <Handle className="workflow-node__handle nodrag nopan" type="target" position={Position.Top} id="trigger" />
+          <Handle className="workflow-node__handle nodrag nopan" type="source" position={Position.Bottom} id="text" />
+        </NodeShell>
+      );
     case 'text':
       return (
         <NodeShell title="" selected={selected}>

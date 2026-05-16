@@ -15,6 +15,7 @@ const (
 	workflowNodeTypeDeviceStateIs      = "device_state_is"
 	workflowNodeTypeTimeWindow         = "time_window"
 	workflowNodeTypeRSSSources         = "rss_sources"
+	workflowNodeTypeWeather            = "weather"
 	workflowNodeTypeText               = "text"
 	workflowNodeTypeLLM                = "llm"
 	workflowNodeTypeSearchProvider     = "search_provider"
@@ -29,6 +30,8 @@ func defaultWorkflowNodeLabel(nodeType string) string {
 		return "Group"
 	case workflowNodeTypeRSSSources:
 		return "RSS Sources"
+	case workflowNodeTypeWeather:
+		return "Weather"
 	case workflowNodeTypeTimer:
 		return "Timer"
 	case workflowNodeTypeDeviceStateChanged:

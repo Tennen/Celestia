@@ -235,6 +235,8 @@ func (e *workflowExecutor) execute(node models.AgentWorkflowNode) (workflowNodeV
 		return e.executeTimeWindowNode(node)
 	case workflowNodeTypeRSSSources:
 		return e.executeRSSNode(node)
+	case workflowNodeTypeWeather:
+		return e.executeWeatherNode(node)
 	case workflowNodeTypeText:
 		return e.executeTextNode(node)
 	case workflowNodeTypeSearchProvider:

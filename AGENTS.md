@@ -184,6 +184,8 @@ When asked to implement a feature:
 4. Validate with builds/tests and, when credentials are available, real integration smoke checks.
 5. If a requirement cannot be completed truthfully, say exactly what is missing instead of shipping a mock.
 
+For local rebuild-and-restart operations, use `./tool/redeploy.sh` unless the user explicitly asks for separate steps. That script runs the deploy sequence, stops the managed gateway service, starts it again, and verifies the final service status.
+
 ## API Documentation Rule
 
 - Any change that adds, removes, renames, or changes the behavior of an HTTP API must update the repository Markdown API documentation in the same task.

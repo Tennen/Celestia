@@ -302,7 +302,7 @@ Evolution goals are queued in Agent state. Running a goal follows the Agent oper
 }
 ```
 
-Supported actions are `commit`, `pull`, `push`, `rebuild`, and `restart`. Pull runs `git pull --ff-only` against `settings.evolution.push_remote` and `settings.evolution.push_branch`, defaulting to `origin` and the current branch. Rebuild defaults to `./deploy.sh`. Restart defaults to `./tool/celestia-service.sh restart`, which restarts the background gateway process without requiring an interactive terminal.
+Supported actions are `commit`, `pull`, `push`, `rebuild`, and `restart`. Pull runs `git pull --ff-only` against `settings.evolution.push_remote` and `settings.evolution.push_branch`, defaulting to `origin` and the current branch. Rebuild defaults to `./deploy.sh`. Manual local rebuild-and-restart should use `./tool/redeploy.sh`, which runs the deploy sequence, stops the managed gateway service, starts it again, and verifies the service status. Restart defaults to `./tool/celestia-service.sh restart`, which restarts the background gateway process without requiring an interactive terminal.
 
 Approval requests are stored in Agent state:
 
@@ -326,7 +326,7 @@ Approving an `evolution_operation` executes the requested operation and stores t
 }
 ```
 
-Supported actions are `status`, `start`, `stop`, `restart`, and `logs`. The script runs `bin/gateway` in the background on `0.0.0.0:8080` by default, with stdout/stderr appended to `data/runtime/gateway.log` and a PID file at `data/runtime/gateway.pid`. Restart is scheduled through a detached `nohup` worker so a gateway-initiated restart can continue after the old gateway process exits; the worker waits for graceful shutdown, sends SIGKILL after the configured stop timeout if needed, and then starts a fresh gateway. Set `CELESTIA_ADDR` when invoking the script to override the listen address.
+Supported actions are `status`, `start`, `stop`, `restart`, and `logs`. The script runs `bin/gateway` in the background on `0.0.0.0:8080` by default, with stdout/stderr appended to `data/runtime/gateway.log` and a PID file at `data/runtime/gateway.pid`. If the PID file is missing or stale, the script checks the configured listen port and repairs the PID file when a gateway process is already listening there; if the port is owned by another process, it reports `port_in_use` instead of claiming the gateway is stopped. Restart is scheduled through a detached `nohup` worker so a gateway-initiated restart can continue after the old gateway process exits; the worker waits for graceful shutdown, sends SIGKILL after the configured stop timeout if needed, and then starts a fresh gateway. Set `CELESTIA_ADDR` when invoking the script to override the listen address.
 
 Terminal commands require `settings.terminal.enabled=true` and execute through `/bin/sh -lc` with the configured timeout.
 

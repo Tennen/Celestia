@@ -13,6 +13,7 @@ const (
 	NodeTypeDeviceStateIs      = workflowNodeTypeDeviceStateIs
 	NodeTypeTimeWindow         = workflowNodeTypeTimeWindow
 	NodeTypeRSSSources         = workflowNodeTypeRSSSources
+	NodeTypeWeather            = workflowNodeTypeWeather
 	NodeTypeText               = workflowNodeTypeText
 	NodeTypeLLM                = workflowNodeTypeLLM
 	NodeTypeSearchProvider     = workflowNodeTypeSearchProvider
