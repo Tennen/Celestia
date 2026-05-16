@@ -9,8 +9,10 @@ LOG_FILE="${CELESTIA_GATEWAY_LOG_FILE:-$RUNTIME_DIR/gateway.log}"
 RESTART_PID_FILE="${CELESTIA_RESTART_PID_FILE:-$RUNTIME_DIR/gateway-restart.pid}"
 BIN="${CELESTIA_GATEWAY_BIN:-$ROOT_DIR/bin/gateway}"
 ADDR="${CELESTIA_ADDR:-0.0.0.0:8080}"
+LAUNCHD_LABEL="${CELESTIA_LAUNCHD_LABEL:-com.celestia.gateway}"
 STOP_TIMEOUT_SECONDS="${CELESTIA_STOP_TIMEOUT_SECONDS:-30}"
 RESTART_DELAY_SECONDS="${CELESTIA_RESTART_DELAY_SECONDS:-1}"
+START_TIMEOUT_SECONDS="${CELESTIA_START_TIMEOUT_SECONDS:-30}"
 
 mkdir -p "$RUNTIME_DIR"
 
@@ -169,6 +171,44 @@ wait_for_pid_exit() {
   return 1
 }
 
+wait_for_gateway_start() {
+  local seconds="$START_TIMEOUT_SECONDS"
+  if [[ ! "$seconds" =~ ^[0-9]+$ ]] || ((seconds <= 0)); then
+    seconds=30
+  fi
+  for ((i = 0; i < seconds * 5; i++)); do
+    if pid="$(gateway_listener_pid)"; then
+      printf '%s\n' "$pid" >"$PID_FILE"
+      return 0
+    fi
+    sleep 0.2
+  done
+  return 1
+}
+
+start_with_launchctl() {
+  if [[ "$(uname -s 2>/dev/null || true)" != "Darwin" ]] || ! command -v launchctl >/dev/null 2>&1; then
+    return 2
+  fi
+  if ! addr_port >/dev/null; then
+    return 2
+  fi
+  launchctl remove "$LAUNCHD_LABEL" >/dev/null 2>&1 || true
+  launchctl submit \
+    -l "$LAUNCHD_LABEL" \
+    -o "$LOG_FILE" \
+    -e "$LOG_FILE" \
+    -- /bin/sh -c "cd '$ROOT_DIR' && exec env CELESTIA_ADDR='$ADDR' '$BIN'"
+}
+
+start_with_nohup() {
+  (
+    cd "$ROOT_DIR"
+    nohup env CELESTIA_ADDR="$ADDR" "$BIN" >>"$LOG_FILE" 2>&1 &
+    printf '%s\n' "$!" >"$PID_FILE"
+  )
+}
+
 start_service() {
   if pid="$(running_pid)"; then
     printf 'already_running pid=%s log=%s\n' "$pid" "$LOG_FILE"
@@ -185,11 +225,14 @@ start_service() {
   {
     printf '\n[%s] starting gateway addr=%s bin=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$ADDR" "$BIN"
   } >>"$LOG_FILE"
-  (
-    cd "$ROOT_DIR"
-    nohup env CELESTIA_ADDR="$ADDR" "$BIN" >>"$LOG_FILE" 2>&1 &
-    printf '%s\n' "$!" >"$PID_FILE"
-  )
+  if start_with_launchctl; then
+    if ! wait_for_gateway_start; then
+      printf 'gateway did not start listening on %s\n' "$ADDR" >&2
+      return 1
+    fi
+  else
+    start_with_nohup
+  fi
   printf 'started pid=%s log=%s\n' "$(cat "$PID_FILE")" "$LOG_FILE"
 }
 
@@ -205,6 +248,7 @@ stop_service() {
   kill "$pid"
   if wait_for_pid_exit "$pid"; then
     rm -f "$PID_FILE"
+    launchctl remove "$LAUNCHD_LABEL" >/dev/null 2>&1 || true
     printf 'stopped pid=%s log=%s\n' "$pid" "$LOG_FILE"
     return 0
   fi
