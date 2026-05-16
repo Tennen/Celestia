@@ -147,6 +147,7 @@ export function DeviceCommandNodeEditor(props: { node: AgentWorkflowNode; device
         <Field label="Action" value={String(node.data?.action ?? '')} onChange={(action) => onChange(updateWorkflowNodeData(node, { action }))} />
       </FieldGrid>
       <JSONField label="Params JSON" value={asRecord(node.data?.params)} onChange={(params) => onChange(updateWorkflowNodeData(node, { params }))} />
+      <div className="detail">Use `${'${input}'}` inside string params to insert upstream text output.</div>
     </div>
   );
 }

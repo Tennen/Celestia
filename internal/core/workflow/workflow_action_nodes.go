@@ -52,14 +52,17 @@ func (e *workflowExecutor) executeDeviceCommandNode(node models.AgentWorkflowNod
 	if deviceID == "" || action == "" {
 		return workflowNodeValue{}, "", nil, errors.New("device command node requires device_id and action")
 	}
+	inputText := strings.Join(orderedWorkflowStrings(inputs.texts), "\n\n")
+	params := renderWorkflowParamsInput(config.Params, inputText)
 	actor := workflowActor(e.workflow.ID, node.ID)
-	if err := e.service.workflowDevices.ExecuteDeviceCommand(e.ctx, actor, deviceID, action, config.Params); err != nil {
+	if err := e.service.workflowDevices.ExecuteDeviceCommand(e.ctx, actor, deviceID, action, params); err != nil {
 		return workflowNodeValue{}, "", nil, err
 	}
-	return workflowNodeValue{Triggered: true, Text: strings.Join(orderedWorkflowStrings(inputs.texts), "\n\n")}, "Device command accepted", map[string]any{
+	return workflowNodeValue{Triggered: true, Text: inputText}, "Device command accepted", map[string]any{
 		"device_id":   deviceID,
 		"action":      action,
 		"input_count": inputs.count(),
+		"input_chars": len(inputText),
 	}, nil
 }
 
@@ -173,4 +176,29 @@ func shouldBlockExecutionNode(incoming []models.AgentWorkflowEdge, inputs collec
 
 func workflowActor(workflowID string, nodeID string) string {
 	return "workflow:" + strings.TrimSpace(workflowID) + ":" + strings.TrimSpace(nodeID)
+}
+
+func renderWorkflowParamsInput(params map[string]any, input string) map[string]any {
+	return renderWorkflowParamInputValue(cloneWorkflowParams(params), input).(map[string]any)
+}
+
+func renderWorkflowParamInputValue(value any, input string) any {
+	switch typed := value.(type) {
+	case string:
+		return strings.ReplaceAll(typed, "${input}", input)
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = renderWorkflowParamInputValue(item, input)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for i, item := range typed {
+			out[i] = renderWorkflowParamInputValue(item, input)
+		}
+		return out
+	default:
+		return value
+	}
 }

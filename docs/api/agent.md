@@ -186,6 +186,7 @@ Current executable ports:
 
 - `timer.trigger -> rss_sources.trigger`
 - `timer.trigger -> device_command.trigger`
+- `text -> device_command.trigger`
 - `timer.trigger -> agent_function.trigger`
 - `device_state_changed.trigger -> device_command.trigger`
 - `device_state_changed.trigger -> agent_function.trigger`
@@ -199,6 +200,7 @@ Current executable ports:
 - `text -> llm.prompt`
 - `search_provider -> llm.search`
 - `llm.text -> wecom_output.text`
+- `llm.text -> device_command.trigger`
 
 `llm.tool` and `llm.skill` are reserved canvas ports in this release. If they are connected, the run fails explicitly instead of fabricating behavior.
 
@@ -218,7 +220,7 @@ Runtime behavior:
 12. `text` concatenates upstream `text` inputs in edge order, then appends its own inline-authored text block.
 13. `search_provider` uses the configured Core search provider profile.
 14. `llm` uses the configured Agent LLM provider or the workflow-selected provider id.
-15. `device_command` executes a real gateway device command through Core policy, audit, and the owning plugin command executor. It does not bypass command authorization.
+15. `device_command` executes a real gateway device command through Core policy, audit, and the owning plugin command executor. It does not bypass command authorization. When upstream text output is connected, string values in `params` may use `${input}` to insert the joined upstream text.
 16. `agent_function` sends a project input envelope through the existing project input layer, so slash commands run before the Agent ReAct loop and configured touchpoint output is reused.
 17. `wecom_output` sends through the existing Touchpoints WeCom runtime.
 18. `sent_log` is still appended only after a successful WeCom delivery and remains an execution history record.

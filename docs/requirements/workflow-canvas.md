@@ -38,7 +38,7 @@
 - Search 节点走现有 Core search provider。
 - LLM 节点走现有 Agent LLM provider。
 - WeCom 输出仍通过 Touchpoint 边界发送，不能在 Agent runtime 内部重建 transport。
-- Device Command 节点走 Core policy/audit/plugin command executor，不能绕过现有设备控制链路。
+- Device Command 节点走 Core policy/audit/plugin command executor，不能绕过现有设备控制链路；`Params JSON` 的字符串值可用 `${input}` 引用上游文本输出。
 - Agent Function 节点走 project input envelope，仍然先经过 slash command dispatch 再进入 Agent ReAct。
 - Timer、Device State Changed、Device State Is 是可以自主触发 workflow 的 trigger 节点。
 - Time Window 是 trigger 附属 gate 节点，可与 trigger 并联或直接串联到触发路径上约束触发时间。
