@@ -32,6 +32,7 @@ type PushUser = AgentWeComUser;
 
 const textOf = (value: unknown) => (typeof value === 'string' ? value : '');
 const sttProviders = [{ value: 'fast-whisper', label: 'fast-whisper' }];
+const recipientTypes = [{ value: 'user', label: 'Individual user' }, { value: 'group', label: 'Group chat' }];
 
 export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   const [settings, setSettings] = useState<WeComSettings>(snapshot.settings.wecom);
@@ -44,9 +45,10 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   const [menuError, setMenuError] = useState('');
   const [menuLoading, setMenuLoading] = useState(false);
   const [pushUser, setPushUser] = useState<PushUser>(snapshot.push.users[0] ?? emptyPushUser());
+  const [recipientType, setRecipientType] = useState(wecomRecipientType(snapshot.push.users[0]));
   const [toUser, setToUser] = useState('');
   const [message, setMessage] = useState('');
-  const sendableUsers = useMemo(() => wecomUserOptions(snapshot.push.users), [snapshot.push.users]);
+  const sendableUsers = useMemo(() => wecomRecipientOptions(snapshot.push.users), [snapshot.push.users]);
 
   const loadMenu = async () => {
     setMenuLoading(true);
@@ -68,7 +70,9 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
     setSttProvider(textOf(snapshot.settings.stt?.provider) || 'fast-whisper');
     setSttCommand(textOf(snapshot.settings.stt?.command));
     setSttTimeout(numberValue(snapshot.settings.stt?.timeout_ms));
-    setPushUser(snapshot.push.users[0] ?? emptyPushUser());
+    const firstRecipient = snapshot.push.users[0] ?? emptyPushUser();
+    setPushUser(firstRecipient);
+    setRecipientType(wecomRecipientType(firstRecipient));
     setToUser((current) => (sendableUsers.some((user) => user.id === current) ? current : (sendableUsers[0]?.id ?? '')));
   }, [snapshot, sendableUsers]);
 
@@ -112,7 +116,8 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
   };
 
   const savePushUser = () => {
-    const id = textOf(pushUser.id) || slugId(textOf(pushUser.name) || textOf(pushUser.wecom_user), 'user');
+    const target = recipientType === 'group' ? textOf(pushUser.wecom_chat_id) : textOf(pushUser.wecom_user);
+    const id = textOf(pushUser.id) || slugId(textOf(pushUser.name) || target, 'recipient');
     setPushUser({ ...pushUser, id });
     onRun('push-save', () => saveAgentPush({ ...snapshot.push, users: replaceRecordById(snapshot.push.users, { ...pushUser, id }) }), false);
   };
@@ -123,7 +128,7 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
         <TabsTrigger value="settings">Settings</TabsTrigger>
         <TabsTrigger value="voice">Voice</TabsTrigger>
         <TabsTrigger value="menu">Menu</TabsTrigger>
-        <TabsTrigger value="users">Users</TabsTrigger>
+        <TabsTrigger value="users">Recipients</TabsTrigger>
         <TabsTrigger value="message">Message</TabsTrigger>
       </TabsList>
 
@@ -219,33 +224,33 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
       <TabsContent value="users" className="agent-tab-content grid grid--two">
         <Card className="panel">
           <CardHeader>
-            <CardTitle>WeCom Users</CardTitle>
-            <CardDescription>{snapshot.push.users.length} project users available for WeCom delivery</CardDescription>
+            <CardTitle>WeCom Recipients</CardTitle>
+            <CardDescription>{snapshot.push.users.length} users and group chats available for WeCom delivery</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="list-stack">
               {snapshot.push.users.map((user) => (
                 <SelectableListItem
                   key={textOf(user.id)}
-                  title={textOf(user.name) || textOf(user.wecom_user)}
-                  description={textOf(user.wecom_user)}
+                  title={textOf(user.name) || wecomRecipientTarget(user)}
+                  description={`${wecomRecipientType(user) === 'group' ? 'Group' : 'User'} · ${wecomRecipientTarget(user)}`}
                   selected={textOf(user.id) === textOf(pushUser.id)}
-                  badges={<Badge tone={user.enabled === false ? 'neutral' : 'good'} size="xxs">{user.enabled === false ? 'disabled' : 'enabled'}</Badge>}
-                  onClick={() => setPushUser(user)}
+                  badges={<Badge tone={user.enabled === false ? 'neutral' : 'good'} size="xxs">{user.enabled === false ? 'disabled' : wecomRecipientType(user)}</Badge>}
+                  onClick={() => { setPushUser(user); setRecipientType(wecomRecipientType(user)); }}
                 />
               ))}
-              {snapshot.push.users.length === 0 ? <div className="detail">No WeCom users configured.</div> : null}
+              {snapshot.push.users.length === 0 ? <div className="detail">No WeCom recipients configured.</div> : null}
             </div>
           </CardContent>
         </Card>
         <Card className="panel">
           <CardHeader>
-            <CardTitle>User Editor</CardTitle>
+            <CardTitle>Recipient Editor</CardTitle>
             <CardDescription>Recipient aliases used by touchpoints, workflows, and manual sends</CardDescription>
           </CardHeader>
           <CardContent className="stack">
             <div className="button-row">
-              <Button variant="secondary" onClick={() => setPushUser(emptyPushUser())}>
+              <Button variant="secondary" onClick={() => { setPushUser(emptyPushUser()); setRecipientType('user'); }}>
                 <Plus className="mr-2 h-4 w-4" />
                 New
               </Button>
@@ -253,12 +258,15 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
             <ToggleField label="Enabled" checked={pushUser.enabled !== false} onChange={(enabled) => setPushUser({ ...pushUser, enabled })} />
             <FieldGrid>
               <Field label="Name" value={textOf(pushUser.name)} onChange={(name) => setPushUser({ ...pushUser, name })} />
-              <Field label="WeCom User" value={textOf(pushUser.wecom_user)} onChange={(wecom_user) => setPushUser({ ...pushUser, wecom_user })} />
+              <SelectField label="Recipient type" value={recipientType} options={recipientTypes} onChange={(value) => { setRecipientType(value); setPushUser(value === 'group' ? { ...pushUser, wecom_user: '' } : { ...pushUser, wecom_chat_id: '' }); }} />
+              {recipientType === 'group'
+                ? <Field label="WeCom Group Chat ID" value={textOf(pushUser.wecom_chat_id)} onChange={(wecom_chat_id) => setPushUser({ ...pushUser, wecom_chat_id })} />
+                : <Field label="WeCom User ID" value={textOf(pushUser.wecom_user)} onChange={(wecom_user) => setPushUser({ ...pushUser, wecom_user })} />}
             </FieldGrid>
             <div className="button-row">
               <Button onClick={savePushUser}>
                 <Save className="mr-2 h-4 w-4" />
-                Save User
+                Save Recipient
               </Button>
               <Button variant="danger" disabled={!pushUser.id} onClick={() => onRun('push-save', () => saveAgentPush({ ...snapshot.push, users: snapshot.push.users.filter((user) => textOf(user.id) !== textOf(pushUser.id)) }), false)}>
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -277,14 +285,14 @@ export function AgentWeComPanel({ snapshot, busy, onRun }: Props) {
           </CardHeader>
           <CardContent className="stack">
             <label className="stack text-sm font-medium">
-              <span>User</span>
+              <span>Recipient</span>
               <select className="select" value={toUser} onChange={(event) => setToUser(event.target.value)} disabled={sendableUsers.length === 0}>
                 {sendableUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {wecomUserLabel(user)}
                   </option>
                 ))}
-                {sendableUsers.length === 0 ? <option value="">Create an enabled WeCom user first</option> : null}
+                {sendableUsers.length === 0 ? <option value="">Create an enabled WeCom recipient first</option> : null}
               </select>
             </label>
             <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Text message" />
@@ -378,17 +386,26 @@ function buildButton(prefix: string): AgentWeComButton {
 }
 
 function emptyPushUser(): PushUser {
-  return { id: '', name: '', wecom_user: '', enabled: true };
+  return { id: '', name: '', wecom_user: '', wecom_chat_id: '', enabled: true };
 }
 
-function wecomUserOptions(users: AgentWeComUser[]) {
-  return users.filter((user) => user.enabled !== false && textOf(user.wecom_user) !== '');
+function wecomRecipientOptions(users: AgentWeComUser[]) {
+  return users.filter((user) => user.enabled !== false && wecomRecipientTarget(user) !== '');
 }
 
 function wecomUserLabel(user: AgentWeComUser) {
   const name = textOf(user.name);
-  const wecomUser = textOf(user.wecom_user);
-  return name && name !== wecomUser ? `${name} · ${wecomUser}` : wecomUser;
+  const target = wecomRecipientTarget(user);
+  const type = wecomRecipientType(user) === 'group' ? 'Group' : 'User';
+  return name && name !== target ? `${type} · ${name} · ${target}` : `${type} · ${target}`;
+}
+
+function wecomRecipientType(user?: AgentWeComUser): string {
+  return textOf(user?.wecom_chat_id) ? 'group' : 'user';
+}
+
+function wecomRecipientTarget(user: AgentWeComUser): string {
+  return textOf(user.wecom_chat_id) || textOf(user.wecom_user);
 }
 
 function replaceRecordById<T extends { id?: string }>(items: T[], next: T) {

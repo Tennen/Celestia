@@ -63,7 +63,7 @@ Stores direct input mapping rules and returns the updated Agent snapshot. Mappin
 
 Legacy `/api/v1/agent/direct-input` is not registered.
 
-## WeCom Users
+## WeCom Recipients
 
 ```http
 PUT /api/v1/touchpoints/wecom/users
@@ -79,16 +79,22 @@ Body is the `push` object from the Agent snapshot:
       "name": "Alice",
       "wecom_user": "alice",
       "enabled": true
+    },
+    {
+      "id": "chat-ops",
+      "name": "Ops group",
+      "wecom_chat_id": "wrNqCFEAAAE7gC2VfY",
+      "enabled": true
     }
   ]
 }
 ```
 
-WeCom users are validated at save time:
+WeCom recipients are validated at save time:
 
-- `wecom_user` is required.
-- `wecom_user` must be unique.
-- Send operations accept only configured and enabled users, by `id` or `wecom_user`.
+- Every recipient must contain exactly one delivery target: an individual `wecom_user` or an application group-chat `wecom_chat_id`.
+- Delivery targets must be unique.
+- Send operations accept only configured and enabled recipients, by `id`, `wecom_user`, or `wecom_chat_id`.
 
 Legacy `/api/v1/agent/push` is not registered.
 
@@ -131,7 +137,7 @@ Image body:
 }
 ```
 
-`to_user` must resolve to a configured enabled WeCom user. Text is split by UTF-8 bytes using `settings.wecom.text_max_bytes` (default `1800`). Image send uses WeCom temporary media upload, so Celestia enforces the WeCom image media constraints before delivery: each uploaded image must be at least 6 bytes, no larger than 2 MiB, and must be PNG or JPEG. Oversized render outputs are converted to JPEG, then split vertically into multiple JPEG image messages when a single compressed image would still exceed the upload limit.
+`to_user` is retained for API compatibility and must resolve to a configured enabled WeCom recipient. Individual recipients use WeCom's `/cgi-bin/message/send` API; group-chat recipients use `/cgi-bin/appchat/send` with their `chatid`. Both direct and bridge delivery support text and images. Text is split by UTF-8 bytes using `settings.wecom.text_max_bytes` (default `1800`). Image send uses WeCom temporary media upload, so Celestia enforces the WeCom image media constraints before delivery: each uploaded image must be at least 6 bytes, no larger than 2 MiB, and must be PNG or JPEG. Oversized render outputs are converted to JPEG, then split vertically into multiple JPEG image messages when a single compressed image would still exceed the upload limit.
 
 ## WeCom Ingress
 

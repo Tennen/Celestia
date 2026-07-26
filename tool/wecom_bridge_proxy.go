@@ -73,6 +73,14 @@ func handleProxyGetToken(w http.ResponseWriter, r *http.Request, cfg bridgeConfi
 }
 
 func handleProxySend(w http.ResponseWriter, r *http.Request, cfg bridgeConfig) {
+	handleProxyMessageSend(w, r, cfg, "/cgi-bin/message/send")
+}
+
+func handleProxyAppChatSend(w http.ResponseWriter, r *http.Request, cfg bridgeConfig) {
+	handleProxyMessageSend(w, r, cfg, "/cgi-bin/appchat/send")
+}
+
+func handleProxyMessageSend(w http.ResponseWriter, r *http.Request, cfg bridgeConfig, apiPath string) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -102,7 +110,7 @@ func handleProxySend(w http.ResponseWriter, r *http.Request, cfg bridgeConfig) {
 		return
 	}
 
-	endpoint := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=%s", payload.AccessToken)
+	endpoint := fmt.Sprintf("https://qyapi.weixin.qq.com%s?access_token=%s", apiPath, url.QueryEscape(payload.AccessToken))
 	client := http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Post(endpoint, "application/json", bytes.NewReader(payload.Message))
 	if err != nil {

@@ -1,6 +1,6 @@
 # Tools
 
-This directory contains standalone scripts and bridge programs used by Celestia.
+This directory is the canonical home of Celestia's standalone WeCom bridge.
 
 ## Files
 
@@ -67,6 +67,7 @@ Endpoints:
 - `GET /stream` (SSE stream for local agent)
 - `POST /proxy/gettoken` (forward gettoken to WeCom)
 - `POST /proxy/send` (forward send message to WeCom)
+- `POST /proxy/appchat/send` (forward send message to a WeCom application group chat)
 - `POST /proxy/menu/get` (forward app menu get to WeCom)
 - `POST /proxy/menu/create` (forward app menu create to WeCom)
 - `POST /proxy/menu/delete` (forward app menu delete to WeCom)

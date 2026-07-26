@@ -114,21 +114,25 @@ func (s *Service) update(ctx context.Context, mutate func(*models.AgentSnapshot)
 func (s *Service) SaveWeComUsers(ctx context.Context, users models.AgentPushSnapshot) (models.AgentSnapshot, error) {
 	return s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		now := time.Now().UTC()
-		seenWeComUsers := map[string]struct{}{}
+		seenRecipients := map[string]struct{}{}
 		for idx := range users.Users {
 			users.Users[idx].ID = firstNonEmpty(users.Users[idx].ID, uuid.NewString())
 			users.Users[idx].Name = strings.TrimSpace(users.Users[idx].Name)
 			users.Users[idx].WeComUser = strings.TrimSpace(users.Users[idx].WeComUser)
-			if users.Users[idx].WeComUser == "" {
-				return errors.New("wecom user is required")
+			users.Users[idx].WeComChatID = strings.TrimSpace(users.Users[idx].WeComChatID)
+			if users.Users[idx].WeComUser == "" && users.Users[idx].WeComChatID == "" {
+				return errors.New("wecom user or chat id is required")
 			}
-			normalizedWeComUser := strings.ToLower(users.Users[idx].WeComUser)
-			if _, ok := seenWeComUsers[normalizedWeComUser]; ok {
-				return errors.New("wecom user must be unique")
+			if users.Users[idx].WeComUser != "" && users.Users[idx].WeComChatID != "" {
+				return errors.New("wecom recipient must contain either a user or a chat id, not both")
 			}
-			seenWeComUsers[normalizedWeComUser] = struct{}{}
+			recipientKey := strings.ToLower(firstNonEmpty(users.Users[idx].WeComUser, users.Users[idx].WeComChatID))
+			if _, ok := seenRecipients[recipientKey]; ok {
+				return errors.New("wecom recipient must be unique")
+			}
+			seenRecipients[recipientKey] = struct{}{}
 			if users.Users[idx].Name == "" {
-				users.Users[idx].Name = users.Users[idx].WeComUser
+				users.Users[idx].Name = firstNonEmpty(users.Users[idx].WeComUser, users.Users[idx].WeComChatID)
 			}
 			users.Users[idx].UpdatedAt = now
 		}

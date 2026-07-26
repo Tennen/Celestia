@@ -26,7 +26,7 @@ export const workflowNodeCatalog: Array<{ type: WorkflowNodeType; label: string;
   { type: 'text', label: 'Text', description: 'Compose reusable text blocks and concatenate upstream text in connection order.' },
   { type: 'llm', label: 'LLM', description: 'Run a selected provider with prompt, context, and optional search input.' },
   { type: 'search_provider', label: 'Search Provider', description: 'Run a configured search provider and stream results into the workflow.' },
-  { type: 'wecom_output', label: 'WeCom Output', description: 'Deliver the generated text to a configured WeCom user.' },
+  { type: 'wecom_output', label: 'WeCom Output', description: 'Deliver the generated text to a configured WeCom user or group chat.' },
   { type: 'device_command', label: 'Device Command', description: 'Execute a real gateway command through policy, audit, and plugin dispatch.', kind: 'action' },
   { type: 'agent_function', label: 'Agent Function', description: 'Run project input or Agent text and optionally deliver the result.', kind: 'action' },
 ];

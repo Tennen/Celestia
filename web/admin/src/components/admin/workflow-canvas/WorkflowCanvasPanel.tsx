@@ -120,12 +120,12 @@ export function WorkflowCanvasPanel({ snapshot, busy, workflowId, onRun, onOpenL
     })),
   ];
   const wecomOptions = [
-    { value: '', label: 'Select User' },
+    { value: '', label: 'Select Recipient' },
     ...snapshot.push.users
-      .filter((user) => user.enabled)
+      .filter((user) => user.enabled && (user.wecom_user || user.wecom_chat_id))
       .map((user) => ({
         value: user.id,
-        label: user.name || user.wecom_user || user.id,
+        label: `${user.wecom_chat_id ? 'Group' : 'User'} · ${user.name || user.wecom_chat_id || user.wecom_user || user.id}`,
       })),
   ];
   const saveWorkflow = async () => {

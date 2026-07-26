@@ -140,10 +140,10 @@ Execution nodes use Core-owned runtime boundaries:
 
 Workflow output touchpoints can deliver Agent or slash results to:
 
-- WeCom users
+- WeCom recipients (individual users and application group chats)
 - voice-capable devices through native device commands
 
-WeCom users are validated before save or send; arbitrary undeclared WeCom targets are rejected.
+WeCom recipients are validated before save or send; arbitrary undeclared user IDs and group-chat IDs are rejected.
 
 ## HTTP Surfaces
 

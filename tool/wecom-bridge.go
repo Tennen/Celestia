@@ -105,6 +105,9 @@ func main() {
 	mux.HandleFunc("/proxy/send", func(w http.ResponseWriter, r *http.Request) {
 		handleProxySend(w, r, cfg)
 	})
+	mux.HandleFunc("/proxy/appchat/send", func(w http.ResponseWriter, r *http.Request) {
+		handleProxyAppChatSend(w, r, cfg)
+	})
 	mux.HandleFunc("/proxy/menu/get", func(w http.ResponseWriter, r *http.Request) {
 		handleProxyMenuGet(w, r, cfg)
 	})

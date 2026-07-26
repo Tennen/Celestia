@@ -26,7 +26,8 @@ export type AgentWeComMenuSnapshot = {
 export type AgentWeComUser = {
   id: string;
   name: string;
-  wecom_user: string;
+  wecom_user?: string;
+  wecom_chat_id?: string;
   enabled: boolean;
   updated_at?: string;
 };

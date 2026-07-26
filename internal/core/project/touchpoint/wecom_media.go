@@ -54,13 +54,11 @@ func (s *Service) SendWeComImage(ctx context.Context, req WeComImageRequest) err
 		if err != nil {
 			return err
 		}
-		payload := map[string]any{
-			"touser":  strings.TrimSpace(recipient.WeComUser),
+		payload, groupChat := weComRecipientPayload(recipient, map[string]any{
 			"msgtype": "image",
-			"agentid": parseAgentID(config.AgentID),
 			"image":   map[string]any{"media_id": mediaID},
-		}
-		if err := s.sendWeComPayload(ctx, config, payload); err != nil {
+		}, config.AgentID)
+		if err := s.sendWeComPayload(ctx, config, payload, groupChat); err != nil {
 			return err
 		}
 	}
@@ -102,13 +100,17 @@ func isImageOnlyProjectResult(result models.ProjectInputResult) bool {
 	return strings.TrimSpace(fmt.Sprint(result.Slash.Metadata["reply_kind"])) == "image"
 }
 
-func (s *Service) sendWeComPayload(ctx context.Context, config models.AgentWeComConfig, message map[string]any) error {
+func (s *Service) sendWeComPayload(ctx context.Context, config models.AgentWeComConfig, message map[string]any, groupChat bool) error {
 	if strings.TrimSpace(config.BridgeURL) != "" {
 		token, err := s.wecomBridgeToken(ctx, config)
 		if err != nil {
 			return err
 		}
-		endpoint := strings.TrimRight(config.BridgeURL, "/") + "/proxy/send"
+		proxyPath := "/proxy/send"
+		if groupChat {
+			proxyPath = "/proxy/appchat/send"
+		}
+		endpoint := strings.TrimRight(config.BridgeURL, "/") + proxyPath
 		return wecomBridgePost(ctx, endpoint, config.BridgeToken, map[string]any{
 			"access_token": token,
 			"message":      message,
@@ -118,7 +120,11 @@ func (s *Service) sendWeComPayload(ctx context.Context, config models.AgentWeCom
 	if err != nil {
 		return err
 	}
-	endpoint := strings.TrimRight(config.BaseURL, "/") + "/cgi-bin/message/send"
+	apiPath := "/cgi-bin/message/send"
+	if groupChat {
+		apiPath = "/cgi-bin/appchat/send"
+	}
+	endpoint := strings.TrimRight(firstNonEmpty(config.BaseURL, "https://qyapi.weixin.qq.com"), "/") + apiPath
 	return wecomPost(ctx, endpoint+"?access_token="+url.QueryEscape(token), message, nil)
 }
 

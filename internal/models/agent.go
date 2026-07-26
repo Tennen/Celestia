@@ -235,11 +235,12 @@ type AgentPushSnapshot struct {
 }
 
 type AgentPushUser struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	WeComUser string    `json:"wecom_user,omitempty"`
-	Enabled   bool      `json:"enabled"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	WeComUser   string    `json:"wecom_user,omitempty"`
+	WeComChatID string    `json:"wecom_chat_id,omitempty"`
+	Enabled     bool      `json:"enabled"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type AgentConversation struct {

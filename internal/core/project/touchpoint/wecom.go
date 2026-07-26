@@ -115,13 +115,11 @@ func (s *Service) SendWeComMessage(ctx context.Context, req WeComSendRequest) er
 	}
 	chunks := splitTextByUTF8Bytes(req.Text, maxInt(snapshot.Settings.WeCom.TextMaxBytes, 1800))
 	for _, chunk := range chunks {
-		payload := map[string]any{
-			"touser":  strings.TrimSpace(recipient.WeComUser),
+		payload, groupChat := weComRecipientPayload(recipient, map[string]any{
 			"msgtype": "text",
-			"agentid": parseAgentID(snapshot.Settings.WeCom.AgentID),
 			"text":    map[string]any{"content": chunk},
-		}
-		if err := s.sendWeComPayload(ctx, snapshot.Settings.WeCom, payload); err != nil {
+		}, snapshot.Settings.WeCom.AgentID)
+		if err := s.sendWeComPayload(ctx, snapshot.Settings.WeCom, payload, groupChat); err != nil {
 			return err
 		}
 	}
@@ -135,21 +133,37 @@ func (s *Service) SendWeComText(ctx context.Context, toUser string, text string)
 func resolveWeComRecipient(users []models.AgentPushUser, target string) (models.AgentPushUser, error) {
 	trimmedTarget := strings.TrimSpace(target)
 	if trimmedTarget == "" {
-		return models.AgentPushUser{}, errors.New("wecom user target is required")
+		return models.AgentPushUser{}, errors.New("wecom recipient target is required")
 	}
-	for _, user := range users {
-		if strings.TrimSpace(user.ID) != trimmedTarget && strings.TrimSpace(user.WeComUser) != trimmedTarget {
+	for _, recipient := range users {
+		if strings.TrimSpace(recipient.ID) != trimmedTarget &&
+			strings.TrimSpace(recipient.WeComUser) != trimmedTarget &&
+			strings.TrimSpace(recipient.WeComChatID) != trimmedTarget {
 			continue
 		}
-		if !user.Enabled {
-			return models.AgentPushUser{}, fmt.Errorf("wecom user %q is disabled", firstNonEmpty(user.Name, user.WeComUser, user.ID))
+		if !recipient.Enabled {
+			return models.AgentPushUser{}, fmt.Errorf("wecom recipient %q is disabled", weComRecipientName(recipient))
 		}
-		if strings.TrimSpace(user.WeComUser) == "" {
-			return models.AgentPushUser{}, fmt.Errorf("wecom user %q has no wecom_user", firstNonEmpty(user.Name, user.ID))
+		if strings.TrimSpace(recipient.WeComUser) == "" && strings.TrimSpace(recipient.WeComChatID) == "" {
+			return models.AgentPushUser{}, fmt.Errorf("wecom recipient %q has no delivery target", weComRecipientName(recipient))
 		}
-		return user, nil
+		return recipient, nil
 	}
-	return models.AgentPushUser{}, fmt.Errorf("wecom target %q is not a configured user", trimmedTarget)
+	return models.AgentPushUser{}, fmt.Errorf("wecom target %q is not a configured recipient", trimmedTarget)
+}
+
+func weComRecipientPayload(recipient models.AgentPushUser, message map[string]any, agentID string) (map[string]any, bool) {
+	if chatID := strings.TrimSpace(recipient.WeComChatID); chatID != "" {
+		message["chatid"] = chatID
+		return message, true
+	}
+	message["touser"] = strings.TrimSpace(recipient.WeComUser)
+	message["agentid"] = parseAgentID(agentID)
+	return message, false
+}
+
+func weComRecipientName(recipient models.AgentPushUser) string {
+	return firstNonEmpty(recipient.Name, recipient.WeComUser, recipient.WeComChatID, recipient.ID)
 }
 
 func (s *Service) RecordWeComXML(ctx context.Context, raw []byte) (models.AgentWeComEventRecord, error) {
