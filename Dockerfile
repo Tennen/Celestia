@@ -9,7 +9,7 @@ RUN npm ci
 COPY web/admin ./web/admin
 RUN npm run build --workspace web/admin
 
-FROM golang:1.23-bookworm AS go-builder
+FROM golang:1.27.3-bookworm AS go-builder
 ARG TARGETOS
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates && rm -rf /var/lib/apt/lists/*

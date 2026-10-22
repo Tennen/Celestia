@@ -2,6 +2,8 @@ module github.com/chentianyu/celestia
 
 go 1.23.2
 
+toolchain go1.27.3
+
 require (
 	github.com/bluenviron/gortsplib/v4 v4.11.0
 	github.com/bluenviron/mediacommon v1.13.0

@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 golang:1.23-bookworm AS go-builder
+FROM --platform=linux/arm64 golang:1.27.3-bookworm AS go-builder
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY go.mod go.sum ./
