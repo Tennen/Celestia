@@ -6,11 +6,13 @@ import (
 	"github.com/chentianyu/celestia/internal/core/agent"
 	"github.com/chentianyu/celestia/internal/core/audit"
 	"github.com/chentianyu/celestia/internal/core/capability"
+	"github.com/chentianyu/celestia/internal/core/codexapp"
 	"github.com/chentianyu/celestia/internal/core/control"
 	"github.com/chentianyu/celestia/internal/core/eventbus"
 	oauthsvc "github.com/chentianyu/celestia/internal/core/oauth"
 	"github.com/chentianyu/celestia/internal/core/pluginmgr"
 	"github.com/chentianyu/celestia/internal/core/policy"
+	"github.com/chentianyu/celestia/internal/core/project/garden"
 	"github.com/chentianyu/celestia/internal/core/project/input"
 	"github.com/chentianyu/celestia/internal/core/project/slash"
 	"github.com/chentianyu/celestia/internal/core/project/touchpoint"
@@ -59,6 +61,7 @@ func New(store storage.Store) *Runtime {
 	inputSvc := input.New(agentSvc, slashSvc)
 	voiceSvc := voice.New(agentSvc)
 	touchpointSvc := touchpoint.New(agentSvc, agentSvc)
+	touchpointSvc.SetGardenMenuRunner(garden.New(store, codexapp.Client{}))
 	workflowSvc.SetWorkflowOutputRuntime(touchpointSvc)
 	workflowSvc.SetWorkflowInputRuntime(inputSvc)
 	workflowSvc.SetWorkflowDeviceRuntime(workflow.NewWorkflowDeviceRuntime(registrySvc, stateSvc, policySvc, auditSvc, pluginMgr))

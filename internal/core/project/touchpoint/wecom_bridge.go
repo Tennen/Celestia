@@ -117,6 +117,9 @@ func (s *Service) dispatchWeComBridgeEvent(ctx context.Context, raw string) {
 
 func (s *Service) handleWeComBridgePayload(ctx context.Context, payload weComBridgePayload) error {
 	msgType := strings.ToLower(firstNonEmpty(payload.MsgType, "text"))
+	if isGardenMenuKey(payload.EventKey) {
+		return s.handleGardenBridgeEvent(ctx, payload)
+	}
 	if msgType == "event" {
 		record, err := s.recordWeComEvent(ctx, strings.ToLower(payload.Event), payload.EventKey, payload.FromUser, payload.ToUser, payload.AgentID)
 		if err != nil {

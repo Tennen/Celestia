@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chentianyu/celestia/internal/core/project/garden"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )
@@ -28,11 +29,16 @@ type VoiceProvider interface {
 	Transcribe(context.Context, models.AgentSpeechRequest) (models.AgentSpeechResult, error)
 }
 
+type GardenMenuRunner interface {
+	Submit(context.Context, string, string, string) (garden.Request, error)
+}
+
 type Service struct {
 	state    SnapshotStore
 	agent    AgentRunner
 	input    InputRunner
 	voice    VoiceProvider
+	garden   GardenMenuRunner
 	mu       sync.Mutex
 	stop     chan struct{}
 	stopOnce sync.Once
@@ -53,6 +59,12 @@ func New(state SnapshotStore, agent AgentRunner) *Service {
 func (s *Service) SetInputRunner(input InputRunner) {
 	s.mu.Lock()
 	s.input = input
+	s.mu.Unlock()
+}
+
+func (s *Service) SetGardenMenuRunner(runner GardenMenuRunner) {
+	s.mu.Lock()
+	s.garden = runner
 	s.mu.Unlock()
 }
 

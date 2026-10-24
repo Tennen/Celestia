@@ -271,6 +271,13 @@ func (s *Service) recordWeComEvent(ctx context.Context, eventType, eventKey, fro
 		Status:       "dispatched",
 		ReceivedAt:   now,
 	}
+	// Plain XML ingress cannot authenticate a WeCom sender. Only the signed
+	// bridge adapter can dispatch reserved garden actions.
+	if isGardenMenuKey(eventKey) {
+		record.DispatchText = ""
+		record.Status = "blocked"
+		record.Error = "花园菜单仅接受企微桥验签后的点击事件"
+	}
 	next, err := s.update(ctx, func(snapshot *models.AgentSnapshot) error {
 		snapshot.WeComMenu.RecentEvents = append([]models.AgentWeComEventRecord{record}, snapshot.WeComMenu.RecentEvents...)
 		snapshot.WeComMenu.RecentEvents = truncateList(snapshot.WeComMenu.RecentEvents, 50)
