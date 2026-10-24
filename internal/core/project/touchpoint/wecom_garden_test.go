@@ -24,7 +24,7 @@ type gardenRunner struct{ calls int }
 
 func (g *gardenRunner) Submit(_ context.Context, sender, key, msg string) (garden.Request, error) {
 	g.calls++
-	return garden.Request{Action: key, ThreadID: "thread", TurnID: "turn"}, nil
+	return garden.Request{Action: key, ThreadID: "thread", TurnID: "turn", Day: "2026-10-24", DailyCount: 1}, nil
 }
 
 func gardenTestService() (*Service, *gardenSnapshot, *gardenRunner, weComBridgePayload) {
@@ -112,7 +112,7 @@ func TestGardenOwnerBridgeClickUsesFixedRecipient(t *testing.T) {
 	if err := s.handleWeComBridgePayload(context.Background(), p); err != nil {
 		t.Fatal(err)
 	}
-	if runner.calls != 1 || recipient != "Frypan" || !strings.Contains(reply, "花园脚本") {
+	if runner.calls != 1 || recipient != "Frypan" || !strings.Contains(reply, "花园脚本") || !strings.Contains(reply, "今日次数 1/1") {
 		t.Fatalf("calls=%d recipient=%q reply=%q", runner.calls, recipient, reply)
 	}
 	if state.value.WeComMenu.RecentEvents[0].Status != "submitted" || state.value.WeComMenu.RecentEvents[0].Error != "" {

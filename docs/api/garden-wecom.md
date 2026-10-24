@@ -17,4 +17,6 @@ Core 的 SQLite `agent_documents` 存储项目文档 `project/garden/codex`（do
 
 客户端通过当前用户的 `$CODEX_HOME/app-server-control/app-server-control.sock`（默认 `~/.codex/...`）连接运行中的 Codex app-server，使用 Unix WebSocket JSON-RPC。先初始化、读取并核对会话与目录，再 `thread/resume`、`turn/start`。不启动 daemon，不创建/分叉会话，不覆盖模型、权限或原指令，不自动接受审批。会话忙碌时拒绝提交，避免干扰已有任务。
 
-`project/garden/requests` 保存最近 100 次请求，RPC 发送前持久化消息 ID，避免重放或连接失败后自动重复执行；同一动作一分钟内的成功提交/在途请求合并。重复或失败返回明确提示。提交后企微向 Frypan 发送简短确认，任务进度、结果及需要人工审批的操作继续在「花园脚本」原会话中处理。
+`project/garden/requests` 保存最近 100 次请求，RPC 发送前持久化消息 ID、北京时间日期 `day` 和该动作当天计数 `daily_count`。两个动作分别按北京时间（UTC+8）自然日限额，每项每天最多提交一次，00:00 切换到新日期；重复点击不增加计数，不调用 Codex。授权失败、未知动作、缺少配置不会占次数；进入 Codex 提交阶段即占用次数，提交失败或结果不明也不返还，防止重试导致重复执行业务。计数从持久化请求记录计算，服务重启仍有效，升级前当天的记录也计入。
+
+提交确认和超限提示都会显示当日次数及北京时间日期。任务进度、结果及需要人工审批的操作继续在「花园脚本」原会话中处理。

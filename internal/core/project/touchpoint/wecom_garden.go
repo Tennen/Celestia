@@ -51,7 +51,7 @@ func (s *Service) handleGardenBridgeEvent(ctx context.Context, payload weComBrid
 			reply = submitErr.Error()
 		} else {
 			record.Status = "submitted"
-			reply = fmt.Sprintf("已交给「花园脚本」会话处理：%s。可在该会话查看进度与结果。", gardenActionLabel(request.Action))
+			reply = fmt.Sprintf("已交给「花园脚本」会话处理：%s（今日次数 %d/1，北京时间 %s）。可在该会话查看进度与结果。", gardenActionLabel(request.Action), request.DailyCount, request.Day)
 		}
 	}
 	if record.Status == "failed" {

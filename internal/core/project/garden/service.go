@@ -38,23 +38,26 @@ type Config struct {
 }
 
 type Request struct {
-	MessageID string    `json:"message_id"`
-	Action    string    `json:"action"`
-	ThreadID  string    `json:"thread_id"`
-	TurnID    string    `json:"turn_id,omitempty"`
-	Status    string    `json:"status"`
-	Error     string    `json:"error,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	MessageID  string    `json:"message_id"`
+	Action     string    `json:"action"`
+	ThreadID   string    `json:"thread_id"`
+	TurnID     string    `json:"turn_id,omitempty"`
+	Status     string    `json:"status"`
+	Error      string    `json:"error,omitempty"`
+	Day        string    `json:"day,omitempty"`
+	DailyCount int       `json:"daily_count,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type Service struct {
 	store Store
 	codex Submitter
 	mu    sync.Mutex
+	now   func() time.Time
 }
 
 func New(store Store, codex Submitter) *Service {
-	return &Service{store: store, codex: codex}
+	return &Service{store: store, codex: codex, now: time.Now}
 }
 
 func IsMenuKey(key string) bool {
@@ -87,6 +90,7 @@ func (s *Service) Submit(ctx context.Context, sender, key, messageID string) (Re
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	now := s.now().UTC()
 	var config Config
 	if err := s.load(ctx, ConfigKey, &config); err != nil {
 		return Request{}, err
@@ -98,21 +102,23 @@ func (s *Service) Submit(ctx context.Context, sender, key, messageID string) (Re
 	if err := s.load(ctx, RequestsKey, &requests); err != nil {
 		return Request{}, err
 	}
+	day, count := dailyUsage(requests, key, now)
+	if count >= 1 {
+		return Request{Action: key, Day: day, DailyCount: count}, fmt.Errorf("%s今日次数已用完（%d/1，北京时间 %s），请明日 00:00 后再试", actionLabel(key), count, day)
+	}
 	for _, request := range requests {
 		if request.MessageID == messageID {
 			return request, fmt.Errorf("该点击已处理（%s），请在花园脚本会话查看，未重复提交", request.Status)
 		}
-		if request.Action == key && time.Since(request.CreatedAt) < time.Minute && (request.Status == "submitted" || request.Status == "submitting") {
-			return request, errors.New("该花园动作刚刚提交，请在花园脚本会话查看，未重复提交")
-		}
 	}
-	request := Request{MessageID: messageID, Action: key, ThreadID: config.ThreadID, Status: "submitting", CreatedAt: time.Now().UTC()}
+	request := Request{MessageID: messageID, Action: key, ThreadID: config.ThreadID, Status: "submitting", Day: day, DailyCount: count + 1, CreatedAt: now}
 	requests = append([]Request{request}, requests...)
 	if len(requests) > 100 {
 		requests = requests[:100]
 	}
 	// Persist before sending: after a crash or ambiguous RPC failure, the same
-	// event must never automatically start another business turn.
+	// event must never automatically start another business turn. All reserved
+	// attempts, including failures, count against the natural-day limit.
 	if err := s.save(ctx, requests); err != nil {
 		return Request{}, err
 	}
@@ -127,7 +133,32 @@ func (s *Service) Submit(ctx context.Context, sender, key, messageID string) (Re
 	if err := s.save(context.WithoutCancel(ctx), requests); err != nil {
 		return request, err
 	}
+	if runErr != nil {
+		return request, fmt.Errorf("%s未确认提交，今日次数已使用（%d/1，北京时间 %s）；当天不再重复提交，请在原会话确认结果：%w", actionLabel(key), request.DailyCount, request.Day, runErr)
+	}
 	return request, runErr
+}
+
+var beijing = time.FixedZone("Asia/Shanghai", 8*60*60)
+
+func dailyUsage(requests []Request, action string, now time.Time) (string, int) {
+	day := now.In(beijing).Format("2006-01-02")
+	count := 0
+	for _, request := range requests {
+		// Derive from CreatedAt so pre-upgrade requests also consume today's
+		// allowance. Retaining 100 requests covers at least 50 quota days.
+		if request.Action == action && request.CreatedAt.In(beijing).Format("2006-01-02") == day {
+			count++
+		}
+	}
+	return day, count
+}
+
+func actionLabel(action string) string {
+	if action == CheckAlerts {
+		return "检查告警"
+	}
+	return "处理游戏升级"
 }
 
 func (s *Service) load(ctx context.Context, key string, target any) error {
