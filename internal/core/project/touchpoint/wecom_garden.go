@@ -25,9 +25,11 @@ func (s *Service) handleGardenBridgeEvent(ctx context.Context, payload weComBrid
 	accountAction := accounts.IsMenuKey(payload.EventKey)
 	senderAllowed := payload.FromUser == garden.Owner || (accountAction && accounts.CanToggle(payload.FromUser))
 	ownerEnabled := false
+	replyTarget := ""
 	for _, user := range snapshot.Push.Users {
-		if user.ID == strings.ToLower(payload.FromUser) && user.WeComUser == payload.FromUser && user.WeComChatID == "" && user.Enabled {
+		if strings.EqualFold(user.ID, payload.FromUser) && strings.EqualFold(user.WeComUser, payload.FromUser) && user.WeComChatID == "" && user.Enabled {
 			ownerEnabled = true
+			replyTarget = user.ID
 		}
 	}
 	// Only our outgoing SSE connection to the configured signature-verifying
@@ -82,7 +84,7 @@ func (s *Service) handleGardenBridgeEvent(ctx context.Context, payload weComBrid
 	if err := s.saveGardenEvent(ctx, record); err != nil {
 		return err
 	}
-	return s.SendWeComMessage(ctx, WeComSendRequest{ToUser: payload.FromUser, Text: reply})
+	return s.SendWeComMessage(ctx, WeComSendRequest{ToUser: replyTarget, Text: reply})
 }
 
 func (s *Service) saveGardenEvent(ctx context.Context, record models.AgentWeComEventRecord) error {

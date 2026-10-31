@@ -92,7 +92,7 @@ func TestTogglePermissionsReplayAndRestart(t *testing.T) {
 	s, store, api, _ := testModule(1)
 	ctx := context.Background()
 	key := TogglePrefix + api.list[0].ID
-	for _, sender := range []string{"", "Home", "jellyfish", "frypan"} {
+	for _, sender := range []string{"", "Home", "Jellyfish2", " jellyfish", "jellyfish "} {
 		if _, err := s.Toggle(ctx, sender, key, "denied"); err == nil {
 			t.Fatal("unauthorized sender", sender)
 		}
@@ -100,7 +100,7 @@ func TestTogglePermissionsReplayAndRestart(t *testing.T) {
 	if api.reads != 0 || api.writes != 0 {
 		t.Fatal("unauthorized request reached garden")
 	}
-	first, err := s.Toggle(ctx, "Jellyfish", key, "click-1")
+	first, err := s.Toggle(ctx, "jellyfish", key, "click-1")
 	if err != nil || first.Account.AutomationEnabled {
 		t.Fatal(first, err)
 	}
@@ -109,7 +109,7 @@ func TestTogglePermissionsReplayAndRestart(t *testing.T) {
 	if err != nil || !replay.Duplicate || api.writes != 1 {
 		t.Fatal(replay, err, api.writes)
 	}
-	second, err := s.Toggle(ctx, "Frypan", key, "click-2")
+	second, err := s.Toggle(ctx, "frypan", key, "click-2")
 	if err != nil || !second.Account.AutomationEnabled || api.writes != 2 {
 		t.Fatal(second, err)
 	}

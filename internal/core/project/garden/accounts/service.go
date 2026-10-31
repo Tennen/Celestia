@@ -54,7 +54,9 @@ func New(store Store, api API, menus Menus) *Service {
 func IsMenuKey(key string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(key)), TogglePrefix)
 }
-func CanToggle(sender string) bool { return sender == garden.Owner || sender == "Jellyfish" }
+func CanToggle(sender string) bool {
+	return strings.EqualFold(sender, garden.Owner) || strings.EqualFold(sender, "Jellyfish")
+}
 
 func (s *Service) root(ctx context.Context) (string, error) {
 	var config garden.Config
@@ -97,7 +99,7 @@ func (s *Service) Toggle(ctx context.Context, sender, key, messageID string) (To
 	}
 	for _, r := range history {
 		if r.MessageID == messageID {
-			if r.Sender != sender || r.Account.ID != id {
+			if !strings.EqualFold(r.Sender, sender) || r.Account.ID != id {
 				return ToggleResult{}, errors.New("账号菜单消息标识冲突，未切换")
 			}
 			r.Duplicate = true

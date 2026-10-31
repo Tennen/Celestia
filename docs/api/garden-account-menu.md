@@ -13,7 +13,7 @@
 
 ## 点击开关
 
-Click key 为 `garden:account-toggle:<账号 UUID>`。仅当前企微应用经过桥验签的 `event/click` 事件可执行，发送者必须是已启用并正确绑定的 `Frypan` 或 `Jellyfish`。原来的 Codex 告警/升级动作仍只允许 Frypan。
+Click key 为 `garden:account-toggle:<账号 UUID>`。仅当前企微应用经过桥验签的 `event/click` 事件可执行，发送者必须是已启用并正确绑定的 `Frypan` 或 `Jellyfish`。账号开关白名单和收件人绑定按 UserID 不区分大小写匹配，兼容真实回调中的 `jellyfish`；回复使用匹配到的已配置收件人 ID，不直接依赖回调字符串查找收件人。原来的 Codex 告警/升级动作仍只允许 Frypan。
 
 点击时重新读取账号当前开关，并通过 garden 的 `PUT /api/accounts/{id}/execution` 只提交 `{"enabled": <相反值>}`。账号已删除或服务不可用时明确失败；暂停沿用 garden 现有的安全停止流程，当前操作及回执核对按 garden 规则完成，不强杀任务。
 

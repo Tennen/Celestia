@@ -33,11 +33,18 @@ func (r *accountToggleRunner) Toggle(_ context.Context, sender, key, msg string)
 }
 
 func TestJellyfishCanOnlyToggleAccountsThroughVerifiedBridge(t *testing.T) {
+	for _, sender := range []string{"Jellyfish", "jellyfish", "JELLYFISH"} {
+		t.Run(sender, func(t *testing.T) { testJellyfishAccountClick(t, sender) })
+	}
+}
+
+func testJellyfishAccountClick(t *testing.T, sender string) {
+	t.Helper()
 	s, state, codex, p := gardenTestService()
 	state.value.Push.Users = append(state.value.Push.Users, models.AgentPushUser{ID: "jellyfish", WeComUser: "Jellyfish", Enabled: true})
 	runner := &accountToggleRunner{}
 	s.SetGardenAccountRunner(runner)
-	p.FromUser = "Jellyfish"
+	p.FromUser = sender
 	// A registered, enabled Jellyfish still cannot run either Codex action.
 	for _, key := range []string{garden.CheckAlerts, garden.GameUpgrade} {
 		p.EventKey = key
@@ -77,10 +84,10 @@ func TestJellyfishCanOnlyToggleAccountsThroughVerifiedBridge(t *testing.T) {
 	if err := s.handleWeComBridgePayload(context.Background(), p); err != nil {
 		t.Fatal(err)
 	}
-	if runner.calls != 1 || runner.sender != "Jellyfish" || recipient != "Jellyfish" || !strings.Contains(reply, "已关闭") || codex.calls != 0 {
+	if runner.calls != 1 || runner.sender != sender || recipient != "Jellyfish" || !strings.Contains(reply, "已关闭") || codex.calls != 0 {
 		t.Fatal("incorrect account dispatch", runner, recipient, reply)
 	}
-	raw := []byte(`<xml><MsgType>event</MsgType><Event>click</Event><EventKey>` + p.EventKey + `</EventKey><FromUserName>Jellyfish</FromUserName><ToUserName>corp</ToUserName><AgentID>100</AgentID></xml>`)
+	raw := []byte(`<xml><MsgType>event</MsgType><Event>click</Event><EventKey>` + p.EventKey + `</EventKey><FromUserName>` + sender + `</FromUserName><ToUserName>corp</ToUserName><AgentID>100</AgentID></xml>`)
 	result, err := s.HandleWeComXML(context.Background(), raw)
 	if err != nil || result.Record.Status != "blocked" || runner.calls != 1 {
 		t.Fatal("XML bypassed verified bridge", result, err)
