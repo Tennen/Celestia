@@ -9,9 +9,9 @@
 
 「处理游戏升级」每次点击都会同时要求版本协议检查和模拟器广告实测；版本未变化也不跳过。广告成功必须有本次真实广告及释放模拟器后的独立奖励核对证据；无可用广告或无法完成时单独报告未验收，不能只凭协议检查通过报告全部正常。此项只扩展该企微菜单发送的任务内容，不新增 Codex 定时任务，也不改变现有菜单次数限制。
 
-通过现有 `PUT /api/v1/touchpoints/wecom/menu` 发布。当前应用仅保留「花园」分组；「市场分析」「家居」菜单按用户要求移除，需要时可重新配置。
+通过现有 `PUT /api/v1/touchpoints/wecom/menu` 发布。「花园」分组保留这两个 Codex 动作；账号自动化开关由[独立账号菜单模块](garden-account-menu.md)每小时检测并按需同步，允许 Frypan 和 Jellyfish 点击。「市场分析」「家居」菜单已按用户要求移除。
 
-业务入口只接受 Celestia 主动连接到已配置 WeCom bridge 的 SSE 点击事件。Bridge 验证原始企微回调的签名并解密；Celestia 再校验事件类型为 `event/click`、企业 ID、应用 ID、非空消息 ID，以及启用的收件人 `id=frypan, wecom_user=Frypan`。发送者必须精确等于 `Frypan`。其它用户的点击只记录为 `denied`，不会触发 Codex 或通用 Agent。
+这两个 Codex 动作只接受 Celestia 主动连接到已配置 WeCom bridge 的 SSE 点击事件。Bridge 验证原始企微回调的签名并解密；Celestia 再校验事件类型为 `event/click`、企业 ID、应用 ID、非空消息 ID，以及启用的收件人 `id=frypan, wecom_user=Frypan`。发送者必须精确等于 `Frypan`。其它用户对这两个动作的点击只记录为 `denied`，不会触发 Codex 或通用 Agent。
 
 保留整个 `garden:` key 命名空间。普通 XML `POST /api/v1/touchpoints/wecom/callback` 和 `/ingress` 即使声称发送者是 Frypan，也只记录 `blocked`，不分派这些动作。不存在 HTTP 花园任务执行 API 或 Agent 花园工具。
 

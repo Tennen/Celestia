@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/chentianyu/celestia/internal/core/project/garden"
+	"github.com/chentianyu/celestia/internal/core/project/garden/accounts"
 	"github.com/chentianyu/celestia/internal/models"
 )
 
@@ -18,6 +19,72 @@ func (s *gardenSnapshot) Snapshot(context.Context) (models.AgentSnapshot, error)
 func (s *gardenSnapshot) UpdateSnapshot(_ context.Context, f func(*models.AgentSnapshot) error) (models.AgentSnapshot, error) {
 	err := f(&s.value)
 	return s.value, err
+}
+
+type accountToggleRunner struct {
+	calls  int
+	sender string
+}
+
+func (r *accountToggleRunner) Toggle(_ context.Context, sender, key, msg string) (accounts.ToggleResult, error) {
+	r.calls++
+	r.sender = sender
+	return accounts.ToggleResult{Account: accounts.Account{Name: "账号一", AutomationEnabled: false}, Status: "succeeded"}, nil
+}
+
+func TestJellyfishCanOnlyToggleAccountsThroughVerifiedBridge(t *testing.T) {
+	s, state, codex, p := gardenTestService()
+	state.value.Push.Users = append(state.value.Push.Users, models.AgentPushUser{ID: "jellyfish", WeComUser: "Jellyfish", Enabled: true})
+	runner := &accountToggleRunner{}
+	s.SetGardenAccountRunner(runner)
+	p.FromUser = "Jellyfish"
+	// A registered, enabled Jellyfish still cannot run either Codex action.
+	for _, key := range []string{garden.CheckAlerts, garden.GameUpgrade} {
+		p.EventKey = key
+		if err := s.handleWeComBridgePayload(context.Background(), p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if codex.calls != 0 || runner.calls != 0 {
+		t.Fatal("Jellyfish reached restricted Codex actions")
+	}
+	var recipient, reply string
+	bridge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/proxy/gettoken" {
+			_, _ = w.Write([]byte(`{"errcode":0,"access_token":"token"}`))
+			return
+		}
+		if r.URL.Path != "/proxy/send" {
+			t.Error("unexpected path", r.URL.Path)
+		}
+		var body struct {
+			Message struct {
+				ToUser string `json:"touser"`
+				Text   struct {
+					Content string `json:"content"`
+				} `json:"text"`
+			} `json:"message"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		recipient = body.Message.ToUser
+		reply = body.Message.Text.Content
+		_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok"}`))
+	}))
+	defer bridge.Close()
+	state.value.Settings.WeCom.BridgeURL = bridge.URL
+	p.EventKey = accounts.TogglePrefix + "00000001-0000-4000-8000-000000000001"
+	if err := s.handleWeComBridgePayload(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if runner.calls != 1 || runner.sender != "Jellyfish" || recipient != "Jellyfish" || !strings.Contains(reply, "已关闭") || codex.calls != 0 {
+		t.Fatal("incorrect account dispatch", runner, recipient, reply)
+	}
+	raw := []byte(`<xml><MsgType>event</MsgType><Event>click</Event><EventKey>` + p.EventKey + `</EventKey><FromUserName>Jellyfish</FromUserName><ToUserName>corp</ToUserName><AgentID>100</AgentID></xml>`)
+	result, err := s.HandleWeComXML(context.Background(), raw)
+	if err != nil || result.Record.Status != "blocked" || runner.calls != 1 {
+		t.Fatal("XML bypassed verified bridge", result, err)
+	}
 }
 
 type gardenRunner struct{ calls int }

@@ -13,6 +13,7 @@ import (
 	"github.com/chentianyu/celestia/internal/core/pluginmgr"
 	"github.com/chentianyu/celestia/internal/core/policy"
 	"github.com/chentianyu/celestia/internal/core/project/garden"
+	"github.com/chentianyu/celestia/internal/core/project/garden/accounts"
 	"github.com/chentianyu/celestia/internal/core/project/input"
 	"github.com/chentianyu/celestia/internal/core/project/slash"
 	"github.com/chentianyu/celestia/internal/core/project/touchpoint"
@@ -26,23 +27,24 @@ import (
 )
 
 type Runtime struct {
-	Store      storage.Store
-	EventBus   *eventbus.Bus
-	Registry   *registry.Service
-	State      *state.Service
-	Audit      *audit.Service
-	Capability *capability.Service
-	Controls   *control.Service
-	Home       *control.HomeService
-	Policy     *policy.Service
-	OAuth      *oauthsvc.Service
-	PluginMgr  *pluginmgr.Manager
-	Vision     *vision.Service
-	Workflow   *workflow.Service
-	Agent      *agent.Service
-	Slash      *slash.Service
-	Input      *input.Service
-	Touchpoint *touchpoint.Service
+	Store          storage.Store
+	EventBus       *eventbus.Bus
+	Registry       *registry.Service
+	State          *state.Service
+	Audit          *audit.Service
+	Capability     *capability.Service
+	Controls       *control.Service
+	Home           *control.HomeService
+	Policy         *policy.Service
+	OAuth          *oauthsvc.Service
+	PluginMgr      *pluginmgr.Manager
+	Vision         *vision.Service
+	Workflow       *workflow.Service
+	Agent          *agent.Service
+	Slash          *slash.Service
+	Input          *input.Service
+	Touchpoint     *touchpoint.Service
+	GardenAccounts *accounts.Service
 }
 
 func New(store storage.Store) *Runtime {
@@ -62,29 +64,32 @@ func New(store storage.Store) *Runtime {
 	voiceSvc := voice.New(agentSvc)
 	touchpointSvc := touchpoint.New(agentSvc, agentSvc)
 	touchpointSvc.SetGardenMenuRunner(garden.New(store, codexapp.Client{}))
+	gardenAccounts := accounts.New(store, accounts.LocalClient{}, touchpointSvc)
+	touchpointSvc.SetGardenAccountRunner(gardenAccounts)
 	workflowSvc.SetWorkflowOutputRuntime(touchpointSvc)
 	workflowSvc.SetWorkflowInputRuntime(inputSvc)
 	workflowSvc.SetWorkflowDeviceRuntime(workflow.NewWorkflowDeviceRuntime(registrySvc, stateSvc, policySvc, auditSvc, pluginMgr))
 	touchpointSvc.SetInputRunner(inputSvc)
 	touchpointSvc.SetVoiceProvider(voiceSvc)
 	return &Runtime{
-		Store:      store,
-		EventBus:   bus,
-		Registry:   registrySvc,
-		State:      stateSvc,
-		Audit:      auditSvc,
-		Capability: capability.New(visionSvc),
-		Controls:   controlSvc,
-		Home:       homeSvc,
-		Policy:     policySvc,
-		OAuth:      oauthsvc.New(store),
-		PluginMgr:  pluginMgr,
-		Vision:     visionSvc,
-		Workflow:   workflowSvc,
-		Agent:      agentSvc,
-		Slash:      slashSvc,
-		Input:      inputSvc,
-		Touchpoint: touchpointSvc,
+		Store:          store,
+		EventBus:       bus,
+		Registry:       registrySvc,
+		State:          stateSvc,
+		Audit:          auditSvc,
+		Capability:     capability.New(visionSvc),
+		Controls:       controlSvc,
+		Home:           homeSvc,
+		Policy:         policySvc,
+		OAuth:          oauthsvc.New(store),
+		PluginMgr:      pluginMgr,
+		Vision:         visionSvc,
+		Workflow:       workflowSvc,
+		Agent:          agentSvc,
+		Slash:          slashSvc,
+		Input:          inputSvc,
+		Touchpoint:     touchpointSvc,
+		GardenAccounts: gardenAccounts,
 	}
 }
 
@@ -109,10 +114,16 @@ func (r *Runtime) Reconcile(ctx context.Context) error {
 			return err
 		}
 	}
+	if r.GardenAccounts != nil {
+		r.GardenAccounts.Start()
+	}
 	return r.PluginMgr.Reconcile(ctx)
 }
 
 func (r *Runtime) Shutdown(ctx context.Context) error {
+	if r.GardenAccounts != nil {
+		r.GardenAccounts.Close()
+	}
 	if r.Vision != nil {
 		r.Vision.Close()
 	}

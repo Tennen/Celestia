@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/chentianyu/celestia/internal/core/project/garden"
+	"github.com/chentianyu/celestia/internal/core/project/garden/accounts"
 	"github.com/chentianyu/celestia/internal/models"
 )
 
@@ -21,31 +22,52 @@ func (s *Service) handleGardenBridgeEvent(ctx context.Context, payload weComBrid
 		return err
 	}
 	config := snapshot.Settings.WeCom
+	accountAction := accounts.IsMenuKey(payload.EventKey)
+	senderAllowed := payload.FromUser == garden.Owner || (accountAction && accounts.CanToggle(payload.FromUser))
 	ownerEnabled := false
 	for _, user := range snapshot.Push.Users {
-		if user.ID == "frypan" && user.WeComUser == garden.Owner && user.WeComChatID == "" && user.Enabled {
+		if user.ID == strings.ToLower(payload.FromUser) && user.WeComUser == payload.FromUser && user.WeComChatID == "" && user.Enabled {
 			ownerEnabled = true
 		}
 	}
 	// Only our outgoing SSE connection to the configured signature-verifying
 	// bridge enters this adapter; raw XML HTTP ingress never calls it.
-	authorized := payload.FromUser == garden.Owner && ownerEnabled &&
+	authorized := senderAllowed && ownerEnabled &&
 		strings.EqualFold(payload.MsgType, "event") && strings.EqualFold(payload.Event, "click") &&
 		config.Enabled && config.BridgeStreamEnabled && strings.TrimSpace(config.BridgeURL) != "" &&
 		config.CorpID != "" && payload.ToUser == config.CorpID &&
 		config.AgentID != "" && payload.AgentID == config.AgentID && strings.TrimSpace(payload.MessageID) != ""
 	if !authorized {
 		record.Status = "denied"
-		record.Error = "仅允许 Frypan 通过当前企微应用的已验签菜单点击触发花园业务"
+		record.Error = "发送者未获准执行该花园动作，或不是当前企微应用的已验签点击事件"
 		return s.saveGardenEvent(ctx, record)
 	}
 	s.mu.Lock()
 	runner := s.garden
+	accountRunner := s.gardenAccounts
 	s.mu.Unlock()
 	reply := "花园菜单处理器尚未配置"
 	record.Status = "failed"
 	record.Error = ""
-	if runner != nil {
+	if accountAction {
+		reply = "花园账号开关处理器尚未配置"
+		if accountRunner != nil {
+			result, toggleErr := accountRunner.Toggle(ctx, payload.FromUser, payload.EventKey, payload.MessageID)
+			if toggleErr != nil {
+				reply = toggleErr.Error()
+			} else {
+				record.Status = "executed"
+				state := "关闭"
+				if result.Account.AutomationEnabled {
+					state = "开启"
+				}
+				reply = fmt.Sprintf("账号「%s」自动化已%s。", result.Account.Name, state)
+				if result.Duplicate {
+					reply = "该点击已处理，未重复切换。上次结果：" + reply
+				}
+			}
+		}
+	} else if runner != nil {
 		request, submitErr := runner.Submit(ctx, payload.FromUser, payload.EventKey, payload.MessageID)
 		if submitErr != nil {
 			reply = submitErr.Error()
@@ -60,7 +82,7 @@ func (s *Service) handleGardenBridgeEvent(ctx context.Context, payload weComBrid
 	if err := s.saveGardenEvent(ctx, record); err != nil {
 		return err
 	}
-	return s.SendWeComMessage(ctx, WeComSendRequest{ToUser: "frypan", Text: reply})
+	return s.SendWeComMessage(ctx, WeComSendRequest{ToUser: payload.FromUser, Text: reply})
 }
 
 func (s *Service) saveGardenEvent(ctx context.Context, record models.AgentWeComEventRecord) error {

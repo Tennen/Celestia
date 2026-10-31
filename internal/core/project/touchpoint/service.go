@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/chentianyu/celestia/internal/core/project/garden"
+	"github.com/chentianyu/celestia/internal/core/project/garden/accounts"
 	"github.com/chentianyu/celestia/internal/models"
 	"github.com/google/uuid"
 )
@@ -33,18 +34,23 @@ type GardenMenuRunner interface {
 	Submit(context.Context, string, string, string) (garden.Request, error)
 }
 
+type GardenAccountRunner interface {
+	Toggle(context.Context, string, string, string) (accounts.ToggleResult, error)
+}
+
 type Service struct {
-	state    SnapshotStore
-	agent    AgentRunner
-	input    InputRunner
-	voice    VoiceProvider
-	garden   GardenMenuRunner
-	mu       sync.Mutex
-	stop     chan struct{}
-	stopOnce sync.Once
-	done     chan struct{}
-	wg       sync.WaitGroup
-	started  bool
+	state          SnapshotStore
+	agent          AgentRunner
+	input          InputRunner
+	voice          VoiceProvider
+	garden         GardenMenuRunner
+	gardenAccounts GardenAccountRunner
+	mu             sync.Mutex
+	stop           chan struct{}
+	stopOnce       sync.Once
+	done           chan struct{}
+	wg             sync.WaitGroup
+	started        bool
 }
 
 func New(state SnapshotStore, agent AgentRunner) *Service {
@@ -65,6 +71,12 @@ func (s *Service) SetInputRunner(input InputRunner) {
 func (s *Service) SetGardenMenuRunner(runner GardenMenuRunner) {
 	s.mu.Lock()
 	s.garden = runner
+	s.mu.Unlock()
+}
+
+func (s *Service) SetGardenAccountRunner(runner GardenAccountRunner) {
+	s.mu.Lock()
+	s.gardenAccounts = runner
 	s.mu.Unlock()
 }
 
